@@ -29,9 +29,7 @@ function shadowBlob(r){
 const View = DG.View = function(G){
   const V = this;
   V.G = G; V.rigs = {}; V.dying = []; V.pickups = {}; V.allies = {}; V.hazards = {}; V.beams = {}; V.floor = 0;
-  V.player = M.zippy(); S.scene.add(V.player.root);
-  V.player.ring = new THREE.Mesh(K.glowPlane, K.glowMat(0xb36bff, 0.35)); V.player.ring.scale.set(2.2, 1, 2.2); V.player.ring.position.y = 0.04;
-  V.player.root.add(V.player.ring); V.player.root.add(shadowBlob(0.35));
+  V.dressPlayer(DG.Items.costume([]));
   V.frogs = [];
   V.lily = new THREE.Group();
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 14, 1, false, 0.3, PI*2 - 0.6), K.lambert(0x5ac83a)); pad.position.y = 0.9; V.lily.add(pad);
@@ -40,6 +38,26 @@ const View = DG.View = function(G){
   V.buildFloor();
 };
 const proto = View.prototype;
+
+/* Zippy wears what he carries: rebuilt whenever his costume changes */
+proto.dressPlayer = function(look){
+  const V = this, old = V.player, R = M.zippy(look);
+  if(old){ S.scene.remove(old.root); R.root.position.copy(old.root.position); R.root.rotation.copy(old.root.rotation); }
+  R.ring = new THREE.Mesh(K.glowPlane, K.glowMat(0xb36bff, 0.35)); R.ring.scale.set(2.2, 1, 2.2); R.ring.position.y = 0.04;
+  R.root.add(R.ring); R.root.add(shadowBlob(0.35));
+  S.scene.add(R.root);
+  V.player = R; V.lookKey = look.key;
+};
+const AURA = {
+  embers(x, z){ FX.emit(x + (Math.random() - 0.5)*0.7, 0.2 + Math.random()*0.8, z + (Math.random() - 0.5)*0.7, 0, 1.5 + Math.random(), 0, Math.random() < 0.5 ? 0xff7a2a : 0xffd23d, 0.18, 0.6, 0, 1); },
+  snow(x, z){ FX.emit(x + (Math.random() - 0.5)*1.4, 2.2 + Math.random()*0.5, z + (Math.random() - 0.5)*1.4, (Math.random() - 0.5)*0.3, -0.8, 0, 0xeaf8ff, 0.16, 1.2, 0, 1); },
+  sparks(x, z){ if(Math.random() < 0.5) return; const a = Math.random()*6.28; FX.emit(x + Math.cos(a)*0.4, 0.4 + Math.random()*1.2, z + Math.sin(a)*0.4, Math.cos(a)*2, 0, Math.sin(a)*2, 0xfff04a, 0.14, 0.15, 0, 1); },
+  toxic(x, z){ FX.emit(x + (Math.random() - 0.5)*0.8, 0.1, z + (Math.random() - 0.5)*0.8, 0, 0.6, 0, 0x9cff3a, 0.2, 0.7, 0, 1); },
+  glints(x, z){ if(Math.random() < 0.6) return; FX.emit(x + (Math.random() - 0.5)*1, 0.3 + Math.random()*1.8, z + (Math.random() - 0.5)*1, 0, 0.2, 0, 0xfff27a, 0.22, 0.35, 0, 1); },
+  smoke(x, z){ FX.emit(x + (Math.random() - 0.5)*0.6, 0.15, z + (Math.random() - 0.5)*0.6, 0, 0.5, 0, 0x6a3a9a, 0.4, 0.9, 0, 1); },
+  rainbow(x, z, t){ const a = t*5; FX.emit(x + Math.cos(a)*0.5, 0.1, z + Math.sin(a)*0.5, 0, 0.8, 0, [0xff4a6a, 0xffd23d, 0x9cff3a, 0x46e4ff, 0xb36bff][Math.floor(t*8) % 5], 0.2, 0.6, 0, 1); },
+  stars(x, z){ if(Math.random() < 0.5) return; FX.emit(x + (Math.random() - 0.5)*0.5, 0.5 + Math.random()*0.6, z + (Math.random() - 0.5)*0.5, 0, 0.1, 0, 0xfff27a, 0.16, 0.6, 0, 1); }
+};
 
 proto.buildFloor = function(){
   const V = this, G = V.G;
@@ -329,7 +347,18 @@ function hazardMesh(h){
  * ================================================================== */
 proto.update = function(dt, t){
   const V = this, G = V.G, p = G.player;
-  // Zippy
+  // Zippy, dressed in whatever he's carrying
+  const ids = Object.keys(p.items).join(",");
+  if(ids !== V.itemIds){
+    V.itemIds = ids;
+    const look = DG.Items.costume(Object.keys(p.items));
+    if(look.key !== V.lookKey){
+      const first = V.lookKey === undefined;
+      V.dressPlayer(look);
+      if(!first){ FX.burst(p.x, 1.2, p.y, 0xfff27a, 24, 3.5, 0.3, 0.6, { col2:(M.DYE[look.cape] || M.DYE.arcane).light, up:1 }); FX.ring(p.x, p.y, 1.6, 0xfff27a, 0.4); }
+    }
+  }
+  if(G.state !== "dead") V.player.look.auras.forEach(a=> AURA[a] && AURA[a](p.x, p.y, t));
   const W = V.player;
   W.root.position.set(p.x, 0, p.y);
   W.root.rotation.y = PI/2 - p.aim;

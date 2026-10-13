@@ -126,9 +126,27 @@ function spikeRing(parent, r, y, n, len, col){ for(let i=0;i<n;i++){ const a = i
 /* ================================================================== *
  *  Zippy
  * ================================================================== */
-const ROBE = 0x6b3fd0, ROBE2 = 0x4a2a9a, ROBE3 = 0x8a5ae8, SKIN = 0xf2c9a0, BEARD = 0xf2f2f6, GOLD = 0xf0c040, LEATHER = 0x7a4a26;
-Models.zippy = function(){
+const SKIN = 0xf2c9a0, BEARD = 0xf2f2f6, GOLD = 0xf0c040, LEATHER = 0x7a4a26;
+/* the dyes: robe, its dark and light shades, the cape, and the stars sewn on */
+const DYE = {
+  arcane:{ robe:0x6b3fd0, dark:0x4a2a9a, light:0x8a5ae8, cape:0x3a2470, stars:GOLD },
+  fire:  { robe:0xc8402a, dark:0x8a2414, light:0xff7a3a, cape:0xa8180e, stars:0xffd23d },
+  frost: { robe:0x3a7ad8, dark:0x24508a, light:0x8ad8ff, cape:0x1a4a8a, stars:0xe8f8ff },
+  poison:{ robe:0x4a9a2a, dark:0x2a6a1a, light:0x9cff3a, cape:0x2a5a14, stars:0xd8ff6a },
+  shock: { robe:0xd8b82a, dark:0x2a2a5a, light:0xfff04a, cape:0x23235a, stars:0xfff8b0 },
+  gold:  { robe:0xd8a830, dark:0x8a6a10, light:0xfff27a, cape:0xb8862a, stars:0xffffff },
+  shadow:{ robe:0x2a2234, dark:0x14101c, light:0x4a3a6a, cape:0x0a0810, stars:0xb36bff },
+  star:  { robe:0x6b3fd0, dark:0x4a2a9a, light:0x8a5ae8, cape:0x141a4a, stars:GOLD }
+};
+Models.DYE = DYE;
+
+Models.zippy = function(look){
+  look = look || { robe:"arcane", cape:"arcane", parts:[], auras:[] };
+  const has = p=> look.parts.indexOf(p) >= 0;
+  const D = DYE[look.robe] || DYE.arcane, C = DYE[look.cape] || DYE.arcane;
+  const ROBE = D.robe, ROBE2 = D.dark, ROBE3 = D.light;
   const R = rig("zippy"), b = R.body;
+  R.look = look;
   // the robe, flared at the hem, with stars sewn on
   const robeProf = [[0.0, 0.02], [0.47, 0.02], [0.45, 0.14], [0.37, 0.45], [0.29, 0.75], [0.22, 0.93], [0.15, 1.02], [0.0, 1.04]];
   P(b, K.lathe(robeProf, 22), ROBE);
@@ -138,12 +156,16 @@ Models.zippy = function(){
   P(b, TO(0.17, 0.05), ROBE3, 0, 1.0, 0, PI/2);
   [[0.4, 0.3], [2.2, 0.5], [-0.8, 0.22], [3.6, 0.35], [-2.4, 0.6], [1.3, 0.78], [2.9, 0.82], [-1.6, 0.45]].forEach(([a, y])=>{
     const rr = y < 0.45 ? 0.43 - (y - 0.14)*0.25 : 0.37 - (y - 0.45)*0.27;
-    P(b, OC(0.04), GOLD, Math.sin(a)*(rr + 0.01), y, Math.cos(a)*(rr + 0.01), 0, a);
+    P(b, OC(0.04), D.stars, Math.sin(a)*(rr + 0.01), y, Math.cos(a)*(rr + 0.01), 0, a);
   });
-  // a short cape over the shoulders, open at the front
-  const cape = new THREE.LatheGeometry([[0.5, 0.3], [0.46, 0.55], [0.38, 0.86], [0.22, 1.03]].map(p=> new THREE.Vector2(p[0], p[1])), 14, PI*0.58, PI*0.84);
-  P(b, cape, 0x3a2470);
-  P(b, TO(0.22, 0.03, PI*0.84), GOLD, 0, 1.03, 0, PI/2, 0, -PI*0.92);
+  // a short cape over the shoulders, open at the front (it takes the cape dye)
+  const cape = new THREE.LatheGeometry([[0.56, 0.12], [0.5, 0.45], [0.4, 0.8], [0.22, 1.03]].map(p=> new THREE.Vector2(p[0], p[1])), 16, PI*0.45, PI*1.1);
+  P(b, cape, C.cape);
+  P(b, TO(0.555, 0.025, PI*1.1), C.stars, 0, 0.13, 0, PI/2, 0, -PI*1.05);
+  // and a capelet over the shoulders, so the dye reads from the front too
+  P(b, K.lathe([[0.38, 0.74], [0.34, 0.86], [0.26, 0.97], [0.19, 1.04]], 18), C.cape);
+  P(b, TO(0.375, 0.025), C.stars, 0, 0.745, 0, PI/2);
+  P(b, S(0.045, 8, 6), GOLD, 0, 0.98, 0.21);
   // on the belt: a pouch, a green potion, a rolled-up scroll
   P(b, BX(0.15, 0.13, 0.08), LEATHER, 0.2, 0.52, 0.24, 0, -0.55);
   P(b, BX(0.15, 0.04, 0.09), 0x5a3418, 0.2, 0.6, 0.24, 0, -0.55);
@@ -160,30 +182,43 @@ Models.zippy = function(){
   [-1, 1].forEach(s=>{ P(head, S(0.055, 8, 6), 0xf0a0a0, s*0.13, -0.035, 0.15, 0, 0, 0, 1, 0.7, 0.6); P(head, S(0.05, 8, 6), SKIN, s*0.21, 0.01, 0); });
   P(head, S(0.065, 10, 8), 0xe8a888, 0, -0.005, 0.22);
   eyes(head, 0.08, 0.05, 0.16, 0.045);
-  // little round spectacles
-  [-1, 1].forEach(s=> P(head, TO(0.055, 0.009), GOLD, s*0.08, 0.05, 0.2));
-  P(head, BX(0.05, 0.012, 0.012), GOLD, 0, 0.06, 0.215);
+  // little round spectacles (unless something better sits on his face)
+  if(!has("goggles") && !has("plaguemask")){
+    [-1, 1].forEach(s=> P(head, TO(0.055, 0.009), GOLD, s*0.08, 0.05, 0.2));
+    P(head, BX(0.05, 0.012, 0.012), GOLD, 0, 0.06, 0.215);
+  }
   [-1, 1].forEach(s=> P(head, BX(0.1, 0.03, 0.035), BEARD, s*0.085, 0.13, 0.19, 0, 0, -s*0.15));
   // the beard, the moustache
   const beard = group(head, 0, -0.08, 0.07); R.parts.beard = beard;
   P(beard, K.lathe([[0.0, 0.02], [0.17, 0.0], [0.19, -0.12], [0.15, -0.3], [0.08, -0.44], [0.02, -0.52], [0, -0.53]], 14), BEARD, 0, 0, 0, 0, 0, 0, 1, 1, 0.75);
   P(beard, TO(0.035, 0.012), GOLD, 0, -0.42, 0.06, 0.3);
   [-1, 1].forEach(s=> P(head, CY(0.025, 0.04, 0.16, 8), BEARD, s*0.075, -0.045, 0.2, 0, 0, s*1.25));
-  // the hat, a bit bent, with a moon on the band and a patch where it tore
+  // the hat, a bit bent, with a moon on the band and a patch where it tore (or Gribbus' face, with Frogsona)
   const hat = group(head, 0, 0.14, -0.04); hat.rotation.x = -0.32; R.parts.hat = hat;
-  P(hat, K.lathe([[0, 0], [0.4, 0.0], [0.44, 0.025], [0.4, 0.05], [0.2, 0.06], [0, 0.06]], 22), ROBE2);
-  P(hat, CY(0.17, 0.25, 0.32, 16), ROBE, 0, 0.2, 0);
-  P(hat, TO(0.245, 0.032), GOLD, 0, 0.08, 0, PI/2);
-  P(hat, TO(0.06, 0.018, PI*1.3), GOLD, 0, 0.12, 0.25, 0, 0, 0.8);
-  P(hat, BX(0.1, 0.09, 0.02), 0x8a5ae8, -0.15, 0.24, 0.13, 0, -0.6, 0.2);
-  [[-0.17, 0.2], [0.17, 0.3], [0.04, 0.33]].forEach(([x, y])=> P(hat, OC(0.03), GOLD, x, y, Math.sqrt(Math.max(0, 0.04 - x*x))*1.05 + 0.02));
-  const t1 = group(hat, 0, 0.36, 0); t1.rotation.z = -0.25;
-  P(t1, CY(0.1, 0.17, 0.26, 14), ROBE, 0, 0.12, 0);
-  P(t1, OC(0.03), GOLD, 0, 0.12, 0.14);
-  const t2 = group(t1, 0, 0.25, 0); t2.rotation.z = -0.5; R.parts.tip = t2;
-  P(t2, CO(0.1, 0.26, 12), ROBE3, 0, 0.12, 0);
-  glow(R, t2, 0.045, 0xffe680, 0, 0.27, 0);
-  halo(R, t2, 0xffe680, 0.5, 0, 0.27, 0, 0.7);
+  let tip;
+  if(has("froghood")){
+    P(hat, new THREE.SphereGeometry(0.3, 16, 10, 0, PI*2, 0, PI*0.6), 0x5ac83a, 0, -0.04, 0, 0, 0, 0, 1.05, 0.9, 1.05);
+    P(hat, TO(0.27, 0.035), 0x3e9a28, 0, 0.0, 0, PI/2);
+    [-1, 1].forEach(s=>{ P(hat, S(0.1, 12, 8), 0x5ac83a, s*0.13, 0.22, 0.12); P(hat, S(0.075, 10, 8), 0xfafae8, s*0.13, 0.25, 0.17); P(hat, S(0.04, 8, 6), 0x101010, s*0.13, 0.255, 0.235, 0, 0, 0, 1.4, 0.6, 0.6); });
+    P(hat, TO(0.12, 0.012, PI), 0x2a3a1a, 0, 0.12, 0.25, 0, 0, PI);
+    tip = group(hat, 0, 0.32, 0);
+  } else {
+    P(hat, K.lathe([[0, 0], [0.4, 0.0], [0.44, 0.025], [0.4, 0.05], [0.2, 0.06], [0, 0.06]], 22), ROBE2);
+    P(hat, CY(0.17, 0.25, 0.32, 16), ROBE, 0, 0.2, 0);
+    P(hat, TO(0.245, 0.032), GOLD, 0, 0.08, 0, PI/2);
+    P(hat, TO(0.06, 0.018, PI*1.3), GOLD, 0, 0.12, 0.25, 0, 0, 0.8);
+    P(hat, BX(0.1, 0.09, 0.02), ROBE3, -0.15, 0.24, 0.13, 0, -0.6, 0.2);
+    [[-0.17, 0.2], [0.17, 0.3], [0.04, 0.33]].forEach(([x, y])=> P(hat, OC(0.03), D.stars, x, y, Math.sqrt(Math.max(0, 0.04 - x*x))*1.05 + 0.02));
+    const t1 = group(hat, 0, 0.36, 0); t1.rotation.z = -0.25;
+    P(t1, CY(0.1, 0.17, 0.26, 14), ROBE, 0, 0.12, 0);
+    P(t1, OC(0.03), D.stars, 0, 0.12, 0.14);
+    let up = t1;
+    if(has("tallhat")){ const tx = group(t1, 0, 0.25, 0); tx.rotation.z = 0.2; P(tx, CY(0.08, 0.1, 0.3, 12), ROBE, 0, 0.15, 0); P(tx, TO(0.09, 0.02), GOLD, 0, 0.05, 0, PI/2); up = group(tx, 0, 0.05, 0); }
+    const t2 = group(up, 0, 0.25, 0); t2.rotation.z = -0.5; R.parts.tip = t2;
+    P(t2, CO(0.1, 0.26, 12), ROBE3, 0, 0.12, 0);
+    if(!has("flamehat") && !has("voidtip") && !has("discoball")){ glow(R, t2, 0.045, 0xffe680, 0, 0.27, 0); halo(R, t2, 0xffe680, 0.5, 0, 0.27, 0, 0.7); }
+    tip = t2;
+  }
   // sleeves and hands; the right one holds the gun
   const arm = (s)=>{
     const a = group(b, s*0.3, 0.86, 0.04);
@@ -197,11 +232,77 @@ Models.zippy = function(){
   R.parts.armR = arm(1); R.parts.armL = arm(-1); R.parts.armL.rotation.z = -0.3; R.parts.armL.position.x = -0.25;
   P(R.parts.armL, TO(0.04, 0.012), GOLD, 0, -0.35, 0.05);
   const gunHolder = group(R.parts.armR, 0, -0.36, 0.02); gunHolder.rotation.x = 1.1; R.parts.gun = gunHolder;
+  // the costume pieces
+  const ctx = { R, b, head, hat, tip, beard, armL:R.parts.armL, armR:R.parts.armR, D, C };
+  look.parts.forEach(p=>{ if(OUTFIT[p]) OUTFIT[p](ctx); });
   R.h = 2.1;
   finish(R);
   return R;
 };
 Models.wizard = Models.zippy;
+
+/* ---- costume pieces: each adds parts to the right bit of Zippy ----
+   (b: the body, y up from the floor, +z is his front; head at y 1.2) */
+const OUTFIT = {
+  vines(c){
+    // a vine wound three times round him, hem to shoulders, with leaves
+    const pts = []; for(let i=0;i<=40;i++){ const t = i/40, a = t*PI*6, y = 0.08 + t*0.92, rr = (y < 0.45 ? 0.45 - (y - 0.14)*0.25 : 0.37 - (y - 0.45)*0.27) + 0.03; pts.push([Math.sin(a)*rr, y, Math.cos(a)*rr]); }
+    P(c.b, K.tube(pts, 0.025, 80, 5), 0x3e7a2a);
+    for(let i=2;i<40;i+=3){ const [x, y, z] = pts[i]; const a = Math.atan2(x, z); P(c.b, S(0.055, 8, 6), i % 2 ? 0x5aa83a : 0x7ac84a, x*1.08, y + 0.02, z*1.08, 0.4, a, 0.6, 1, 0.35, 1.6); }
+  },
+  flowers(c){
+    [[0.5, 0.3], [2.6, 0.55], [-1.2, 0.78], [4.1, 0.42], [-2.8, 0.22]].forEach(([a, y], i)=>{
+      const rr = (y < 0.45 ? 0.45 - (y - 0.14)*0.25 : 0.37 - (y - 0.45)*0.27) + 0.06, col = [0xff6aa8, 0xffd23d, 0xff8a3a][i % 3];
+      for(let k=0;k<5;k++){ const q = k/5*PI*2; P(c.b, S(0.035, 6, 4), col, Math.sin(a)*rr + Math.cos(q)*0.04*Math.cos(a), y + Math.sin(q)*0.04, Math.cos(a)*rr - Math.cos(q)*0.04*Math.sin(a)); }
+      P(c.b, S(0.028, 6, 4), 0xfff0a0, Math.sin(a)*(rr + 0.02), y, Math.cos(a)*(rr + 0.02));
+    });
+  },
+  goggles(c){
+    [-1, 1].forEach(s=>{ P(c.head, CY(0.065, 0.07, 0.07, 12), 0x3a3a44, s*0.085, 0.06, 0.18, PI/2); glow(c.R, c.head, 0.05, 0xff4a3a, s*0.085, 0.06, 0.22); });
+    P(c.head, TO(0.225, 0.022), 0x5a3a20, 0, 0.06, 0, PI/2 + 0.05);
+  },
+  monocle(c){ P(c.head, TO(0.06, 0.012), GOLD, 0.085, 0.05, 0.205); glow(c.R, c.head, 0.045, 0xd8f0ff, 0.085, 0.05, 0.2); P(c.head, K.tube([[0.14, 0.03, 0.2], [0.18, -0.15, 0.2], [0.12, -0.35, 0.22]], 0.006, 8, 3), GOLD); },
+  wingboots(c){ [-1, 1].forEach(s=>{ for(let k=0;k<3;k++) P(c.b, BX(0.03, 0.06 + k*0.03, 0.14 - k*0.03), 0xf8f8ff, s*(0.24 + k*0.015), 0.1 + k*0.04, 0.08 - k*0.03, -0.5, 0, s*(0.6 + k*0.2)); }); },
+  stripysocks(c){ [-1, 1].forEach(s=>{ for(let k=0;k<3;k++) P(c.b, CY(0.075, 0.08, 0.035, 10), k % 2 ? 0xffd23d : 0xd83a3a, s*0.14, 0.11 + k*0.035, 0.12); }); },
+  mudboots(c){ [-1, 1].forEach(s=>{ P(c.b, S(0.13, 10, 8), 0x4a3418, s*0.15, 0.06, 0.15, 0, 0, 0, 1, 0.65, 1.5); P(c.b, S(0.05, 6, 4), 0x6a5a2a, s*0.2, 0.12, 0.25); }); },
+  tallhat(c){ /* built into the hat */ },
+  spikyhat(c){ for(let i=0;i<8;i++){ const a = i/8*PI*2; P(c.hat, CO(0.035, 0.14, 5), 0x9a9aa8, Math.cos(a)*0.4, 0.03, Math.sin(a)*0.4, 0, -a, -PI/2 - 0.3); } },
+  flamehat(c){ for(let i=0;i<4;i++){ const a = i*1.7; glow(c.R, c.tip, 0.07 - i*0.012, [0xffe14a, 0xff9a2e, 0xff5a1a, 0xff3a1a][i], Math.cos(a)*0.03, 0.27 + i*0.08, Math.sin(a)*0.03); } halo(c.R, c.tip, 0xff7a2a, 1.1, 0, 0.35, 0, 0.8); },
+  icecrown(c){ for(let i=0;i<7;i++){ const a = i/7*PI*2; P(c.hat, CO(0.04, 0.16 + (i % 2)*0.08, 5), 0xbfeaff, Math.cos(a)*0.25, 0.14, Math.sin(a)*0.25, 0, 0, 0); } halo(c.R, c.hat, 0x8ad8ff, 0.9, 0, 0.18, 0, 0.4); },
+  stormcloud(c){ const g = group(c.head, 0, 0.9, -0.05); [[0, 0, 0, 0.16], [0.15, -0.02, 0, 0.12], [-0.15, -0.02, 0.02, 0.12], [0.05, 0.08, -0.05, 0.11]].forEach(([x, y, z, r])=> P(g, S(r, 10, 8), 0x7a7a8a, x, y, z, 0, 0, 0, 1, 0.75, 1)); glow(c.R, g, 0.04, 0xfff04a, 0.02, -0.17, 0.05); glow(c.R, g, 0.03, 0xfff04a, -0.04, -0.24, 0.05); },
+  plaguemask(c){ P(c.head, CO(0.07, 0.26, 10), 0xe8dcc0, 0, -0.04, 0.32, PI/2 + 0.3); [-1, 1].forEach(s=>{ P(c.head, CY(0.05, 0.05, 0.03, 12), 0x2a2a34, s*0.085, 0.06, 0.2, PI/2); glow(c.R, c.head, 0.035, 0x9cff3a, s*0.085, 0.06, 0.215); }); },
+  chicken(c){ const g = group(c.hat, 0.22, 0.12, 0.12); g.rotation.set(0.2, 0.6, -0.5); P(g, S(0.06, 8, 6), 0xffd23d, 0, 0, 0, 0, 0, 0, 1, 1, 1.6); P(g, S(0.05, 8, 6), 0xffd23d, 0, 0.05, 0.09); P(g, CO(0.02, 0.05, 4), 0xff8a2a, 0, 0.05, 0.15, PI/2); P(g, BX(0.015, 0.05, 0.05), 0xd83a3a, 0, 0.11, 0.09); },
+  hive(c){ const g = group(c.b, 0, 0.75, -0.42); P(g, K.lathe([[0, -0.2], [0.12, -0.18], [0.16, -0.06], [0.15, 0.06], [0.1, 0.16], [0, 0.2]], 12), 0xe8b84a); [-0.1, 0, 0.1].forEach(y=> P(g, TO(0.15 - Math.abs(y)*0.3, 0.015), 0xb8862a, 0, y, 0, PI/2)); P(g, S(0.035, 6, 4), 0x2a1a10, 0, -0.04, -0.15); P(c.b, TO(0.3, 0.015, PI), 0x6a4a2a, 0, 0.82, -0.05, PI/2 - 0.2, 0, PI); glow(c.R, g, 0.025, 0xffd23d, 0.2, 0.1, -0.05); },
+  accordion(c){ const g = group(c.b, 0, 0.78, -0.4); for(let i=0;i<5;i++) P(g, BX(0.38, 0.06, 0.12 - (i % 2)*0.02), i % 2 ? 0xf0e6d4 : 0xc82a3a, 0, -0.14 + i*0.07, 0); [-1, 1].forEach(s=> P(g, BX(0.4, 0.04, 0.14), 0x2a2a34, 0, s*0.18, 0)); },
+  dice(c){ [[-0.12, 0.45, 0.32, 0.3], [-0.02, 0.42, 0.33, -0.4]].forEach(([x, y, z, r])=>{ P(c.b, BX(0.07, 0.07, 0.07), 0xf8f8f0, x, y, z, r, r, 0); P(c.b, S(0.012, 4, 3), 0x101010, x, y, z + 0.037); P(c.b, CY(0.004, 0.004, 0.1, 3), 0x3a2a1a, x, y + 0.08, z - 0.02); }); },
+  penny(c){ P(c.hat, CY(0.06, 0.06, 0.015, 14), 0xc8783a, 0, 0.12, 0.26, PI/2 - 0.2); P(c.hat, CY(0.045, 0.045, 0.017, 14), 0xe8984a, 0, 0.12, 0.262, PI/2 - 0.2); },
+  gear(c){ P(c.b, TO(0.07, 0.022), 0xc8a040, 0, 0.82, 0.27, -0.25); for(let i=0;i<8;i++){ const a = i/8*PI*2; P(c.b, BX(0.03, 0.03, 0.025), 0xc8a040, Math.cos(a)*0.09, 0.82 + Math.sin(a)*0.09, 0.28, -0.25, 0, a); } glow(c.R, c.b, 0.035, 0x8ad8ff, 0, 0.82, 0.29); },
+  ghostpal(c){ const g = group(c.b, 0.42, 1.55, -0.25); P(g, sheet(c.R, 0, 0.35, 0.18), 0xe8f2ff); [-1, 1].forEach(s=> P(g, S(0.025, 6, 4), 0x101020, s*0.04, 0.25, 0.11)); halo(c.R, g, 0x9cffc8, 0.6, 0, 0.18, 0, 0.35); },
+  discoball(c){ P(c.tip, CY(0.004, 0.004, 0.12, 3), 0x9a9aa8, 0, 0.3, 0); P(c.tip, new THREE.IcosahedronGeometry(0.08, 1), 0xd8d8e8, 0, 0.4, 0); glow(c.R, c.tip, 0.03, 0xffffff, 0.05, 0.43, 0.05); halo(c.R, c.tip, 0xff6ad8, 0.7, 0, 0.4, 0, 0.5); },
+  gum(c){ P(c.head, S(0.08, 12, 10), 0xff4ab8, 0, -0.07, 0.3); },
+  napkin(c){ P(c.b, CO(0.15, 0.22, 3), 0xf8f8f0, 0, 0.9, 0.22, PI + 0.3, 0, 0, 1, 1, 0.3); },
+  noodles(c){ for(let i=0;i<4;i++) P(c.beard, K.tube([[-0.08 + i*0.05, -0.05, 0.12], [-0.04 + i*0.03, -0.2, 0.15], [-0.1 + i*0.06, -0.35, 0.12]], 0.008, 8, 3), 0xf0d86a); P(c.beard, S(0.04, 8, 6), 0x8a3a1a, 0.03, -0.25, 0.15); },
+  pinatastick(c){ const g = group(c.b, -0.2, 0.85, -0.38); g.rotation.z = 0.6; for(let i=0;i<5;i++) P(g, CY(0.025, 0.025, 0.12, 8), [0xff4a6a, 0x46e4ff, 0xffd23d, 0x9cff3a, 0xb36bff][i], 0, -0.25 + i*0.12, 0); },
+  teapot(c){ const g = group(c.b, -0.3, 0.45, 0.12); P(g, S(0.08, 10, 8), 0xf0e6d4, 0, 0, 0, 0, 0, 0, 1, 0.8, 1); P(g, CO(0.02, 0.08, 6), 0xf0e6d4, 0.08, 0.02, 0, 0, 0, -0.9); P(g, TO(0.04, 0.012, PI), 0xf0e6d4, -0.08, 0, 0, 0, PI/2, PI/2); P(g, S(0.025, 6, 4), 0x4aa8ff, 0, 0.07, 0); },
+  heartjar(c){ P(c.b, CY(0.06, 0.06, 0.12, 10), 0xd8eef8, 0.3, 0.45, 0.1); P(c.b, CY(0.065, 0.065, 0.025, 10), 0x8a5a2a, 0.3, 0.52, 0.1); glow(c.R, c.b, 0.035, 0xff3a5a, 0.3, 0.45, 0.1); },
+  lunchbox(c){ P(c.b, BX(0.16, 0.12, 0.08), 0xd83a3a, 0.31, 0.42, -0.08, 0, 0.6); P(c.b, TO(0.04, 0.01, PI), 0x2a2a34, 0.31, 0.48, -0.08, 0, 0.6); },
+  coinpouch(c){ P(c.b, S(0.08, 10, 8), 0xb8862a, -0.31, 0.45, -0.02, 0, 0, 0, 1, 1.2, 1); P(c.b, TO(0.035, 0.012), 0xffd23d, -0.31, 0.55, -0.02, PI/2); P(c.b, CY(0.03, 0.03, 0.01, 10), 0xffd23d, -0.27, 0.36, 0.06, 0.6); },
+  clover(c){ for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(c.hat, S(0.03, 6, 4), 0x3ab83a, -0.2 + Math.cos(a)*0.03, 0.13 + Math.sin(a)*0.03, 0.17); } P(c.hat, CY(0.006, 0.006, 0.06, 3), 0x2a8a2a, -0.2, 0.09, 0.17); },
+  muscles(c){ [c.armL, c.armR].forEach(a=> P(a, S(0.1, 10, 8), 0xf2c9a0, 0, -0.17, 0.05, 0, 0, 0, 1, 1.3, 1)); },
+  cracks(c){ [[-0.22, 0.95, -0.15], [-0.28, 0.85, -0.05], [-0.18, 0.9, 0.05]].forEach(([x, y, z], i)=> P(c.b, CO(0.035, 0.12 + i*0.03, 4), 0xbfeaff, x, y + 0.05, z, 0.2*i, 0, 0.5 - i*0.2)); },
+  bombbelt(c){ for(let i=0;i<4;i++){ const a = 2.4 + i*0.45; P(c.b, S(0.05, 8, 6), 0x1a1a22, Math.sin(a)*0.33, 0.56, Math.cos(a)*0.33); P(c.b, CY(0.008, 0.008, 0.04, 3), 0x8a6a4a, Math.sin(a)*0.33, 0.62, Math.cos(a)*0.33); } },
+  starcape(c){ for(let i=0;i<7;i++){ const a = PI*0.62 + i*0.11*PI, y = 0.38 + (i % 3)*0.18, rr = 0.52 - (y - 0.3)*0.45; P(c.b, OC(0.035), 0xfff27a, Math.sin(a)*rr, y, Math.cos(a)*rr); } },
+  portalcuffs(c){ P(c.armR, TO(0.13, 0.022), 0x46e4ff, 0, -0.27, 0, PI/2); P(c.armL, TO(0.13, 0.022), 0xff9a2e, 0, -0.27, 0, PI/2); glow(c.R, c.armR, 0.03, 0x46e4ff, 0.12, -0.27, 0); glow(c.R, c.armL, 0.03, 0xff9a2e, -0.12, -0.27, 0); },
+  antenna(c){ [-1, 1].forEach(s=>{ P(c.hat, CY(0.008, 0.008, 0.3, 4), 0x9a9aa8, s*0.12, 0.35, 0.05, 0, 0, -s*0.4); glow(c.R, c.hat, 0.03, 0x9cff3a, s*0.18, 0.5, 0.05); }); },
+  halo(c){ const m = new THREE.Mesh(TO(0.26, 0.025), new THREE.MeshBasicMaterial({ color:0xfff27a, transparent:true })); m.rotation.x = PI/2; m.position.y = 0.75; c.head.add(m); c.R.glows.push(m); halo(c.R, c.head, 0xfff27a, 1.4, 0, 0.75, 0, 0.5); },
+  prismgem(c){ [0xff4a6a, 0xffd23d, 0x9cff3a, 0x46e4ff, 0xb36bff].forEach((col, i)=>{ const a = (i - 2)*0.35; glow(c.R, c.b, 0.03, col, Math.sin(a)*0.27, 0.88 + Math.cos(a*2)*0.02, Math.cos(a)*0.27); }); P(c.b, OC(0.05), 0xf8f8ff, 0, 0.8, 0.28); },
+  froghood(c){ /* built into the hat */ },
+  cubes(c){ const o = group(c.head, 0, 0.1, 0); c.R.parts.orbit = o; for(let i=0;i<3;i++){ const a = i/3*PI*2; P(o, BX(0.08, 0.08, 0.08), [0x46e4ff, 0xb36bff, 0xffd23d][i], Math.cos(a)*0.42, Math.sin(a*2)*0.05, Math.sin(a)*0.42, a, a, 0); } },
+  voidtip(c){ P(c.tip, S(0.08, 12, 10), 0x050008, 0, 0.32, 0); const m = new THREE.Mesh(TO(0.12, 0.015), new THREE.MeshBasicMaterial({ color:0xb36bff, transparent:true })); m.position.y = 0.32; m.rotation.x = 1.2; c.tip.add(m); c.R.glows.push(m); halo(c.R, c.tip, 0xb36bff, 0.8, 0, 0.32, 0, 0.5); },
+  mirrorshield(c){ P(c.armL, CY(0.17, 0.17, 0.03, 16), 0xc8c8d8, -0.05, -0.18, 0.1, PI/2); P(c.armL, TO(0.17, 0.02), GOLD, -0.05, -0.18, 0.115); glow(c.R, c.armL, 0.05, 0xffffff, -0.08, -0.15, 0.13); },
+  orbitrings(c){ [0.5, -0.6].forEach((tilt, i)=>{ const m = new THREE.Mesh(TO(0.62, 0.012), new THREE.MeshBasicMaterial({ color:i ? 0x46e4ff : 0xffd23d, transparent:true, opacity:0.8 })); m.rotation.set(PI/2 + tilt, 0, 0); m.position.y = 0.75; c.b.add(m); c.R.glows.push(m); }); }
+};
+
 Models.setGun = function(R, gun){
   const h = R.parts.gun;
   while(h.children.length) h.remove(h.children[0]);

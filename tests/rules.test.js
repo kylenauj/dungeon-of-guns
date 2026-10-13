@@ -98,6 +98,25 @@ test("every powerup, boon and duo builds a valid stat block", ()=>{
   assert.ok(Object.values(DG.ITEMS).filter(d=> d.tier === 4).length >= 8, "godly ones");
 });
 
+test("costumes: every costume belongs to a real item and uses real dyes, parts and auras", ()=>{
+  for(const id in DG.COSTUMES){
+    const c = DG.COSTUMES[id];
+    assert.ok(DG.ITEMS[id], id + " is an item");
+    if(c.robe) assert.ok(DG.DYES.indexOf(c.robe) >= 0, id + " robe dye");
+    if(c.cape) assert.ok(DG.DYES.indexOf(c.cape) >= 0, id + " cape dye");
+    (c.parts || []).forEach(p=> assert.ok(DG.COSTUME_PARTS.indexOf(p) >= 0, id + " part " + p));
+    if(c.aura) assert.ok(DG.AURAS.indexOf(c.aura) >= 0, id + " aura");
+  }
+  // a fire cape from the rounds, then the legendary dyes the whole robe; parts stack
+  let L = DG.Items.costume(["emberrounds"]);
+  assert.equal(L.cape, "fire"); assert.equal(L.robe, "arcane");
+  L = DG.Items.costume(["emberrounds", "overgrowth", "blizzard"]);
+  assert.equal(L.robe, "frost"); assert.equal(L.cape, "frost");
+  assert.ok(L.parts.indexOf("vines") >= 0 && L.parts.indexOf("icecrown") >= 0);
+  // a common dye can't paint over a legendary one
+  assert.equal(DG.Items.costume(["inferno", "frostrounds"]).cape, "fire");
+});
+
 test("powerups stack", ()=>{
   const one = DG.Items.build({ spinach:1 }), two = DG.Items.build({ spinach:2 });
   assert.equal(two.dmg, one.dmg*2);

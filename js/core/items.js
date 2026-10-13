@@ -287,6 +287,41 @@ DG.CURSES = {
   haste: { name:"Curse of Haste",    desc:"Everything down here moves faster." }
 };
 
+/* ---- costumes: what Zippy wears for what he carries (Isaac-style) ----
+   cape / robe: a dye (the robe only changes for the big ones, and the
+   highest tier wins); parts: costume pieces that stack; aura: particles. */
+DG.DYES = ["arcane", "fire", "frost", "poison", "shock", "gold", "shadow", "star"];
+DG.COSTUME_PARTS = ["vines", "flowers", "goggles", "monocle", "wingboots", "stripysocks", "mudboots", "tallhat", "spikyhat", "flamehat", "icecrown",
+  "stormcloud", "plaguemask", "chicken", "hive", "accordion", "dice", "penny", "gear", "ghostpal", "discoball", "gum", "napkin", "noodles",
+  "pinatastick", "teapot", "heartjar", "lunchbox", "coinpouch", "clover", "muscles", "cracks", "bombbelt", "starcape", "portalcuffs", "antenna",
+  "halo", "prismgem", "froghood", "cubes", "voidtip", "mirrorshield", "orbitrings"];
+DG.AURAS = ["embers", "snow", "sparks", "toxic", "glints", "smoke", "rainbow", "stars"];
+DG.COSTUMES = {
+  /* elements dye the cape; their legendary forms dye the whole robe */
+  emberrounds:{ cape:"fire" }, frostrounds:{ cape:"frost" }, venomrounds:{ cape:"poison" }, staticrounds:{ cape:"shock" }, arcanerounds:{ cape:"arcane" },
+  wildfire:{ cape:"fire", aura:"embers" }, brittle:{ cape:"frost" }, conductor:{ cape:"shock" },
+  plague:{ cape:"poison", parts:["plaguemask"], aura:"toxic" },
+  inferno:{ robe:"fire", cape:"fire", parts:["flamehat"], aura:"embers" },
+  blizzard:{ robe:"frost", cape:"frost", parts:["icecrown"], aura:"snow" },
+  stormcaller:{ robe:"shock", cape:"shock", parts:["stormcloud"], aura:"sparks" },
+  /* growing things */
+  overgrowth:{ parts:["vines"] }, rotbloom:{ parts:["vines"] }, blossom:{ parts:["vines", "flowers"] }, swampfeet:{ parts:["mudboots"] },
+  /* odds and ends */
+  specs:{ parts:["goggles"] }, lens:{ parts:["monocle"] }, boots:{ parts:["wingboots"] }, socks:{ parts:["stripysocks"] },
+  thundersocks:{ parts:["stripysocks"], aura:"sparks" }, tallhat:{ parts:["tallhat"] }, spikyhat:{ parts:["spikyhat"] },
+  chicken:{ parts:["chicken"] }, beehive:{ parts:["hive"] }, accordion:{ parts:["accordion"] }, dice:{ parts:["dice"] },
+  penny:{ parts:["penny"] }, clockwork:{ parts:["gear"] }, haunted:{ parts:["ghostpal"] }, disco:{ parts:["discoball"] },
+  bubblegum:{ parts:["gum"] }, napkin:{ parts:["napkin"] }, spaghetti:{ parts:["noodles"] }, pinata:{ parts:["pinatastick"] },
+  teapot:{ parts:["teapot"] }, heartjar:{ parts:["heartjar"] }, lunchbox:{ parts:["lunchbox"] }, midaspocket:{ parts:["coinpouch"] },
+  clover:{ parts:["clover"] }, luckyfoot:{ parts:["clover"] }, steroids:{ parts:["muscles"] }, glasscannon:{ parts:["cracks"] },
+  stickybomb:{ parts:["bombbelt"] }, comet:{ cape:"star", parts:["starcape"], aura:"stars" }, portal:{ parts:["portalcuffs"] },
+  shrinkray:{ parts:["antenna"] },
+  /* godly */
+  godwand:{ parts:["halo"], aura:"glints" }, midas:{ robe:"gold", cape:"gold", aura:"glints" }, prismheart:{ parts:["prismgem"], aura:"rainbow" },
+  shadow:{ robe:"shadow", cape:"shadow", aura:"smoke" }, frogsona:{ parts:["froghood"] }, recursion:{ parts:["cubes"] },
+  horizon:{ parts:["voidtip"] }, reverse:{ parts:["mirrorshield"] }, infinity:{ parts:["orbitrings"] }
+};
+
 /* ================================================================== *
  *  Building a stat block from everything Zippy owns.
  * ================================================================== */
@@ -326,6 +361,22 @@ Items.build = function(items, boons, extra){
   if(M.special.prismheart) DG.ELEMENT_ORDER.forEach(e=>{ if(M.els.indexOf(e) < 0) M.els.push(e); });
   M.maxDepth = 1 + (M.special.recursion ? 2 : 0);
   return M;
+};
+
+/* what Zippy looks like with these items (ids in the order he got them) */
+Items.costume = function(ids){
+  const look = { robe:"arcane", cape:"arcane", parts:[], auras:[] };
+  let robeT = -1, capeT = -1;
+  ids.forEach(id=>{
+    const c = DG.COSTUMES[id], d = DG.ITEMS[id]; if(!c || !d) return;
+    if(c.robe && d.tier >= robeT){ robeT = d.tier; look.robe = c.robe; }
+    if(c.cape && d.tier >= capeT){ capeT = d.tier; look.cape = c.cape; }
+    (c.parts || []).forEach(p=>{ if(look.parts.indexOf(p) < 0) look.parts.push(p); });
+    if(c.aura && look.auras.indexOf(c.aura) < 0) look.auras.push(c.aura);
+  });
+  look.auras = look.auras.slice(-3);
+  look.key = look.robe + "/" + look.cape + "/" + look.parts.join(",") + "/" + look.auras.join(",");
+  return look;
 };
 
 /* ---- pools: an item leaves its pools once it's been offered ---- */

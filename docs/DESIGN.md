@@ -96,6 +96,18 @@ About twenty items exist to be funny rather than strong. They add new verbs, and
 - **Luck and the frog:** Loaded Dice (0.6x to 1.8x per room) and Tongue Twister for Gribbus.
 - **Five new actives:** Hat Trick, Goblin Whistle, Frog Cannon, Disco Ball and Pocket Black Hole.
 
+### 3.5c Costumes
+Zippy wears what he carries, as in Isaac (`DG.COSTUMES` in `items.js`, resolved by `Items.costume`):
+- **Dyes.** Element items dye his cape and shoulder capelet. Legendary and godly ones (Inferno, Blizzard, Stormcaller, Midas, Zippy's Shadow) dye the whole robe and hat. The highest tier wins, so a common pickup never paints over a legendary.
+- **Pieces stack.** About 40 items add a piece:
+  - vines and flowers, goggles, a monocle
+  - winged boots and striped socks
+  - a flaming hat tip, an ice crown, a storm cloud, a plague-doctor beak
+  - a rubber chicken in the hat band, a beehive or an accordion on his back, dice on his belt
+  - a little ghost friend, a disco ball, a halo, a Gribbus hood, orbiting cubes, a void-tipped hat
+- **Auras.** The big ones add particles: embers, snow, sparks, toxic bubbles, gold glints, smoke, rainbow, stars.
+- **Live.** He's rebuilt with a sparkle whenever the look changes. `?gallery` has a COSTUMES row.
+
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 

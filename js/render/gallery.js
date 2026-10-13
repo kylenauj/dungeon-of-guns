@@ -22,6 +22,12 @@ Gallery.start = function(){
   const rows = [
     { name:"HEROES", gap:2.2, items:[["Zippy", ()=>{ const R = M.zippy(); M.setGun(R, { base:"pistol", element:"arcane", uid:1 }); return R; }], ["Gribbus", ()=> M.frog()], ["Grobbus", ()=> M.frog(true)],
       ...["pistol", "smg", "shotgun", "rifle", "launcher"].map((b, i)=> [b, ()=>{ const R = { root:new THREE.Group(), glows:[] }; const g = M.gun(b, ["arcane", "fire", "frost", "poison", "shock"][i], R); K.bake(g, { w:0.015 }); g.scale.setScalar(2); g.position.y = 0.8; g.rotation.y = Math.PI/2; R.root.add(g); return R; }])] },
+    { name:"COSTUMES", gap:2.2, items:[
+      ["Inferno", ["inferno"]], ["Blizzard", ["blizzard"]], ["Stormcaller", ["stormcaller"]], ["Plague", ["plague", "venomrounds"]],
+      ["Overgrowth", ["overgrowth", "blossom", "swampfeet"]], ["Midas", ["midas", "midaspocket"]], ["Shadow", ["shadow"]], ["Frogsona", ["frogsona", "specs"]],
+      ["Godwand", ["godwand", "prismheart", "infinity"]], ["Comet", ["comet", "portal", "boots"]], ["Goofball", ["chicken", "beehive", "dice", "bubblegum", "spikyhat", "spaghetti"]],
+      ["Tinkerer", ["tallhat", "clockwork", "lens", "accordion", "haunted", "disco"]]
+    ].map(([name, ids])=> [name, ()=>{ const R = M.zippy(DG.Items.costume(ids)); M.setGun(R, { base:"pistol", element:"fire", uid:1 }); return R; }]) },
     { name:"GOBLINS", gap:2.2, items:["grunt", "slinger", "bomber", "shaman", "brute", "sneak", "merchant"].map(k=> [k, ()=> M.goblin(k)]) },
     { name:"SHROOMS & HAUNTS", gap:2.2, items:["puffling", "toadstool", "shroomkin", "shroomlet", "ghost", "banshee", "skeleton", "poltergeist"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"THE WEIRD", gap:2.4, items:["watcher", "blob", "blobling", "tentacle"].map(k=> [k, ()=> M.enemy(k)]) },
