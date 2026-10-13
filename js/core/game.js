@@ -129,18 +129,40 @@ proto.move = function(e, dx, dy, who){
   return hit;
 };
 proto.moveAxis = function(e, dx, dy, who){
+  // Only tiles AHEAD of the body (centre beyond the body's centre, in the
+  // direction of travel) can stop it. So a body that's been shoved into a
+  // wall can always back out, can never go deeper, and is never pushed
+  // through to the far side.
   const r = e.r, eps = 0.001;
-  const nx = e.x + dx, ny = e.y + dy;
-  const x0 = Math.floor(nx - r), x1 = Math.floor(nx + r - eps), y0 = Math.floor(ny - r), y1 = Math.floor(ny + r - eps);
-  for(let ty=y0; ty<=y1; ty++) for(let tx=x0; tx<=x1; tx++){
-    if(!this.blocked(tx, ty, who)) continue;
-    if(dx > 0) e.x = tx - r - eps; else if(dx < 0) e.x = tx + 1 + r + eps;
-    if(dy > 0) e.y = ty - r - eps; else if(dy < 0) e.y = ty + 1 + r + eps;
-    return true;
+  if(dx){
+    const nx = e.x + dx, y0 = Math.floor(e.y - r + eps), y1 = Math.floor(e.y + r - eps);
+    const c0 = Math.floor((dx > 0 ? e.x + r - eps : e.x - r + eps)), c1 = Math.floor((dx > 0 ? nx + r - eps : nx - r + eps));
+    for(let c=c0; dx > 0 ? c<=c1 : c>=c1; c+=Math.sign(dx)){
+      if((c + 0.5 - e.x)*dx <= 0) continue;                  // behind or level: not in the way
+      for(let ty=y0; ty<=y1; ty++) if(this.blocked(c, ty, who)){
+        e.x = dx > 0 ? Math.min(nx, Math.max(e.x, c - r - eps)) : Math.max(nx, Math.min(e.x, c + 1 + r + eps));
+        return true;
+      }
+    }
+    e.x = nx;
   }
-  e.x = nx; e.y = ny;
+  if(dy){
+    const ny = e.y + dy, x0 = Math.floor(e.x - r + eps), x1 = Math.floor(e.x + r - eps);
+    const c0 = Math.floor((dy > 0 ? e.y + r - eps : e.y - r + eps)), c1 = Math.floor((dy > 0 ? ny + r - eps : ny - r + eps));
+    for(let c=c0; dy > 0 ? c<=c1 : c>=c1; c+=Math.sign(dy)){
+      if((c + 0.5 - e.y)*dy <= 0) continue;
+      for(let tx=x0; tx<=x1; tx++) if(this.blocked(tx, c, who)){
+        e.y = dy > 0 ? Math.min(ny, Math.max(e.y, c - r - eps)) : Math.max(ny, Math.min(e.y, c + 1 + r + eps));
+        return true;
+      }
+    }
+    e.y = ny;
+  }
   return false;
 };
+
+/* is (x, y) inside room r's floor rectangle? */
+proto.inRoom = function(r, x, y){ return x >= r.x1 && x <= r.x2 + 1 && y >= r.y1 && y <= r.y2 + 1; };
 
 /* the open floor tile nearest (x, y) inside room r, as a tile centre */
 proto.freeSpot = function(r, x, y){

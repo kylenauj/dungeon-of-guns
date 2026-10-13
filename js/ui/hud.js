@@ -159,8 +159,30 @@ H.draw = function(G, dt, opts){
     g.globalAlpha = 1;
   }
 
-  // ---- top right: the map ----
-  H.minimap(g, G, W - 20, 18, small);
+  // ---- top right: the map, and how many goblins are still between you and the door ----
+  const mapH = H.minimap(g, G, W - 20, 18, small);
+  if(G.room && G.room.active){
+    const left = G.enemies.filter(e=> !e.dead && e.room === G.room.id), waves = G.room.waves.length - G.room.wave;
+    const label = left.length + (left.length === 1 ? " GOBLIN LEFT" : " GOBLINS LEFT") + (waves > 0 ? " · " + waves + " MORE WAVE" + (waves > 1 ? "S" : "") : "");
+    g.font = F("900", 14*k); const lw = g.measureText(label).width + 28;
+    plate(g, W - 20 - lw, 18 + (mapH || 0) + 10, lw, 24*k, "rgba(90,20,30,.9)");
+    text(g, label, W - 20 - lw/2, 18 + (mapH || 0) + 10 + 12*k + 1, 14*k, CREAM, "center", "900");
+    // the last few: arrows at the screen edge pointing at the ones you can't see
+    if(left.length <= 3) left.forEach(e=>{
+      if(e.spawn > 0) return;
+      const s = S.project(e.x, 1, e.y), m = 40;
+      const on = !s.behind && s.x > m && s.x < W - m && s.y > m && s.y < Hh - m;
+      if(on && !e.hidden) return;
+      const cx = W/2, cy = Hh/2, a = Math.atan2(s.y - cy, s.x - cx);
+      let ax = s.x, ay = s.y;
+      if(!on){ const t = Math.min((W/2 - m)/Math.abs(Math.cos(a) || 1e-6), (Hh/2 - m)/Math.abs(Math.sin(a) || 1e-6)); ax = cx + Math.cos(a)*t; ay = cy + Math.sin(a)*t; }
+      g.save(); g.translate(ax, ay); g.rotate(on ? Math.PI/2 : a);
+      g.globalAlpha = 0.6 + 0.4*Math.sin(G.t*8);
+      g.beginPath(); g.moveTo(14, 0); g.lineTo(-8, -10); g.lineTo(-3, 0); g.lineTo(-8, 10); g.closePath();
+      g.fillStyle = "#ff4a5a"; g.fill(); g.lineWidth = 3; g.strokeStyle = INK; g.stroke();
+      g.restore(); g.globalAlpha = 1;
+    });
+  }
 
   // ---- bottom left: the guns ----
   H.guns(g, G, 22, Hh - 20, k);
@@ -287,6 +309,7 @@ H.minimap = function(g, G, xr, y, small){
     const ic = ICON[r.type];
     if(ic) text(g, ic, q.x + cs*0.7, q.y + cs/2 + 1, cs*0.9, here ? INK : r.type === "boss" ? "#ff4a5a" : SIGNAL, "center", "900");
   });
+  return h;
 };
 
 })();

@@ -264,3 +264,58 @@ test("a painted door only bonks you when you walk into it (not from a room away)
   const ev = step(G, 0.3, { my:-1 });
   assert.ok(!ev.some(e=> e.type === "bonk"));
 });
+
+/* ---- regression: goblins escaping through walls (rooms stayed locked forever) ---- */
+test("a big body shoved into a wall can back out but never goes through it", ()=>{
+  const G = game("WALLS");
+  const r = G.D.rooms.find(x=> x.type === "combat");
+  // a brute-sized body already overlapping the west wall, on a stretch with no doorway
+  let wy = r.y1 + 2;
+  while(wy < r.y2 - 1 && [-2, -1, 0, 1, 2].some(k=> G.D.at(r.x1 - 1, wy + k) !== T.SOLID)) wy++;
+  assert.ok(wy < r.y2 - 1, "found solid wall");
+  const e = { x:r.x1 + 0.3, y:wy + 0.5, r:0.6 };
+  for(let i=0;i<200;i++) G.move(e, -0.15, (i % 3 - 1)*0.01, "enemy");
+  assert.ok(e.x >= r.x1 + 0.3 - 1e-6, "never pushed deeper or through (x=" + e.x + ")");
+  G.move(e, 2, 0, "enemy");
+  assert.ok(e.x > r.x1 + 0.6, "it can walk back out");
+});
+
+test("brutes and Grubnok stay inside their rooms through whole fights", ()=>{
+  for(const [w, f] of [["STK2", 3], ["STK7", 3], ["STK19", 5], ["STK0", 1]]){
+    const G = game(w, f), bot = new DG.Bot(G);
+    G.player.hp = G.player.maxHp = 1e7;
+    for(let i=0; i<60*240 && G.floor === f; i++){
+      G.update(1/60, bot.input(1/60)); G.drain();
+      for(const e of G.enemies){
+        if(e.dead || e.airborne || e.spawn > 0) continue;
+        const t = G.D.at(Math.floor(e.x), Math.floor(e.y));
+        assert.ok(t !== T.SOLID && t !== T.BLOCK, w + ": " + e.type + " inside a wall at " + e.x.toFixed(1) + "," + e.y.toFixed(1));
+        const r = G.D.rooms[e.room];
+        if(r.active) assert.ok(G.inRoom(r, e.x, e.y), w + ": " + e.type + " left its locked room");
+      }
+    }
+  }
+});
+
+test("a goblin that somehow leaves its locked room is pulled back in", ()=>{
+  const G = game("LEASH");
+  const r = G.D.rooms.find(x=> x.type === "combat");
+  const spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; step(G, 0.1);
+  readyAll(G);
+  const e = G.enemies[0];
+  e.x = -500; e.y = -500;
+  step(G, 1/60);
+  assert.ok(G.inRoom(r, e.x, e.y));
+});
+
+test("Grubnok only summons goblins inside his room", ()=>{
+  const G = game("SUMMON");
+  const r = G.D.rooms.find(x=> x.type === "boss");
+  G.player.x = r.cxw; G.player.y = r.y2 - 0.5; step(G, 1.6);
+  const king = G.bossRef;
+  // stand him in a corner so half his summons would land in the wall
+  king.x = r.x1 + 1.2; king.y = r.y1 + 1.2;
+  for(let i=0;i<20;i++){ king.ai.state = "summon"; king.ai.t = 0; G.enemies.filter(e=> e !== king).forEach(e=> e.dead = true); step(G, 1/60); }
+  for(const e of G.enemies) assert.ok(G.inRoom(r, e.x, e.y), e.type + " summoned outside the room");
+});

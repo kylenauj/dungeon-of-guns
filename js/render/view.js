@@ -247,7 +247,8 @@ proto.update = function(dt, t){
     else if(e.st.poison && e.st.poison.stacks > 0) { tc = e.st.poison.plague ? 0x8aff2a : 0x4ab82a; tk = 0.3 + 0.25*Math.sin(t*5 + e.id); }
     else if(e.st.chill > 0) { tc = 0x2a6a9a; }
     M.tint(R, tc, tk);
-    M.fade(R, e.hidden ? 0.18 : 1);
+    M.fade(R, e.hidden ? 0.32 + 0.12*Math.sin(t*5 + e.id) : 1);
+    if(e.hidden && Math.random() < 0.25) FX.emit(e.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, e.y + (Math.random() - 0.5)*0.6, 0, 0.3, 0, 0x9cff3a, 0.16, 0.4, 0, 1);
     if(R.aura) R.aura.material.opacity = 0.4 + 0.2*Math.sin(t*4 + e.id);
     if(e.st.poison && e.st.poison.stacks > 0 && Math.random() < 0.08 + e.st.poison.stacks*0.02) FX.emit(e.x + (Math.random() - 0.5)*0.4, 0.9, e.y, 0, 0.8, 0, 0x7dff3a, 0.18, 0.6, 0, 0.5);
     if(e.st.burn && e.st.burn.t > 0 && Math.random() < 0.35) FX.emit(e.x + (Math.random() - 0.5)*0.4, 0.6, e.y, 0, 1.6, 0, 0xff7a1a, 0.3, 0.4, 0, 0.5);

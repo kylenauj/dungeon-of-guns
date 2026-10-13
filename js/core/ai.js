@@ -14,6 +14,12 @@ const AI = DG.AI = {};
 AI.update = function(G, e, dt){
   if(e.dead) return;
   if(e.spawn > 0){ e.spawn -= dt; return; }
+  // the safety net: a goblin is never allowed to end up outside its locked room
+  const room = G.D.rooms[e.room];
+  if(room && room.active && !e.airborne && !G.inRoom(room, e.x, e.y)){
+    const s = G.freeSpot(room, e.x, e.y);
+    e.x = s.x; e.y = s.y; e.kx = e.ky = 0;
+  }
   // knockback first: this is how goblins end up in pits
   if(Math.abs(e.kx) + Math.abs(e.ky) > 0.05){
     G.move(e, e.kx*dt, e.ky*dt, Math.hypot(e.kx, e.ky) > 2.5 ? "flying" : "enemy");
@@ -268,7 +274,8 @@ const BEHAVIOUR = {
           const room = G.D.rooms[e.room], n = rage ? 3 : 2;
           for(let i=0;i<n;i++){
             const a = G.rng.next()*Math.PI*2, x = e.x + Math.cos(a)*2.5, y = e.y + Math.sin(a)*2.5;
-            if(G.blocked(Math.floor(x), Math.floor(y), "enemy")) continue;
+            // inside his own room, never through the wall
+            if(!G.inRoom(room, x, y) || G.blocked(Math.floor(x), Math.floor(y), "enemy")) continue;
             G.spawnEnemy(room, { type:G.floor >= 2 && i === 2 ? "slinger" : "grunt", x, y, elite:null });
           }
           A.state = "walk";
