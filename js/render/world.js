@@ -18,9 +18,9 @@ const World = DG.World = function(D){
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
-    floor: new THREE.MeshPhongMaterial({ vertexColors:true, map:K.floorTex, shininess:0, specular:0x000000 }),
-    wall:  new THREE.MeshPhongMaterial({ vertexColors:true, map:K.stoneTex, shininess:0, specular:0x000000 }),
-    plain: new THREE.MeshPhongMaterial({ vertexColors:true, shininess:0, specular:0x000000 })
+    floor: K.ink({ map:K.floorTex }),
+    wall:  K.ink({ map:K.stoneTex }),
+    plain: K.ink()
   };
   W.rnd = DG.RNG(D.seed ^ 0x51ed).next;
   W.assignAreas();
@@ -34,6 +34,7 @@ const World = DG.World = function(D){
   W.buildDecor();
   W.buildBreakables();
   W.buildMotes();
+  W.buildVanity();
   D.rooms.forEach(r=> r.props.forEach(p=> W.addProp(p)));
   D.rooms.forEach(r=>{ if(r.puzzle) W.buildPuzzle(r); });
 };
@@ -187,7 +188,7 @@ proto.buildFakes = function(){
       const g = new THREE.BoxGeometry(1, WH, 1); g.translate(x + 0.5, WH/2, y + 0.5);
       parts.push(K.paint(g, th.wall, (c, px, py)=>{ if(py > WH - 0.01) c.setHex(th.top); c.multiplyScalar(1.2*0.93); }));
     });
-    const m = new THREE.Mesh(K.merge(parts), new THREE.MeshPhongMaterial({ vertexColors:true, map:K.stoneTex, shininess:0, transparent:true, opacity:1, specular:0 }));
+    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex, transparent:true, opacity:1 }));
     const a = W.area[f.tiles[0][1]*W.D.w + f.tiles[0][0]];
     W.areaGroup(a >= 0 ? a : f.room).add(m);
     W.fakes.push({ f, m, t:0 });
@@ -215,7 +216,7 @@ proto.buildPainted = function(){
   const W = this;
   W.painted = [];
   W.D.painted.forEach(p=>{
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 1.3), new THREE.MeshPhongMaterial({ map:paintedDoorTex(p.color), shininess:0, specular:0, transparent:true }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 1.3), K.ink({ vertexColors:false, map:paintedDoorTex(p.color), transparent:true }));
     m.position.set(p.x + 0.5, 0.65, p.y + 1.012);
     const a = W.area[p.y*W.D.w + p.x];
     W.areaGroup(a >= 0 ? a : p.room).add(m);
@@ -238,8 +239,11 @@ proto.buildTorches = function(){
       if(r.props.some(p=> p.kind === "sign" && Math.abs(p.x - x) < 1)) continue;
       if(D.decor.some(d=> d.wall && Math.abs(d.x - x - 0.5) < 0.8 && Math.abs(d.y - y - 1) < 0.5)) continue;
       const g = new THREE.Group(); g.position.set(x + 0.5, 1.15, y + 1.05);
+      K.part(g, new THREE.BoxGeometry(0.16, 0.22, 0.04), 0x2a2a30, 0, -0.12, -0.04);
       K.part(g, new THREE.CylinderGeometry(0.04, 0.03, 0.4, 6), 0x4a3020, 0, 0, 0, 0.5);
-      K.part(g, new THREE.CylinderGeometry(0.09, 0.05, 0.1, 8), 0x2a2a30, 0, 0.2, 0.1);
+      K.part(g, new THREE.CylinderGeometry(0.11, 0.05, 0.12, 8), 0x2a2a30, 0, 0.2, 0.1);
+      K.part(g, new THREE.TorusGeometry(0.1, 0.015, 4, 12), 0x5a5a64, 0, 0.26, 0.1, PI/2);
+      [-1, 1].forEach(s=> K.part(g, new THREE.ConeGeometry(0.02, 0.08, 4), 0x2a2a30, s*0.1, 0.3, 0.1));
       K.bake(g, { w:0.015 });
       const flame = K.sprite(W.th.torch, 0.55, 0.95); flame.position.set(0, 0.32, 0.12); g.add(flame);
       const core = K.sprite(0xffffff, 0.2, 0.9); core.position.set(0, 0.3, 0.12); g.add(core);
@@ -282,15 +286,17 @@ proto.buildTraps = function(){
 };
 
 /* ---- decor: flattened per room into one baked mesh ---- */
-proto.buildDecor = function(){
+/* (a list other than the dungeon's own comes from vanity.js: those can
+   sit on any wall face (face + rotY) or on top of a wall (h)) */
+proto.buildDecor = function(list){
   const W = this, D = W.D, perArea = {}, glows = {};
   const tmp = new THREE.Matrix4();
-  D.decor.forEach(d=>{
+  (list || D.decor).forEach(d=>{
     const o = DG.Decor.build(d.kind, W.rnd);
-    const a = W.areaOfTile(d.x, d.wall ? d.y - 0.5 : d.y); if(a === null) return;
+    const a = d.area !== undefined ? d.area : W.areaOfTile(d.x, d.wall ? d.y - 0.5 : d.y); if(a === null || a < 0) return;
     const holder = new THREE.Group();
-    holder.position.set(d.x, 0, d.wall ? d.y + 1 - 0.98 : d.y);
-    if(!d.wall) holder.rotation.y = d.rot || 0;
+    holder.position.set(d.x, d.h || 0, d.face ? d.y : d.wall ? d.y + 1 - 0.98 : d.y);
+    if(d.face) holder.rotation.y = d.rotY || 0; else if(!d.wall) holder.rotation.y = d.rot || 0;
     holder.scale.setScalar(d.s || 1);
     holder.updateMatrix();
     if(o.loose){ o.group.position.copy(holder.position); o.group.rotation.copy(holder.rotation); o.group.scale.copy(holder.scale); W.areaGroup(a).add(o.group); return; }
@@ -404,6 +410,9 @@ proto.addProp = function(p){
     P(g, new THREE.BoxGeometry(0.82, 0.44, 0.56), col, 0, 0.22, 0);
     P(g, new THREE.BoxGeometry(0.86, 0.07, 0.6), band, 0, 0.4, 0);
     P(g, new THREE.BoxGeometry(0.12, 0.15, 0.05), band, 0, 0.36, 0.3);
+    P(g, new THREE.BoxGeometry(0.05, 0.06, 0.02), 0x1a1a1a, 0, 0.34, 0.33);
+    [-0.33, 0.33].forEach(x=>{ P(g, new THREE.BoxGeometry(0.08, 0.44, 0.6), band, x, 0.22, 0); [0.1, 0.32].forEach(y=> P(g, new THREE.SphereGeometry(0.022, 6, 4), 0x2a2a2a, x, y, 0.3)); });
+    P(g, new THREE.BoxGeometry(0.9, 0.06, 0.64), 0x3a2414, 0, 0.03, 0);
     const lid = new THREE.Group(); lid.position.set(0, 0.44, -0.28); g.add(lid);
     P(lid, new THREE.CylinderGeometry(0.28, 0.28, 0.82, 12, 1, false, 0, PI), col, 0, 0, 0.28, 0, 0, PI/2);
     P(lid, new THREE.TorusGeometry(0.28, 0.03, 6, 12, PI), band, 0, 0, 0.28, 0, PI/2, 0);
@@ -414,7 +423,7 @@ proto.addProp = function(p){
     P(g, new THREE.BoxGeometry(0.08, 0.9, 0.08), 0x4a3020, 0, 0.45, 0);
     K.bake(g, { w:0.015 });
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.06), [K.lambert(0x6a4a2a), K.lambert(0x6a4a2a), K.lambert(0x6a4a2a), K.lambert(0x6a4a2a),
-      new THREE.MeshLambertMaterial({ map:K.textTex([p.riddle ? "RIDDLE" : "READ ME"], 64, 36, { size:13 }) }), K.lambert(0x6a4a2a)]);
+      K.ink({ vertexColors:false, map:K.textTex([p.riddle ? "RIDDLE" : "READ ME"], 64, 36, { size:13 }) }), K.lambert(0x6a4a2a)]);
     board.position.y = 0.95; board.rotation.x = -0.25; g.add(board);
     g.position.z += 0.2;
   } else if(p.kind === "merchant"){
@@ -438,7 +447,11 @@ proto.addProp = function(p){
       P(g, new THREE.CylinderGeometry(0.32, 0.4, 0.7, 8), W.th.top, 0, 0.35, 0);
       P(g, new THREE.CylinderGeometry(0.42, 0.42, 0.08, 8), W.th.wall, 0, 0.74, 0);
       P(g, new THREE.CylinderGeometry(0.46, 0.46, 0.08, 8), W.th.wall, 0, 0.04, 0);
+      P(g, new THREE.CylinderGeometry(0.52, 0.56, 0.06, 8), new THREE.Color(W.th.wall).multiplyScalar(0.7).getHex(), 0, 0.01, 0);
+      for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(g, new THREE.BoxGeometry(0.1, 0.5, 0.06), new THREE.Color(W.th.top).multiplyScalar(1.25).getHex(), Math.cos(a)*0.35, 0.38, Math.sin(a)*0.35, 0, -a + PI/2, 0); }
       K.bake(g, { w:0.02 });
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.365, 0.365, 0.06, 16, 1, true), new THREE.MeshBasicMaterial({ color:W.th.rim || 0xffd23d, transparent:true, opacity:0.7, blending:THREE.AdditiveBlending, depthWrite:false }));
+      band.position.y = 0.55; g.add(band); o.band = band;
     }
     o.holder = new THREE.Group(); o.holder.position.y = 1.2; g.add(o.holder);
     o.shown = null; o.sink = 0;
@@ -586,6 +599,7 @@ proto.update = function(G, dt, t){
         if(o.key !== key || (pr.taken && o.shown)){ if(o.shown) o.holder.remove(o.shown); o.shown = null; o.key = key; }
         if(!pr.taken && !o.shown && pr.offer){ o.shown = M.offer(pr.offer); o.holder.add(o.shown); if(pr.offer.kind === "item" && DG.ITEMS[pr.offer.id].tier >= 3){ const b = M.beam(DG.TIERS[DG.ITEMS[pr.offer.id].tier].color); b.position.y = -0.6; o.shown.add(b); } }
         if(o.shown){ o.shown.rotation.y = t*1.2; o.shown.position.y = Math.sin(t*2)*0.06; }
+        if(o.band){ o.band.visible = !pr.taken; o.band.material.opacity = 0.45 + 0.25*Math.sin(t*2.5); }
         if(pr.sunk){ o.sink = Math.min(1, o.sink + dt*1.5); o.g.position.y = -o.sink*1.2; }
       }
       if(pr.kind === "lilypad"){
@@ -618,6 +632,7 @@ proto.update = function(G, dt, t){
     e.blink -= dt; if(e.blink < 0){ e.g.scale.y = 0.1; if(e.blink < -0.12){ e.blink = 2 + Math.random()*5; e.g.scale.y = 1; } }
   });
   W.updateBreakables();
+  W.updateVanity(G, dt, t);
   W.moteMat.uniforms.uCenter.value.set(p.x, 0, p.y);
   W.moteMat.uniforms.uScale.value = S.renderer.domElement.height/2/Math.tan(S.camera.fov*PI/360);
 };
@@ -625,7 +640,8 @@ proto.update = function(G, dt, t){
 proto.dispose = function(){
   this.group.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
   const K2 = DG.Kit;
-  K2.timed = K2.timed.filter(m=> m !== this.waterMat && m !== this.moteMat && !(this.glowMats || []).includes(m));
+  const mine = [this.waterMat, this.moteMat].concat(this.glowMats || [], this.vanityMats || []);
+  K2.timed = K2.timed.filter(m=> mine.indexOf(m) < 0);
 };
 
 })();

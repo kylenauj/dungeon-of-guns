@@ -55,8 +55,52 @@ const B = {
   walleye(o){ P(o.group, S(0.28, 12, 8), 0x6a2a4a, 0, 1.0, 0, 0, 0, 0, 1, 0.75, 0.4); o.eyes.push({ x:0, y:1.0, z:0.08, r:0.17, wall:true }); },
   tendrils(o){ for(let i=0;i<3;i++) P(o.group, K.tube([[(i - 1)*0.25, 1.5, 0.03], [(i - 1)*0.3, 1.0, 0.12], [(i - 1)*0.2, 0.45, 0.06]], 0.04, 8, 5), 0x9a4a9a); },
   veins(o){ for(let i=0;i<3;i++) P(o.group, K.tube([[(i - 1)*0.3, 1.6, 0.03], [(i - 1)*0.1, 1.0, 0.06], [(i - 1)*0.35, 0.3, 0.03]], 0.04, 8, 5), 0x8a1a2a); },
+  /* ---- more wall dressing (placed by vanity.js on any wall face) ---- */
+  beam(o){ P(o.group, BX(0.22, 1.7, 0.2), 0x6a4426, 0, 0.85, 0.1); P(o.group, BX(0.9, 0.2, 0.24), 0x5a3a20, 0, 1.6, 0.12); [-0.3, 0.3].forEach(x=> P(o.group, BX(0.08, 0.5, 0.08), 0x5a3a20, x*0.9, 1.35, 0.12, 0, 0, x > 0 ? -0.7 : 0.7)); [0.5, 1.2].forEach(y=> P(o.group, CY(0.02, 0.02, 0.05, 6), 0x3a3a40, 0.06, y, 0.21, PI/2)); },
+  pipes(o, rnd){ P(o.group, CY(0.07, 0.07, 1.0, 10), 0x6a6a72, 0, 1.25, 0.1, 0, 0, PI/2); P(o.group, CY(0.07, 0.07, 0.9, 10), 0x6a6a72, 0.42, 0.8, 0.1); P(o.group, S(0.1, 8, 6), 0x5a5a62, 0.42, 1.25, 0.1); P(o.group, TO(0.08, 0.02), 0xa04a2a, -0.2, 1.25, 0.1, 0, PI/2); P(o.group, CY(0.08, 0.08, 0.03, 6), 0xc83a2a, -0.2, 1.38, 0.1); o.glows.push({ x:0.42, y:0.35, z:0.1, c:0x6ad8ff, s:0.25 }); },
+  poster(o, rnd){ const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.62), K.ink({ vertexColors:false, map:posterTex(Math.floor(rnd()*3)) })); m.position.set(0, 1.05, 0.03); m.rotation.z = (rnd() - 0.5)*0.2; o.group.add(m); o.loose = true; },
+  barrelrack(o){ P(o.group, BX(0.9, 0.06, 0.4), 0x5a3a20, 0, 0.5, 0.2); [-0.25, 0.25].forEach(x=>{ P(o.group, CY(0.18, 0.18, 0.4, 12), 0x8a5a30, x, 0.72, 0.2, PI/2); P(o.group, CY(0.1, 0.1, 0.42, 8), 0x3a2a1a, x, 0.72, 0.21, PI/2); P(o.group, CY(0.03, 0.03, 0.08, 6), 0x9a9aa8, x, 0.62, 0.43, PI/2); }); [-0.42, 0.42].forEach(x=> P(o.group, BX(0.06, 0.5, 0.36), 0x5a3a20, x, 0.25, 0.2)); },
+  roots(o, rnd){ for(let i=0;i<4;i++){ const x = (i - 1.5)*0.2; P(o.group, K.tube([[x, 1.75, 0.03], [x + (rnd() - 0.5)*0.2, 1.3, 0.12], [x + (rnd() - 0.5)*0.3, 0.8 + rnd()*0.3, 0.08]], 0.03, 8, 4), 0x6a4a2a); } },
+  stalactites(o, rnd){ for(let i=0;i<5;i++){ const h = 0.2 + rnd()*0.35; P(o.group, CO(0.06 + rnd()*0.04, h, 6), 0x8a8a7a, (i - 2)*0.2, 1.72 - h/2, 0.1 + rnd()*0.1, PI); } },
+  glowworms(o, rnd){ for(let i=0;i<6;i++) o.glows.push({ x:(rnd() - 0.5)*0.8, y:1.0 + rnd()*0.6, z:0.04, c:0x9cffd8, s:0.18 }); for(let i=0;i<6;i++) P(o.group, CY(0.004, 0.004, 0.3 + rnd()*0.3, 3), 0xc8e8e0, (rnd() - 0.5)*0.8, 1.45, 0.04); o.lights.push({ x:0, y:1.2, z:0.4, c:0x9cffd8, i:0.4 }); },
+  window(o, rnd){ const c = [0x6ab8ff, 0xff6a8a, 0xb88aff][Math.floor(rnd()*3)]; P(o.group, BX(0.62, 0.92, 0.06), 0x3a3a48, 0, 1.08, 0.02); P(o.group, CY(0.31, 0.31, 0.06, 14, 1, false, 0, PI), 0x3a3a48, 0, 1.54, 0.02, PI/2, 0, PI/2); const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.8), new THREE.MeshBasicMaterial({ map:glassTex(), color:c })); glass.position.set(0, 1.08, 0.06); o.group.add(glass); o.loose = true; o.glows.push({ x:0, y:1.1, z:0.1, c, s:1.6 }); o.lights.push({ x:0, y:1.2, z:0.6, c, i:0.9 }); },
+  coffinwall(o){ P(o.group, K.lathe([[0.0, 0], [0.22, 0], [0.3, 0.9], [0.22, 1.5], [0, 1.5]], 6), 0x4a3a3a, 0, 0, 0.12, 0, 0, 0, 1, 1, 0.45); P(o.group, BX(0.05, 0.45, 0.02), 0xd8c8a0, 0, 0.95, 0.27); P(o.group, BX(0.25, 0.05, 0.02), 0xd8c8a0, 0, 1.05, 0.27); },
+  urnshelf(o){ P(o.group, BX(0.8, 0.06, 0.24), 0x5a5a64, 0, 0.95, 0.12); [-0.25, 0, 0.25].forEach((x, i)=>{ P(o.group, K.lathe([[0, 0], [0.07, 0], [0.1, 0.1], [0.06, 0.2], [0.08, 0.24], [0, 0.24]], 8), [0x6a7a9a, 0x9a8a6a, 0x7a5a6a][i], x, 0.98, 0.12); }); },
+  drips(o, rnd){ const c = rnd() < 0.5 ? 0x9cff3a : 0xff4ad8; for(let i=0;i<4;i++){ const x = (rnd() - 0.5)*0.8, h = 0.3 + rnd()*0.7; P(o.group, CY(0.025, 0.04, h, 6), c, x, 1.7 - h/2, 0.03); P(o.group, S(0.045, 6, 4), c, x, 1.7 - h, 0.04); } o.glows.push({ x:0, y:1.2, z:0.06, c, s:0.9 }); },
+  mouthwall(o){ P(o.group, S(0.38, 12, 8), 0x8a2a4a, 0, 0.9, 0, 0, 0, 0, 1, 0.6, 0.35); P(o.group, S(0.3, 12, 8), 0x1a040a, 0, 0.9, 0.06, 0, 0, 0, 1, 0.42, 0.3); for(let i=0;i<6;i++){ const x = -0.2 + i*0.08; P(o.group, CO(0.03, 0.09, 4), 0xf4ecd8, x, 1.0, 0.12, PI); P(o.group, CO(0.03, 0.09, 4), 0xf4ecd8, x + 0.04, 0.8, 0.12); } P(o.group, S(0.12, 8, 6), 0xd84a6a, 0, 0.82, 0.12, 0, 0, 0, 1.4, 0.5, 0.6); },
+  valve(o){ P(o.group, S(0.32, 12, 10), 0x8a1a2a, 0, 0.9, 0.0, 0, 0, 0, 1, 1, 0.45); for(let i=0;i<8;i++){ const a = i/8*PI*2; P(o.group, BX(0.03, 0.18, 0.04), 0x5a0a14, Math.cos(a)*0.17, 0.9 + Math.sin(a)*0.17, 0.12, 0, 0, a + PI/2); } P(o.group, S(0.08, 8, 6), 0x1a0204, 0, 0.9, 0.13); o.glows.push({ x:0, y:0.9, z:0.18, c:0xff3a3a, s:0.7 }); },
+  cornerweb(o){ const w = new THREE.Mesh(new THREE.CircleGeometry(0.8, 6, 0, PI/2), new THREE.MeshBasicMaterial({ map:webTex(), transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide })); w.rotation.z = PI; w.position.set(0.4, 1.7, 0.02); o.group.add(w); o.loose = true; },
+  /* ---- on top of walls ---- */
+  toprubble(o, rnd){ for(let i=0;i<3;i++) P(o.group, new THREE.DodecahedronGeometry(0.07 + rnd()*0.07), 0x8a8076, (rnd() - 0.5)*0.6, 0.05, (rnd() - 0.5)*0.6, rnd(), rnd()); },
+  topgrass(o, rnd){ for(let i=0;i<6;i++) P(o.group, CO(0.03, 0.2 + rnd()*0.15, 4), [0x5a9a3a, 0x7ab84a][i % 2], (rnd() - 0.5)*0.6, 0.1, (rnd() - 0.5)*0.6, (rnd() - 0.5)*0.4, 0, (rnd() - 0.5)*0.4); },
+  topcandle(o, rnd){ const h = 0.12 + rnd()*0.15; P(o.group, CY(0.04, 0.045, h, 8), 0xf0e6c8, 0, h/2, 0); P(o.group, S(0.07, 8, 4), 0xe8dcb8, 0, 0.01, 0, 0, 0, 0, 1.4, 0.3, 1.4); o.glows.push({ x:0, y:h + 0.05, z:0, c:0xffb84a, s:0.35 }); },
+  topeye(o){ P(o.group, S(0.16, 10, 8), 0x7a2a5a, 0, 0.02, 0, 0, 0, 0, 1, 0.5, 1); o.eyes.push({ x:0, y:0.08, z:0, r:0.1 }); },
+  topskull(o){ P(o.group, S(0.1, 10, 8), 0xe8e2cc, 0, 0.09, 0); P(o.group, BX(0.12, 0.05, 0.08), 0xe8e2cc, 0, 0.02, 0.03); [-1, 1].forEach(s=> P(o.group, S(0.03, 6, 4), 0x101010, s*0.04, 0.1, 0.08)); },
   ribs(o){ for(let i=0;i<4;i++) P(o.group, TO(0.32, 0.035, PI), 0xe8dcc8, 0, 0.6 + i*0.25, 0.02); }
 };
+/* a goblin wanted poster, a lost-frog notice, a menu */
+const _posters = {};
+function posterTex(i){
+  if(_posters[i]) return _posters[i];
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 80; const g = cv.getContext("2d");
+  g.fillStyle = "#e8d8b0"; g.fillRect(0, 0, 64, 80); g.fillStyle = "#c8b890"; for(let k=0;k<40;k++) g.fillRect(Math.random()*64|0, Math.random()*80|0, 2, 1);
+  g.fillStyle = "#3a2010"; g.textAlign = "center"; g.font = "900 13px 'Saira Condensed', sans-serif";
+  const head = ["WANTED", "LOST FROG", "MENU"][i]; g.fillText(head, 32, 14);
+  if(i === 0){ g.fillStyle = "#6b3fd0"; g.beginPath(); g.moveTo(32, 22); g.lineTo(44, 46); g.lineTo(20, 46); g.fill(); g.fillStyle = "#f2c9a0"; g.beginPath(); g.arc(32, 50, 7, 0, 7); g.fill(); g.fillStyle = "#fff"; g.fillRect(26, 54, 12, 8); g.fillStyle = "#3a2010"; g.font = "700 8px sans-serif"; g.fillText("REWARD:", 32, 70); g.fillText("3 SNAILS", 32, 78); }
+  else if(i === 1){ g.fillStyle = "#5ac83a"; g.beginPath(); g.ellipse(32, 44, 14, 10, 0, 0, 7); g.fill(); g.fillStyle = "#fff"; g.beginPath(); g.arc(26, 36, 4, 0, 7); g.arc(38, 36, 4, 0, 7); g.fill(); g.fillStyle = "#3a2010"; g.font = "700 8px sans-serif"; g.fillText("ANSWERS TO", 32, 66); g.fillText("\"GRIBBUS\"", 32, 75); }
+  else { g.font = "700 8px sans-serif"; ["rat on stick ..2g", "rat no stick ..1g", "mystery soup ..?", "the stick .....5g"].forEach((l, k)=> g.fillText(l, 32, 32 + k*12)); }
+  const t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter;
+  return _posters[i] = t;
+}
+let _glass = null;
+function glassTex(){
+  if(_glass) return _glass;
+  const cv = document.createElement("canvas"); cv.width = 32; cv.height = 56; const g = cv.getContext("2d");
+  for(let y=0;y<7;y++) for(let x=0;x<4;x++){ const v = 150 + ((x*7 + y*13) % 5)*25; g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.fillRect(x*8, y*8, 8, 8); }
+  g.strokeStyle = "#1a1a22"; g.lineWidth = 2; for(let x=0;x<=32;x+=8){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 56); g.stroke(); } for(let y=0;y<=56;y+=8){ g.beginPath(); g.moveTo(0, y); g.lineTo(32, y); g.stroke(); }
+  g.fillStyle = "#fff8d0"; g.beginPath(); g.arc(16, 24, 6, 0, 7); g.fill();
+  _glass = new THREE.CanvasTexture(cv); _glass.magFilter = THREE.NearestFilter; return _glass;
+}
 let _web = null;
 function webTex(){
   if(_web) return _web;
@@ -66,6 +110,7 @@ function webTex(){
   for(let r=10; r<64; r+=10){ g.beginPath(); for(let i=0;i<=6;i++){ const a = i/6*Math.PI/2; const x = Math.cos(a)*r, y = Math.sin(a)*r; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
   _web = new THREE.CanvasTexture(cv); return _web;
 }
+Decor.kinds = ()=> Object.keys(B);
 Decor.build = function(kind, rnd){ const o = make(); (B[kind] || B.rubble)(o, rnd); return o; };
 
 /* ---- breakables: one baked look per kind, drawn instanced ---- */

@@ -9,7 +9,7 @@ A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, 
 - **Five floors:** the Goblin Cellars, the Mushroom Grotto, the Haunted Crypt, the Weird Below and the Hollow Heart. Each has its own enemies (goblins, shroom folk, ghosts, banshees, skeletons, watchers, blobs, tentacles), its own decor and its own boss: Grubnok the Goblin King, the Shroom Matriarch, the Weeping Bride, the Eye Below and the Hollow Heart.
 - **Rooms:** jumbo rooms, shops, treasure rooms, frog ponds, cursed altars, secret rooms behind **illusionary walls**, and five kinds of **goofy puzzle** (painted doors, braziers, push-blocks, the mushroom chorus, turning statues).
 
-All art and sound are generated in code, built on the asset kit from *Pine Hollow Rally* and *Gloom Shooter*. See the [design doc](docs/DESIGN.md) for the game loop, the difficulty and loot curves, and the roadmap.
+The look is "lantern ink": dithered, banded light with ink hatching in the shadows, ink outlines on everything, and a colour grade per floor. The deeper floors make the picture itself swim. All art and sound are generated in code, built on the asset kit from *Pine Hollow Rally* and *Gloom Shooter*. See the [design doc](docs/DESIGN.md) for the game loop, the difficulty and loot curves, and the roadmap.
 
 ## Run it
 
@@ -20,7 +20,7 @@ npm start                 # http-server on http://localhost:8080
 # or: python3 -m http.server 8080
 ```
 
-URL shortcuts for testing: `?play` (skip the title), `?seed=WORD`, `?floor=3`, `?god`.
+URL shortcuts for testing: `?play` (skip the title), `?seed=WORD`, `?floor=3`, `?god`. Add `?gallery` to see every model lined up (WASD pans, the wheel zooms, 1-5 switch the floor lighting).
 
 `npm run bundle` builds `dist/dungeon-of-guns.html`, a single file that runs by double-clicking it.
 
@@ -40,7 +40,7 @@ URL shortcuts for testing: `?play` (skip the title), `?seed=WORD`, `?floor=3`, `
 | `Tab` | Satchel: guns, powerups, boons, Gribbus |
 | `1`–`3` on level-up | Pick a boon |
 | `Esc` | Pause |
-| `M` / `P` | Sound / chunky pixels |
+| `M` / `P` / `V` | Sound / chunky pixels / ink look on or off |
 
 Gamepad: left stick moves, right stick aims, RT shoots, LT casts, A blinks, X uses, B fires the active item, Y swaps, RB opens the satchel.
 

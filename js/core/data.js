@@ -178,18 +178,23 @@ DG.FINAL_FLOOR = 5;
 DG.FLOORS = [
   { name:"The Goblin Cellars",  boss:"king",      floor:0x3a3330, floor2:0x2e2826, wall:0x5a4e45, top:0x6e6155, torch:0xffa04a, fog:0x0d0a0a,
     ambient:0x9a8a7a, light:1.0, decor:"cellar", motes:"dust",
+    ink:0x160a06, rim:0xffb070, shaft:0xffe2a8, mist:0.18, shade:0x2a1838, high:0xffe2b0, weird:0,
     enemies:{ grunt:3, slinger:2.2, bomber:0.8, sneak:0.3 } },
   { name:"The Mushroom Grotto", boss:"matriarch", floor:0x2c3a30, floor2:0x223026, wall:0x3d5244, top:0x4f6a56, torch:0x9cff6a, fog:0x050d07,
     ambient:0x6a9a7a, light:0.9, decor:"grotto", motes:"spores",
+    ink:0x03140a, rim:0x9cff8a, shaft:0xc8ff9a, mist:0.3, shade:0x08263a, high:0xeaffb0, weird:0.12,
     enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2.2, toadstool:1.4, shroomkin:1.6 } },
   { name:"The Haunted Crypt",   boss:"bride",     floor:0x2a2e3e, floor2:0x222533, wall:0x3e4460, top:0x535a7a, torch:0x6ad8ff, fog:0x04060c,
     ambient:0x6a7aa8, light:0.75, decor:"crypt", motes:"ghostfog",
+    ink:0x05081a, rim:0x8ad8ff, shaft:0xa8d0ff, mist:0.42, shade:0x180e40, high:0xd8f0ff, weird:0.32,
     enemies:{ ghost:2.4, banshee:1.2, skeleton:2.2, poltergeist:1.2, sneak:0.8, brute:0.8, shroomkin:0.6 } },
   { name:"The Weird Below",     boss:"eye",       floor:0x3a2434, floor2:0x2e1c2a, wall:0x5a2e4a, top:0x7a3e60, torch:0xff4ad8, fog:0x0c0308,
     ambient:0x9a6a9a, light:0.62, decor:"weird", motes:"eyes",
+    ink:0x14031a, rim:0xff6ad8, shaft:0xff9ae8, mist:0.36, shade:0x2a0838, high:0xffd0ff, weird:0.68,
     enemies:{ watcher:1.6, blob:2, tentacle:1.4, ghost:1.2, banshee:0.8, skeleton:1, brute:0.8, puffling:1 } },
   { name:"The Hollow Heart",    boss:"heart",     floor:0x2e1414, floor2:0x240e0e, wall:0x4a1a1e, top:0x6a2428, torch:0xff2a3a, fog:0x080202,
     ambient:0x9a5a5a, light:0.5, decor:"heart", motes:"embers",
+    ink:0x1c0204, rim:0xff5a4a, shaft:0xff7a5a, mist:0.38, shade:0x380010, high:0xffd8b0, weird:1,
     enemies:{ watcher:1.4, blob:1.4, tentacle:1.4, banshee:1.2, ghost:1, brute:1.2, shroomkin:1, bomber:1, poltergeist:1, shaman:0.8 } }
 ];
 

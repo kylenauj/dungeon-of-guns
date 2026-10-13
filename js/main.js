@@ -6,7 +6,7 @@
  *  Behind the title, a bot plays a real run with the sound off (the
  *  attract mode from every arcade cabinet you ever walked past).
  *
- *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play
+ *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -77,6 +77,7 @@ UI.on({
   closeBag: ()=> app.resume(),
   abandon: ()=>{ app.G.state = "dead"; app.G.lastHurt = "giving up"; app.end(false); },
   endless: ()=>{ app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
+  ink: b=>{ const on = S.toggleInk(); if(b) b.querySelector("small").textContent = on ? "ink" : "plain"; },
   pixel: b=>{ const on = S.togglePixel(); if(b) b.querySelector("small").textContent = on ? "chunky" : "crisp"; },
   mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
   boon: b=> app.pick(+b.dataset.i)
@@ -87,6 +88,7 @@ IN.onKey = function(e){
   AU.start();
   if(e.code === "KeyM" && !(e.target && e.target.tagName === "INPUT")){ AU.toggleMute(); HUD.toast(AU.muted ? "Sound off" : "Sound on", 1.2); return; }
   if(e.code === "KeyP" && !(e.target && e.target.tagName === "INPUT")){ S.togglePixel(); return; }
+  if(e.code === "KeyV" && !(e.target && e.target.tagName === "INPUT")){ HUD.toast(S.toggleInk() ? "Ink look" : "Plain look", 1.2); return; }
   if(e.code === "Escape"){
     if(app.mode === "play") app.pause();
     else if(app.mode === "pause" || app.mode === "bag") app.resume();
@@ -157,8 +159,9 @@ app.startDemoSoon = function(){
 function boot(){
   S.init(); DG.FX.init(S.scene); HUD.init(); IN.init();
   addEventListener("pointerdown", ()=> AU.start());
-  S.onFrame(frame);
   document.getElementById("loading").remove();
+  if(Q.has("gallery")){ DG.Gallery.start(); return; }
+  S.onFrame(frame);
   if(Q.has("play") || Q.has("seed")) app.newRun(Q.get("seed") || undefined);
   else app.startDemo();
 }

@@ -15,6 +15,11 @@ const DG = window.DG, K = DG.Kit, S = DG.Stage, FX = DG.FX, M = DG.Models;
 const A = ()=> DG.Audio;
 const PI = Math.PI;
 const ELC = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
+/* what each kind leaves on the floor when it goes */
+const SPLAT = { grunt:0x2a5a14, slinger:0x2a5a14, bomber:0x2a5a14, shaman:0x2a5a14, brute:0x2a5a14, sneak:0x2a4a1a, king:0x2a5a14,
+  puffling:0xa89870, toadstool:0x8a2a1a, shroomkin:0x5a2a7a, shroomlet:0x6a2a8a, matriarch:0x8a6a3a,
+  ghost:0x6ab8d8, banshee:0x6a8ad8, poltergeist:0x6aa84a, skeleton:0xb8b09a, bride:0x8ab8e8,
+  watcher:0x7a1a4a, blob:0x5aa82a, blobling:0x6ab83a, tentacle:0x5a1a5a, eye:0x8a1a2a, heart:0x6a0a10 };
 
 function shadowBlob(r){
   const s = new THREE.Mesh(K.glowPlane, new THREE.MeshBasicMaterial({ map:K.glowTex, color:0x000000, transparent:true, opacity:0.55, depthWrite:false }));
@@ -96,6 +101,8 @@ proto.handle = function(ev){
     case "bounce": FX.burst(ev.x, 0.75, ev.y, ev.els ? ELC(ev.els[0]) : 0xffffff, 4, 3, 0.15, 0.15); play("bounce"); break;
     case "kill": {
       const R = V.rigs[ev.id];
+      // what's left behind stays for the floor
+      if(!ev.fell && !ev.decoy && V.world){ const k = R ? R.kind : ""; V.world.addSplat(ev.x, ev.y, SPLAT[k] || 0x3a6a1a, ev.boss ? 4 : 1.1 + Math.random()*0.5); }
       if(R){ delete V.rigs[ev.id]; V.dying.push({ R, t:0, fell:ev.fell, boss:ev.boss, midas:ev.midas, decoy:ev.decoy }); }
       const col = ev.midas ? 0xffd23d : ev.decoy ? 0xd8e8ff : 0x7ad84a;
       FX.burst(ev.x, 0.6, ev.y, col, ev.boss ? 60 : 14, ev.boss ? 9 : 4.5, 0.3, 0.6, { grav:9, col2:ev.midas ? 0xffffff : 0xffe14a });
@@ -131,6 +138,7 @@ proto.handle = function(ev){
     case "boom":
       FX.burst(ev.x, 0.5, ev.y, ev.color || (ev.el ? ELC(ev.el) : 0xffa040), ev.soft ? 16 : 26, 6*ev.r/1.7, 0.5, 0.5, { col2:ev.soft ? 0xffffff : 0xffe08a, up:1 });
       FX.ring(ev.x, ev.y, ev.r, ev.color || (ev.el ? ELC(ev.el) : 0xff7a2a), 0.35); FX.disc(ev.x, ev.y, ev.r, ev.color || (ev.el ? ELC(ev.el) : 0xff7a2a), 0.25);
+      if(!ev.soft && V.world) V.world.addSplat(ev.x, ev.y, 0x0a0806, Math.min(4, ev.r*1.7), "scorch");
       if(!ev.soft){ S.flash.position.set(ev.x, 1.2, ev.y); S.flash.color.setHex(0xffa040); S.flash.intensity = 4; S.shake(0.4*ev.r/1.7); }
       play(ev.soft ? "steam" : "boom");
       break;
@@ -290,6 +298,9 @@ proto.update = function(dt, t){
   if(W.gunKey !== G.gun().uid) M.setGun(W, G.gun());
   const speed = Math.hypot(p.vx, p.vy);
   M.idle(W, t, p.blinkT > 0 ? 0 : speed);
+  // little puffs of dust where Zippy steps
+  V.stride = (V.stride || 0) + speed*dt;
+  if(V.stride > 0.75 && p.blinkT <= 0){ V.stride = 0; FX.burst(p.x + (Math.random() - 0.5)*0.3, 0.06, p.y + (Math.random() - 0.5)*0.3, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 }); }
   V.recoil = Math.max(0, (V.recoil || 0) - dt*8);
   W.parts.armR.rotation.x = -1.1 - V.recoil*0.25 + (p.reloadT > 0 ? 0.7 + Math.sin(t*20)*0.1 : 0);
   W.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
@@ -393,7 +404,7 @@ proto.updateEnemies = function(dt, t){
     if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.body.position.y += (want - R.body.position.y)*(1 - Math.exp(-dt*12)); }
     if(R.shadow) R.shadow.material.opacity = e.hidden ? 0.1 : 0.5;
     let tc = 0x000000, tk = 1;
-    if(e.flash > 0){ tc = 0xffffff; tk = e.boss ? 0.3 : 0.55; }
+    if(e.flash > 0){ tc = 0xffffff; tk = e.boss ? 0.25 : 0.38; }
     else if(frozen) tc = 0x4ab8ff;
     else if(R.tell > 0) { tc = 0xffffff; tk = 0.35 + 0.3*Math.sin(t*30); }
     else if(e.st.trapped > 0) { tc = 0x8ae8ff; tk = 0.5; }

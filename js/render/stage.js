@@ -10,6 +10,13 @@
  *  Lights: a dim cave fill, the wizard's own glow, and a small pool of
  *  point lights that move to the torches nearest the wizard (a fixed
  *  number of lights, so the shaders never recompile).
+ *
+ *  The look: the scene is drawn into a low-res target, then one pass
+ *  inks it. Lines go wherever depth jumps (so walls, props and decor are
+ *  outlined like the characters), each floor grades the colours its own
+ *  way, the corners sink into the floor's fog, a little grain moves over
+ *  everything, and the deeper floors make the picture swim at its edges.
+ *  V toggles back to the plain picture.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -37,6 +44,8 @@ S.init = function(){
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 11, 1.4); scene.add(l); S.torches.push(l); }
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
 
+  try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
+  S.initPost();
   S.rig = { x:0, z:0, tx:0, tz:0, dist:21, pitch:1.05, shake:0, lead:0.22 };
   S.clock = new THREE.Clock();
   S.updaters = [];
@@ -50,10 +59,58 @@ S.resize = function(){
   const k = S.pixel ? Math.max(1, h/380) : Math.min(window.devicePixelRatio || 1, 2)**-1;
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
+  if(S.post){ const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh); }
   const c = S.renderer.domElement; c.style.width = w + "px"; c.style.height = h + "px";
   c.style.imageRendering = S.pixel ? "pixelated" : "auto";
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
   K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uScale) m.uniforms.uScale.value = h/k/2; });
+};
+S.toggleInk = function(){
+  S.fancy = !S.fancy;
+  try{ localStorage.setItem("dungeonofguns.ink", S.fancy ? "1" : "0"); }catch(e){}
+  return S.fancy;
+};
+S.initPost = function(){
+  const rt = new THREE.WebGLRenderTarget(16, 16, { minFilter:THREE.NearestFilter, magFilter:THREE.NearestFilter });
+  rt.depthTexture = new THREE.DepthTexture(16, 16); rt.depthTexture.type = THREE.UnsignedIntType;
+  const mat = new THREE.ShaderMaterial({
+    uniforms:{ tCol:{ value:rt.texture }, tDep:{ value:rt.depthTexture }, uRes:{ value:new THREE.Vector2(16, 16) }, uNear:{ value:S.camera.near }, uFar:{ value:S.camera.far },
+      uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
+      uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x2a1838) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) } },
+    depthTest:false, depthWrite:false,
+    vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+    fragmentShader:[
+      "uniform sampler2D tCol, tDep; uniform vec2 uRes; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt;",
+      "uniform vec3 uInk, uShade, uHigh, uFog; varying vec2 vUv;",
+      "float lin(vec2 uv){ float z = texture2D(tDep, uv).r*2.0 - 1.0; return 2.0*uNear*uFar/(uFar + uNear - z*(uFar - uNear)); }",
+      "void main(){",
+      "  vec2 uv = vUv, c = uv - 0.5; float r2 = dot(c, c);",
+      // the deep floors breathe: the edges of the picture swim and split
+      "  uv += uWeird*0.0055*vec2(sin(uv.y*17.0 + uTime*1.7), cos(uv.x*13.0 + uTime*1.3))*smoothstep(0.04, 0.3, r2);",
+      "  float ca = uWeird*0.012*r2;",
+      "  vec3 col = vec3(texture2D(tCol, uv + c*ca).r, texture2D(tCol, uv).g, texture2D(tCol, uv - c*ca).b);",
+      // ink where depth jumps, drawn on the nearer side only (one clean pixel)
+      "  vec2 px = 1.0/uRes; float d0 = lin(uv);",
+      "  float dn = lin(uv - vec2(px.x, 0.0)) + lin(uv + vec2(px.x, 0.0)) + lin(uv + vec2(0.0, px.y)) + lin(uv - vec2(0.0, px.y));",
+      "  float e = max(0.0, dn - 4.0*d0)/d0;",
+      "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*0.9);",
+      // the floor's grade: shadows lean to its shade colour, lights to its highlight
+      "  float l = dot(col, vec3(0.299, 0.587, 0.114));",
+      "  col = mix(col, col*0.55 + uShade*0.5, (1.0 - smoothstep(0.0, 0.32, l))*0.6);",
+      "  col = mix(col, col*0.8 + uHigh*0.3*l, smoothstep(0.4, 1.0, l)*0.6);",
+      "  col = mix(vec3(l), col, 1.18);",
+      // corners sink into the fog (and pulse, deep down)
+      "  float v = smoothstep(0.16, 0.72, r2*(1.55 + uWeird*0.25*sin(uTime*1.1)));",
+      "  col = mix(col, uFog*0.6, v*uVig);",
+      "  col = mix(col, vec3(0.6, 0.0, 0.05), uHurt*smoothstep(0.08, 0.5, r2));",
+      "  float n = fract(sin(dot(floor(gl_FragCoord.xy) + floor(uTime*24.0)*vec2(17.3, 41.9), vec2(12.9898, 78.233)))*43758.5453);",
+      "  col += (n - 0.5)*0.03;",
+      "  gl_FragColor = vec4(col, 1.0);",
+      "}"].join("\n")
+  });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+  const scene = new THREE.Scene(); scene.add(quad);
+  S.post = { rt, mat, scene, cam:new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 };
 S.togglePixel = function(){
   S.pixel = !S.pixel;
@@ -73,6 +130,13 @@ S.theme = function(th, curses){
   S.fill.intensity = 0.45*(th.light || 1)*(dark ? 0.5 : 1);
   S.playerLight.distance = dark ? 8 : 12;
   S.playerLight.intensity = dark ? 2.1 : 1.7;
+  // the ink: line colour, rim colour, grade, and how weird the picture gets
+  K.INK.uInk.value.setHex(th.ink || 0x0a0612);
+  K.INK.uRim.value.setHex(th.rim || 0x8a7aff);
+  K.INK.uLift.value = dark ? 0.04 : 0.06;
+  const u = S.post.mat.uniforms;
+  u.uShade.value.setHex(th.shade || 0x2a1838); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
+  u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 1 : 0.85;
 };
 
 /* follow (x, z), leaning toward the aim point (ax, az) */
@@ -96,7 +160,11 @@ S.loop = function(){
   K.tick(t);
   S.updaters.forEach(f=> f(dt, t));
   S.updateCamera(dt);
-  S.renderer.render(S.scene, S.camera);
+  if(S.fancy){
+    S.post.mat.uniforms.uTime.value = t;
+    S.renderer.setRenderTarget(S.post.rt); S.renderer.render(S.scene, S.camera);
+    S.renderer.setRenderTarget(null); S.renderer.render(S.post.scene, S.post.cam);
+  } else S.renderer.render(S.scene, S.camera);
 };
 S.onFrame = f=>{ S.updaters.push(f); return ()=>{ S.updaters = S.updaters.filter(g=> g !== f); }; };
 

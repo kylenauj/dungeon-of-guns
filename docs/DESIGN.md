@@ -157,7 +157,36 @@ Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are ho
 
 ---
 
-## 10. Architecture
+## 10. The look: "lantern ink"
+
+One look across everything, so no model or room looks pasted in from somewhere else.
+
+- **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`). The light reaching a pixel is cut into four bands, with an ordered Bayer dither between them. Lantern pools fall off in stepped, stippled rings, like an engraving printed in colour. The darkest band gets diagonal ink hatching.
+- **Characters** add a rim light in the floor's colour and a contact shadow near the floor, plus an inverted-hull outline in the floor's ink colour.
+- **One post pass** (`stage.js`):
+  - ink lines wherever depth jumps, so walls, decor and props are outlined like the characters
+  - a per-floor split-tone grade
+  - a vignette into the floor's fog colour, and film grain
+  - on deeper floors, edges that swim and split their colours (`weird`: 0 in the cellars, 1 in the Heart)
+  - **V** toggles the plain picture.
+- **Per floor** (`data.js` FLOORS): ink, rim, shade/highlight grade, light-shaft colour, mist density, weirdness.
+- **The detail standard for every model:**
+  - a silhouette with secondary shapes
+  - a face with highlights (eyes, brows, a mouth or teeth)
+  - an accent material (gold, iron or a glow)
+  - one or two props that tell you who it is (the grunt's shield, the bomber's bandolier, the ghost's ball and chain, the Bride's wilted bouquet)
+  - `?gallery` lines every model up side by side to check it.
+- **Vanity** (`vanity.js`, view only, seeded from the dungeon so a seed always dresses the same):
+  - floor decals from one painted atlas
+  - dithered ankle mist that thickens with depth
+  - light shafts, and arches over north doors
+  - dressing on every wall face and on the wall tops
+  - rats, bats and fireflies
+  - splats and scorch marks that stay for the floor
+
+---
+
+## 11. Architecture
 
 ```
 js/core/        no THREE, no DOM: runs under Node
@@ -171,8 +200,9 @@ js/core/        no THREE, no DOM: runs under Node
   gribbus.js      the frog, and the other allies
   ai.js           enemy and boss behaviours
 tools/bot.js    a bot that plays (tests, balance, attract mode)
-js/render/      kit (baked toon models with outlines), stage (lights, camera), world (dungeon,
-                decor, fog of war), models, fx, view
+js/render/      kit (the ink material, baked models with outlines), stage (lights, camera, the
+                ink post pass), world (dungeon, decor, fog of war), vanity (decals, mist,
+                shafts, critters, splats), models, decor, fx, view, gallery (?gallery)
 js/ui/          hud.js, menus.js
 ```
 

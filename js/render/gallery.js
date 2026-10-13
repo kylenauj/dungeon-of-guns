@@ -1,0 +1,78 @@
+/* ------------------------------------------------------------------ *
+ *  The gallery (?gallery): every model in the game lined up on one
+ *  floor, idling, under the chosen floor's lighting. For judging the
+ *  art side by side.
+ *
+ *  WASD / arrows pan, wheel zooms, 1-5 switch floor lighting.
+ * ------------------------------------------------------------------ */
+(function(){
+"use strict";
+const DG = window.DG, K = DG.Kit, M = DG.Models, S = DG.Stage;
+const Gallery = DG.Gallery = {};
+
+function label(text, w){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w || 1.6, 0.32), new THREE.MeshBasicMaterial({ map:K.textTex([text], 160, 32, { size:20, bg:"#120e16", fg:"#f3e6c4" }), transparent:true }));
+  m.rotation.x = -1.05; m.position.y = 0.02;
+  return m;
+}
+
+Gallery.start = function(){
+  const root = Gallery.root = new THREE.Group(); S.scene.add(root);
+  const rigs = Gallery.rigs = [];
+  const rows = [
+    { name:"HEROES", gap:2.2, items:[["Zippy", ()=>{ const R = M.zippy(); M.setGun(R, { base:"pistol", element:"arcane", uid:1 }); return R; }], ["Gribbus", ()=> M.frog()], ["Grobbus", ()=> M.frog(true)],
+      ...["pistol", "smg", "shotgun", "rifle", "launcher"].map((b, i)=> [b, ()=>{ const R = { root:new THREE.Group(), glows:[] }; const g = M.gun(b, ["arcane", "fire", "frost", "poison", "shock"][i], R); K.bake(g, { w:0.015 }); g.scale.setScalar(2); g.position.y = 0.8; g.rotation.y = Math.PI/2; R.root.add(g); return R; }])] },
+    { name:"GOBLINS", gap:2.2, items:["grunt", "slinger", "bomber", "shaman", "brute", "sneak", "merchant"].map(k=> [k, ()=> M.goblin(k)]) },
+    { name:"SHROOMS & HAUNTS", gap:2.2, items:["puffling", "toadstool", "shroomkin", "shroomlet", "ghost", "banshee", "skeleton", "poltergeist"].map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"THE WEIRD", gap:2.4, items:["watcher", "blob", "blobling", "tentacle"].map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"BOSSES", gap:5, items:["king", "matriarch", "bride", "eye", "heart"].map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"LOOT", gap:1.6, items:[...["gold", "heart", "mana", "ward", "fly"].map(k=> [k, ()=>{ const g = M.pickup({ kind:k, value:5 }); g.position.y = 0.5; return { root:g }; }]),
+      ...Object.keys(DG.ITEMS).filter((id, i, a)=> ["spinach", "pinball", "frostrounds", "wispcraft", "plague", "orbiter", "prismheart", "midas", "echo"].indexOf(id) >= 0).map(id=> [DG.ITEMS[id].name, ()=>{ const g = M.powerup(id); g.position.y = 0.8; return { root:g, spin:true }; }])] },
+    { name:"BREAKABLES", gap:1.4, items:["pot", "crate", "barrel", "xbarrel", "urn", "coffin", "shroomcap", "eggsac", "pustule"].map(k=> [k, ()=> ({ root:new THREE.Mesh(DG.Decor.breakableGeo(k), K.toon()) })]) },
+    { name:"DECOR", gap:1.5, items:DG.Decor.kinds().map(k=> [k, ()=>{ const o = DG.Decor.build(k, Math.random); K.bake(o.group, { w:0.018 }); o.glows.forEach(gl=>{ const sp = K.sprite(gl.c, gl.s*1.4, 0.8); sp.position.set(gl.x, gl.y, gl.z); o.group.add(sp); }); return { root:o.group }; }]) }
+  ];
+  let z = 0;
+  rows.forEach(row=>{
+    const n = row.items.length, w = (n - 1)*row.gap;
+    const head = label(row.name, 4); head.position.set(-w/2 - 3.2, 0.02, z); root.add(head);
+    row.items.forEach(([name, make], i)=>{
+      let R; try{ R = make(); }catch(e){ console.error("gallery: " + name, e); return; }
+      const x = -w/2 + i*row.gap;
+      R.root.position.set(x, 0, z); root.add(R.root);
+      const l = label(name); l.position.set(x, 0.02, z + (row.gap > 3 ? 2.6 : 1.1)); root.add(l);
+      rigs.push(R);
+    });
+    z += row.gap > 3 ? 7 : 3.6;
+  });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(90, z + 12), K.ink({ vertexColors:false, color:0x5a504a, map:K.floorTex }));
+  fl.material.map = K.floorTex.clone(); fl.material.map.wrapS = fl.material.map.wrapT = THREE.RepeatWrapping; fl.material.map.repeat.set(90, z + 12); fl.material.map.needsUpdate = true;
+  fl.rotation.x = -Math.PI/2; fl.position.set(0, 0, z/2 - 3); root.add(fl);
+  Gallery.floor = 0; Gallery.cam = { x:0, z:2, dist:13 };
+  Gallery.setFloor(0);
+  addEventListener("keydown", e=>{ const n = +e.key; if(n >= 1 && n <= 5) Gallery.setFloor(n - 1); Gallery.keys[e.code] = true; });
+  addEventListener("keyup", e=>{ Gallery.keys[e.code] = false; });
+  addEventListener("wheel", e=>{ Gallery.cam.dist = Math.max(5, Math.min(40, Gallery.cam.dist*(e.deltaY > 0 ? 1.1 : 0.9))); }, { passive:true });
+  S.onFrame(Gallery.frame);
+};
+Gallery.keys = {};
+Gallery.setFloor = function(i){
+  Gallery.floor = i;
+  const th = DG.FLOORS[i];
+  S.theme(th, []);
+  // the floor's light from a few torches over the lineup
+  S.torches.forEach((l, j)=>{ l.color.setHex(th.torch); l.intensity = 1.6; l.distance = 14; l.position.set(-24 + (j % 4)*16, 2.5, -2 + Math.floor(j/4)*14); });
+};
+Gallery.frame = function(dt, t){
+  const C = Gallery.cam, k = Gallery.keys, sp = dt*C.dist*0.9;
+  if(k.KeyA || k.ArrowLeft) C.x -= sp; if(k.KeyD || k.ArrowRight) C.x += sp;
+  if(k.KeyW || k.ArrowUp) C.z -= sp; if(k.KeyS || k.ArrowDown) C.z += sp;
+  S.rig.dist = C.dist; S.follow(C.x, C.z, C.x, C.z);
+  S.playerLight.position.set(C.x, 3, C.z + 2);
+  Gallery.rigs.forEach((R, i)=>{
+    if(R.body) M.idle(R, t + i*0.7, 0);
+    if(R.spin) R.root.rotation.y = t;
+    if(R.parts && R.parts.head && R.kind === "zippy") R.parts.head.rotation.y = Math.sin(t*0.8)*0.3;
+  });
+};
+
+})();

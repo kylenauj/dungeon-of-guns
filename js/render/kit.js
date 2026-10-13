@@ -76,8 +76,6 @@ K.glowTex = (()=>{
 })();
 K.glowPlane = (()=>{ const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI/2); return g; })();
 K.glowMat = (color, opacity)=> new THREE.MeshBasicMaterial({ map:K.glowTex, color, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:opacity === undefined ? 0.6 : opacity });
-K.lambert = (c, opts)=> new THREE.MeshLambertMaterial(Object.assign({ color:c }, opts));
-K.vlambert = opts=> new THREE.MeshLambertMaterial(Object.assign({ vertexColors:true }, opts));
 K.basic = (c, opts)=> new THREE.MeshBasicMaterial(Object.assign({ color:c }, opts));
 K.sprite = (c, s, opacity)=>{
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:K.glowTex, color:c, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, opacity:opacity === undefined ? 0.8 : opacity }));
@@ -117,22 +115,77 @@ K.textTex = function(lines, w, h, opts){
 };
 
 
-/* ---- toon shading with ink outlines -------------------------------------
-   Every character and prop is built from simple parts, then baked: the
-   parts of each moving group are merged into one vertex-coloured mesh
-   with a toon material (three bands of light), plus an inverted-hull
-   outline. Glowing parts (basic materials, sprites) stay as they are. */
-K.toonRamp = (()=>{
-  const d = new Uint8Array([90, 90, 90, 255, 170, 170, 170, 255, 255, 255, 255, 255]);
-  const t = new THREE.DataTexture(d, 3, 1, THREE.RGBAFormat);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.needsUpdate = true;
-  return t;
-})();
-K.toon = (opts)=> new THREE.MeshToonMaterial(Object.assign({ vertexColors:true, gradientMap:K.toonRamp }, opts));
+/* ---- the ink look ------------------------------------------------------
+   Everything solid in the game (characters, props, walls, floors) uses one
+   material: three.js's toon material, patched. The light that reaches a
+   pixel is cut into a few bands with an ordered (Bayer) dither between
+   them, so lantern pools fall off in stepped, stippled rings like an old
+   engraving printed in colour. The darkest band gets diagonal ink hatching.
+   Characters also get a rim of the floor's colour, so they read against
+   the gloom. The uniforms are shared, so the stage can retune every
+   material at once per floor (K.INK).
+
+   Characters are built from simple parts, then baked: the parts of each
+   moving group merge into one vertex-coloured mesh, plus an inverted-hull
+   outline in the floor's ink colour. Glowing parts stay unlit. */
+K.INK = {
+  uSteps:{ value:4 }, uInk:{ value:new THREE.Color(0x0a0612) }, uRim:{ value:new THREE.Color(0x8a7aff) },
+  uHatch:{ value:1 }, uHatchAt:{ value:0.42 }, uLift:{ value:0.06 }, uRimK:{ value:0.5 }
+};
+const INK_PARS = [
+  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK; uniform vec3 uInk, uRim;",
+  "float inkBayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y*0.75))); }",
+  "float inkBayer(vec2 a){ return inkBayer2(0.5*a)*0.25 + inkBayer2(a); }",
+  "vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection){ float d = clamp(dot(normal, lightDirection)*0.5 + 0.5, 0.0, 1.0); return vec3(d*d*1.15); }"
+].join("\n");
+const INK_MAIN = [
+  "vec3 inkAlb = max(diffuseColor.rgb, vec3(0.02));",
+  "float inkA = max(dot(inkAlb, vec3(0.299, 0.587, 0.114)), 0.02);",
+  "float inkL = dot(outgoingLight - totalEmissiveRadiance, vec3(0.299, 0.587, 0.114))/inkA;",
+  "float inkB = inkBayer(gl_FragCoord.xy);",
+  "float inkQ = max(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, uLift);",
+  "vec3 inkLit = (outgoingLight - totalEmissiveRadiance)*(inkQ/max(inkL, 0.0001)) + totalEmissiveRadiance;",
+  // the darkest band: diagonal lines of ink
+  "float inkHatch = (1.0 - step(0.99, mod(gl_FragCoord.x + gl_FragCoord.y, 4.0)))*step(inkQ, uHatchAt)*uHatch;",
+  "inkLit = mix(inkLit, uInk, inkHatch*0.75);",
+  "#ifdef INK_RIM",
+  // characters sink into a soft contact shadow near the floor, so all of them sit in the world the same way
+  "  inkLit *= mix(0.55, 1.0, smoothstep(0.0, 0.45, vInkY));",
+  "  float inkRim = 1.0 - clamp(dot(normal, geometry.viewDir), 0.0, 1.0);",
+  "  inkLit += uRim*step(0.62 + inkB*0.12, inkRim)*uRimK*(0.35 + 0.65*inkA);",
+  "#endif",
+  "outgoingLight = inkLit;",
+  "gl_FragColor = vec4( outgoingLight, diffuseColor.a );"
+].join("\n");
+K.inkify = function(mat, opts){
+  opts = opts || {};
+  mat.onBeforeCompile = sh=>{
+    for(const k in K.INK) sh.uniforms[k] = K.INK[k];
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <gradientmap_pars_fragment>", INK_PARS)
+      .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
+    if(opts.rim){
+      sh.fragmentShader = "#define INK_RIM\nvarying float vInkY;\n" + sh.fragmentShader;
+      sh.vertexShader = "varying float vInkY;\n" + sh.vertexShader.replace("#include <project_vertex>",
+        "#include <project_vertex>\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
+    }
+  };
+  mat.customProgramCacheKey = ()=> opts.rim ? "ink-rim" : "ink";
+  return mat;
+};
+/* the material: vertex colours by default; { rim:true } for characters */
+K.ink = (opts)=>{
+  opts = Object.assign({}, opts);
+  const rim = opts.rim; delete opts.rim;
+  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim });
+};
+K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
+K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));
+K.vlambert = opts=> K.ink(opts);
 K.outlineMat = (w)=> new THREE.ShaderMaterial({
-  uniforms:{ uW:{ value:w || 0.028 }, uA:{ value:1 } }, side:THREE.BackSide, transparent:true,
+  uniforms:{ uW:{ value:w || 0.028 }, uA:{ value:1 }, uInk:K.INK.uInk }, side:THREE.BackSide, transparent:true,
   vertexShader:"uniform float uW; void main(){ vec3 p = position + normal*uW; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
-  fragmentShader:"uniform float uA; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(0.03, 0.02, 0.05, 1.0); }"
+  fragmentShader:"uniform float uA; uniform vec3 uInk; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(uInk, 1.0); }"
 });
 /* a part: geometry + a colour, to be baked */
 K.part = function(parent, geo, color, x, y, z, rx, ry, rz, sx, sy, sz){
@@ -175,7 +228,12 @@ K.bake = function(root, opts){
   return { mat, out };
 };
 /* a smooth turned shape from a profile of [radius, height] points */
-K.lathe = function(prof, seg){ return new THREE.LatheGeometry(prof.map(p=> new THREE.Vector2(p[0], p[1])), seg || 16); };
+K.lathe = function(prof, seg){
+  // a profile drawn top-down would turn the faces inside out (and the
+  // outline shell would cover the model): always build it bottom-up
+  if(prof[0][1] > prof[prof.length - 1][1]) prof = prof.slice().reverse();
+  return new THREE.LatheGeometry(prof.map(p=> new THREE.Vector2(p[0], p[1])), seg || 16);
+};
 /* a tube along points */
 K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), seg || 12, r, rseg || 6, false); };
 

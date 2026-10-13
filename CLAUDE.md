@@ -23,7 +23,11 @@ A real-time top-down roguelike (Zippy the wizard and Gribbus the frog, with spel
   - `gribbus.js`: the frog and frog ponds.
   - `ai.js`: every enemy and boss.
 - `tools/bot.js` is a pathfinding bot used by the tests, `npm run balance` and the title-screen attract mode.
-- `js/render/` is three.js. Models are toon-shaded parts baked per rig (`kit.js`, `models.js`); `decor.js` builds the map dressing. `view.js` reads the game state and its event list; it never writes to the game.
+- `js/render/` is three.js.
+  - Everything solid uses one ink material (`K.ink` in `kit.js`), and `stage.js` runs one post pass. Keep new materials on `K.ink` / `K.toon` so the look stays consistent.
+  - Models are parts baked per rig (`models.js`). `decor.js` builds the map dressing, and `vanity.js` adds view-only decals, mist, light shafts, critters and splats.
+  - `?gallery` lines up every model.
+  - `view.js` reads the game state and its event list; it never writes to the game.
 - `js/ui/` holds `hud.js` (a canvas HUD) and `menus.js` (DOM screens).
 - `docs/DESIGN.md` covers the design, the curves and the roadmap.
 
