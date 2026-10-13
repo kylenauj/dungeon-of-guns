@@ -142,7 +142,9 @@ FX.lane = function(x, z, a, len, w, life){
 FX.temp = function(obj, life, update){ FX.scene.add(obj); FX.items.push({ obj, t:0, life, update }); };
 
 const EL = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
-const ENEMY_SHOT = { orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36] };
+const ENEMY_SHOT = { orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36], spore:[0xb8d84a, 0.38], ecto:[0x8ae8ff, 0.46],
+  wail:[0xa8c8ff, 0.4], arrow:[0xe8dcc0, 0.26], tear:[0x6ad8ff, 0.36], blood:[0xff2a3a, 0.42] };
+const MARK = { flop:0xff3a2a, slam:0xff3a2a, tentacle:0xd84aff, tear:0x6ad8ff, shroomring:0x9cff3a, vein:0xff2a3a, swipe:0xff6a3a };
 
 /* ---- per frame ---- */
 FX.update = function(dt, G){
@@ -171,11 +173,19 @@ FX.update = function(dt, G){
     if(n >= NB) break;
     let col, size, rim = 0, y = 0.75;
     if(b.team === "p"){
-      col = EL(b.el); size = Math.max(0.2, b.r*2.2);
+      // a shot with several elements cycles through their colours
+      const els = b.els || [b.el];
+      col = EL(els.length > 1 ? els[Math.floor(G.t*10 + b.id) % els.length] : els[0]); size = Math.max(0.2, b.r*2.2);
+      if(b.kind === "shard") size = 0.18;
+      if(b.kind === "spit"){ col = 0x9cff6a; size = 0.32; }
+      if(b.kind === "bubble"){ col = 0xb8f0ff; size = 0.7; }
       if(b.kind === "fireball"){ size = 0.8; if(Math.random() < 0.7) emit(b.x, y, b.y, (Math.random() - 0.5), Math.random(), (Math.random() - 0.5), 0xff7a1a, 0.5, 0.35, 0, 1); }
       if(b.kind === "missile" && Math.random() < 0.6) emit(b.x, y, b.y, 0, 0.2, 0, 0xb36bff, 0.25, 0.3, 0, 1);
       if(b.kind === "grenade"){ size = 0.42; y = 0.6 + Math.sin(Math.min(1, b.t*1.5)*Math.PI)*0.6; }
-      if(b.el === "poison" && Math.random() < 0.15) emit(b.x, y, b.y, 0, -0.3, 0, 0x7dff3a, 0.15, 0.4, 0, 1);
+      if(els.indexOf("poison") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, 0, -0.3, 0, 0x7dff3a, 0.15, 0.4, 0, 1);
+      if(els.indexOf("fire") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, 0, 0.6, 0, 0xff7a1a, 0.18, 0.3, 0, 1);
+      if(els.indexOf("frost") >= 0 && Math.random() < 0.08) emit(b.x, y, b.y, 0, 0, 0, 0xcff0ff, 0.14, 0.4, 0, 1);
+      if(b.orbitLeft) y = 0.9;
     } else {
       const E = ENEMY_SHOT[b.kind] || ENEMY_SHOT.orb; col = E[0]; size = E[1]*(b.r > 0.2 ? 1.2 : 1); rim = 1; y = 0.6;
     }
@@ -196,24 +206,22 @@ FX.update = function(dt, G){
     let o = FX.bombs[b.id];
     if(!o){
       const g = new THREE.Group();
-      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.17, 7, 5), K.lambert(0x1a1a1e)));
-      const fuse = K.sprite(0xffa040, 0.5, 1); fuse.position.y = 0.2; g.add(fuse);
+      const look = b.junk ? [new THREE.BoxGeometry(0.3, 0.3, 0.3), 0x7a5232] : b.spore ? [new THREE.SphereGeometry(0.2, 8, 6), 0xb8d84a] : b.meteor ? [new THREE.DodecahedronGeometry(0.35), 0x5a2a1a] : b.team === "p" ? [new THREE.SphereGeometry(0.3, 10, 8), 0x2a2a3a] : [new THREE.SphereGeometry(0.17, 7, 5), 0x1a1a1e];
+      g.add(new THREE.Mesh(look[0], K.lambert(look[1])));
+      const fuse = K.sprite(b.meteor ? 0xff6a1a : 0xffa040, b.meteor ? 1.6 : 0.5, 1); fuse.position.y = b.meteor ? 0 : 0.2; g.add(fuse);
       FX.scene.add(g);
-      o = FX.bombs[b.id] = { g, fuse, warn:FX.warn(b.tx, b.ty, b.r, b.flight + b.fuse) };
+      o = FX.bombs[b.id] = { g, fuse, warn:FX.warn(b.tx, b.ty, Math.max(0.6, b.r), b.flight + b.fuse, b.team === "p" ? 0x46e4ff : b.spore ? 0x9cff3a : 0xff3a2a) };
     }
     const k = Math.min(1, b.t/b.flight);
-    o.g.position.set(b.x + (b.tx - b.x)*k, 0.2 + Math.sin(k*Math.PI)*2.2, b.y + (b.ty - b.y)*k);
+    if(b.meteor) o.g.position.set(b.tx, 0.2 + (1 - k)*9, b.ty);
+    else o.g.position.set(b.x + (b.tx - b.x)*k, 0.2 + Math.sin(k*Math.PI)*2.2, b.y + (b.ty - b.y)*k);
+    o.g.rotation.x += 0.2; o.g.rotation.z += 0.13;
     o.fuse.material.opacity = k >= 1 ? 0.5 + 0.5*Math.sin(b.t*30) : 1;
     if(Math.random() < 0.5) emit(o.g.position.x, o.g.position.y + 0.2, o.g.position.z, 0, 0.6, 0, 0xffa040, 0.15, 0.3, 0, 1);
   });
   for(const id in FX.bombs) if(!seen[id]){ FX.scene.remove(FX.bombs[id].g); delete FX.bombs[id]; }
-  // clouds
-  G.clouds.forEach(c=>{
-    if(Math.random() < 0.9){ const a = Math.random()*6.28, d = Math.sqrt(Math.random())*c.r;
-      emit(c.x + Math.cos(a)*d, 0.15 + Math.random()*0.5, c.y + Math.sin(a)*d, (Math.random() - 0.5)*0.3, 0.3 + Math.random()*0.4, (Math.random() - 0.5)*0.3, c.plague ? 0x9cff3a : 0x6ad83a, 0.7, 1.0, 0, 0.5); }
-  });
-  // the king's landing zone
-  G.marks.forEach(m=>{ if(!m.fx){ m.fx = FX.warn(m.x, m.y, m.r, m.t); } });
+  // warnings on the floor: landings, slams, tentacles, tears
+  G.marks.forEach(m=>{ if(!m.fx){ m.fx = FX.warn(m.x, m.y, m.r, m.t, MARK[m.kind] || 0xff3a2a); } });
 };
 
 })();

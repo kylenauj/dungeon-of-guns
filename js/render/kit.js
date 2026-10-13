@@ -116,6 +116,69 @@ K.textTex = function(lines, w, h, opts){
   return t;
 };
 
+
+/* ---- toon shading with ink outlines -------------------------------------
+   Every character and prop is built from simple parts, then baked: the
+   parts of each moving group are merged into one vertex-coloured mesh
+   with a toon material (three bands of light), plus an inverted-hull
+   outline. Glowing parts (basic materials, sprites) stay as they are. */
+K.toonRamp = (()=>{
+  const d = new Uint8Array([90, 90, 90, 255, 170, 170, 170, 255, 255, 255, 255, 255]);
+  const t = new THREE.DataTexture(d, 3, 1, THREE.RGBAFormat);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.needsUpdate = true;
+  return t;
+})();
+K.toon = (opts)=> new THREE.MeshToonMaterial(Object.assign({ vertexColors:true, gradientMap:K.toonRamp }, opts));
+K.outlineMat = (w)=> new THREE.ShaderMaterial({
+  uniforms:{ uW:{ value:w || 0.028 }, uA:{ value:1 } }, side:THREE.BackSide, transparent:true,
+  vertexShader:"uniform float uW; void main(){ vec3 p = position + normal*uW; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
+  fragmentShader:"uniform float uA; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(0.03, 0.02, 0.05, 1.0); }"
+});
+/* a part: geometry + a colour, to be baked */
+K.part = function(parent, geo, color, x, y, z, rx, ry, rz, sx, sy, sz){
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+  m.position.set(x || 0, y || 0, z || 0);
+  if(rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+  if(sx !== undefined) m.scale.set(sx, sy === undefined ? sx : sy, sz === undefined ? sx : sz);
+  m.userData.part = true;
+  parent.add(m);
+  return m;
+};
+/* merge every part directly under each object into one toon mesh + outline */
+K.bake = function(root, opts){
+  opts = opts || {};
+  const mat = opts.mat || K.toon(), out = opts.outline === false ? null : (opts.outlineMat || K.outlineMat(opts.w));
+  const nodes = [];
+  root.traverse(o=> nodes.push(o));
+  nodes.forEach(o=>{
+    const parts = o.children.filter(c=> c.isMesh && c.userData.part);
+    if(!parts.length) return;
+    const geos = parts.map(m=>{
+      m.updateMatrix();
+      let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      g.applyMatrix4(m.matrix);
+      const c = m.material.color, a = g.attributes.position, col = new Float32Array(a.count*3), prev = g.attributes.color;
+      for(let i=0;i<a.count;i++){
+        const pr = prev ? prev.getX(i) : 1, pg = prev ? prev.getY(i) : 1, pb = prev ? prev.getZ(i) : 1;
+        col[i*3] = c.r*pr; col[i*3+1] = c.g*pg; col[i*3+2] = c.b*pb;
+      }
+      g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      if(!g.attributes.normal) g.computeVertexNormals();
+      return g;
+    });
+    parts.forEach(m=>{ o.remove(m); m.geometry.dispose(); m.material.dispose(); });
+    const merged = K.merge(geos);
+    const mesh = new THREE.Mesh(merged, mat); mesh.userData.baked = true;
+    o.add(mesh);
+    if(out){ const ol = new THREE.Mesh(merged, out); ol.userData.outline = true; o.add(ol); }
+  });
+  return { mat, out };
+};
+/* a smooth turned shape from a profile of [radius, height] points */
+K.lathe = function(prof, seg){ return new THREE.LatheGeometry(prof.map(p=> new THREE.Vector2(p[0], p[1])), seg || 16); };
+/* a tube along points */
+K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), seg || 12, r, rseg || 6, false); };
+
 K.timed = [];
 K.tick = t=>{ K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t; }); };
 

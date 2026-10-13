@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------ *
  *  The app: boots the stage, runs the game at a fixed 60 steps a
  *  second, and walks the player between the title, a run, the pause
- *  menu, the bag and the end screen.
+ *  menu, the satchel, level-up boons and the end screen.
  *
  *  Behind the title, a bot plays a real run with the sound off (the
  *  attract mode from every arcade cabinet you ever walked past).
@@ -16,13 +16,18 @@ const Q = new URLSearchParams(location.search);
 
 const app = DG.app = { G:null, V:null, mode:"boot", acc:0, demo:null };
 
+/* golden flies outlive runs: they unlock Gribbus' rarer tricks */
+const META_KEY = "dungeonofguns.meta";
+function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {} }; }catch(e){ return { flies:0, unlocked:{} }; } }
+function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
+
 function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.now()); }
 
 /* ---- the attract mode ---- */
 app.startDemo = function(){
   app.stopRun();
   const G = new DG.Game({ seedWord:newWord(), floor:1 + Math.floor(Math.random()*3) });
-  G.player.hp = G.player.maxHp = 99999;
+  G.god = true;
   app.G = G; app.V = new DG.View(G); app.V.silent = true;
   app.demo = new DG.Bot(G, { dodge:0.9 });
   app.mode = "title";
@@ -32,8 +37,8 @@ app.startDemo = function(){
 
 app.newRun = function(word){
   app.stopRun();
-  const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1 });
-  if(Q.has("god")){ G.player.hp = G.player.maxHp = 9999; }
+  const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta() });
+  if(Q.has("god")) G.god = true;
   app.G = G; app.V = new DG.View(G); app.demo = null;
   app.mode = "play"; app.acc = 0;
   HUD.reset(); UI.hide(); IN.clear();
@@ -49,8 +54,11 @@ app.stopRun = function(){
 app.pause = function(){ if(app.mode !== "play") return; app.mode = "pause"; UI.pause(app.G); IN.clear(); document.body.classList.remove("playing"); };
 app.resume = function(){ app.mode = "play"; UI.hide(); IN.clear(); document.body.classList.add("playing"); };
 app.openBag = function(){ if(app.mode !== "play" && app.mode !== "pause") return; app.mode = "bag"; UI.bag(app.G); IN.clear(); document.body.classList.remove("playing"); };
+app.choose = function(){ app.mode = "choose"; UI.choose(app.G); IN.clear(); document.body.classList.remove("playing"); };
+app.pick = function(i){ if(app.mode !== "choose") return; app.G.choose(i); app.resume(); };
 app.end = function(won){
   app.mode = "end";
+  saveMeta(app.G.meta);
   UI.record(app.G);
   setTimeout(()=>{ if(app.mode === "end"){ UI.end(app.G, won); document.body.classList.remove("playing"); } }, won ? 400 : 1600);
 };
@@ -71,9 +79,7 @@ UI.on({
   endless: ()=>{ app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
   pixel: b=>{ const on = S.togglePixel(); if(b) b.querySelector("small").textContent = on ? "chunky" : "crisp"; },
   mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
-  pick: b=>{ const i = +b.dataset.i; UI.bag(app.G, UI.bagSel === i ? null : i); },
-  sock: b=>{ if(UI.bagSel !== null && app.G.socket(UI.bagSel, +b.dataset.g)) UI.bag(app.G); },
-  unsock: b=>{ app.G.unsocket(+b.dataset.g, +b.dataset.r); UI.bag(app.G); }
+  boon: b=> app.pick(+b.dataset.i)
 });
 
 /* ---- keys that aren't game controls ---- */
@@ -91,6 +97,7 @@ IN.onKey = function(e){
     else if(app.mode === "bag") app.resume();
     return;
   }
+  if(app.mode === "choose"){ const i = { Digit1:0, Digit2:1, Digit3:2, Numpad1:0, Numpad2:1, Numpad3:2 }[e.code]; if(i !== undefined){ app.pick(i); return; } }
   if(e.code === "Enter" && e.target && e.target.id === "seed"){ UI.act("seeded"); return; }
   if(app.mode !== "play") UI.key(e);
 };
@@ -110,15 +117,19 @@ function frame(dt, t){
       app.acc -= STEP;
       let I;
       if(app.demo) I = app.demo.input(STEP);
-      else if(live){ I = first ? input : Object.assign({}, input, { blink:false, use:false, swap:false, reload:false, slot:-1 }); first = false; }
+      else if(live){ I = first ? input : Object.assign({}, input, { blink:false, use:false, active:false, swap:false, reload:false, slot:-1 }); first = false; }
       else I = {};
       G.update(STEP, I);
+      if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));
       G.drain().forEach(ev=>{
+        if(ev.type === "fly" && !app.demo) saveMeta(G.meta);
         if(V.silent){ const a = AU.muted; AU.muted = true; V.handle(ev); AU.muted = a; }
         else { V.handle(ev); HUD.handle(ev, G); }
       });
-      if(app.demo && (G.state !== "play" || G.t > 150)){ app.startDemoSoon(); break; }
+      if(app.demo && ((G.state !== "play" && G.state !== "choose") || G.t > 150)){ app.startDemoSoon(); break; }
+      if(live && G.state !== "play") break;
     }
+    if(live && G.state === "choose") app.choose();
     if(live && G.state === "dead") app.end(false);
     if(live && G.state === "won") app.end(true);
   }
@@ -130,14 +141,14 @@ function frame(dt, t){
   V.update(dt, t);
   const p = G.player, m = IN.mouse, aim = app.mode === "play" ? S.unproject(m.x, m.y, 0) : null;
   S.follow(p.x, p.y, aim ? aim.x : p.x, aim ? aim.z : p.y);
-  HUD.draw(G, dt, { hidden:app.mode === "title" || app.mode === "bag" || app.mode === "pause" || !!app.demo, noCursor:app.mode !== "play" });
+  HUD.draw(G, dt, { hidden:app.mode === "title" || app.mode === "bag" || app.mode === "pause" || app.mode === "choose" || !!app.demo, noCursor:app.mode !== "play" });
 }
 app.startDemoSoon = function(){
   if(app.mode !== "title") return;
   const keep = document.getElementById("screens").innerHTML;
   app.V.dispose();
   const G = new DG.Game({ seedWord:newWord(), floor:1 + Math.floor(Math.random()*3) });
-  G.player.hp = G.player.maxHp = 99999;
+  G.god = true;
   app.G = G; app.V = new DG.View(G); app.V.silent = true; app.demo = new DG.Bot(G, { dodge:0.9 });
   if(!keep) UI.title();
 };

@@ -10,7 +10,7 @@ const I = DG.Input = { keys:{}, mouse:{ x:innerWidth/2, y:innerHeight/2, l:false
 
 const MAP = {
   KeyW:"up", ArrowUp:"up", KeyS:"down", ArrowDown:"down", KeyA:"left", ArrowLeft:"left", KeyD:"right", ArrowRight:"right",
-  Space:"blink", ShiftLeft:"blink", ShiftRight:"blink", KeyE:"use", KeyF:"use", KeyQ:"swap", KeyR:"reload",
+  Space:"blink", ShiftLeft:"blink", ShiftRight:"blink", KeyE:"use", KeyF:"active", KeyQ:"swap", KeyR:"reload",
   Digit1:"slot0", Digit2:"slot1", Digit3:"slot2"
 };
 
@@ -36,7 +36,7 @@ I.init = function(){
 I.sample = function(G){
   const S = DG.Stage, p = G.player, K = I.keys, E = I.edge;
   const out = { mx:(K.right ? 1 : 0) - (K.left ? 1 : 0), my:(K.down ? 1 : 0) - (K.up ? 1 : 0),
-    fire:I.mouse.l, spell:I.mouse.r, blink:!!E.blink, use:!!E.use, swap:!!E.swap || I.wheel !== 0, reload:!!E.reload,
+    fire:I.mouse.l, spell:I.mouse.r, blink:!!E.blink, use:!!E.use, active:!!E.active, swap:!!E.swap || I.wheel !== 0, reload:!!E.reload,
     slot:E.slot0 ? 0 : E.slot1 ? 1 : E.slot2 ? 2 : -1 };
   const w = S.unproject(I.mouse.x, I.mouse.y, 0.75);
   if(w){ out.ax = w.x; out.ay = w.z; }
@@ -48,7 +48,7 @@ I.sample = function(G){
     const lx = dz(gp.axes[0]), ly = dz(gp.axes[1]), rx = dz(gp.axes[2]), ry = dz(gp.axes[3]);
     const b = i=> gp.buttons[i] && gp.buttons[i].pressed;
     const prev = I.padPrev || {};
-    const now = { a:b(0), x:b(2), y:b(3), rb:b(5), lb:b(4), start:b(9) };
+    const now = { a:b(0), bb:b(1), x:b(2), y:b(3), rb:b(5), lb:b(4), start:b(9) };
     if(lx || ly || rx || ry || now.a || b(7)) I.usingPad = true;
     if(I.usingPad){
       out.mx = lx; out.my = ly;
@@ -60,6 +60,7 @@ I.sample = function(G){
       out.spell = b(6);
       if(now.a && !prev.a) out.blink = true;
       if(now.x && !prev.x) out.use = true;
+      if(now.bb && !prev.bb) out.active = true;
       if(now.y && !prev.y) out.swap = true;
       if(now.lb && !prev.lb) out.reload = true;
       if(now.start && !prev.start && I.onPadStart) I.onPadStart();

@@ -1,6 +1,6 @@
 # Dungeon of Guns
 
-A real-time top-down roguelike (a wizard with spell-guns versus goblins) in plain JavaScript and three.js r128. There's no build step. It shares its asset kit and conventions with the user's other games, *Pine Hollow Rally* and *Gloom Shooter* (github.com/kylenauj/gloom-shooter).
+A real-time top-down roguelike (Zippy the wizard and Gribbus the frog, with spell-guns, in an Isaac-style dungeon) in plain JavaScript and three.js r128. There's no build step. It shares its asset kit and conventions with the user's other games, *Pine Hollow Rally* and *Gloom Shooter* (github.com/kylenauj/gloom-shooter).
 
 ## Commands
 
@@ -13,13 +13,17 @@ A real-time top-down roguelike (a wizard with spell-guns versus goblins) in plai
 ## Layout
 
 - `js/core/` is the game, with no THREE and no DOM, so it runs under Node.
-  - `data.js`: all content.
-  - `loot.js`: guns, runes, relics, stats.
+  - `data.js`: elements, reactions, guns, enemies, bosses, floors.
+  - `items.js`: powerups, duos, ascensions, actives, boons, Gribbus' tricks, curses. `Items.build` turns what you own into `G.mods`.
+  - `loot.js`: guns and stats.
   - `dungeon.js`: the generator.
-  - `game.js`: the simulation.
-  - `ai.js`: the goblins.
+  - `puzzles.js`: the five puzzle kinds.
+  - `game.js`: the simulation (rooms, pickups, levelling, actives).
+  - `combat.js`: shots, triggers and payloads, statuses, reactions, hazards, allies.
+  - `gribbus.js`: the frog and frog ponds.
+  - `ai.js`: every enemy and boss.
 - `tools/bot.js` is a pathfinding bot used by the tests, `npm run balance` and the title-screen attract mode.
-- `js/render/` is three.js. `view.js` reads the game state and its event list; it never writes to the game.
+- `js/render/` is three.js. Models are toon-shaded parts baked per rig (`kit.js`, `models.js`); `decor.js` builds the map dressing. `view.js` reads the game state and its event list; it never writes to the game.
 - `js/ui/` holds `hud.js` (a canvas HUD) and `menus.js` (DOM screens).
 - `docs/DESIGN.md` covers the design, the curves and the roadmap.
 
@@ -27,7 +31,7 @@ A real-time top-down roguelike (a wizard with spell-guns versus goblins) in plai
 
 - **The game never waits on the view.** `Game.update(dt, input)` resolves everything and appends events to `G.events`. Keep it that way.
 - **Core code never uses `Math.random`.** Use `G.rng`, so a seed replays the same dungeon and loot. The view can use `Math.random` for sparks.
-- **New content goes in `data.js`.** New code is needed only for a new kind of effect (a rune flag read in `game.js`, a new AI behaviour).
+- **New content goes in `data.js` or `items.js`.** New code is needed only for a new kind of effect (a new payload or special read in `combat.js`, a new AI behaviour).
 - **Every logic bug that gets fixed gets a regression test** in `tests/rules.test.js`.
 - **Balance is tuned one knob at a time**, with `npm run balance` numbers quoted before and after.
 - **Don't edit `vendor/`.**

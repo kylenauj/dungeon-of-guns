@@ -1,0 +1,90 @@
+/* ------------------------------------------------------------------ *
+ *  Decor: the things that make a room feel lived in (or died in).
+ *  Each floor has its own set: cellar clutter, grotto mushrooms, crypt
+ *  candles and graves, the Weird Below's eyestalks and goo, the Hollow
+ *  Heart's veins. Plus the breakables, and wall dressing.
+ *
+ *  A builder returns a Group of parts (kit.part) and lists of glows and
+ *  lights. world.js flattens every room's decor into one baked mesh.
+ * ------------------------------------------------------------------ */
+(function(){
+"use strict";
+const DG = window.DG, K = DG.Kit;
+const Decor = DG.Decor = {};
+const P = K.part, PI = Math.PI;
+const S = (r, w, h)=> new THREE.SphereGeometry(r, w || 10, h || 8);
+const CY = (a, b, h, n)=> new THREE.CylinderGeometry(a, b, h, n || 10);
+const CO = (r, h, n)=> new THREE.ConeGeometry(r, h, n || 8);
+const BX = (w, h, d)=> new THREE.BoxGeometry(w, h, d);
+const TO = (r, t, a)=> new THREE.TorusGeometry(r, t, 6, 14, a || PI*2);
+const OC = r=> new THREE.OctahedronGeometry(r);
+
+/* out: { group, glows:[{x,y,z,c,s}], lights:[{x,y,z,c,i}], eyes:[...] } */
+function make(){ return { group:new THREE.Group(), glows:[], lights:[], eyes:[] }; }
+const B = {
+  bones(o, rnd){ for(let i=0;i<3;i++){ const b = P(o.group, CY(0.025, 0.025, 0.32, 5), 0xe0d8c0, (rnd() - 0.5)*0.4, 0.03, (rnd() - 0.5)*0.4, 0, rnd()*6, PI/2); } P(o.group, S(0.06), 0xe0d8c0, 0.12, 0.05, 0.1); },
+  rubble(o, rnd){ for(let i=0;i<4;i++) P(o.group, new THREE.DodecahedronGeometry(0.06 + rnd()*0.08), 0x7a7066, (rnd() - 0.5)*0.5, 0.04, (rnd() - 0.5)*0.5, rnd(), rnd()); },
+  candle(o, rnd){ P(o.group, CY(0.05, 0.055, 0.22, 8), 0xf0e6c8, 0, 0.11, 0); P(o.group, S(0.07), 0xe8dcb8, 0, 0.02, 0, 0, 0, 0, 1.2, 0.3, 1.2); o.glows.push({ x:0, y:0.27, z:0, c:0xffb84a, s:0.45 }); o.lights.push({ x:0, y:0.4, z:0, c:0xffa040, i:0.6 }); },
+  candles(o, rnd){ for(let i=0;i<3;i++){ const x = (i - 1)*0.18, h = 0.15 + rnd()*0.2; P(o.group, CY(0.04, 0.045, h, 8), 0xf0e6c8, x, h/2, (rnd() - 0.5)*0.15); o.glows.push({ x, y:h + 0.05, z:0, c:0xffb84a, s:0.35 }); } o.lights.push({ x:0, y:0.45, z:0, c:0xffa040, i:0.7 }); },
+  sack(o){ P(o.group, S(0.22, 10, 8), 0xa08a5a, 0, 0.18, 0, 0, 0, 0, 1, 0.85, 0.9); P(o.group, CY(0.05, 0.08, 0.08, 6), 0xa08a5a, 0, 0.38, 0); },
+  cobweb(o){ const w = new THREE.Mesh(new THREE.CircleGeometry(0.5, 6, 0, PI/2), new THREE.MeshBasicMaterial({ map:webTex(), transparent:true, opacity:0.55, depthWrite:false, side:THREE.DoubleSide })); w.rotation.x = -PI/2; w.position.y = 0.04; o.group.add(w); o.loose = true; },
+  barrelstack(o){ [[0, 0], [0.42, 0.05], [0.2, 0.38]].forEach(([x, z], i)=> P(o.group, CY(0.19, 0.19, 0.42, 12), 0x8a5a30, x - 0.2, i === 2 ? 0.52 : 0.21, z, i === 2 ? PI/2 : 0)); },
+  mushrooms(o, rnd){ for(let i=0;i<4;i++){ const x = (rnd() - 0.5)*0.5, z = (rnd() - 0.5)*0.5, h = 0.1 + rnd()*0.15, r = 0.06 + rnd()*0.07; P(o.group, CY(0.025, 0.03, h, 6), 0xf0e6d4, x, h/2, z); P(o.group, new THREE.SphereGeometry(r, 10, 6, 0, PI*2, 0, PI/2), [0xd8302a, 0xc88a3a, 0x8a5ab0][i % 3], x, h, z); } },
+  glowshroom(o, rnd){ const c = [0x46e4ff, 0x9cff6a, 0xff6ad8][Math.floor(rnd()*3)]; for(let i=0;i<3;i++){ const x = (rnd() - 0.5)*0.4, z = (rnd() - 0.5)*0.4, h = 0.15 + rnd()*0.25; P(o.group, CY(0.03, 0.04, h, 6), 0xe8f0ff, x, h/2, z); o.glows.push({ x, y:h + 0.02, z, c, s:0.55, cap:0.09 + rnd()*0.05 }); } o.lights.push({ x:0, y:0.5, z:0, c, i:0.8 }); },
+  moss(o){ const m = new THREE.Mesh(new THREE.CircleGeometry(0.45, 9), new THREE.MeshLambertMaterial({ color:0x4a7a3a })); m.rotation.x = -PI/2; m.position.y = 0.02; m.userData.part = true; o.group.add(m); },
+  toadstools(o, rnd){ for(let i=0;i<2;i++){ const x = (i - 0.5)*0.3; P(o.group, CY(0.05, 0.06, 0.22, 8), 0xf0e6d4, x, 0.11, 0); P(o.group, new THREE.SphereGeometry(0.14, 12, 6, 0, PI*2, 0, PI/2), 0xd8302a, x, 0.22, 0); [0, 2, 4].forEach(a=> P(o.group, S(0.025, 6, 4), 0xffffff, x + Math.cos(a)*0.08, 0.28, Math.sin(a)*0.08)); } },
+  skull(o){ P(o.group, S(0.12, 12, 10), 0xe8e2cc, 0, 0.1, 0); P(o.group, BX(0.14, 0.06, 0.1), 0xe8e2cc, 0, 0.02, 0.04); [-1, 1].forEach(s=> P(o.group, S(0.035, 6, 4), 0x101010, s*0.045, 0.12, 0.09)); },
+  gravestone(o){ P(o.group, BX(0.5, 0.6, 0.14), 0x7a7a88, 0, 0.3, 0); P(o.group, CY(0.25, 0.25, 0.14, 12, 1), 0x7a7a88, 0, 0.6, 0, PI/2); P(o.group, BX(0.24, 0.04, 0.02), 0x4a4a58, 0, 0.42, 0.08); P(o.group, BX(0.04, 0.2, 0.02), 0x4a4a58, 0, 0.42, 0.08); P(o.group, BX(0.6, 0.06, 0.4), 0x5a4a3a, 0, 0.03, 0.2); },
+  eyestalk(o, rnd){ P(o.group, K.tube([[0, 0, 0], [0.05, 0.3, 0.02], [0, 0.6, 0]], 0.04, 8, 5), 0x8a3a7a); o.eyes.push({ x:0, y:0.68, z:0, r:0.1 }); },
+  tendril(o, rnd){ for(let i=0;i<3;i++){ const a = i*2.1 + rnd(); P(o.group, K.tube([[0, 0, 0], [Math.cos(a)*0.15, 0.25, Math.sin(a)*0.15], [Math.cos(a)*0.3, 0.35 + rnd()*0.2, Math.sin(a)*0.3]], 0.035, 8, 5), 0x9a4a9a); } },
+  goo(o){ const m = new THREE.Mesh(new THREE.CircleGeometry(0.5, 12), new THREE.MeshPhongMaterial({ color:0x8ad83a, transparent:true, opacity:0.6, shininess:90, emissive:0x1a3a0a })); m.rotation.x = -PI/2; m.position.y = 0.03; m.scale.set(1, 0.7, 1); o.group.add(m); o.loose = true; },
+  crystal(o, rnd){ const c = [0xd84aff, 0x46e4ff, 0xff4a8a][Math.floor(rnd()*3)]; for(let i=0;i<3;i++){ const h = 0.3 + rnd()*0.4; const m = P(o.group, CO(0.08, h, 5), c, (rnd() - 0.5)*0.3, h/2, (rnd() - 0.5)*0.3, (rnd() - 0.5)*0.5, 0, (rnd() - 0.5)*0.5); } o.glows.push({ x:0, y:0.3, z:0, c, s:1 }); o.lights.push({ x:0, y:0.5, z:0, c, i:0.9 }); },
+  vein(o, rnd){ P(o.group, K.tube([[-0.5, 0.02, 0], [0, 0.04, 0.2*(rnd() - 0.5)], [0.5, 0.02, 0.1]], 0.05, 10, 5), 0x8a1a2a); P(o.group, K.tube([[0, 0.03, 0], [0.2, 0.03, 0.4]], 0.035, 6, 5), 0x8a1a2a); },
+  ember(o){ P(o.group, new THREE.DodecahedronGeometry(0.12), 0x3a1a1a, 0, 0.08, 0); o.glows.push({ x:0, y:0.12, z:0, c:0xff4a1a, s:0.7 }); o.lights.push({ x:0, y:0.3, z:0, c:0xff4a1a, i:0.5 }); },
+  reeds(o, rnd){ for(let i=0;i<6;i++){ const h = 0.5 + rnd()*0.4, x = (rnd() - 0.5)*0.5, z = (rnd() - 0.5)*0.5; P(o.group, CY(0.015, 0.02, h, 4), 0x5a8a3a, x, h/2, z, (rnd() - 0.5)*0.2, 0, (rnd() - 0.5)*0.2); P(o.group, CY(0.03, 0.03, 0.12, 6), 0x6a4a2a, x, h - 0.06, z); } },
+  frogstatue(o){ P(o.group, BX(0.9, 0.3, 0.9), 0x6a6a74, 0, 0.15, 0); P(o.group, S(0.36, 14, 10), 0x8a9a8a, 0, 0.55, 0, 0, 0, 0, 1.1, 0.8, 1); [-1, 1].forEach(s=>{ P(o.group, S(0.12, 10, 8), 0x8a9a8a, s*0.16, 0.8, 0.18); P(o.group, S(0.06, 8, 6), 0x2a2a2a, s*0.16, 0.82, 0.28); }); P(o.group, CY(0.12, 0.13, 0.08, 8), 0xffd23d, 0, 0.95, 0.05); },
+  /* ---- on the north wall (z is the wall's face) ---- */
+  banner(o, rnd){ const c = [0xa02a2a, 0x2a4aa0, 0x2a8a4a][Math.floor(rnd()*3)]; P(o.group, BX(0.5, 0.75, 0.03), c, 0, 1.0, 0.04); P(o.group, CY(0.02, 0.02, 0.62, 6), 0x6a4a2a, 0, 1.4, 0.05, 0, 0, PI/2); P(o.group, OC(0.08), 0xffd23d, 0, 1.05, 0.06); },
+  shelf(o, rnd){ P(o.group, BX(0.7, 0.05, 0.22), 0x6a4a2a, 0, 1.1, 0.11); for(let i=0;i<3;i++) P(o.group, CY(0.05, 0.06, 0.16 + rnd()*0.1, 8), [0x4aa8ff, 0x7dff3a, 0xa86a3a][i], (i - 1)*0.2, 1.2, 0.11); },
+  chains(o){ for(let k=0;k<2;k++) for(let i=0;i<6;i++) P(o.group, TO(0.04, 0.012), 0x5a5a64, (k - 0.5)*0.4, 1.5 - i*0.08, 0.06, 0, i % 2 ? PI/2 : 0); },
+  wallshroom(o, rnd){ for(let i=0;i<3;i++) P(o.group, new THREE.SphereGeometry(0.12 + rnd()*0.06, 10, 6, 0, PI*2, 0, PI/2), 0xc88a3a, (i - 1)*0.18, 0.6 + i*0.25, 0.05, PI/2); },
+  vines(o, rnd){ for(let i=0;i<3;i++) P(o.group, K.tube([[(i - 1)*0.2, 1.6, 0.04], [(i - 1)*0.25 + 0.05, 1.0, 0.07], [(i - 1)*0.2, 0.3, 0.05]], 0.025, 8, 4), 0x4a7a3a); },
+  glowmoss(o){ o.glows.push({ x:0, y:1.0, z:0.06, c:0x9cff6a, s:1.2 }); P(o.group, BX(0.6, 0.4, 0.03), 0x4a8a3a, 0, 1.0, 0.03); o.lights.push({ x:0, y:1.0, z:0.4, c:0x9cff6a, i:0.6 }); },
+  skullniche(o){ P(o.group, BX(0.5, 0.4, 0.05), 0x1a1a22, 0, 1.0, 0.02); P(o.group, S(0.1, 10, 8), 0xe8e2cc, 0, 0.98, 0.08); [-1, 1].forEach(s=> P(o.group, S(0.03, 6, 4), 0x101010, s*0.04, 1.0, 0.16)); },
+  candleshelf(o){ P(o.group, BX(0.6, 0.05, 0.18), 0x5a5a64, 0, 1.0, 0.09); [-0.18, 0, 0.18].forEach(x=>{ P(o.group, CY(0.03, 0.035, 0.14, 8), 0xf0e6c8, x, 1.1, 0.09); o.glows.push({ x, y:1.2, z:0.09, c:0xffb84a, s:0.35 }); }); o.lights.push({ x:0, y:1.2, z:0.5, c:0xffa040, i:0.7 }); },
+  walleye(o){ P(o.group, S(0.28, 12, 8), 0x6a2a4a, 0, 1.0, 0, 0, 0, 0, 1, 0.75, 0.4); o.eyes.push({ x:0, y:1.0, z:0.08, r:0.17, wall:true }); },
+  tendrils(o){ for(let i=0;i<3;i++) P(o.group, K.tube([[(i - 1)*0.25, 1.5, 0.03], [(i - 1)*0.3, 1.0, 0.12], [(i - 1)*0.2, 0.45, 0.06]], 0.04, 8, 5), 0x9a4a9a); },
+  veins(o){ for(let i=0;i<3;i++) P(o.group, K.tube([[(i - 1)*0.3, 1.6, 0.03], [(i - 1)*0.1, 1.0, 0.06], [(i - 1)*0.35, 0.3, 0.03]], 0.04, 8, 5), 0x8a1a2a); },
+  ribs(o){ for(let i=0;i<4;i++) P(o.group, TO(0.32, 0.035, PI), 0xe8dcc8, 0, 0.6 + i*0.25, 0.02); }
+};
+let _web = null;
+function webTex(){
+  if(_web) return _web;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 64; const g = cv.getContext("2d");
+  g.strokeStyle = "rgba(230,230,240,0.9)"; g.lineWidth = 1;
+  for(let i=0;i<7;i++){ const a = i/6*Math.PI/2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a)*64, Math.sin(a)*64); g.stroke(); }
+  for(let r=10; r<64; r+=10){ g.beginPath(); for(let i=0;i<=6;i++){ const a = i/6*Math.PI/2; const x = Math.cos(a)*r, y = Math.sin(a)*r; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  _web = new THREE.CanvasTexture(cv); return _web;
+}
+Decor.build = function(kind, rnd){ const o = make(); (B[kind] || B.rubble)(o, rnd); return o; };
+
+/* ---- breakables: one baked look per kind, drawn instanced ---- */
+const BR = {
+  pot(g){ P(g, K.lathe([[0, 0], [0.2, 0.02], [0.26, 0.2], [0.2, 0.4], [0.12, 0.46], [0.15, 0.52], [0, 0.52]], 12), 0xb8683a); P(g, TO(0.22, 0.02), 0x8a4a2a, 0, 0.24, 0, PI/2); },
+  crate(g){ P(g, BX(0.8, 0.7, 0.8), 0x8a5a30, 0, 0.35, 0); [[0, 0.35, 0.41], [0, 0.35, -0.41]].forEach(([x, y, z])=>{ P(g, BX(0.82, 0.08, 0.02), 0x5a3a1a, x, y + 0.25, z); P(g, BX(0.82, 0.08, 0.02), 0x5a3a1a, x, y - 0.25, z); P(g, BX(0.08, 0.6, 0.02), 0x5a3a1a, x, y, z, 0, 0, 0.75); }); },
+  barrel(g){ P(g, K.lathe([[0, 0], [0.3, 0], [0.34, 0.35], [0.3, 0.7], [0, 0.7]], 14), 0x8a5a30); [0.12, 0.58].forEach(y=> P(g, TO(0.32, 0.025), 0x4a4a54, 0, y, 0, PI/2)); },
+  xbarrel(g){ P(g, K.lathe([[0, 0], [0.3, 0], [0.34, 0.35], [0.3, 0.7], [0, 0.7]], 14), 0xb8282a); [0.12, 0.58].forEach(y=> P(g, TO(0.32, 0.025), 0x2a2a2a, 0, y, 0, PI/2)); P(g, S(0.1, 8, 6), 0xf0f0e0, 0, 0.42, 0.31); P(g, BX(0.04, 0.2, 0.02), 0x1a1a1a, 0, 0.42, 0.35, 0, 0, 0.8); },
+  urn(g){ P(g, K.lathe([[0, 0], [0.16, 0], [0.24, 0.25], [0.18, 0.5], [0.1, 0.56], [0.16, 0.62], [0, 0.62]], 12), 0x6a7a9a); P(g, TO(0.2, 0.025), 0xd8b84a, 0, 0.3, 0, PI/2); },
+  coffin(g){ P(g, BX(0.6, 0.35, 0.85), 0x4a3a3a, 0, 0.18, 0); P(g, BX(0.62, 0.06, 0.87), 0x3a2a2a, 0, 0.37, 0); P(g, BX(0.06, 0.02, 0.3), 0xd8c8a0, 0, 0.41, 0); P(g, BX(0.18, 0.02, 0.06), 0xd8c8a0, 0, 0.41, 0.06); },
+  shroomcap(g){ P(g, CY(0.1, 0.13, 0.35, 10), 0xf0e6d4, 0, 0.17, 0); P(g, new THREE.SphereGeometry(0.36, 14, 8, 0, PI*2, 0, PI/2), 0x8a4ab0, 0, 0.33, 0, 0, 0, 0, 1, 0.7, 1); [0, 2, 4].forEach(a=> P(g, S(0.05, 6, 4), 0xe8d8ff, Math.cos(a)*0.2, 0.48, Math.sin(a)*0.2)); },
+  eggsac(g){ P(g, S(0.3, 12, 10), 0xd8b8a0, 0, 0.3, 0, 0, 0, 0, 1, 1.2, 1); [0.4, 2.5, 4.4].forEach(a=> P(g, S(0.09, 8, 6), 0xc87a8a, Math.cos(a)*0.24, 0.35, Math.sin(a)*0.24)); },
+  pustule(g){ P(g, S(0.32, 12, 10), 0x9a2a3a, 0, 0.25, 0, 0, 0, 0, 1, 0.8, 1); P(g, S(0.14, 10, 8), 0xd8e84a, 0, 0.48, 0); }
+};
+Decor.breakableGeo = function(kind){
+  const g = new THREE.Group(); (BR[kind] || BR.pot)(g);
+  const geos = [];
+  g.children.forEach(m=>{ m.updateMatrix(); let q = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); q.applyMatrix4(m.matrix); K.paint(q, m.material.color); geos.push(q); });
+  return K.merge(geos);
+};
+
+})();

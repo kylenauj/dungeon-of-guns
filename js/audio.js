@@ -4,7 +4,7 @@
  *
  *  The music is a sneaky goblin march in A minor, sequenced ahead of
  *  the clock. Exploring gets bass and plucks; a locked room adds drums;
- *  Grubnok gets the lot, faster.
+ *  the bosses get the lot, faster.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -134,6 +134,41 @@ A.play = function(name, o){
     case "portal": [60, 64, 67, 71, 74, 79].forEach((m, i)=> tone(mtof(m), 1.2, "sine", 0.05, i*0.09, 0, 0, true)); break;
     case "descend": tone(400, 1.0, "sine", 0.1, 0, 0, 80, true); break;
     case "socket": tone(1000, 0.06, "square", 0.04); tone(1500, 0.1, "triangle", 0.05, 0.05); break;
+    case "active": [60, 67, 72, 79].forEach((m, i)=> tone(mtof(m), 0.3, "sawtooth", 0.05, i*0.04, 0, 0, true)); burst(0.3, "highpass", 2000, 0.15, 1, 0, 0, 7000); break;
+    case "charged": tone(mtof(84), 0.1, "square", 0.04); tone(mtof(91), 0.2, "square", 0.04, 0.07); break;
+    case "altar":  [40, 43, 46].forEach((m, i)=> tone(mtof(m), 1.2, "sawtooth", 0.07, i*0.15, 0, 0, true)); break;
+    case "beat":   tone(55, 0.25, "sine", 0.6, 0, 0, 35); tone(50, 0.25, "sine", 0.5, 0.18, 0, 32); break;
+    case "bones":  for(let i=0;i<4;i++) tone(900 + Math.random()*900, 0.04, "square", 0.04, i*0.05); break;
+    case "bubble": tone(400, 0.12, "sine", 0.08, 0, 0, 1200); break;
+    case "byproduct": tone(1200 + Math.random()*400, 0.06, "triangle", 0.025, 0, 0, 2400); break;
+    case "break":  burst(0.25, "lowpass", 1600, 0.4, 1, 0, 0, 300); tone(200, 0.1, "square", 0.05, 0, 0, 80); break;
+    case "croak":  tone(110, 0.18, "sawtooth", 0.12, 0, 0, 80); tone(95, 0.2, "sawtooth", 0.1, 0.12, 0, 70); break;
+    case "frog":   tone(220, 0.08, "square", 0.05, 0, 0, 160); tone(330, 0.1, "square", 0.04, 0.06, 0, 260); break;
+    case "lick":   tone(900, 0.07, "sine", 0.06, 0, 0, 300); burst(0.05, "bandpass", 1200, 0.12, 4); break;
+    case "gulp":   tone(200, 0.2, "sine", 0.2, 0, 0, 60); break;
+    case "duo":    [72, 76, 79, 84, 79, 84, 88].forEach((m, i)=> tone(mtof(m), 0.35, "square", 0.045, i*0.06, 0, 0, true)); break;
+    case "godly":  [60, 64, 67, 72, 76, 79, 84, 88, 91, 96].forEach((m, i)=> tone(mtof(m), 0.9, "triangle", 0.06, i*0.07, 0, 0, true)); burst(1.4, "highpass", 4000, 0.15, 1, 0.2, 0, 9000, true); break;
+    case "levelup": [67, 71, 74, 79, 83].forEach((m, i)=> tone(mtof(m), 0.25, "square", 0.045, i*0.06, 0, 0, true)); break;
+    case "fly":    for(let i=0;i<6;i++) tone(mtof(88 + i*2), 0.12, "sine", 0.04, i*0.04); break;
+    case "ghost":  tone(500, 0.9, "sine", 0.06, 0, 0, 300, true); tone(507, 0.9, "sine", 0.05, 0.05, 0, 310, true); break;
+    case "graze":  tone(1800, 0.05, "sine", 0.03); break;
+    case "gremlin": for(let i=0;i<3;i++) tone(1200 + Math.random()*800, 0.05, "square", 0.03, i*0.05); break;
+    case "heartbeat": case "inhale": burst(0.6, "bandpass", 500, 0.25, 2, 0, 0, 1800, true); break;
+    case "laserTell": tone(1200, 0.5, "sine", 0.05, 0, 0, 2400); break;
+    case "mirror": [84, 79, 84].forEach((m, i)=> tone(mtof(m), 0.2, "sine", 0.05, i*0.05, 0, 0, true)); break;
+    case "note":   tone(mtof([72, 74, 76, 79, 81][o.i || 0] || 72), 0.4, "triangle", 0.09, 0, 0, 0, true); break;
+    case "nova":   burst(0.4, "highpass", 2500, 0.25, 1, 0, 0, 7000, true); break;
+    case "poof":   burst(0.25, "lowpass", 900, 0.25, 1, 0, 0, 200); break;
+    case "puff":   burst(0.2, "bandpass", 600, 0.2, 3, 0, 0, 200); break;
+    case "push":   burst(0.25, "lowpass", 300, 0.4, 1); break;
+    case "react":  tone(mtof(84), 0.08, "square", 0.05); tone(mtof(91), 0.15, "triangle", 0.06, 0.05); burst(0.2, "highpass", 3000, 0.12); break;
+    case "reroll": for(let i=0;i<6;i++) tone(mtof(72 + i*3), 0.06, "square", 0.03, i*0.04); break;
+    case "reset":  tone(600, 0.3, "triangle", 0.06, 0, 0, 200); break;
+    case "shatter": burst(0.3, "highpass", 4000, 0.3, 1); tone(3000, 0.2, "sine", 0.04, 0, 0, 1500); break;
+    case "splash": burst(0.4, "lowpass", 1400, 0.35, 1, 0, 0, 300); break;
+    case "splat":  burst(0.15, "lowpass", 600, 0.35, 2, 0, 0, 120); tone(90, 0.12, "sine", 0.2, 0, 0, 50); break;
+    case "stone":  burst(0.35, "lowpass", 260, 0.5, 1); tone(70, 0.3, "square", 0.08, 0, 0, 45); break;
+    case "ward":   tone(mtof(86), 0.3, "sine", 0.07, 0, 0, 0, true); tone(mtof(93), 0.4, "sine", 0.05, 0.05, 0, 0, true); break;
     case "bark": {   // goblin gibberish: a couple of squeaky formant blips
       const b = 500 + Math.random()*400;
       for(let i=0;i<3;i++) tone(b*(0.8 + Math.random()*0.6), 0.07, "square", 0.025, i*0.07, 0, b*(0.6 + Math.random()));

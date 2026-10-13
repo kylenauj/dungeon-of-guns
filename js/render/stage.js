@@ -16,7 +16,7 @@
 const DG = window.DG, K = DG.Kit;
 const S = DG.Stage = {};
 
-S.TORCH_LIGHTS = 6;
+S.TORCH_LIGHTS = 8;
 
 S.init = function(){
   const r = S.renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
@@ -62,9 +62,17 @@ S.togglePixel = function(){
   return S.pixel;
 };
 
-S.theme = function(th){
+/* each floor's mood: darker and foggier the deeper you go, and darker still if cursed */
+S.theme = function(th, curses){
+  curses = curses || [];
+  const dark = curses.indexOf("dark") >= 0, fog = curses.indexOf("fog") >= 0;
   S.scene.background = new THREE.Color(th.fog);
-  S.torches.forEach(l=> l.color.setHex(th.torch));
+  S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
+  S.hemi.color.setHex(th.ambient || 0xa8b0d8);
+  S.hemi.intensity = 0.9*(th.light || 1)*(dark ? 0.55 : 1);
+  S.fill.intensity = 0.45*(th.light || 1)*(dark ? 0.5 : 1);
+  S.playerLight.distance = dark ? 8 : 12;
+  S.playerLight.intensity = dark ? 2.1 : 1.7;
 };
 
 /* follow (x, z), leaning toward the aim point (ax, az) */

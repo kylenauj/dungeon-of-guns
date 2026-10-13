@@ -1,6 +1,6 @@
 /* ------------------------------------------------------------------ *
- *  Everything that isn't the game: the title, pause, the bag (where
- *  runes get socketed), how to play, and the end of a run.
+ *  Everything that isn't the game: the title, pause, the satchel, level-up
+ *  boons, how to play, and the end of a run.
  *  Plain DOM, styled like Pine Hollow's menus.
  * ------------------------------------------------------------------ */
 (function(){
@@ -53,7 +53,7 @@ UI.title = function(){
   UI.show(`
     <div class="title-wrap">
       <div class="logo"><span>DUNGEON</span><small>of</small><span>GUNS</span></div>
-      <p class="tag-line">A wizard. Five kinds of gun. Far too many goblins.</p>
+      <p class="tag-line">Zippy the wizard, Gribbus the frog, and a dungeon that gets weirder the deeper it goes.</p>
       <div class="menu">
         <button class="item" data-act="new">NEW RUN <small>a fresh dungeon</small></button>
         <div class="seed-row"><input id="seed" maxlength="12" placeholder="SEED (optional)" spellcheck="false" autocomplete="off"><button class="item small" data-act="seeded">PLAY SEED</button></div>
@@ -71,10 +71,10 @@ UI.how = function(back){
       <h2 class="head">HOW TO PLAY</h2>
       <div class="cols">
       <div class="note">
-        <p>You're a wizard who casts spells <b>through guns</b>. Clear every goblin in a room and the doors open. Find the <b>boss</b>, beat him, take the portal down. Five floors; each one is meaner.</p>
-        <p><b>Guns</b> have an <b>element</b> (arcane, fire, frost, poison, shock). Every shot carries it, and the right mouse button casts that element's <b>spell</b> for mana.</p>
-        <p><b>Runes</b> socket into guns and change them. Plague Spreader makes poison jump between goblins. Ricochet bounces. Splitter splits. Mix them.</p>
-        <p>Goblins get tougher every floor and your old gun won't keep up: <b>better loot is how you get stronger</b>. Chests, the shop, secret rooms, puzzle rewards.</p>
+        <p>You're <b>Zippy</b>, a wizard who casts spells <b>through guns</b>. <b>Gribbus</b> the frog hops along and licks things. Clear a room and the doors open. Beat the floor's <b>boss</b> and take the portal down. Five floors, each spookier and stranger.</p>
+        <p>Every shot carries its gun's <b>element</b>. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
+        <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
+        <p>Kills give <b>XP</b>; each level lets you pick a <b>boon</b>. <b>Frog ponds</b> teach Gribbus new tricks. <b>Golden flies</b> unlock rarer ones for every future run.</p>
         <p><b>Not every door is a door.</b> Some are paintings. Some walls aren't walls: shoot or walk into suspicious stone.</p>
       </div>
       <div class="note keys">
@@ -82,10 +82,11 @@ UI.how = function(back){
         <p><kbd>LMB</kbd> shoot &nbsp; <kbd>RMB</kbd> cast the gun's spell</p>
         <p><kbd>SPACE</kbd> blink (dodge through shots and over pits)</p>
         <p><kbd>E</kbd> open, take, buy, read &nbsp; <kbd>R</kbd> reload</p>
+        <p><kbd>F</kbd> use your active item</p>
         <p><kbd>Q</kbd> / <kbd>wheel</kbd> / <kbd>1-3</kbd> switch guns</p>
-        <p><kbd>TAB</kbd> bag: move runes between guns</p>
+        <p><kbd>TAB</kbd> satchel: everything you carry</p>
         <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>P</kbd> pixels</p>
-        <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, Y swap, RB bag.</p>
+        <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, B active, Y swap, RB satchel.</p>
       </div>
       </div>
       <div class="row"><button class="item back" data-act="${back}">BACK</button></div>
@@ -99,7 +100,7 @@ UI.pause = function(G){
       <p class="hint">Floor ${G.floor} · ${esc(G.D.theme.name)} · seed <b>${G.seedWord}</b></p>
       <div class="menu">
         <button class="item" data-act="resume">RESUME</button>
-        <button class="item" data-act="bag">BAG <small>runes and guns</small></button>
+        <button class="item" data-act="bag">SATCHEL <small>guns and powerups</small></button>
         <button class="item" data-act="howPause">HOW TO PLAY</button>
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
@@ -108,55 +109,67 @@ UI.pause = function(G){
     </div>`, "pause");
 };
 
-/* ---- the bag ---- */
-UI.bag = function(G, sel){
+/* ---- the satchel: everything you carry ---- */
+UI.bag = function(G){
   const p = G.player, L = DG.Loot;
-  UI.bagSel = sel === undefined ? null : sel;
   const gunCard = (gun, gi)=>{
-    const s = L.stats(gun, p.stats), R = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], sp = DG.SPELLS[s.spell];
-    const runes = [];
-    for(let j=0;j<gun.slots;j++){
-      const id = gun.runes[j];
-      runes.push(id ? `<button class="rune on" data-act="unsock" data-g="${gi}" data-r="${j}" title="${esc(DG.RUNES[id].desc)}"><i>${DG.RUNES[id].icon}</i><span>${esc(DG.RUNES[id].name)}<small>${esc(DG.RUNES[id].desc)}</small></span></button>`
-                    : `<button class="rune empty" data-act="sock" data-g="${gi}" ${UI.bagSel === null ? "disabled" : ""}><i>+</i><span>${UI.bagSel === null ? "empty slot" : "socket here"}</span></button>`);
-    }
-    return `<div class="gcard ${gi === p.cur ? "cur" : ""}" style="--el:${hex(E.color)};--ra:${R.color}">
+    const s = L.stats(gun, G.mods), R = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], sp = DG.SPELLS[s.spell];
+    const innate = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> `<span class="chipx" style="--c:${DG.TIERS[DG.ITEMS[id].tier].color}" title="${esc(DG.ITEMS[id].desc)}">${esc(DG.ITEMS[id].name)}</span>`).join("");
+    return `<div class="gcard ${gi === p.cur ? "cur" : ""}" style="--el:${hex(E.color)};--ra:${gun.ascended ? "#ffb12e" : R.color}">
       <div class="gname">${esc(gun.name)}</div>
-      <div class="gsub">${R.name} · level ${gun.level} · ${E.name} · ${DG.GUNS[gun.base].name}</div>
+      <div class="gsub">${gun.ascended ? "Ascended" : R.name} · level ${gun.level} · ${E.name} · ${DG.GUNS[gun.base].name}</div>
       ${gun.flavour ? `<div class="gflav">${esc(gun.flavour)}</div>` : ""}
-      <div class="gstats"><span>${Math.round(s.dmg*10)/10}${s.pellets > 1 ? "×" + s.pellets : ""}<small>damage</small></span><span>${Math.round(s.rate*10)/10}<small>per sec</small></span><span>${s.mag}<small>mag</small></span><span>${Math.round(L.dps(gun, p.stats))}<small>dps</small></span></div>
+      <div class="gstats"><span>${Math.round(s.dmg*10)/10}${s.pellets > 1 ? "×" + s.pellets : ""}<small>damage</small></span><span>${Math.round(s.rate*10)/10}<small>per sec</small></span><span>${s.mag}<small>mag</small></span><span>${Math.round(L.dps(gun, G.mods))}<small>dps</small></span></div>
       <div class="gspell">RMB: <b>${sp.name}</b> (${s.spellCost} mana): ${sp.desc}</div>
-      <div class="gel">${E.name}: ${E.hint}</div>
-      <div class="runes">${runes.join("")}</div>
+      <div class="gel">Shots carry: ${G.shotEls(gun).map(e=> `<b style="color:${hex(DG.ELEMENTS[e].color)}">${DG.ELEMENTS[e].name}</b>`).join(" + ")}</div>
+      ${innate ? `<div class="innate">Built in: ${innate}</div>` : ""}
     </div>`;
   };
-  const bag = p.bag.length ? p.bag.map((it, i)=> `<button class="rune ${UI.bagSel === i ? "picked" : ""}" data-act="pick" data-i="${i}"><i>${DG.RUNES[it.id].icon}</i><span>${esc(it.name)}<small>${esc(DG.RUNES[it.id].desc)}</small></span></button>`).join("")
-                           : `<p class="hint">No loose runes. Runes you pick up go into the gun you're holding if it has a free slot, otherwise here.</p>`;
-  const relics = p.relics.length ? p.relics.map(r=> `<div class="relic"><b>${esc(r.name)}</b> ${esc(DG.RELICS[r.id].desc)}</div>`).join("") : `<p class="hint">No relics yet.</p>`;
+  const ids = Object.keys(p.items).filter(id=> DG.ITEMS[id]).sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier);
+  const items = ids.length ? ids.map(id=>{ const it = DG.ITEMS[id], T = DG.TIERS[it.tier];
+    return `<div class="pw" style="--c:${T.color}"><b>${esc(it.name)}${p.items[id] > 1 ? " ×" + p.items[id] : ""}</b><small>${T.name}</small><span>${esc(it.desc)}</span></div>`; }).join("")
+    : `<p class="hint">No powerups yet. Treasure rooms, shops, bosses, chests and secrets all have them, and they stack in strange ways.</p>`;
+  const duos = (G.mods.duos || []).map(id=> DG.DUOS[id]).filter(Boolean).map(d=> `<div class="pw" style="--c:#ff4fd8"><b>${esc(d.name)}</b><small>duo</small><span>${esc(d.desc)}</span></div>`).join("");
+  const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Level up to pick boons.</span>`;
+  const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Find a frog pond to teach Gribbus a trick.</span>`;
+  const act = p.active ? `<div class="pw" style="--c:#ffd23d"><b>${esc(DG.ACTIVES[p.active.id].name)}</b><small>active · F</small><span>${esc(DG.ACTIVES[p.active.id].desc)}</span></div>` : "";
   UI.show(`
     <div class="panel scroll bagp">
-      <h2 class="head">BAG</h2>
-      <p class="hint">Click a loose rune, then an empty slot to socket it. Click a socketed rune to take it out. Nothing is ever destroyed.</p>
+      <h2 class="head">SATCHEL</h2>
       <div class="guns">${p.guns.map(gunCard).join("")}</div>
-      <h4>Loose runes</h4><div class="bagrunes">${bag}</div>
-      <h4>Relics</h4><div class="relics">${relics}</div>
+      <h4>Powerups (${ids.length})</h4><div class="pws">${act}${duos}${items}</div>
+      <h4>Boons</h4><div class="chips">${boons}</div>
+      <h4>Gribbus</h4><div class="chips">${frog}</div>
       <div class="row"><button class="item back" data-act="closeBag">CLOSE <small>TAB</small></button></div>
     </div>`, "bag");
 };
 
+/* ---- level up: pick a boon ---- */
+UI.choose = function(G){
+  const c = G.choice; if(!c) return;
+  UI.show(`
+    <div class="title-wrap">
+      <h2 class="head">LEVEL ${c.level}!</h2>
+      <p class="hint">Pick one. (1, 2, 3 or click)</p>
+      <div class="boons">${c.options.map((id, i)=>{ const B = DG.BOONS[id];
+        return `<button class="item boon" data-act="boon" data-i="${i}"><kbd>${i + 1}</kbd><b>${esc(B.name)}</b><small>${esc(B.desc)}</small></button>`; }).join("")}</div>
+    </div>`, "choose");
+};
+
 UI.end = function(G, won){
   const s = G.stats, m = Math.floor(s.time/60), sec = Math.floor(s.time % 60);
-  const killer = { orb:"Grubnok's royal spit", rock:"a rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a goblin bomb", pit:"a pit", brute:"a Brute's hug", king:"Grubnok's belly", grunt:"a Grunt's stab", sneak:"a Sneak" };
+  const killer = { orb:"Grubnok's royal spit", rock:"a rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a bomb", pit:"a pit", brute:"a Brute's hug", king:"Grubnok's belly", grunt:"a Grunt's stab", sneak:"a Sneak",
+    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar", matriarch:"the Shroom Matriarch", bride:"the Bride", eye:"the Eye", heart:"the Heart" };
   const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "goblins";
   UI.show(`
     <div class="title-wrap">
       <h2 class="head ${won ? "win" : "lose"}">${won ? "YOU ESCAPED THE DUNGEON" : "YOU DIED"}</h2>
-      <p class="note">${won ? "Grubnok is very cross about it. The goblins will be talking about you for weeks." : "Done in by " + esc(why) + " on floor " + G.floor + " (" + esc(G.D.theme.name) + ")."}</p>
+      <p class="note">${won ? "The dungeon's heart stops. Gribbus croaks once, very proudly." : "Done in by " + esc(why) + " on floor " + G.floor + " (" + esc(G.D.theme.name) + ")."}</p>
       <div class="stats">
-        <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>goblins</span><span><b>${s.rooms}</b>rooms</span>
+        <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>kills</span><span><b>${s.items}</b>powerups</span><span><b>${s.reactions}</b>reactions</span><span><b>${s.rooms}</b>rooms</span>
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
-      <p class="hint">Best gun: <b>${esc(G.player.guns.slice().sort((a, b)=> DG.Loot.dps(b) - DG.Loot.dps(a))[0].name)}</b> · seed <b>${G.seedWord}</b></p>
+      <p class="hint">Best gun: <b>${esc(G.player.guns.slice().sort((a, b)=> DG.Loot.dps(b, G.mods) - DG.Loot.dps(a, G.mods))[0].name)}</b> · seed <b>${G.seedWord}</b></p>
       <div class="menu">
         ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper and nastier</small></button>` : ""}
         <button class="item" data-act="new">NEW RUN</button>
