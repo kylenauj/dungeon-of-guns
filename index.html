@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dungeon of Guns</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='12' fill='%2312101a' stroke='%23ffd23d' stroke-width='4'/%3E%3Cpath d='M32 6 L44 34 H20 Z' fill='%236a3ab0'/%3E%3Crect x='14' y='33' width='36' height='5' rx='2' fill='%234a2a80'/%3E%3Crect x='22' y='44' width='24' height='8' fill='%23c9d1d9'/%3E%3Crect x='42' y='42' width='10' height='4' fill='%23b36bff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800;900&family=Saira+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="view"></div>
+<canvas id="hud"></canvas>
+<div id="screens" class="screens"></div>
+<div id="loading"><b>DUNGEON OF GUNS</b><small>digging the dungeon…</small></div>
+
+<!-- three.js r128, the build Pine Hollow Rally and Gloom Shooter use, vendored so the game runs offline -->
+<script src="vendor/three.min.js"></script>
+<!-- the rules: plain logic, no THREE, no DOM (tested under Node) -->
+<script src="js/core/core.js"></script>
+<script src="js/core/data.js"></script>
+<script src="js/core/loot.js"></script>
+<script src="js/core/dungeon.js"></script>
+<script src="js/core/game.js"></script>
+<script src="js/core/ai.js"></script>
+<!-- the bot plays the attract mode behind the title (and the tests) -->
+<script src="tools/bot.js"></script>
+<!-- sound, input, the picture -->
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/render/kit.js"></script>
+<script src="js/render/stage.js"></script>
+<script src="js/render/models.js"></script>
+<script src="js/render/world.js"></script>
+<script src="js/render/fx.js"></script>
+<script src="js/render/view.js"></script>
+<!-- the HUD, the menus, the app -->
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/menus.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

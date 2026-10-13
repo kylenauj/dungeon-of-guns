@@ -1,0 +1,99 @@
+/* ------------------------------------------------------------------ *
+ *  Dungeon of Guns' look: Pine Hollow's slanted plates with hard ink
+ *  shadows, in torchlight. Cream type, signal yellow, wizard purple,
+ *  goblin green.
+ * ------------------------------------------------------------------ */
+:root{
+  --ink:#07060a; --cave:#12101a; --plate:rgba(18,14,22,.9);
+  --cream:#f3e6c4; --dim:#a89a88; --signal:#ffd23d; --purple:#b36bff; --purple2:#6a3ab0; --goblin:#7ad84a; --bad:#ff4a5a;
+  --display:"Saira Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Saira Semi Condensed","Arial Narrow",Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:#07060a;color:var(--cream);font-family:var(--body);
+  touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+body.playing{cursor:none;}
+#view, #view canvas{position:fixed;inset:0;display:block;}
+#hud{position:fixed;inset:0;pointer-events:none;}
+button{font:inherit;color:inherit;}
+
+#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#07060a;
+  font-family:var(--display);font-size:44px;letter-spacing:.06em;z-index:50;}
+#loading small{font-family:var(--body);font-size:15px;color:var(--dim);}
+
+/* ---- plates and menu items ---- */
+.item{appearance:none;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0;padding:10px 18px 9px;cursor:pointer;text-align:left;
+  font-family:var(--display);font-weight:800;font-size:clamp(17px,1.6vw,21px);letter-spacing:.02em;color:var(--cream);background:rgba(18,14,22,.88);
+  border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);transform:skewX(-9deg);transition:transform .08s,background .08s;}
+.item > *{transform:skewX(9deg);}
+.item small{font-family:var(--body);font-weight:600;font-size:.7em;letter-spacing:0;color:var(--dim);}
+.item:hover{background:#2a2038;}
+.item.sel{color:var(--ink);background:var(--signal);transform:skewX(-9deg) translateX(8px);}
+.item.sel small{color:#4a3a10;}
+.item.back{background:rgba(18,14,22,.6);font-size:clamp(14px,1.3vw,17px);padding:7px 16px;width:auto;}
+.item.small{width:auto;font-size:15px;padding:8px 14px;}
+.item[disabled]{opacity:.45;cursor:default;}
+.menu{display:flex;flex-direction:column;gap:9px;}
+h2.head{font-family:var(--display);font-weight:900;font-size:clamp(30px,3.6vw,48px);margin:0 0 14px;transform:skewX(-9deg);text-shadow:3px 3px 0 var(--ink);letter-spacing:.02em;}
+h2.head.win{color:var(--signal);} h2.head.lose{color:var(--bad);}
+h4{font-family:var(--display);font-size:17px;margin:18px 0 8px;color:var(--signal);letter-spacing:.04em;text-transform:uppercase;}
+.note{font-size:clamp(15px,1.3vw,17px);line-height:1.5;color:#e8dcc0;max-width:40em;}
+.note p{margin:0 0 .8em;} .note b{color:var(--signal);}
+.hint{color:var(--dim);font-size:14px;max-width:38em;line-height:1.5;} .hint b{color:var(--cream);}
+kbd{font-family:var(--display);font-size:13px;color:var(--ink);background:var(--cream);padding:1px 6px;border:2px solid var(--ink);margin:0 1px;}
+.row{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
+.scroll{max-height:88vh;overflow:auto;padding-right:10px;}
+
+/* ---- screens ---- */
+.screens{position:fixed;inset:0;display:none;padding:max(4vh,env(safe-area-inset-top)) max(5vw,env(safe-area-inset-right)) max(4vh,env(safe-area-inset-bottom)) max(5vw,env(safe-area-inset-left));
+  overflow:auto;background:linear-gradient(90deg,rgba(7,6,10,.92) 0%,rgba(7,6,10,.7) 45%,rgba(7,6,10,.2) 100%);}
+.screens.on{display:block;}
+.screens.title{display:flex;align-items:center;}
+.screens.pause,.screens.bag,.screens.end{background:rgba(7,6,10,.84);}
+.title-wrap{max-width:520px;display:flex;flex-direction:column;gap:18px;}
+.logo{font-family:var(--display);font-weight:900;line-height:.86;transform:skewX(-9deg);display:flex;flex-direction:column;}
+.logo span{font-size:clamp(56px,8vw,104px);color:var(--signal);text-shadow:5px 5px 0 var(--ink),0 0 30px rgba(255,160,40,.25);letter-spacing:.01em;}
+.logo span:last-child{color:var(--purple);}
+.logo small{font-size:clamp(22px,2.6vw,32px);color:var(--cream);margin:2px 0 2px 6px;text-shadow:3px 3px 0 var(--ink);}
+.tag-line{margin:-6px 0 0;font-size:18px;color:#e8dcc0;transform:skewX(-9deg);}
+.seed-row{display:flex;gap:10px;align-items:stretch;}
+.seed-row input{flex:1;min-width:0;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.12em;padding:8px 14px;color:var(--cream);background:rgba(18,14,22,.88);
+  border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);transform:skewX(-9deg);outline:none;user-select:text;-webkit-user-select:text;}
+.seed-row input:focus{border-color:var(--signal);}
+.panel{max-width:1100px;}
+.cols{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;}
+.keys p{margin:0 0 .65em;}
+.stats{display:flex;flex-wrap:wrap;gap:10px;}
+.stats span{display:flex;flex-direction:column;align-items:center;min-width:76px;padding:8px 10px;background:var(--plate);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);font-size:12px;color:var(--dim);transform:skewX(-9deg);}
+.stats b{font-family:var(--display);font-size:26px;color:var(--cream);}
+
+/* ---- the bag ---- */
+.guns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.gcard{background:var(--plate);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:14px 16px 12px 20px;position:relative;}
+.gcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--el);}
+.gcard.cur{outline:3px solid var(--signal);outline-offset:-3px;}
+.gname{font-family:var(--display);font-weight:900;font-size:21px;color:var(--ra);line-height:1.1;}
+.gsub{font-size:12px;color:var(--dim);margin:3px 0 6px;}
+.gflav{font-size:13px;font-style:italic;color:#d8c8a8;margin-bottom:6px;}
+.gstats{display:flex;gap:8px;margin:6px 0 8px;}
+.gstats span{flex:1;display:flex;flex-direction:column;font-family:var(--display);font-weight:800;font-size:20px;}
+.gstats small{font-family:var(--body);font-size:11px;font-weight:600;color:var(--dim);}
+.gspell,.gel{font-size:13px;line-height:1.4;color:#e8dcc0;margin-bottom:4px;} .gspell b{color:var(--el);}
+.gel{color:var(--dim);}
+.runes,.bagrunes{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.bagrunes{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
+.rune{appearance:none;display:flex;align-items:center;gap:10px;padding:6px 10px;text-align:left;cursor:pointer;background:#1e1828;border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);}
+.rune i{font-style:normal;width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:#3a2a5a;color:#e8d0ff;font-size:16px;border:2px solid var(--ink);flex:none;}
+.rune span{display:flex;flex-direction:column;font-family:var(--display);font-weight:800;font-size:15px;}
+.rune small{font-family:var(--body);font-weight:500;font-size:12px;color:var(--dim);}
+.rune.empty{background:transparent;border-style:dashed;border-color:#4a4258;box-shadow:none;}
+.rune.empty i{background:transparent;color:#6a6278;}
+.rune.empty:not([disabled]){border-color:var(--signal);} .rune.empty:not([disabled]) i{color:var(--signal);}
+.rune.picked{background:var(--signal);color:var(--ink);} .rune.picked small{color:#4a3a10;}
+.rune:hover:not([disabled]){background:#2a2038;} .rune.picked:hover{background:var(--signal);}
+.relics{display:flex;flex-direction:column;gap:4px;} .relic{font-size:14px;color:#e8dcc0;} .relic b{color:var(--signal);}
+
+@media (max-width:760px){
+  .cols{grid-template-columns:1fr;}
+  .logo span{font-size:60px;}
+}
