@@ -201,7 +201,24 @@ proto.handle = function(ev){
     case "croak": FX.ring(ev.x, ev.y, ev.kind === "doom" ? 10 : 3, ev.kind === "doom" ? 0x9cff3a : 0x8ad8ff, 0.6); play("croak"); break;
     case "gulp": play("gulp"); break;
     case "frogbuff": play("frog"); FX.rise(G.gribbus.x, G.gribbus.y, 0x9cff6a, 20, 0.5, { v:3 }); break;
-    case "frogPoof": FX.burst(ev.x, 0.4, ev.y, 0x9cff6a, 10, 2, 0.3, 0.5); break;
+    case "frogPoof": FX.burst(ev.x, 0.4, ev.y, 0x9cff6a, 10, 2, 0.3, 0.5); if(ev.x2 !== undefined) FX.burst(ev.x2, 0.4, ev.y2, 0x9cff6a, 12, 2.5, 0.3, 0.5); play("poof"); break;
+    /* the odd ones */
+    case "status": if(ev.st === "confused"){ FX.burst(ev.x, 1.6, ev.y, 0xffd23d, 8, 2, 0.22, 0.5, { up:1 }); play("squeak"); } break;
+    case "stick": FX.burst(ev.x, 0.9, ev.y, 0xff4a3a, 5, 1.5, 0.2, 0.3); play("stick"); break;
+    case "portal": FX.ring(ev.x1, ev.y1, 0.9, 0x46e4ff, 0.35, { y:0.8 }); FX.ring(ev.x2, ev.y2, 0.9, 0xff9a2e, 0.35, { y:0.8 }); FX.burst(ev.x2, 0.8, ev.y2, 0xff9a2e, 6, 2.5, 0.2, 0.3); play("portalShot"); break;
+    case "shove": FX.ring(ev.x, ev.y, ev.r, 0xd8b84a, 0.45); FX.ring(ev.x, ev.y, ev.r*0.6, 0xff6ad8, 0.35); S.shake(0.2); play("accordion"); break;
+    case "jackpot": FX.burst(ev.x, 0.8, ev.y, 0xffd23d, 22, 5, 0.3, 0.7, { grav:9, up:2, col2:0xfff8b0 }); play("jackpot"); break;
+    case "clockwork": FX.ring(ev.x, ev.y, 1.8, 0x8ad8ff, 0.5); play("ward"); break;
+    case "haunt": { const a = ev.a; FX.burst(ev.x + Math.cos(a)*0.7, 1, ev.y + Math.sin(a)*0.7, 0x9cffc8, 4, 1.5, 0.25, 0.35); play("ghostShot"); break; }
+    case "fling": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0xff6a8a, 0.2); FX.burst(ev.x2, 0.8, ev.y2, 0xff6a8a, 8, 3, 0.25, 0.3); play("bonk"); break;
+    case "comet": FX.burst(ev.x, 0.8, ev.y, 0xfff27a, 12, 5, 0.3, 0.4, { col2:0xb36bff }); S.shake(0.15); play("thud"); break;
+    case "zapShot": FX.ring(ev.x, ev.y, 1.2, 0xfff04a, 0.25); play("zap"); break;
+    case "disco": FX.ring(ev.x, ev.y, ev.big ? 5 : 1.4, [0xff4a6a, 0x46e4ff, 0x9cff3a, 0xffd23d, 0xb36bff][Math.floor(Math.random()*5)], ev.big ? 0.8 : 0.3); if(ev.big) play("disco"); break;
+    case "hiccup": FX.burst(ev.x, 1.6, ev.y, 0xb8f0ff, 6, 1.5, 0.3, 0.4, { up:1 }); play("hiccup"); break;
+    case "bonkFriend": FX.burst(ev.x, 1, ev.y, 0xffd23d, 6, 2.5, 0.22, 0.3); play("bonk"); break;
+    case "whistle": FX.ring(ev.x, ev.y, 6, 0xffd23d, 0.6); FX.ring(ev.x, ev.y, 9, 0xff6ad8, 0.8); play("whistle"); break;
+    case "frogCannon": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x9cff6a, 0.3); FX.burst(ev.x2, 0.5, ev.y2, 0x9cff6a, 16, 4, 0.3, 0.5); play("frog"); break;
+    case "dice": FX.burst(G.player.x, 2.2, G.player.y, ev.mul >= 1.2 ? 0xffd23d : ev.mul < 1 ? 0x8a8aa8 : 0xffffff, 10, 2, 0.25, 0.5, { up:1 }); play("dice"); break;
     case "fly": play("fly"); break;
     case "lilyBlock": FX.burst(ev.x, 0.8, ev.y, 0x9cff6a, 6, 2, 0.2, 0.2); break;
     case "trapped": play("bubble"); break;
@@ -258,6 +275,25 @@ function allyMesh(a){
     K.part(g, new THREE.CylinderGeometry(0.16, 0.2, 0.5, 10), 0xf0e6d4, 0, 0.25, 0);
     K.part(g, new THREE.SphereGeometry(0.36, 14, 8, 0, PI*2, 0, PI/2), 0x46a8ff, 0, 0.5, 0, 0, 0, 0, 1, 0.7, 1);
     K.bake(g, { w:0.02 }); g.userData.y = 0;
+  } else if(a.kind === "bee"){
+    K.part(g, new THREE.SphereGeometry(0.1, 10, 8), 0xffd23d, 0, 0, 0, 0, 0, 0, 1, 0.9, 1.3);
+    [-0.04, 0.04].forEach(z=> K.part(g, new THREE.TorusGeometry(0.095, 0.02, 4, 12), 0x1a1410, 0, 0, z));
+    K.part(g, new THREE.ConeGeometry(0.03, 0.09, 4), 0x1a1410, 0, 0, -0.15, -PI/2);
+    [-1, 1].forEach(s=> K.part(g, new THREE.SphereGeometry(0.025, 4, 3), 0x101010, s*0.04, 0.03, 0.11));
+    K.bake(g, { w:0.01 });
+    g.userData.wings = [-1, 1].map(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.09, 8), new THREE.MeshBasicMaterial({ color:0xeaf8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide })); w.position.set(s*0.08, 0.08, 0); w.rotation.x = -PI/2; g.add(w); return w; });
+    g.userData.y = 0.8;
+  } else if(a.kind === "ghoul"){
+    // the goblin that died, back as a green ghost of itself
+    const R = M.enemy(a.model); R.mat.color.setHex(0x6aff9a); R.mat.emissive.setHex(0x0a3a1a); M.fade(R, 0.6); g.add(R.root); g.userData.rig = R; g.userData.y = 0.15;
+    g.add(K.sprite(0x6aff9a, 1.6, 0.35));
+  } else if(a.kind === "hat"){
+    K.part(g, K.lathe([[0, 0], [0.4, 0.0], [0.44, 0.025], [0.4, 0.05], [0.2, 0.06], [0, 0.06]], 18), 0x4a2a9a);
+    K.part(g, new THREE.ConeGeometry(0.22, 0.6, 14), 0x6b3fd0, 0, 0.32, 0);
+    K.part(g, new THREE.TorusGeometry(0.22, 0.03, 6, 16), 0xf0c040, 0, 0.08, 0, PI/2);
+    K.bake(g, { w:0.02 });
+    g.add(K.sprite(0xb36bff, 1.4, 0.4));
+    g.userData.y = 0.9; g.userData.spin = true;
   } else if(a.kind === "moon"){
     K.part(g, new THREE.SphereGeometry(0.24, 14, 10), 0xd8d8e8);
     [[0.08, 0.1, 0.18], [-0.1, -0.05, 0.19], [0.02, -0.14, 0.16]].forEach(([x, y, z])=> K.part(g, new THREE.SphereGeometry(0.05, 6, 4), 0xa8a8b8, x, y, z));
@@ -282,6 +318,8 @@ function hazardMesh(h){
     case "slime": { const m = new THREE.Mesh(new THREE.CircleGeometry(h.r, 14), new THREE.MeshPhongMaterial({ color:0x8ad83a, transparent:true, opacity:0.55, shininess:90 })); m.rotation.x = -PI/2; m.position.y = 0.035; g.add(m); break; }
     case "shockwave": { const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color:0xff2a3a, transparent:true, opacity:0.85, side:THREE.DoubleSide, depthWrite:false })); r.rotation.x = -PI/2; r.position.y = 0.08; g.add(r); g.userData.wave = r; break; }
     case "fireline": disc(0xff4a1a, h.r, 0.5); g.userData.fire = true; break;
+    case "gum": { const m = new THREE.Mesh(new THREE.CircleGeometry(h.r*0.8, 12), new THREE.MeshPhongMaterial({ color:0xff7ad8, emissive:0x5a1a40, transparent:true, opacity:0.85, shininess:60 })); m.rotation.x = -PI/2; m.position.y = 0.035; m.scale.set(1, 0.8 + Math.random()*0.4, 1); g.add(m);
+      const bub = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshPhongMaterial({ color:0xffa8e8, transparent:true, opacity:0.6, shininess:90 })); bub.position.set(0.1, 0.12, 0); g.add(bub); g.userData.bubble = bub; break; }
   }
   return g;
 }
@@ -381,6 +419,8 @@ proto.updateEnemies = function(dt, t){
       S.scene.add(R.root);
     }
     R.root.position.set(e.x, 0, e.y);
+    R.root.scale.setScalar((e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1));
+    if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
     const want = PI/2 - e.face;
     R.root.rotation.y += DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? 14 : 4)));
     if(e.spawn > 0){ const k = 1 - e.spawn/(e.boss ? 1.4 : 0.8); R.body.position.y = -1.2*(1 - k); M.fade(R, Math.max(0.1, k)); return; }
@@ -413,6 +453,7 @@ proto.updateEnemies = function(dt, t){
     else if(e.st.shocked > 0) { tc = 0xfff04a; tk = Math.random() < 0.3 ? 0.6 : 0.1; }
     else if(e.st.chill > 0) tc = 0x2a6a9a;
     else if(e.st.marked > 0) { tc = 0xb36bff; tk = 0.3; }
+    else if(e.st.confused > 0) { tc = 0xff6ad8; tk = 0.2 + 0.15*Math.sin(t*9 + e.id); }
     M.tint(R, tc, tk);
     const ghostA = R.ghostly ? 0.72 : 1;
     M.fade(R, e.hidden ? (e.def.ai === "tentacle" ? 1 : 0.22 + 0.1*Math.sin(t*5 + e.id)) : e.decoy ? 0.6 : ghostA);
@@ -461,6 +502,9 @@ proto.updateAllies = function(dt, t){
     if(a.kind === "wisp" && Math.random() < 0.5) FX.emit(a.x, y, a.y, 0, 0.1, 0, ELC(a.el), 0.3, 0.3, 0, 1);
     if(a.kind === "shadow"){ const R = o.g.userData.rig, p = G.player; o.g.rotation.y = PI/2 - p.aim; if(R.gunKey !== G.gun().uid){ M.setGun(R, G.gun()); } M.idle(R, t, Math.hypot(p.vx, p.vy)); }
     if(a.kind === "tadpole") o.g.children.forEach(c=>{ if(c.userData.baked) c.rotation.y = Math.sin(t*20 + a.id)*0.3; });
+    if(a.kind === "bee"){ o.g.position.y = y + Math.sin(t*14 + a.id)*0.1; o.g.userData.wings.forEach((w, i)=> w.rotation.z = Math.sin(t*60)*0.6*(i ? -1 : 1)); }
+    if(a.kind === "ghoul"){ M.idle(o.g.userData.rig, t, Math.hypot(a.vx, a.vy)); o.g.position.y = 0.15 + Math.sin(t*3 + a.id)*0.08; if(Math.random() < 0.2) FX.emit(a.x, 0.6, a.y, 0, 0.6, 0, 0x6aff9a, 0.25, 0.4, 0, 1); }
+    if(a.kind === "hat"){ o.g.rotation.y = t*14; o.g.rotation.z = 0.35; if(Math.random() < 0.6) FX.emit(a.x, 0.9, a.y, 0, 0, 0, 0xb36bff, 0.3, 0.3, 0, 1); }
   });
   for(const id in V.allies) if(!live[id]){ FX.burst(V.allies[id].g.position.x, 0.8, V.allies[id].g.position.z, 0xffffff, 5, 2, 0.2, 0.3); S.scene.remove(V.allies[id].g); delete V.allies[id]; }
 };
@@ -477,6 +521,7 @@ proto.updateHazards = function(dt, t){
     if(u.cloud && Math.random() < 0.8){ const a = Math.random()*6.28, d = Math.sqrt(Math.random())*h.r; FX.emit(h.x + Math.cos(a)*d, 0.15 + Math.random()*0.5, h.y + Math.sin(a)*d, (Math.random() - 0.5)*0.3, 0.3 + Math.random()*0.4, (Math.random() - 0.5)*0.3, u.cloud, 0.7, 1.0, 0, 0.5); }
     if(u.bubbles && Math.random() < 0.2) FX.emit(h.x + (Math.random() - 0.5)*h.r, 0.08, h.y + (Math.random() - 0.5)*h.r, 0, 0.5, 0, u.bubbles, 0.2, 0.4, 0, 1);
     if(u.spin) u.spin.rotation.z += dt*4;
+    if(u.bubble) u.bubble.scale.setScalar(0.5 + 0.6*Math.abs(Math.sin(t*1.7 + h.id)));
     if(u.suck && Math.random() < 0.9){ const a = Math.random()*6.28; FX.emit(h.x + Math.cos(a)*2.5, 0.8, h.y + Math.sin(a)*2.5, -Math.cos(a)*6, 0, -Math.sin(a)*6, 0xb36bff, 0.2, 0.4, 0, 0); }
     if(u.wave){ const r = h.r*(1 - k); u.wave.scale.setScalar(Math.max(0.01, r)); u.wave.material.opacity = 0.85*k; }
     o.g.children.forEach(c=>{ if(c.material && c.material.transparent && !u.wave && h.kind !== "icicle"){ c.material.opacity = Math.min(c.userData.op0 === undefined ? (c.userData.op0 = c.material.opacity) : c.userData.op0, k*3*(c.userData.op0)); } });

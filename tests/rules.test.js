@@ -375,6 +375,144 @@ test("a shot through an illusionary wall reveals it", ()=>{
   assert.fail("no secret found");
 });
 
+test("a secret corridor stays hidden (a real false, not undefined) until its illusion is found", ()=>{
+  for(let s=1; s<40; s++){
+    const G = game("SECRET" + s);
+    const f = G.D.fakes.find(x=> !x.puzzle); if(!f) continue;
+    const c = G.D.corridors[f.corridor];
+    G.D.rooms.forEach(r=>{ if(r.type !== "secret") r.seen = true; });
+    assert.strictEqual(DG.Dungeon.corridorKnown(G.D, c), false);
+    G.revealFake(f.tiles[0][0], f.tiles[0][1]);
+    assert.strictEqual(DG.Dungeon.corridorKnown(G.D, c), true);
+    return;
+  }
+  assert.fail("no secret found");
+});
+
+test("Gribbus can't push puzzle blocks or hop through an illusionary wall", ()=>{
+  const { G, r } = puzzleRoom("push", 1), pz = r.puzzle, b = pz.blocks[0];
+  const before = pz.blocks.map(o=> o.x + "," + o.y).join(" ");
+  const fr = G.gribbus;
+  G.player.x = b.x - 2.5; G.player.y = b.y + 0.5;
+  fr.x = b.x - 0.7; fr.y = b.y + 0.5;
+  // make him hop straight through the block, again and again
+  for(let i=0;i<120;i++){ fr.hopT = fr.hopDur = 0.3; fr.sx = fr.x; fr.sy = fr.y; fr.tx = b.x + 2.5; fr.ty = b.y + 0.5; G.update(1/60, {}); G.drain(); }
+  assert.equal(pz.blocks.map(o=> o.x + "," + o.y).join(" "), before, "the blocks never moved");
+  for(let s=1; s<40; s++){
+    const H = game("SECRET" + s), f = H.D.fakes.find(x=> !x.puzzle); if(!f) continue;
+    const [tx, ty] = f.tiles[1], fg = H.gribbus;
+    H.player.x = tx + 0.5; H.player.y = ty + 0.5; park(H);
+    fg.x = tx + 0.5 - (H.D.at(tx - 1, ty) === T.FLOOR ? 1 : 0); fg.y = ty + 0.5 - (H.D.at(tx, ty - 1) === T.FLOOR ? 1 : 0);
+    H.move(fg, (tx + 0.5 - fg.x)*2, (ty + 0.5 - fg.y)*2, "frog");
+    assert.ok(!f.revealed && H.D.at(Math.floor(fg.x), Math.floor(fg.y)) !== T.FAKE, "an illusion stops a frog");
+    return;
+  }
+});
+
+test("Gribbus left outside a room that locks poofs back to Zippy", ()=>{
+  const G = game("FROGGATE");
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.god = true;
+  const d = G.D.doors[r.doors[0]];
+  G.gribbus.x = d.x + (d.axis === "v" ? (d.x < r.cxw ? -2 : 2) : 0); G.gribbus.y = d.y + (d.axis === "h" ? (d.y < r.cyw ? -2 : 2) : 0);
+  G.room = r; G.activate ? G.activate(r) : (r.active = true); G.setDoors(r, false);
+  const ev = step(G, 0.5);
+  assert.ok(G.inRoom(r, G.gribbus.x, G.gribbus.y), "he's inside with Zippy");
+  assert.ok(ev.some(e=> e.type === "frogPoof"));
+});
+
+/* ================================================================== *
+ *  The odd ones, and keeping power in check
+ * ================================================================== */
+function range(word, items){
+  const G = game(word, 2, items);
+  const r = combatRoom(G); park(G);
+  for(let y=r.y1; y<=r.y2; y++) for(let x=r.x1; x<=r.x2; x++) G.D.set(x, y, T.FLOOR);
+  G.player.x = r.x1 + 2.5; G.player.y = Math.floor(r.cyw) + 0.5; G.room = r; r.active = true; G.god = true;
+  return { G, r };
+}
+function dummy(G, r, x, y, type){ const e = addEnemy(G, r, x, y, type); e.hp = e.maxHp = 1e6; e.speed = 0; e.ai.cd = 99; return e; }
+
+test("Rubber Chicken: a confused goblin stumbles about and clobbers its friends", ()=>{
+  const { G, r } = range("CHICKEN", ["chicken"]);
+  const a = dummy(G, r, r.x1 + 8.5, G.player.y), b = dummy(G, r, r.x1 + 9.1, G.player.y);
+  a.speed = 2; G.payload({ do:"status", st:"confused", t:3 }, { x:a.x, y:a.y, enemy:a, depth:0 });
+  const ev = step(G, 2.5);
+  assert.ok(a.st.confused > 0 || ev.some(e=> e.type === "status"));
+  assert.ok(b.hp < b.maxHp, "it hit its friend");
+});
+test("Shrink Ray shrinks goblins (bosses barely)", ()=>{
+  const { G, r } = range("SHRINK", ["shrinkray"]);
+  const e = dummy(G, r, r.x1 + 6.5, G.player.y), r0 = e.r;
+  for(let i=0;i<20;i++) G.payload({ do:"shrink" }, { enemy:e, x:e.x, y:e.y, depth:0 });
+  assert.ok(Math.abs(e.r - r0*0.5) < 1e-6, "half size");
+});
+test("Sticky Bombs go off a second later; Portal Pockets send shots out the far wall", ()=>{
+  const { G, r } = range("STICKY", ["portal"]);
+  const e = dummy(G, r, r.x1 + 6.5, G.player.y);
+  G.payload({ do:"stickybomb", dmg:1, r:1.5 }, { enemy:e, x:e.x, y:e.y, depth:0, els:["fire"] });
+  let ev = step(G, 1.1);
+  assert.ok(ev.some(x=> x.type === "boom") && e.hp < e.maxHp, "boom");
+  G.enemies.forEach(o=> o.dead = true);
+  const b = G.addShot({ x:r.x1 + 1.5, y:G.player.y, a:Math.PI, speed:12, r:0.1, dmg:1, range:30, els:["arcane"], power:1, depth:0 });
+  ev = step(G, 0.3);
+  assert.ok(ev.some(x=> x.type === "portal"), "through a portal");
+  assert.ok(b.x > r.cxw, "out of the east wall");
+});
+test("Lucky Penny coins pay out; Loaded Dice roll your damage when a room locks", ()=>{
+  const { G, r } = range("PENNY", ["penny", "dice"]);
+  G.mods.special.penny = 20;
+  const e = addEnemy(G, r, r.x1 + 5.5, G.player.y); e.ai.cd = 99; e.speed = 0; e.hp = 1;
+  G.fireVolley(G.player.x, G.player.y, 0, G.gun(), G.gunStats(), { from:"player" });
+  assert.ok(G.bullets.some(b=> b.coin), "a coin");
+  const ev = step(G, 0.6);
+  assert.ok(ev.some(x=> x.type === "jackpot"));
+  G.payload({ do:"dice" }, { x:0, y:0, depth:0 });
+  assert.ok([0.6, 0.8, 1, 1.2, 1.5, 1.8].indexOf(G.player.diceMul) >= 0);
+});
+test("bees, ghouls, the hat, the whistle, the frog cannon and the pocket black hole all work", ()=>{
+  const { G, r } = range("ODDS", ["beehive", "napkin"]);
+  const e = dummy(G, r, r.x1 + 5.5, G.player.y), f = dummy(G, r, r.x1 + 6.5, G.player.y + 1);
+  G.payload({ do:"bee", n:3 }, { x:e.x - 1, y:e.y, depth:0 });
+  G.payload({ do:"ghoul" }, { x:e.x - 1, y:e.y, depth:0, enemy:f });
+  assert.equal(G.allies.filter(a=> a.kind === "bee").length, 3);
+  assert.equal(G.allies.filter(a=> a.kind === "ghoul").length, 1);
+  step(G, 2);
+  assert.ok(e.hp < e.maxHp && e.st.poison && e.st.poison.stacks > 0, "stung");
+  ["hat", "whistle", "cannon", "discoball", "pockethole"].forEach(id=>{
+    G.giveActive(id); G.player.active.charge = G.player.active.max;
+    const hp = e.hp; G.player.aimX = e.x; G.player.aimY = e.y;
+    G.useActive({}); const ev = step(G, 1.2);
+    assert.ok(ev.some(x=> x.type === "active"), id);
+    assert.ok(isFinite(e.hp) && isFinite(G.gribbus.x), id + " stays sane");
+    if(id === "whistle") assert.ok(e.st.confused > 0 || f.st.confused > 0, "confused");
+    if(id === "discoball") assert.equal(G.shotEls(G.gun()).length, 5);
+  });
+});
+test("Comet Cape: blinking through goblins hits them", ()=>{
+  const { G, r } = range("COMET", ["comet"]);
+  const e = dummy(G, r, G.player.x + 1.5, G.player.y);
+  step(G, 0.05, { blink:true, mx:1, my:0 });
+  step(G, 0.4);
+  assert.ok(e.hp < e.maxHp);
+});
+test("the screen never holds more than 160 of Zippy's shots, whatever he's carrying", ()=>{
+  const { G, r } = range("CAP", ["kaleido", "triple", "twinshot", "hydra", "echo", "burstfire", "shrapnel", "shatterglass", "recursion", "infinity", "caffeine", "coffee"]);
+  for(let i=0;i<4;i++) dummy(G, r, r.x1 + 9.5, G.player.y + i - 1.5);
+  let peak = 0;
+  for(let i=0;i<60*6;i++){ G.update(1/60, { fire:true, ax:r.x1 + 9.5, ay:G.player.y }); G.drain(); if(G.state === "choose") G.choose(0); peak = Math.max(peak, G.bullets.filter(b=> b.team === "p").length); }
+  assert.ok(peak <= 160, "peak " + peak);
+  assert.ok(peak > 60, "but plenty of them (" + peak + ")");
+});
+test("reactions share a budget: a packed room can't set off a blast per goblin every frame", ()=>{
+  const { G, r } = range("REACT", []);
+  const es = []; for(let i=0;i<12;i++) es.push(dummy(G, r, r.x1 + 7 + (i % 4)*0.6, G.player.y + Math.floor(i/4)*0.6 - 0.6));
+  let reacts = 0;
+  for(let i=0;i<60*4;i++){ es.forEach(e=>{ G.applyBurn(e, 1, 3); e.st.chill = 2; G.react(e); }); G.update(1/60, {}); reacts += G.drain().filter(x=> x.type === "react").length; }
+  assert.ok(reacts <= 4 + 2.2*4 + 1, "reactions " + reacts);
+  assert.ok(reacts >= 8, "but they still happen (" + reacts + ")");
+});
+
 test("breakables break, and explosive barrels explode", ()=>{
   for(let s=1; s<60; s++){
     const G = game("POTS" + s);

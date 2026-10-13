@@ -115,10 +115,7 @@ proto.buildAreas = function(){
       for(const [dx, dy] of DG.DIRS8){ const n = D.at(x + dx, y + dy); if(walkable(n) || n === T.FAKE){ touch = true; break; } }
       if(!touch) continue;
       const south = walkable(D.at(x, y - 1)) && !walkable(D.at(x, y + 1));
-      const hh = south ? LOW : WH;
-      const g = new THREE.BoxGeometry(1, hh, 1); g.translate(x + 0.5, hh/2, y + 0.5);
-      const uv = g.attributes.uv; for(let i=0;i<uv.count;i++) uv.setY(i, uv.getY(i)*hh/1.5);
-      b.wall.push(K.paint(g, cW, (c, px, py)=>{ if(py > hh - 0.01) c.copy(cTop).multiplyScalar(0.85 + h*0.25); else c.multiplyScalar((0.75 + h*0.35)*(0.5 + 0.5*py/WH)); }));
+      b.wall.push(W.wallBlock(x, y, south));
       // a skirting stone along the bottom of walls facing a room
       if(!south && walkable(D.at(x, y + 1))) K.part(b.parts, new THREE.BoxGeometry(1, 0.18, 0.12), cW.clone().multiplyScalar(0.7).getHex(), x + 0.5, 0.09, y + 1.03);
     }
@@ -130,6 +127,16 @@ proto.buildAreas = function(){
     if(b.plain.length) g.add(new THREE.Mesh(K.merge(b.plain), W.mats.plain));
     if(b.parts.children.length){ g.add(b.parts); K.bake(b.parts, { w:0.02 }); }
   }
+};
+
+/* one wall tile: full height, or low on a room's south side so it never hides Zippy */
+proto.wallBlock = function(x, y, low){
+  const th = this.th, hh = low ? LOW : WH;
+  const cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
+  const h = (v=> v - Math.floor(v))(Math.sin(x*127.1 + y*311.7)*43758.5453);
+  const g = new THREE.BoxGeometry(1, hh, 1); g.translate(x + 0.5, hh/2, y + 0.5);
+  const uv = g.attributes.uv; for(let i=0;i<uv.count;i++) uv.setY(i, uv.getY(i)*hh/1.5);
+  return K.paint(g, cW, (c, px, py)=>{ if(py > hh - 0.01) c.copy(cTop).multiplyScalar(0.85 + h*0.25); else c.multiplyScalar((0.75 + h*0.35)*(0.5 + 0.5*py/WH)); });
 };
 
 /* ---- ponds and pools: an animated surface ---- */
@@ -180,15 +187,18 @@ proto.buildDoors = function(){
 };
 
 /* ---- illusionary walls ---- */
+/* an illusion is built exactly like the wall around it (same height, same
+   paint, same skirting stone), so only a sharp eye or a stray shot finds it */
 proto.buildFakes = function(){
-  const W = this, th = W.th;
+  const W = this, th = W.th, D = W.D;
   W.D.fakes.forEach(f=>{
-    const parts = [];
+    const parts = [], r = D.rooms[f.room];
     f.tiles.forEach(([x, y])=>{
-      const g = new THREE.BoxGeometry(1, WH, 1); g.translate(x + 0.5, WH/2, y + 0.5);
-      parts.push(K.paint(g, th.wall, (c, px, py)=>{ if(py > WH - 0.01) c.setHex(th.top); c.multiplyScalar(1.2*0.93); }));
+      const low = y === r.y2 + 1 && x >= r.x1 && x <= r.x2;
+      parts.push(W.wallBlock(x, y, low));
+      if(y === r.y1 - 1){ const sk = new THREE.BoxGeometry(1, 0.18, 0.12); sk.translate(x + 0.5, 0.09, y + 1.03); parts.push(K.paint(sk, new THREE.Color(th.wall).multiplyScalar(1.2*0.7))); }
     });
-    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex, transparent:true, opacity:1 }));
+    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex }));
     const a = W.area[f.tiles[0][1]*W.D.w + f.tiles[0][0]];
     W.areaGroup(a >= 0 ? a : f.room).add(m);
     W.fakes.push({ f, m, t:0 });
@@ -539,14 +549,8 @@ proto.update = function(G, dt, t){
   // fog of war
   for(const id in W.areas){
     const A = W.areas[id], i = +id;
-    let vis;
-    if(i < 100) vis = D.rooms[i].seen;
-    else {
-      const c = D.corridors[i - 100];
-      vis = c.secret ? D.fakes.some(f=> f.corridor === c.id && f.revealed) || D.rooms[c.a].found || D.rooms[c.b].found
-                     : D.rooms[c.a].seen || D.rooms[c.b].seen;
-    }
-    A.g.visible = vis;
+    // (three.js draws anything whose visible isn't exactly false, so: booleans only)
+    A.g.visible = i < 100 ? !!D.rooms[i].seen : DG.Dungeon.corridorKnown(D, D.corridors[i - 100]);
   }
   // doors
   W.doors.forEach(o=>{
@@ -559,6 +563,7 @@ proto.update = function(G, dt, t){
   // illusions, once found
   W.fakes.forEach(o=>{
     if(!o.f.revealed){ if(o.f.hinted) o.m.material.emissive && o.m.material.emissive.setHex(0x2a1a4a); return; }
+    if(!o.m.material.transparent){ o.m.material.transparent = true; o.m.material.needsUpdate = true; }
     o.t += dt;
     o.m.material.opacity = Math.max(0.28, 1 - o.t*1.5) + 0.08*Math.sin(t*5);
     o.m.material.depthWrite = false;

@@ -37,6 +37,17 @@ AI.update = function(G, e, dt){
   }
   e.vx = 0; e.vy = 0;
   if(e.st.frozen > 0 || e.st.stun > 0) return;
+  // confused (Rubber Chicken, Goblin Whistle): stumbles about and clobbers
+  // whatever it bumps into, friends included; no attacks on Zippy
+  if(e.st.confused > 0 && !e.boss && !e.decoy){
+    if((e.ai.wanderT || 0) <= G.t){ e.ai.wanderT = G.t + 0.4 + G.rng.next()*0.6; e.ai.wanderA = G.rng.next()*Math.PI*2; }
+    if(e.def.speed) walk(G, e, Math.cos(e.ai.wanderA), Math.sin(e.ai.wanderA), 0.7, dt);
+    if((e.ai.bonkT || 0) <= G.t){
+      const o = G.enemies.find(o=> o !== e && !o.dead && o.spawn <= 0 && DG.dist(o.x, o.y, e.x, e.y) < o.r + e.r + 0.25);
+      if(o){ e.ai.bonkT = G.t + 0.6; G.damageEnemy(o, Math.max(e.dmg*1.5, G.payloadPower()*0.6), { ax:o.x - e.x, ay:o.y - e.y, knock:2, depth:2 }); G.emit("bonkFriend", { x:o.x, y:o.y }); }
+    }
+    return;
+  }
   e.ai.cd -= dt;
   // bumping into Zippy hurts, for the squishy and the spooky
   const p = G.player;

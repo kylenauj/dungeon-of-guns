@@ -78,6 +78,16 @@ Gr.choosePad = function(G, pad){
   G.say("Gribbus learned " + DG.FROG_BUFFS[pad.buff].name + "! " + G.rng.pick(DG.LINES.gribbus), 3.5);
 };
 
+/* back to Zippy's side, on open floor */
+Gr.recall = function(G, f){
+  const p = G.player, r = G.room || G.roomOf(p.x, p.y);
+  let x = p.x - Math.cos(p.aim)*0.8, y = p.y - Math.sin(p.aim)*0.8;
+  if(r){ const s = G.freeSpot(r, x, y); if(s){ x = s.x; y = s.y; } }
+  else if(G.blocked(Math.floor(x), Math.floor(y), "frog")){ x = p.x; y = p.y; }
+  G.emit("frogPoof", { x:f.x, y:f.y, x2:x, y2:y });
+  f.x = x; f.y = y; f.hopT = 0; f.hop = 0; f.stuck = 0; f.rest = 0.2;
+};
+
 /* ---- per frame ---- */
 Gr.update = function(G, dt){
   G.frogs.forEach((f, i)=> updateFrog(G, f, i, dt));
@@ -89,8 +99,10 @@ function updateFrog(G, f, idx, dt){
   f.cd -= dt*rate; f.spitCd -= dt*rate; f.rest -= dt;
   for(const k in f.timers) f.timers[k] -= dt;
   const fight = G.room && G.room.active;
-  // too far behind (another room, a long corridor): hop straight back
-  if(DG.dist(f.x, f.y, p.x, p.y) > 14){ f.x = p.x - 0.8; f.y = p.y + 0.6; f.hopT = 0; G.emit("frogPoof", { x:f.x, y:f.y }); }
+  // left behind (outside a room that just locked, far away, or stuck on a
+  // wall or a gate): poof back to Zippy's side
+  const away = DG.dist(f.x, f.y, p.x, p.y);
+  if(away > 9 || (fight && !G.inRoom(G.room, f.x, f.y)) || (f.stuck || 0) > 1.2) Gr.recall(G, f);
 
   const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = 1 + 0.5*(g.size || 0);
   const tg = fight ? G.nearestEnemy(f.x, f.y, 8) : null;
@@ -107,6 +119,16 @@ function updateFrog(G, f, idx, dt){
     f.tongue = { x:tg.x, y:tg.y, t:0.18 };
     G.damageEnemy(tg, dmg*size, { els, power:1, depth:1, ax:tg.x - f.x, ay:tg.y - f.y, knock:g.sticky ? 0 : 1.2, from:"gribbus" });
     if(g.sticky && !tg.boss && !tg.dead){ G.move(tg, (f.x - tg.x)*0.35, (f.y - tg.y)*0.35, tg.phases ? "ghost" : "enemy"); tg.st.chill = Math.max(tg.st.chill || 0, 1.5); }
+    // Tongue Twister: the licked goblin gets flung into its neighbour
+    if(M.special.twister && !tg.boss && !tg.dead){
+      const o = G.nearestEnemy(tg.x, tg.y, 4.5, tg);
+      if(o){
+        const d = DG.dist(tg.x, tg.y, o.x, o.y) || 1;
+        tg.kx += (o.x - tg.x)/d*12; tg.ky += (o.y - tg.y)/d*12;
+        G.damageEnemy(o, dmg*size*1.4, { power:1, depth:1, ax:o.x - tg.x, ay:o.y - tg.y, knock:2, from:"gribbus" });
+        G.emit("fling", { x1:tg.x, y1:tg.y, x2:o.x, y2:o.y });
+      }
+    }
     G.emit("lick", { x:f.x, y:f.y, tx:tg.x, ty:tg.y, frog:idx });
   }
   // the spit (Toxic Spit makes it poison that puddles; Bubble Blower traps)
@@ -147,7 +169,8 @@ function updateFrog(G, f, idx, dt){
     f.hopT -= dt;
     const k = 1 - Math.max(0, f.hopT)/f.hopDur;
     const nx = f.sx + (f.tx - f.sx)*k, ny = f.sy + (f.ty - f.sy)*k;
-    G.move(f, nx - f.x, ny - f.y, "player");
+    const bumped = G.move(f, nx - f.x, ny - f.y, "frog");
+    f.stuck = bumped ? (f.stuck || 0) + dt : 0;
     f.hop = Math.sin(k*Math.PI)*0.6;
     if(f.hopT <= 0){
       f.hop = 0; f.rest = 0.12 + rng.next()*0.25;

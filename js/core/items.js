@@ -11,7 +11,8 @@
  *  Triggers: fire hit kill crit bounce wall expire blink blinkEnd hurt
  *            clear lock tick (every `every` seconds) reload spell
  *  Payloads: byproduct shards wisp burst chain nova ring tadpole heal
- *            mana ward gold blackhole status
+ *            mana ward gold blackhole status shrink stickybomb gum bee
+ *            ghoul hiccup shove candy dice
  *
  *  Tiers: 0 common, 1 uncommon, 2 rare, 3 legendary, 4 GODLY.
  *  Pools: t treasure, s shop, b boss, x secret, a altar.
@@ -83,7 +84,7 @@ DG.ITEMS = {
   corkscrew:  I({ name:"Spiral Sorcery",     tier:1, pools:"ts",   desc:"Shots corkscrew outward in spirals.", shot:{ spiral:1 } }),
   chaos:      I({ name:"Chaos Theory",       tier:1, pools:"tx",   desc:"Shots fly in random directions. +60% fire rate, +1 shot. Good luck.", shot:{ chaos:1, extra:1 }, stats:{ rate:0.6 } }),
   burstfire:  I({ name:"Burst Fire",         tier:1, pools:"ts",   desc:"Each trigger pull fires a 3-round burst. -25% fire rate.", shot:{ burst:2 }, stats:{ rate:-0.25 } }),
-  echo:       I({ name:"Echo Chamber",       tier:2, pools:"tb",   desc:"Every volley fires again a moment later at 60% damage.", shot:{ echo:1 } }),
+  echo:       I({ name:"Echo Chamber",       tier:2, pools:"tb",   desc:"Every volley fires again a moment later at 45% damage.", shot:{ echo:1 } }),
   kaleido:    I({ name:"Kaleidoscope",       tier:3, pools:"bxa",  desc:"Every volley is mirrored in four directions.", shot:{ kaleido:1 } }),
 
   /* ---------------- elements on every shot ---------------- */
@@ -134,10 +135,32 @@ DG.ITEMS = {
   wildfire:   I({ name:"Wildfire",           tier:2, pools:"tb",   desc:"Burning goblins explode into flames when they die.", special:"wildfire" }),
   brittle:    I({ name:"Brittle",            tier:1, pools:"tb",   desc:"Chilled and frozen goblins take 35% more damage.", special:"brittle" }),
   conductor:  I({ name:"Conductor",          tier:2, pools:"tb",   desc:"15% of hits arc; every arc jumps 2 extra times.", special:"conductor" }),
-  thermal:    I({ name:"Thermal Shock",      tier:2, pools:"tbx",  desc:"Elemental reactions deal 2.5x damage.", special:"thermal" }),
+  thermal:    I({ name:"Thermal Shock",      tier:2, pools:"tbx",  desc:"Elemental reactions deal 60% more damage.", special:"thermal" }),
   overgrowth: I({ name:"Overgrowth",         tier:1, pools:"tb",   desc:"Icicles, flames, puddles, sparks and runes last twice as long and grow bigger.", special:"overgrowth" }),
   wisplord:   I({ name:"Wisp Whisperer",     tier:1, pools:"tb",   desc:"Wisps last twice as long and hit twice as hard.", special:"wisplord" }),
   megabombs:  I({ name:"Mega Bombs",         tier:2, pools:"tbx",  desc:"Every explosion is 60% bigger and hits harder.", special:"megabombs" }),
+
+  /* ---------------- the odd ones: weird, funny, sometimes a trade ---------------- */
+  chicken:    I({ name:"Rubber Chicken",     tier:1, pools:"ts",   desc:"12% of hits leave a goblin confused for 3 seconds: it stumbles about and clobbers its friends.", flavor:"Squeak.", on:{ hit:[{ do:"status", st:"confused", t:3, chance:0.12 }] } }),
+  shrinkray:  I({ name:"Shrink Ray",         tier:1, pools:"tb",   desc:"Every hit shrinks a goblin a little, down to half size. Small goblins hit softer and fly further.", flavor:"Honey, I shrunk the goblins.", on:{ hit:[{ do:"shrink" }] } }),
+  stickybomb: I({ name:"Sticky Bombs",       tier:2, pools:"tbx",  desc:"A quarter of your hits stick a bomb on the goblin. It goes off a second later.", flavor:"Tick. Tick. Oh no.", on:{ hit:[{ do:"stickybomb", chance:0.25, dmg:1.3, r:1.5 }] } }),
+  bubblegum:  I({ name:"Bubble Gum",         tier:1, pools:"ts",   desc:"Shots fly a bit slower and leave sticky gum where they land. Goblins in gum crawl.", flavor:"Already chewed.", stats:{ shotSpeed:-0.2 }, on:{ wall:[{ do:"gum" }], expire:[{ do:"gum" }] } }),
+  portal:     I({ name:"Portal Pockets",     tier:2, pools:"tbx",  desc:"Shots that hit a wall come out of the opposite wall, 30% stronger.", flavor:"Now you're thinking with pockets.", shot:{ portal:1 } }),
+  disco:      I({ name:"Disco Fever",        tier:2, pools:"tbx",  desc:"Every 5th volley carries every element, and its shots are 50% bigger.", flavor:"Night fever.", special:"disco" }),
+  beehive:    I({ name:"Bee Hive",           tier:1, pools:"ts",   desc:"Most kills let out an angry bee that stings goblins with poison.", flavor:"Not the bees.", on:{ kill:[{ do:"bee", n:1, chance:0.6 }] } }),
+  napkin:     I({ name:"Necromancer's Napkin",tier:2, pools:"bx",  desc:"15% of kills rise as a ghost of themselves that fights for you for 10 seconds.", flavor:"Wipe your mouth. Raise the dead.", on:{ kill:[{ do:"ghoul", chance:0.15 }] } }),
+  thundersocks:I({ name:"Thunder Socks",     tier:1, pools:"ts",   desc:"Running builds up static. After 2 seconds on the move, your next shot throws chain lightning.", flavor:"Shuffle, shuffle, ZAP.", special:"static" }),
+  penny:      I({ name:"Lucky Penny",        tier:0, pools:"tsx",  desc:"1 in 20 shots is a lucky coin: triple damage, and a goblin it kills drops a pile of gold.", flavor:"Heads you win.", special:"penny" }),
+  hiccups:    I({ name:"Hiccups",            tier:0, pools:"ts",   desc:"Every 3 seconds in a fight you hiccup out a big bubble in a random direction. It hits hard.", flavor:"Hic.", on:{ tick:[{ do:"hiccup", every:3 }] } }),
+  spaghetti:  I({ name:"Spaghetti Code",     tier:1, pools:"tx",   desc:"Shots wiggle wildly and fly at random speeds. +35% damage. Nobody knows how it works.", flavor:"It works on my machine.", shot:{ wiggle:1, jitter:1 }, stats:{ dmg:0.35 } }),
+  snailmail:  I({ name:"Snail Mail",         tier:1, pools:"ts",   desc:"Shots crawl along at half speed, but they're huge and hit 45% harder.", flavor:"Return to sender.", stats:{ shotSpeed:-0.5, size:0.7, dmg:0.45 } }),
+  accordion:  I({ name:"Cursed Accordion",   tier:1, pools:"tb",   desc:"Reloading plays a horrible chord that shoves every goblin near you away and dazes them.", flavor:"It only knows one song.", on:{ reload:[{ do:"shove", r:4.5, stun:0.8 }] } }),
+  dice:       I({ name:"Loaded Dice",        tier:1, pools:"ts",   desc:"Every time a room locks, roll for your damage: anything from 0.6x to 1.8x.", flavor:"Loaded with what, exactly?", special:"dice", on:{ lock:[{ do:"dice" }] } }),
+  comet:      I({ name:"Comet Cape",         tier:2, pools:"tbx",  desc:"Blinking turns you into a comet: goblins you blink through take a heavy hit and go flying.", flavor:"Mind the tail.", special:"comet" }),
+  twister:    I({ name:"Tongue Twister",     tier:1, pools:"ts",   desc:"Gribbus flings the goblins he licks into other goblins.", flavor:"Gribbus has been practising.", special:"twister" }),
+  clockwork:  I({ name:"Clockwork Heart",    tier:1, pools:"tb",   desc:"Every 12th kill winds up a ward (up to 4).", flavor:"Tick, tock, block.", special:"clockwork" }),
+  haunted:    I({ name:"Haunted Gun",        tier:2, pools:"bx",   desc:"When you stop shooting, a ghost keeps pulling your trigger at goblins nearby (half damage, no ammo).", flavor:"It isn't you doing it.", special:"haunted" }),
+  pinata:     I({ name:"Piñata Stick",       tier:1, pools:"ts",   desc:"+5% crit. Crits knock candy out of goblins; candy heals 2.", flavor:"Whack it till it rains.", stats:{ crit:0.05 }, on:{ crit:[{ do:"candy", chance:0.35 }] } }),
 
   /* ---------------- legendary ---------------- */
   hydra:      I({ name:"Hydra Wand",         tier:3, pools:"bxa",  desc:"Shots split into three on every bounce. +2 bounces.", shot:{ bounces:2, bounceSplit:1 } }),
@@ -169,7 +192,11 @@ DG.DUOS = [
   { a:"wispcraft",   b:"crystal",     name:"Wisp Garden",    desc:"Every bounce releases a wisp directly.", on:{ bounce:[{ do:"wisp", n:1, chance:0.5 }] } },
   { a:"emberrounds", b:"frostrounds", name:"Fire and Ice",   desc:"Steam reactions also freeze everything nearby.", special:"fireice" },
   { a:"tadpact",     b:"froglock",    name:"Frog Swarm",     desc:"Tadpoles are twice as many and twice as hungry.", special:"frogswarm" },
-  { a:"chunky",      b:"snowball",    name:"Avalanche",      desc:"Growing shots get 2x bigger, and crush through goblins.", shot:{ pierce:2 } }
+  { a:"chunky",      b:"snowball",    name:"Avalanche",      desc:"Growing shots get 2x bigger, and crush through goblins.", shot:{ pierce:2 } },
+  { a:"chicken",     b:"accordion",   name:"Barnyard Band",  desc:"Every shove leaves goblins confused too.", special:"barnyard" },
+  { a:"beehive",     b:"venomrounds", name:"Killer Bees",    desc:"Bees hit twice as hard and last twice as long.", special:"killerbees" },
+  { a:"portal",      b:"pinball",     name:"Wormhole Wizard",desc:"Shots go through portals every time, and gain a bounce for each trip.", special:"wormhole" },
+  { a:"comet",       b:"trailblazer", name:"Shooting Star",  desc:"Comet blinks leave your element all along the trail.", special:"shootingstar" }
 ];
 
 /* guns + the right powerup become something else (Vampire Survivors' evolutions) */
@@ -192,7 +219,12 @@ DG.ACTIVES = {
   seer:    { name:"Seer's Lantern", charge:2, desc:"Reveals the whole floor, secrets included." },
   dice:    { name:"Goblin Dice",    charge:3, desc:"Rerolls every item pedestal in the room." },
   meteor:  { name:"Meteor Swarm",   charge:3, desc:"Six meteors slam into goblins." },
-  soup:    { name:"Bottomless Soup",charge:4, desc:"Heals 40." }
+  soup:    { name:"Bottomless Soup",charge:4, desc:"Heals 40." },
+  hat:     { name:"Hat Trick",      charge:2, desc:"Your hat flies out and spirals round the room, slicing goblins, for 4 seconds." },
+  whistle: { name:"Goblin Whistle", charge:2, desc:"Every goblin in the room is confused for 5 seconds and clobbers its friends." },
+  cannon:  { name:"Frog Cannon",    charge:2, desc:"Fire Gribbus at the cursor. He lands with a croak that stuns and blasts everything there." },
+  discoball:{ name:"Disco Ball",    charge:3, desc:"For 8 seconds, every shot carries every element." },
+  pockethole:{ name:"Pocket Black Hole", charge:3, desc:"Throw a black hole that swallows goblins for 4 seconds." }
 };
 
 /* ---- level-up boons: pick 1 of 3 ---- */
@@ -266,7 +298,7 @@ Items.blank = function(){
     magnet:0, gold:0, blinkCd:0, noSlip:0, reload:0, mag:0, spellCost:0, statusDur:0, boom:0, byproductDur:0, wispDmg:0,
     frogRate:0, frogDmg:0, killMana:0,
     shot:{ bounces:0, pierce:0, homing:0, split:0, extra:0, side:0, back:0, wiggle:0, orbit:0, boomerang:0, spectral:0, grow:0,
-           accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0 },
+           accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0, portal:0, jitter:0 },
     els:[], on:{}, special:{}, duos:[]
   };
 }

@@ -53,6 +53,14 @@ H.handle = function(ev, G){
     case "fly": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"GOLDEN FLY", t:0, col:SIGNAL, crit:true, big:true }); break;
     case "pickup": if(ev.kind === "active") H.card = { title:DG.ACTIVES[ev.id].name, sub:DG.ACTIVES[ev.id].desc + " (F)", col:SIGNAL, tier:"ACTIVE ITEM", t:0, life:3.2 }; break;
     case "graze": H.nums.push({ x:ev.x, y:ev.y, z:1.2, v:"mine!", t:0, col:CREAM }); break;
+    case "status": if(ev.st === "confused") H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"??", t:0, col:"#ff8ae8", crit:true }); break;
+    case "jackpot": H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"JACKPOT!", t:0, col:SIGNAL, crit:true, big:true }); break;
+    case "hiccup": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"hic!", t:0, col:"#b8f0ff" }); break;
+    case "clockwork": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"TICK! +WARD", t:0, col:WARD, crit:true }); break;
+    case "zapShot": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"ZAP!", t:0, col:"#fff04a", crit:true }); break;
+    case "bonkFriend": H.nums.push({ x:ev.x, y:ev.y, z:1.8, v:"oof", t:0, col:SIGNAL }); break;
+    case "whistle": H.nums.push({ x:p.x, y:p.y, z:2.6, v:"WHEEET!", t:0, col:SIGNAL, crit:true, big:true }); break;
+    case "dice": H.nums.push({ x:p.x, y:p.y, z:2.8, v:"⚄ " + ev.roll + ": " + ev.mul + "x", t:0, col:ev.mul >= 1.2 ? SIGNAL : ev.mul < 1 ? DIM : CREAM, crit:true, big:true }); break;
   }
 };
 H.toast = function(text, dur){

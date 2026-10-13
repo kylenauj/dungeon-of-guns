@@ -510,6 +510,12 @@ function validate(D){
 }
 
 /* which room's interior a point is in (or null) */
+/* does Zippy know this corridor is there? A secret one only once its
+   illusion is found (or the room behind it is). Always a real boolean. */
+Dungeon.corridorKnown = function(D, c){
+  if(c.secret) return D.fakes.some(f=> f.corridor === c.id && f.revealed) || !!D.rooms[c.a].found || !!D.rooms[c.b].found;
+  return !!(D.rooms[c.a].seen || D.rooms[c.b].seen);
+};
 Dungeon.roomAt = function(D, x, y){
   const tx = Math.floor(x), ty = Math.floor(y);
   for(const r of D.rooms) if(tx >= r.x1 && tx <= r.x2 && ty >= r.y1 && ty <= r.y2) return r;

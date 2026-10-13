@@ -253,11 +253,14 @@ proto.updatePlayer = function(dt, I){
   let mx = I.mx || 0, my = I.my || 0;
   const ml = Math.hypot(mx, my); if(ml > 1){ mx /= ml; my /= ml; }
   p.moving = ml > 0.1;
+  p.discoT = Math.max(0, (p.discoT || 0) - dt);
+  if(M.special.static && p.moving) p.static = Math.min(1, (p.static || 0) + dt/2);
 
   if(p.blinkT > 0){
     const B = DG.PLAYER.blink, sp = B.dist/B.time;
     p.blinkT -= dt;
     G.move(p, p.bdx*sp*dt, p.bdy*sp*dt, "player");
+    if(M.special.comet) G.cometHits();
     if(p.blinkT <= 0){ G.emit("blinkEnd", { x:p.x, y:p.y }); G.trigger("blinkEnd", { x:p.x, y:p.y, depth:0 }); }
   } else if(p.slip > 0){
     p.slip -= dt;
@@ -272,7 +275,8 @@ proto.updatePlayer = function(dt, I){
       if(Math.hypot(bx, by) < 0.1){ bx = Math.cos(p.aim); by = Math.sin(p.aim); }
       const bl = Math.hypot(bx, by); p.bdx = bx/bl; p.bdy = by/bl;
       p.blinkT = DG.PLAYER.blink.time; p.blinkCd = DG.PLAYER.blink.cd*Math.max(0.3, 1 - M.blinkCd); p.iframes = Math.max(p.iframes, DG.PLAYER.blink.iframes);
-      G.emit("blink", { x:p.x, y:p.y, dx:p.bdx, dy:p.bdy });
+      p.cometHit = [];
+      G.emit("blink", { x:p.x, y:p.y, dx:p.bdx, dy:p.bdy, comet:!!M.special.comet });
       G.trigger("blink", { x:p.x, y:p.y, depth:0 });
     }
     if(my < -0.3 && p.bonkCd <= 0) G.checkBonk(p);
@@ -467,6 +471,32 @@ proto.useActive = function(I){
   const P = G.payloadPower();
   switch(a.id){
     case "watch": G.timeStop = 3; break;
+    case "hat": G.spawnAlly("hat", p.x, p.y, { P }); break;
+    case "whistle":
+      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.confused = Math.max(e.st.confused || 0, 5); });
+      G.emit("whistle", { x:p.x, y:p.y });
+      break;
+    case "cannon": {
+      const f = G.gribbus;
+      let tx = p.aimX === undefined ? p.x + Math.cos(p.aim)*5 : p.aimX, ty = p.aimY === undefined ? p.y + Math.sin(p.aim)*5 : p.aimY;
+      const d = DG.dist(p.x, p.y, tx, ty); if(d > 9){ tx = p.x + (tx - p.x)/d*9; ty = p.y + (ty - p.y)/d*9; }
+      const r = G.room || G.roomOf(p.x, p.y); if(r){ const s = G.freeSpot(r, tx, ty); if(s){ tx = s.x; ty = s.y; } }
+      G.emit("frogCannon", { x1:f.x, y1:f.y, x2:tx, y2:ty });
+      f.x = tx; f.y = ty; f.hopT = 0; f.rest = 0.6;
+      G.pending.push({ t:0.3, fn:()=>{
+        G.nova(tx, ty, 3, P*3, G.shotEls(G.gun()), 1);
+        G.enemies.forEach(e=>{ if(!e.dead && !e.boss && DG.dist(e.x, e.y, tx, ty) < 3 + e.r) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
+        G.emit("croak", { x:tx, y:ty, kind:"cannon" });
+      } });
+      break;
+    }
+    case "discoball": p.discoT = 8; G.emit("disco", { x:p.x, y:p.y, big:true }); break;
+    case "pockethole": {
+      let tx = p.aimX === undefined ? p.x + Math.cos(p.aim)*5 : p.aimX, ty = p.aimY === undefined ? p.y + Math.sin(p.aim)*5 : p.aimY;
+      const d = DG.dist(p.x, p.y, tx, ty); if(d > 9){ tx = p.x + (tx - p.x)/d*9; ty = p.y + (ty - p.y)/d*9; }
+      G.addHazard({ kind:"blackhole", x:tx, y:ty, r:3.6, t:4, P:P*1.5, every:0.2, depth:1 });
+      break;
+    }
     case "frograin": for(let i=0;i<8;i++) G.spawnAlly("tadpole", p.x + G.rng.range(-3, 3), p.y + G.rng.range(-3, 3), {}); break;
     case "bomb": {
       const tx = p.aimX === undefined ? p.x + Math.cos(p.aim)*4 : p.aimX, ty = p.aimY === undefined ? p.y + Math.sin(p.aim)*4 : p.aimY;

@@ -168,6 +168,16 @@ A.play = function(name, o){
     case "splash": burst(0.4, "lowpass", 1400, 0.35, 1, 0, 0, 300); break;
     case "splat":  burst(0.15, "lowpass", 600, 0.35, 2, 0, 0, 120); tone(90, 0.12, "sine", 0.2, 0, 0, 50); break;
     case "stone":  burst(0.35, "lowpass", 260, 0.5, 1); tone(70, 0.3, "square", 0.08, 0, 0, 45); break;
+    case "squeak": tone(1400, 0.12, "square", 0.05, 0, 0, 2400); tone(2200, 0.1, "square", 0.04, 0.08, 0, 1200); break;
+    case "stick":  tone(900, 0.05, "square", 0.04); tone(1200, 0.05, "square", 0.04, 0.12); break;
+    case "portalShot": tone(300, 0.2, "sine", 0.06, 0, 0, 1800, true); break;
+    case "accordion": [52, 53, 58, 59].forEach(m=> tone(mtof(m), 0.6, "sawtooth", 0.05, 0, 0, mtof(m)*0.97, true)); break;
+    case "jackpot": [76, 79, 84, 88, 91, 96].forEach((m, i)=> tone(mtof(m), 0.15, "square", 0.04, i*0.05)); break;
+    case "ghostShot": tone(700, 0.25, "sine", 0.04, 0, 0, 400, true); break;
+    case "disco": [60, 64, 67, 72, 67, 64].forEach((m, i)=> tone(mtof(m), 0.15, "square", 0.04, i*0.08)); break;
+    case "hiccup": tone(500, 0.06, "square", 0.06, 0, 0, 1100); break;
+    case "whistle": tone(2000, 0.5, "sine", 0.08, 0, 0, 2600); tone(2600, 0.4, "sine", 0.06, 0.45, 0, 1800); break;
+    case "dice": for(let i=0;i<5;i++) burst(0.04, "bandpass", 2500 + Math.random()*1500, 0.2, 4, i*0.06); break;
     case "ward":   tone(mtof(86), 0.3, "sine", 0.07, 0, 0, 0, true); tone(mtof(93), 0.4, "sine", 0.05, 0.05, 0, 0, true); break;
     case "bark": {   // goblin gibberish: a couple of squeaky formant blips
       const b = 500 + Math.random()*400;

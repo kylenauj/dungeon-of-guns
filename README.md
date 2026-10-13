@@ -2,7 +2,7 @@
 
 A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, a wizard who casts spells **through guns**, with **Gribbus** the frog hopping along beside you. The dungeon is dug fresh every run, and it gets spookier and weirder the deeper you go.
 
-- **No slots, just powerups.** 107 passive items stack on everything, and some are godly. Ricochet + Frost Rounds + Crystal Growth + Wispcraft makes every bounce grow an icicle that releases an ice wisp. Items fire triggers (on hit, on kill, on bounce, on hurt...) into payloads that can trigger further, three deep. There are 8 **duos** and 5 gun **ascensions**.
+- **No slots, just powerups.** 127 passive items stack on everything. Some are godly, and some are just weird: Rubber Chicken, Portal Pockets, Loaded Dice, a Haunted Gun, bees. Ricochet + Frost Rounds + Crystal Growth + Wispcraft makes every bounce grow an icicle that releases an ice wisp. Items fire triggers (on hit, on kill, on bounce, on hurt...) into payloads that can trigger further, three deep. There are 12 **duos**, 5 gun **ascensions** and 15 **active items** (F).
 - **Elements react.** Arcane, fire, frost, poison and shock leave byproducts (icicles, flames, puddles, sparks, runes) and combine into Steam, Conduct, Brittle Rot and more.
 - **Gribbus** licks, spits and croaks on his own. **Frog ponds** teach him new tricks, and **golden flies** unlock rarer ones for every future run.
 - **Level-ups** offer a choice of three boons. **Active items** charge as you clear rooms (`F`).
@@ -49,6 +49,7 @@ Gamepad: left stick moves, right stick aims, RT shoots, LT casts, A blinks, X us
 ```sh
 npm test                  # the rules, under Node (dungeon, combat, rooms, puzzles, loot, a bot playthrough)
 npm run balance           # a bot plays full runs with no cheats and reports how far it gets
+npm run power             # rolls 40 floor-4 builds and reports how strong (and how varied) they are
 ```
 
 - `js/core/` is pure logic, with no THREE and no DOM.

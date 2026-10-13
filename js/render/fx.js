@@ -179,6 +179,7 @@ FX.update = function(dt, G){
       if(b.kind === "shard") size = 0.18;
       if(b.kind === "spit"){ col = 0x9cff6a; size = 0.32; }
       if(b.kind === "bubble"){ col = 0xb8f0ff; size = 0.7; }
+      if(b.kind === "coin"){ col = 0xffd23d; size = 0.5; if(Math.random() < 0.3) emit(b.x, y, b.y, 0, 0.4, 0, 0xfff8b0, 0.18, 0.25, 0, 1); }
       if(b.kind === "fireball"){ size = 0.8; if(Math.random() < 0.7) emit(b.x, y, b.y, (Math.random() - 0.5), Math.random(), (Math.random() - 0.5), 0xff7a1a, 0.5, 0.35, 0, 1); }
       if(b.kind === "missile" && Math.random() < 0.6) emit(b.x, y, b.y, 0, 0.2, 0, 0xb36bff, 0.25, 0.3, 0, 1);
       if(b.kind === "grenade"){ size = 0.42; y = 0.6 + Math.sin(Math.min(1, b.t*1.5)*Math.PI)*0.6; }

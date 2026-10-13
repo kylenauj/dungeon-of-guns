@@ -87,6 +87,15 @@ Each room type draws from its own pool: treasure, shop, boss, secret, altar. An 
 ### 3.5 Duos
 Some pairs of items are named. Owning both announces the duo ("DUO! BRAIN FREEZE") and adds a bonus on top of the emergent combo.
 
+### 3.5b The odd ones
+About twenty items exist to be funny rather than strong. They add new verbs, and some are trades:
+- **Crowd control:** Rubber Chicken confuses goblins, who clobber each other. Shrink Ray shrinks them. Cursed Accordion shoves them away on reload.
+- **Shots:** Sticky Bombs, Bubble Gum puddles, Portal Pockets, Disco Fever volleys, Lucky Penny coins, Hiccups, Spaghetti Code and Snail Mail.
+- **Allies:** Bee Hive bees, Necromancer's Napkin ghouls and the Haunted Gun.
+- **Movement:** Thunder Socks lightning and Comet Cape blinks.
+- **Luck and the frog:** Loaded Dice (0.6x to 1.8x per room) and Tongue Twister for Gribbus.
+- **Five new actives:** Hat Trick, Goblin Whistle, Frog Cannon, Disco Ball and Pocket Black Hole.
+
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 
@@ -154,6 +163,15 @@ Every puzzle is generated and always solvable (the tests check). It rewards an i
 
 ## 9. Difficulty
 Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are how you keep up. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
+
+**The power curve.** Some runs should be duds and some should be god runs. None should flood the room with shots.
+- `npm run power` rolls 40+ floor-4 builds the way a run would and reports their damage against a no-item baseline.
+- **Target spread:** a dud run near 1x, a typical run about 4–5x, the top tenth about 12–16x, and the odd godly run about 30x.
+- **What keeps it there:**
+  - **A shot budget.** Past 110 live shots, child shots stop spawning; past 160, nothing new spawns.
+  - **Splits stay first-hand.** Only a shot fired from the gun can split or bounce-split, never a split of a split.
+  - **Thinner volleys.** A volley bigger than the gun's own pattern thins each shot (shots^-0.3), and copies (echo, dual wield, the shadow, Frogsona) fire weaker.
+  - **A reaction budget.** Reactions share one budget per room (4 banked, 2.2 a second), and their blasts splash other goblins at 40%.
 
 ---
 

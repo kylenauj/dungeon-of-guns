@@ -26,6 +26,7 @@ proto.payloadPower = function(){
 /* every element a shot from gun g carries right now */
 proto.shotEls = function(g){
   const M = this.mods, els = [g.element];
+  if(this.player.discoT > 0){ DG.ELEMENT_ORDER.forEach(e=>{ if(els.indexOf(e) < 0) els.push(e); }); return els; }
   M.els.forEach(e=>{ if(els.indexOf(e) < 0) els.push(e); });
   if(M.special.prism){ const e = this.rng.pick(DG.ELEMENT_ORDER); if(els.indexOf(e) < 0) els.push(e); }
   return els;
@@ -37,6 +38,7 @@ proto.dmgBonus = function(){
   if(M.special.desperation && p.hp < p.maxHp*0.3) m *= 1.7;
   if(M.special.overflow && p.mana >= p.maxMana - 0.5) m *= 1.4;
   if(M.special.elementalist) m *= 1 + 0.15*(M.els.length + 1)*M.special.elementalist;
+  if(M.special.dice) m *= p.diceMul || 1;
   return m;
 };
 
@@ -49,17 +51,24 @@ proto.fireGun = function(g, s){
   let mul = G.dmgBonus();
   if(G.mods.special.patience) mul *= 1 + Math.min(1, (G.t - (p.lastShot || 0))/1.5);
   p.lastShot = G.t; p.volleys++;
-  G.fireVolley(p.x, p.y, p.aim, g, s, { mul, from:"player" });
+  const disco = !!G.mods.special.disco && p.volleys % 5 === 0;
+  G.fireVolley(p.x, p.y, p.aim, g, s, { mul, from:"player", disco });
+  // Thunder Socks: a charged shot throws lightning too
+  if(G.mods.special.static && p.static >= 1){
+    const t = G.nearestEnemy(p.x, p.y, 10);
+    if(t){ p.static = 0; G.chain(t, G.payloadPower()*1.6, 4, p.x, p.y, { els:["shock"], power:s.power, depth:1, noArc:true }); G.emit("zapShot", { x:p.x, y:p.y }); }
+  }
   const sh = G.mods.shot;
   for(let i=1;i<=sh.burst;i++) G.pending.push({ t:0.08*i, fn:()=> G.fireVolley(p.x, p.y, p.aim, g, s, { mul, from:"player", quiet:true }) });
-  for(let i=1;i<=sh.echo;i++) G.pending.push({ t:0.25*i, fn:()=> G.fireVolley(p.x, p.y, p.aim, g, s, { mul:mul*0.6, from:"player", quiet:true }) });
-  if(G.mods.special.dualwield) p.guns.forEach((o, i)=>{ if(i !== p.cur) G.fireVolley(p.x, p.y, p.aim, o, G.gunStats(o), { mul:mul*0.7, from:"player", quiet:true }); });
+  for(let i=1;i<=sh.echo;i++) G.pending.push({ t:0.25*i, fn:()=> G.fireVolley(p.x, p.y, p.aim, g, s, { mul:mul*0.45, from:"player", quiet:true }) });
+  if(G.mods.special.dualwield) p.guns.forEach((o, i)=>{ if(i !== p.cur) G.fireVolley(p.x, p.y, p.aim, o, G.gunStats(o), { mul:mul*0.5, from:"player", quiet:true }); });
   // copies: the shadow and (with Frogsona) Gribbus
-  G.allies.forEach(a=>{ if(a.kind === "shadow"){ const ax = p.aimX !== undefined ? p.aimX : p.x + Math.cos(p.aim)*5, ay = p.aimY !== undefined ? p.aimY : p.y + Math.sin(p.aim)*5; G.fireVolley(a.x, a.y, Math.atan2(ay - a.y, ax - a.x), g, s, { mul:mul*0.8, from:"shadow", quiet:true }); } });
-  if(G.mods.special.frogsona && G.gribbus && !G.gribbus.ko){ const t = DG.Gribbus.target(G, 9); if(t) G.fireVolley(G.gribbus.x, G.gribbus.y, Math.atan2(t.y - G.gribbus.y, t.x - G.gribbus.x), g, s, { mul:mul*0.6, from:"gribbus", quiet:true }); }
+  G.allies.forEach(a=>{ if(a.kind === "shadow"){ const ax = p.aimX !== undefined ? p.aimX : p.x + Math.cos(p.aim)*5, ay = p.aimY !== undefined ? p.aimY : p.y + Math.sin(p.aim)*5; G.fireVolley(a.x, a.y, Math.atan2(ay - a.y, ax - a.x), g, s, { mul:mul*0.6, from:"shadow", quiet:true }); } });
+  if(G.mods.special.frogsona && G.gribbus && !G.gribbus.ko){ const t = DG.Gribbus.target(G, 9); if(t) G.fireVolley(G.gribbus.x, G.gribbus.y, Math.atan2(t.y - G.gribbus.y, t.x - G.gribbus.x), g, s, { mul:mul*0.45, from:"gribbus", quiet:true }); }
   if(g.ammo <= 0) G.startReload();
 };
 
+const VOLLEY_THIN = 0.3;
 proto.fireVolley = function(x, y, aim, g, s, o){
   const G = this, M = G.mods, sh = M.shot, rng = G.rng;
   o = o || {};
@@ -74,11 +83,15 @@ proto.fireVolley = function(x, y, aim, g, s, o){
   if(sh.back) angles.push(aim + Math.PI);
   if(sh.kaleido){ const base = angles.slice(); [0.5, 1, 1.5].forEach(k=> base.forEach(a=> angles.push(a + Math.PI*k))); }
   if(sh.chaos) angles = angles.map(()=> rng.next()*TAU);
-  const els = G.shotEls(g);
+  // more shots, each a little weaker: a volley's total damage grows with the
+  // number of shots, but slower than the count does
+  const thin = angles.length > s.pellets ? Math.pow(s.pellets/angles.length, VOLLEY_THIN) : 1;
+  const els = o.disco ? DG.ELEMENT_ORDER.slice() : G.shotEls(g);
+  if(o.disco) G.emit("disco", { x, y });
   angles.forEach((a, i)=>{
     const sp = s.speed*(s.pellets > 1 ? 0.85 + rng.next()*0.3 : 1);
     G.addShot({
-      x:x + Math.cos(a)*0.5, y:y + Math.sin(a)*0.5, a, speed:sp, r:s.size, dmg:s.dmg*(o.mul || 1), range:s.range,
+      x:x + Math.cos(a)*0.5, y:y + Math.sin(a)*0.5, a, speed:sp, r:s.size*(o.disco ? 1.5 : 1), dmg:s.dmg*(o.mul || 1)*thin, range:s.range,
       pierce:s.basePierce + sh.pierce, bounces:sh.bounces, els, power:s.power, knock:s.knock, blast:s.blast,
       kind:g.base === "launcher" ? "grenade" : "bolt", depth:0, crit:s.crit, critMul:s.critMul, from:o.from,
       orbit:i < sh.orbit && o.from === "player" ? 3 : 0
@@ -88,9 +101,13 @@ proto.fireVolley = function(x, y, aim, g, s, o){
   if(!o.quiet) G.trigger("fire", { x, y, els, depth:0 });
 };
 
-/* a player shot, with every shape flag the mods give it */
+/* a player shot, with every shape flag the mods give it.
+   The screen has room for so much: past SHOT_SOFT live shots only first-hand
+   shots (depth 0) are made, past SHOT_HARD none are. */
+const SHOT_SOFT = 110, SHOT_HARD = 160;
 proto.addShot = function(o){
   const G = this, sh = G.mods.shot;
+  if((G.pShots || 0) >= (o.depth ? SHOT_SOFT : SHOT_HARD)) return { dead:true, hits:[], els:o.els || [] };
   const life = o.range/o.speed + (sh.lifeAdd || 0)*(o.depth ? 0.3 : 1);
   const b = {
     team:"p", x:o.x, y:o.y, vx:Math.cos(o.a)*o.speed, vy:Math.sin(o.a)*o.speed, r:o.r, dmg:o.dmg, life, life0:life,
@@ -101,10 +118,15 @@ proto.addShot = function(o){
     boomerang:o.depth ? 0 : sh.boomerang, spectral:sh.spectral, orbit:o.orbit || 0, orbitA:o.a,
     split:o.depth ? 0 : sh.split, spin:G.rng.sign()
   };
+  // Spaghetti Code: every first-hand shot picks its own speed
+  if(!b.depth && sh.jitter){ const k = 0.55 + G.rng.next()*0.9; b.vx *= k; b.vy *= k; b.sp0 *= k; }
+  // Lucky Penny: now and then a shot is a coin
+  if(!b.depth && o.from === "player" && G.mods.special.penny && G.chance(0.05*G.mods.special.penny)){ b.coin = true; b.dmg *= 3; b.kind = "coin"; }
   return G.addBullet(b);
 };
 proto.addBullet = function(b){
   b.id = this.nextId++; b.hits = []; b.t = 0;
+  if(b.team === "p") this.pShots = (this.pShots || 0) + 1;
   this.bullets.push(b);
   return b;
 };
@@ -150,10 +172,13 @@ proto.updateShots = function(dt){
           if(M.shot.bounceDmg) b.dmg *= 1 + M.shot.bounceDmg;
           G.emit("bounce", { x:b.x, y:b.y, els:b.els });
           G.trigger("bounce", { x:b.x, y:b.y, els:b.els, depth:b.depth, power:G.payloadPower() });
-          if(M.shot.bounceSplit && b.depth < M.maxDepth){
+          // only first-hand shots split: a split of a split would never end
+          if(M.shot.bounceSplit && b.depth === 0){
             const a = Math.atan2(b.vy, b.vx), v = Math.hypot(b.vx, b.vy);
             [-0.45, 0.45].forEach(o=> G.addShot({ x:b.x, y:b.y, a:a + o, speed:v, r:b.r*0.85, dmg:b.dmg*0.6, range:Math.max(2, b.life*v), pierce:b.pierce, bounces:Math.min(2, b.bounces), els:b.els, power:b.power, knock:b.knock, depth:b.depth + 1, crit:b.crit, critMul:b.critMul, homing:b.homing }));
           }
+        } else if(b.team === "p" && M.shot.portal && (!b.ported || M.special.wormhole) && G.portalShot(b, ox, oy)){
+          /* out of the opposite wall */
         } else {
           b.x = ox; b.y = oy;
           G.shotEnd(b, "wall");
@@ -172,7 +197,7 @@ proto.updateShots = function(dt){
           b.hits.push(e.id);
           if(b.blast){ G.shotEnd(b, "hit", e); break; }
           G.shotHit(b, e);
-          if(b.split && !b.didSplit && b.depth < M.maxDepth){
+          if(b.split && !b.didSplit && b.depth === 0){
             b.didSplit = true;
             const a = Math.atan2(b.vy, b.vx), v = Math.hypot(b.vx, b.vy);
             for(let k=0;k<b.split;k++){
@@ -190,6 +215,8 @@ proto.updateShots = function(dt){
     }
   }
   G.bullets = G.bullets.filter(b=> !b.dead);
+  let n = 0; for(const b of G.bullets) if(b.team === "p") n++;
+  G.pShots = n;
 };
 
 /* the shape of a player shot this frame */
@@ -261,7 +288,7 @@ proto.enemyShotStep = function(b, p){
 
 proto.shotHit = function(b, e){
   const G = this;
-  const r = G.damageEnemy(e, b.dmg, { els:b.els, power:b.power, crit:b.crit, critMul:b.critMul, knock:b.knock, ax:b.vx, ay:b.vy, depth:b.depth, from:b.from });
+  const r = G.damageEnemy(e, b.dmg, { els:b.els, power:b.power, crit:b.crit, critMul:b.critMul, knock:b.knock, ax:b.vx, ay:b.vy, depth:b.depth, from:b.from, coin:b.coin });
   if(b.trap && !e.boss && !e.dead){ e.st.trapped = b.trap; e.st.stun = Math.max(e.st.stun || 0, b.trap); G.emit("trapped", { id:e.id, x:e.x, y:e.y }); }
   G.trigger("hit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
   if(r && r.crit) G.trigger("crit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
@@ -356,6 +383,7 @@ proto.nearestEnemy = function(x, y, range, not, struck){
 };
 
 /* two elements on one goblin: something happens */
+const REACT_CAP = 4, REACT_REGEN = 2.2, REACT_SPLASH = 0.4;
 proto.react = function(e){
   const G = this, st = e.st;
   if(e.dead || (st.reactCd || 0) > G.t) return;
@@ -363,8 +391,8 @@ proto.react = function(e){
     fire:!!(st.burn && st.burn.t > 0), frost:(st.chill || 0) > 0 || (st.frozen || 0) > 0,
     poison:!!(st.poison && st.poison.stacks > 0), shock:(st.shocked || 0) > 0, arcane:(st.marked || 0) > 0
   };
-  const P = G.payloadPower()*(G.mods.special.thermal ? 2.5 : 1);
-  const src = { react:true, els:[], depth:1 };
+  const P = G.payloadPower()*(G.mods.special.thermal ? 1.6 : 1);
+  const src = { react:true, els:[], depth:1, center:e.id };
   let key = null;
   if(has.fire && has.frost) key = "fire+frost";
   else if(has.fire && has.poison) key = "fire+poison";
@@ -374,6 +402,13 @@ proto.react = function(e){
   else if(has.frost && has.poison) key = "frost+poison";
   else if(has.arcane && (has.fire || has.frost || has.poison || has.shock)) key = "arcane";
   if(!key) return;
+  // reactions draw on a shared budget (a few a second, refilling), so a
+  // packed room can't set off a blast per goblin per frame; when it's dry the
+  // statuses just wait for the next charge
+  const rb = G.reactBudget || (G.reactBudget = { n:REACT_CAP, t:G.t });
+  rb.n = Math.min(REACT_CAP, rb.n + (G.t - rb.t)*REACT_REGEN); rb.t = G.t;
+  if(rb.n < 1) return;
+  rb.n -= 1;
   st.reactCd = G.t + 0.7;
   const R = DG.REACTIONS[key];
   G.stats.reactions++;
@@ -386,12 +421,12 @@ proto.react = function(e){
       break;
     case "fire+poison": {
       const n = st.poison.stacks; st.poison.stacks = 0;
-      G.explode(e.x, e.y, 1.5 + n*0.12, P*(1 + n*0.3), "p", { els:[], react:true, depth:1 });
+      G.explode(e.x, e.y, 1.5 + n*0.12, P*(1 + n*0.3), "p", { els:[], react:true, depth:1, center:e.id });
       break;
     }
     case "fire+shock":
       st.shocked = 0;
-      G.explode(e.x, e.y, 1.6, P*1.3, "p", { els:[], react:true, depth:1, knock:7 });
+      G.explode(e.x, e.y, 1.6, P*1.3, "p", { els:[], react:true, depth:1, knock:7, center:e.id });
       break;
     case "frost+shock":
       st.shocked = 0; st.chill = 0; st.chillStacks = 0;
@@ -416,7 +451,7 @@ proto.react = function(e){
 proto.blast = function(x, y, r, dmg, src, color){
   const G = this;
   G.emit("boom", { x, y, r, color, soft:true });
-  G.enemies.forEach(o=>{ if(!o.dead && o.spawn <= 0 && DG.dist(x, y, o.x, o.y) < r + o.r) G.damageEnemy(o, dmg, src); });
+  G.enemies.forEach(o=>{ if(!o.dead && o.spawn <= 0 && DG.dist(x, y, o.x, o.y) < r + o.r) G.damageEnemy(o, dmg*(src.center === undefined || src.center === o.id ? 1 : REACT_SPLASH), src); });
 };
 
 proto.killEnemy = function(e, src, fell){
@@ -449,7 +484,46 @@ proto.killEnemy = function(e, src, fell){
     G.emit("bones", { x, y });
     G.pending.push({ t:3, fn:()=>{ if(r.active){ const n = G.spawnEnemy(r, { type:e.type, x, y, quick:true, hpMul:0.6 }); n.reassembled = true; G.emit("reassemble", { x, y }); } } });
   }
+  // Lucky Penny: killed by a coin, it pays out
+  if(src.coin){ G.dropGold(e.x, e.y, 4 + G.floor); G.emit("jackpot", { x:e.x, y:e.y }); }
+  if(M.special.clockwork){ G.clockKills = (G.clockKills || 0) + 1; if(G.clockKills % 12 === 0){ G.addWards(1, 4); G.emit("clockwork", { x:p.x, y:p.y }); } }
   if(e.boss) G.bossDown(e);
+};
+
+/* Shrink Ray: smaller, softer, lighter (bosses only shrink a bit) */
+proto.shrinkEnemy = function(e, k){
+  if(e.dead) return;
+  if(e.shrink === undefined){ e.shrink = 1; e.r0 = e.r; e.dmg0 = e.dmg; }
+  const min = e.boss ? 0.85 : 0.5;
+  if(e.shrink <= min) return;
+  e.shrink = Math.max(min, e.shrink - k);
+  e.r = e.r0*e.shrink; e.dmg = e.dmg0*e.shrink;
+};
+/* Portal Pockets: a shot that hits a room's wall comes out of the opposite one */
+proto.portalShot = function(b, ox, oy){
+  const G = this, r = DG.Dungeon.roomAt(G.D, ox, oy);
+  if(!r) return false;
+  const hx = G.bulletBlocked(b.x, oy);
+  let x = ox, y = oy;
+  if(hx) x = b.vx > 0 ? r.x1 + 0.35 : r.x2 + 0.65;
+  else y = b.vy > 0 ? r.y1 + 0.35 : r.y2 + 0.65;
+  if(G.bulletBlocked(x, y)) return false;
+  G.emit("portal", { x1:ox, y1:oy, x2:x, y2:y });
+  b.x = x; b.y = y; b.ported = true; b.dmg *= 1.3; b.hits = [];
+  if(G.mods.special.wormhole) b.bounces += 1;
+  return true;
+};
+/* Comet Cape: everything along the blink takes a hit and goes flying */
+proto.cometHits = function(){
+  const G = this, p = G.player, P = G.payloadPower();
+  G.enemies.forEach(e=>{
+    if(e.dead || e.spawn > 0 || e.untargetable || p.cometHit.indexOf(e.id) >= 0) return;
+    if(DG.dist(e.x, e.y, p.x, p.y) > e.r + 0.7) return;
+    p.cometHit.push(e.id);
+    G.damageEnemy(e, P*2.4, { els:G.shotEls(G.gun()), power:G.gunStats().power, depth:1, ax:p.bdx, ay:p.bdy, knock:e.boss ? 0.5 : 6 });
+    G.emit("comet", { x:e.x, y:e.y });
+  });
+  if(G.mods.special.shootingstar && (p.starT = (p.starT || 0) + 1) % 3 === 0) G.byproduct(G.rng.pick(G.shotEls(G.gun())), p.x, p.y, P, 1);
 };
 
 /* ================================================================== *
@@ -503,6 +577,47 @@ proto.payload = function(pl, ctx){
     case "ward": G.addWards(pl.n || 1, pl.max); break;
     case "gold": G.dropGold(x, y, pl.n || 1); break;
     case "blackhole": G.addHazard({ kind:"blackhole", x, y, r:2.8, t:1.8, P, every:0.2, depth }); break;
+    case "status": {
+      const e = ctx.enemy; if(!e || e.dead || e.boss) break;
+      e.st[pl.st] = Math.max(e.st[pl.st] || 0, pl.t || 2);
+      G.emit("status", { id:e.id, x:e.x, y:e.y, st:pl.st });
+      break;
+    }
+    case "shrink": if(ctx.enemy) G.shrinkEnemy(ctx.enemy, pl.k || 0.06); break;
+    case "stickybomb": {
+      const e = ctx.enemy; if(!e || e.dead) break;
+      G.emit("stick", { id:e.id, x:e.x, y:e.y });
+      G.pending.push({ t:1, fn:()=> G.explode(e.x, e.y, pl.r || 1.5, P*(pl.dmg || 1.2), "p", { els, power:s.power, depth }) });
+      break;
+    }
+    case "gum": if(!G.bulletBlocked(x, y) && G.hazards.filter(h=> h.kind === "gum").length < 24) G.addHazard({ kind:"gum", x, y, r:0.9, t:4.5, P, every:0.2, depth }); break;
+    case "bee": for(let i=0;i<(pl.n || 1);i++) if(G.allies.filter(a=> a.kind === "bee").length < 10) G.spawnAlly("bee", x, y, { P }); break;
+    case "ghoul": if(ctx.enemy && !ctx.enemy.boss && G.allies.filter(a=> a.kind === "ghoul").length < 3) G.spawnAlly("ghoul", x, y, { P, model:ctx.enemy.def.model || ctx.enemy.type }); break;
+    case "hiccup": {
+      const a = rng.next()*TAU;
+      G.addShot({ x:p.x, y:p.y, a, speed:s.speed*0.55, r:0.34, dmg:s.dmg*2.2, range:s.range, els, power:s.power, depth, kind:"bubble", knock:3, homing:0 });
+      G.emit("hiccup", { x:p.x, y:p.y });
+      break;
+    }
+    case "shove": {
+      const r = pl.r || 4;
+      G.emit("shove", { x:p.x, y:p.y, r });
+      G.enemies.forEach(e=>{
+        if(e.dead || e.spawn > 0 || DG.dist(e.x, e.y, p.x, p.y) > r + e.r) return;
+        const d = DG.dist(e.x, e.y, p.x, p.y) || 1;
+        if(!e.boss){ e.kx += (e.x - p.x)/d*14; e.ky += (e.y - p.y)/d*14; e.st.stun = Math.max(e.st.stun || 0, pl.stun || 0.6); }
+        if(G.mods.special.barnyard && !e.boss) e.st.confused = Math.max(e.st.confused || 0, 2.5);
+      });
+      break;
+    }
+    case "candy": G.addPickup("flyheal", x, y, 1); break;
+    case "dice": {
+      const roll = 1 + Math.floor(rng.next()*6);
+      p.diceMul = [0.6, 0.8, 1, 1.2, 1.5, 1.8][roll - 1];
+      G.emit("dice", { roll, mul:p.diceMul });
+      G.say("Loaded Dice: you rolled a " + roll + ". " + p.diceMul + "x damage in here.", 2.2);
+      break;
+    }
   }
 };
 
@@ -551,7 +666,8 @@ proto.explode = function(x, y, r, dmg, team, src){
   G.enemies.forEach(e=>{
     if(e.dead || e.spawn > 0 || src.skip === e.id) return;
     const d = DG.dist(x, y, e.x, e.y); if(d > r + e.r) return;
-    G.damageEnemy(e, dmg*(team === "e" ? 0.8 : 1)*(1 - 0.4*d/(r + e.r)), Object.assign({ knock:3, ax:e.x - x, ay:e.y - y }, src));
+    const splash = src.center === undefined || src.center === e.id ? 1 : REACT_SPLASH;
+    G.damageEnemy(e, dmg*splash*(team === "e" ? 0.8 : 1)*(1 - 0.4*d/(r + e.r)), Object.assign({ knock:3, ax:e.x - x, ay:e.y - y }, src));
   });
   if(team === "e"){ const p = G.player; if(DG.dist(x, y, p.x, p.y) < r + p.r) G.hurtPlayer(dmg, src.why || "boom"); }
   G.breakablesNear(x, y, r);
@@ -635,6 +751,7 @@ proto.updateHazards = function(dt){
         const e = G.nearestEnemy(h.x, h.y, 9);
         if(e) G.addShot({ x:h.x, y:h.y, a:Math.atan2(e.y - h.y, e.x - h.x), speed:10, r:0.13, dmg:h.P*DG.BYPRODUCTS.arcane.dmg, range:10, els:["arcane"], power:1, depth:h.depth, homing:2.5, kind:"missile" });
       } break;
+      case "gum": if(fire) G.enemies.forEach(e=>{ if(live(e) && inR(e)) e.st.chill = Math.max(e.st.chill || 0, 0.35); }); break;
       case "blackhole":
         G.enemies.forEach(e=>{
           if(!live(e) || e.boss) return;
@@ -672,6 +789,9 @@ proto.spawnAlly = function(kind, x, y, o){
   if(kind === "shadow"){ a.life = o.life || Infinity; a.r = 0.3; }
   if(kind === "turret"){ a.life = o.life || 10; a.r = 0.35; a.blocks = false; }
   if(kind === "moon"){ a.life = Infinity; a.r = 0.28; a.blocks = true; a.dmg = P*0.8; a.orbit = o.orbit || 0; }
+  if(kind === "bee"){ const k = M.special.killerbees ? 2 : 1; a.life = 6*k; a.dmg = P*0.22*k; a.speed = 9.5; a.r = 0.12; a.el = "poison"; a.orbit = G.rng.next()*TAU; }
+  if(kind === "ghoul"){ a.life = 10; a.dmg = P*0.9; a.speed = 4.4; a.r = 0.3; a.model = o.model || "grunt"; a.orbit = G.rng.next()*TAU; }
+  if(kind === "hat"){ a.life = 4; a.r = 0.4; a.dmg = P*1.2; a.orbit = G.rng.next()*TAU; a.hitT = {}; }
   G.allies.push(a);
   G.emit("ally", { id:a.id, kind, x, y, el:a.el });
   return a;
@@ -681,18 +801,18 @@ proto.updateAllies = function(dt){
   for(const a of G.allies){
     a.t += dt; a.life -= dt; a.cd -= dt;
     if(a.life <= 0){ a.dead = true; G.emit("allyGone", { id:a.id, x:a.x, y:a.y, kind:a.kind }); continue; }
-    if(a.kind === "wisp" || a.kind === "tadpole"){
-      const tg = G.nearestEnemy(a.x, a.y, a.kind === "wisp" ? 9 : 7);
+    if(a.kind === "wisp" || a.kind === "tadpole" || a.kind === "bee" || a.kind === "ghoul"){
+      const tg = G.nearestEnemy(a.x, a.y, a.kind === "wisp" ? 9 : a.kind === "tadpole" ? 7 : 8);
       let tx, ty;
       if(tg){ tx = tg.x; ty = tg.y; }
       else { a.orbit += dt*2.5; tx = p.x + Math.cos(a.orbit)*1.6; ty = p.y + Math.sin(a.orbit)*1.6; }
       const d = Math.hypot(tx - a.x, ty - a.y) || 1, sp = a.speed*(tg ? 1 : 0.7);
       const k = 1 - Math.exp(-dt*6);
       a.vx += ((tx - a.x)/d*sp - a.vx)*k; a.vy += ((ty - a.y)/d*sp - a.vy)*k;
-      if(a.kind === "tadpole") G.move(a, a.vx*dt, a.vy*dt, "player"); else { a.x += a.vx*dt; a.y += a.vy*dt; }
-      if(tg && a.cd <= 0 && DG.dist(a.x, a.y, tg.x, tg.y) < tg.r + 0.35){
-        a.cd = a.kind === "wisp" ? 0.45 : 0.55;
-        G.damageEnemy(tg, a.dmg, { els:a.kind === "wisp" ? [a.el] : [], power:1, depth:2, ax:tg.x - a.x, ay:tg.y - a.y, knock:0.6, from:a.kind });
+      if(a.kind === "tadpole" || a.kind === "ghoul") G.move(a, a.vx*dt, a.vy*dt, "frog"); else { a.x += a.vx*dt; a.y += a.vy*dt; }
+      if(tg && a.cd <= 0 && DG.dist(a.x, a.y, tg.x, tg.y) < tg.r + a.r + 0.2){
+        a.cd = { wisp:0.45, tadpole:0.55, bee:0.3, ghoul:0.7 }[a.kind];
+        G.damageEnemy(tg, a.dmg, { els:a.kind === "wisp" || a.kind === "bee" ? [a.el] : [], power:1, depth:2, ax:tg.x - a.x, ay:tg.y - a.y, knock:a.kind === "ghoul" ? 1.5 : 0.6, from:a.kind });
         G.emit("allyHit", { x:tg.x, y:tg.y, kind:a.kind, el:a.el });
       }
     } else if(a.kind === "shadow"){
@@ -706,6 +826,12 @@ proto.updateAllies = function(dt){
         a.cd = 1.4/s.rate*Math.max(1, s.pellets/2);
         G.fireVolley(a.x, a.y, Math.atan2(tg.y - a.y, tg.x - a.x), g, s, { mul:0.7, from:"turret", quiet:true });
       }
+    } else if(a.kind === "hat"){
+      // out in a widening spiral and back again
+      const k = a.t/4, rad = 1.2 + 3*Math.sin(Math.min(1, k)*Math.PI);
+      a.orbit += dt*4.2;
+      a.x = p.x + Math.cos(a.orbit)*rad; a.y = p.y + Math.sin(a.orbit)*rad;
+      G.enemies.forEach(e=>{ if(!e.dead && e.spawn <= 0 && (a.hitT[e.id] || 0) <= G.t && DG.dist(a.x, a.y, e.x, e.y) < e.r + a.r){ a.hitT[e.id] = G.t + 0.35; G.damageEnemy(e, a.dmg, { els:G.shotEls(G.gun()), power:1, depth:2, ax:e.x - p.x, ay:e.y - p.y, knock:2, from:"hat" }); } });
     } else if(a.kind === "moon"){
       a.orbit += dt*2.2;
       a.x = p.x + Math.cos(a.orbit)*1.7; a.y = p.y + Math.sin(a.orbit)*1.7;
@@ -725,6 +851,19 @@ proto.updateTicks = function(dt){
     G.tickT[i] = (G.tickT[i] || 0) + dt;
     if(G.tickT[i] >= pl.every){ G.tickT[i] = 0; G.payload(pl, { x:p.x, y:p.y, depth:0 }); }
   });
+  // Haunted Gun: when Zippy stops shooting, something else pulls the trigger
+  if(G.mods.special.haunted && G.t - (p.lastShot || 0) > 0.6){
+    G.hauntCd = (G.hauntCd || 0) - dt;
+    if(G.hauntCd <= 0){
+      const t = G.nearestEnemy(p.x, p.y, 7);
+      if(t && G.los(p.x, p.y, t.x, t.y)){
+        const g = G.gun(), s = G.gunStats(g), a = Math.atan2(t.y - p.y, t.x - p.x);
+        G.hauntCd = 1.6/s.rate;
+        G.fireVolley(p.x, p.y, a, g, s, { mul:0.5, from:"ghost", quiet:true });
+        G.emit("haunt", { x:p.x, y:p.y, a });
+      }
+    }
+  }
   if(G.mods.special.gremlin){
     G.tickT.gremlin = (G.tickT.gremlin || 0) + dt;
     if(G.tickT.gremlin >= 8){
@@ -766,7 +905,7 @@ proto.updateStatus = function(dt){
     if(st.burn && st.burn.t > 0){ st.burn.t -= dt; G.damageEnemy(e, st.burn.dps*dt, { dot:true, els:["fire"] }); }
     if(e.dead) return;
     if(st.chill > 0){ st.chill -= dt; if(st.chill <= 0) st.chillStacks = 0; }
-    ["frozen", "stun", "shocked", "marked", "rot", "trapped"].forEach(k=>{ if(st[k] > 0) st[k] -= dt; });
+    ["frozen", "stun", "shocked", "marked", "rot", "trapped", "confused"].forEach(k=>{ if(st[k] > 0) st[k] -= dt; });
   });
 };
 
