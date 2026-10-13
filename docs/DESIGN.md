@@ -1,217 +1,184 @@
-# Dungeon of Guns — Design
+# Dungeon of Guns: Design (v2)
 
-A top-down, real-time roguelike dungeon crawler. You're a wizard who casts spells **through guns**, fighting your way down a goblin-infested dungeon that is dug fresh for every run.
+**Zippy** is a small wizard who casts spells through guns. With him is **Gribbus**, a frog who attacks on his own. They go down into a dungeon that gets spookier and weirder the deeper they go. The run is built from a pile of powerups that stack and combine in ways nobody planned, least of all Zippy.
 
-This document is the plan: the pillars, the game loop at every scale, how difficulty and loot fit together, the content in the base build, and how the code is laid out. Section 8 is the roadmap for refining it into a polished game.
+This document has three parts:
 
----
-
-## 1. Pillars
-
-1. **Guns are spellbooks.** Every gun has a fire pattern (pistol, SMG, shotgun, rifle, launcher) *and* an element (arcane, fire, frost, poison, shock). Every shot carries the element's status, and the right mouse button casts the element's spell through the gun. One gun is a whole build.
-2. **Runes make the build yours.** Runes socket into guns and change how they behave. The headline example: an SMG with **Plague Spreader** turns every goblin it touches into a carrier, and the poison hops from goblin to goblin.
-3. **Every run is a new dungeon.** Layout, room shapes, furniture, traps, goblins, puzzles, secrets and loot are all procedural, from a seed you can share.
-4. **Goofy, not grim.** Painted doors you bonk into. Illusionary walls. Riddles from "A Totally Honest Goblin". Goblins that slip on banana peels and get flattened by their own king. A boss called *Grubnok Who Has Been Working Out*.
-5. **Readable danger.** Every enemy attack has a tell (wind-up, glow, floor marker). Traps are minor: they sting, they don't end runs. You die to the goblins, not to dice.
+1. What the best games in the genre do, and what we take from each (section 1).
+2. How Dungeon of Guns' systems work (sections 2–9).
+3. How the code is laid out (section 10).
 
 ---
 
-## 2. The game loop, at every scale
+## 1. What the genre does well
 
-### 2.1 Moment to moment (seconds)
-**Move, aim, shoot, dodge.** WASD and the mouse, twin-stick style. The decisions:
-- **Where to stand.** Pillars and crates block shots. Pits swallow goblins you knock into them, and swallow you if you're careless.
-- **When to blink.** Blink is a short dash with invulnerability. It goes through bullets and over pits, on a cooldown under a second. It's the skill expression.
-- **Ammo vs. mana.** Guns have magazines and reload. Spells cost mana, which regenerates and comes back faster with kills. Use the gun for steady damage and the spell for the big moment.
+| Game | What makes it work | What we take |
+|---|---|---|
+| **The Binding of Isaac** | Passive items **stack globally** and transform your one attack, so items combine without being designed to. **Item pools** per room type, with no repeats. Treasure, shop, secret, boss and devil-deal rooms. Familiars. **Active items** recharged by clearing rooms. Floor **curses**. Each floor is darker and stranger than the last. | Global stacking powerups with no slots. Item pools with no repeats in a run. Room types, including the **Cursed Altar** (trade max health for power). Gribbus as the familiar. Active items. Curses. The descent from goblin cellar to something much worse. |
+| **Enter the Gungeon** | The dodge roll. Guns with personalities. Named **synergies**: owning two specific items pops "SYNERGY!" and upgrades both. | Blink. Guns as fire pattern × element. **Duos:** named combos that announce themselves. |
+| **Noita** | Spell modifiers compose: "on hit, cast X", and X inherits the modifiers. Chaos that comes out of a few simple rules. | **Triggers and payloads.** Child shots inherit the parent's elements, with a depth limit so it never runs away. |
+| **Risk of Rain 2** | On-hit item procs that chain. Stacks scale linearly or with diminishing returns. | Chance per proc, scaled by luck. A per-item cooldown so chains stay readable. Stacks add up. |
+| **Hades** | Boons by rarity, and **Duo boons** that need two gods. You pick one of three. | Pick one of three on **level-up** (character boons) and at **frog ponds** (Gribbus buffs). **Elemental reactions** are Hades' duo boons, free and automatic. |
+| **Nuclear Throne** | A mutation pick on level-up. Short, explosive, readable. | XP from kills leads to a level-up choice once the room is clear. |
+| **Vampire Survivors** | Weapon + passive = an evolution. A screen full of chaos that still reads. | **Ascensions:** a gun plus the right powerup becomes something new. Screen-filling godly items. |
+| **Spelunky** | The world reacts. Bombs hurt everyone. Shopkeepers get angry. | Explosive barrels, goblin bombs that hit goblins, breakable pots, traps that hurt enemies. |
 
-### 2.2 The room (30–90 seconds)
-Walk in and **the doors slam shut**. Goblins rise out of the floor in a puff of smoke (they can't act yet, so you get a beat to read the room). Kill every goblin in every wave and the doors open. A cleared room sometimes drops a reward: gold, a heart, mana, a rune, or rarely a chest.
+The rule we take from all of them: **many small, general rules that multiply**, rather than a few big special cases. A powerup should be simple to read on its own and do something nobody planned next to three others.
 
-Rooms vary by:
-- **Shape and furniture:** pillars, a central pit, crates, cross-shaped low walls, or empty.
-- **Traps:** spike plates (on a timer, with a warning), dart slits in the walls, fire vents, banana peels. Traps hurt goblins too. Using them against goblins is part of the fun.
-- **Waves:** one wave on floors 1–2, two on bigger rooms from floor 3.
-- **Elites:** a goblin can roll an affix: **Armored**, **Swift**, **Big** or **Vengeful** (explodes into a bullet ring when it dies). Elites drop double gold.
+---
 
-### 2.3 The floor (5–10 minutes)
-A floor is 9–15 rooms in a branching layout:
+## 2. The core loop
 
-| Room | What's there |
+| Scale | What happens |
 |---|---|
-| **Start** | A sign with the controls. Also a painted door, as an introduction. |
-| **Combat** | Most rooms. Locks until cleared. |
-| **Treasure** | A chest (a gun 60%, a relic 22%, a rune 18%). |
-| **Shop** | Snibbit the goblin merchant: a gun, a rune, a relic, and soup. |
-| **Puzzle** | Lights-out braziers, or the three-doors riddle (see 2.5). Reward chest. |
-| **Secret** | Behind an **illusionary wall**. A better chest. |
-| **Boss** | Grubnok the Goblin King. Kill him, open the portal, go deeper. |
-
-The layout is a tree (with a few loops), so the boss is always at the end of a dead end and the shop and treasure are off on side branches. Exploring costs time and risk but pays in loot. The minimap fills in as you go and hints at doors you haven't opened.
-
-### 2.4 The run (30–50 minutes)
-Five floors, each with its own name, palette and nastier goblins:
-
-1. **The Goblin Cellars:** grunts and slingers.
-2. **The Snot Sewers:** bombers and shamans join.
-3. **The Fungus Halls:** brutes and sneaks join; rooms get second waves.
-4. **The Molten Mines.**
-5. **Grubnok's Throne Hole.**
-
-Beat floor 5's boss and you've escaped. You can then **keep going** into endless floors with escalating scaling. Taking the portal down heals 30%.
-
-### 2.5 Illusions and puzzles
-- **Painted doors:** look exactly like doors, but they're paint on a wall. Walk into one and you **BONK** (short stun, stars, a joke). Most are just jokes.
-- **Illusionary walls:** look like stone, but you can walk and shoot straight through them. Each floor usually hides a **secret room** behind one. There's a faint tell (the stone is a shade off), and shots or explosions that pass into one make it shimmer and reveal itself.
-- **Three doors puzzle:** three coloured doors and a sign with a riddle that's guaranteed to have exactly one answer ("It is NOT the red one. It is right next to the blue door."). The honest door is an illusion leading to a closet with a chest. A wrong door is paint: BONK, and the goblins who were watching jump you.
-- **Braziers puzzle:** five braziers in a row. Shooting one flips it and its neighbours (lights-out). Light them all to unlock the chest. It's always solvable.
-
-### 2.6 Meta (across runs)
-The base build keeps your best floor, run count and total kills. Persistent unlocks are on the roadmap (section 8). The plan: unlock new guns, runes and relics *into the loot pool*, rather than permanent stat boosts. That way skill and loot stay what carries a run.
+| **Seconds** | Move, aim, shoot, blink. Gribbus picks his own fights. Right-click casts the gun's element spell. `F` fires the active item. |
+| **A room** | The doors slam shut. Goblins (and worse) rise out of the floor. Clear every wave and the doors open. Clearing a room charges your active item and sometimes drops a reward. |
+| **A floor** | 10–18 rooms, including **jumbo rooms** (2×1, 1×2 and 2×2 cells) for the big fights. Treasure, shop, puzzle, **frog pond**, **cursed altar**, a secret room behind an illusion, and the boss. |
+| **A run** | Five floors, each spookier and weirder than the last, then endless. You level up between fights and pick a boon. |
+| **Meta** | **Golden flies** carry over between runs. Spend them at frog ponds to unlock new Gribbus buffs. |
 
 ---
 
-## 3. Difficulty and "you need good loot"
+## 3. Powerups: stacking, no slots
 
-The pressure comes from two curves that diverge on purpose:
+Every powerup affects **all** of Zippy's shots and lasts the whole run. There are no slots: pick everything up. Stacks add together.
 
-**Goblins get tougher every floor** (`FLOOR_SCALE` in `data.js`):
+Each powerup is data (`js/core/items.js`) built from four parts:
 
-| Floor | Goblin HP | Goblin damage | Room budget | Waves | Elite chance |
-|---|---|---|---|---|---|
-| 1 | ×1.00 | ×1.00 | 6.4 | 1 | 4% |
-| 2 | ×1.46 | ×1.18 | 8.8 | 1 | 12% |
-| 3 | ×2.00 | ×1.36 | 11.2 | 2 | 20% |
-| 4 | ×2.62 | ×1.54 | 13.6 | 2 | 28% |
-| 5 | ×3.32 | ×1.72 | 16.0 | 2 | 36% |
+| Part | Examples |
+|---|---|
+| **Stats** | Damage, fire rate, shot speed, range, size, move speed, luck, crit, max health, mana, wards. |
+| **Shot shape** | Ricochet, pierce, homing, split, extra shots, side and back shots, wiggle, orbit, boomerang, spectral (through walls), grow, accelerate, spiral, chaos. |
+| **Elements** | Adds an element to every shot: Frost Rounds, Ember Rounds, Venom Rounds, Static Rounds, Arcane Rounds. A shot can carry several. |
+| **Triggers** | `on fire / hit / kill / crit / bounce / wall / expire / blink / hurt / clear / second` → a **payload**. |
 
-**Guns only get better if you find better ones.** A gun's damage is `base × (1 + 0.3 × (level − 1)) × rarity`. Its **level is the floor it dropped on** and is fixed for good. Rarity adds ×1.14 to ×1.75 damage and more rune slots:
+### 3.1 Payloads
+- **Byproduct:** what the shot's element leaves behind. Frost leaves an **icicle** (it shatters into ice shards). Fire leaves a **flame patch**, poison a **toxic puddle**, shock a **spark orb** (it zaps nearby goblins), and arcane a **rune** (it fires motes).
+- **Wisp:** a small allied spirit of the element. It orbits Zippy, then darts at goblins.
+- **Shards:** a burst of small shots that inherit the parent's elements.
+- **Burst:** an explosion. **Chain:** lightning. **Nova:** an elemental ring. **Shots:** a ring of your current gun's shots.
+- **Tadpole:** a little frog that nibbles. Also heal, mana, ward, gold.
 
-| Rarity | Damage | Rune slots | Comes with |
-|---|---|---|---|
-| Common | ×1.00 | 1 | 0 runes |
-| Uncommon | ×1.14 | 1 | 1 |
-| Rare | ×1.30 | 2 | 1 |
-| Epic | ×1.50 | 2 | 2 |
-| Legendary | ×1.75 | 3 | 2 (40% chance of a named unique) |
+Payloads that fire shots make **children**. Children inherit elements and shape, but can only trigger more payloads up to a **depth limit** (one, by default). That's what keeps the chaos from freezing the game. Godly items raise the limit.
 
-So the floor-1 starter, *Old Faithful*, does about half the damage per goblin-HP on floor 3 that it did on floor 1. **If you don't pick up new guns, the dungeon outgrows you.** Rarity odds skew upward with depth, and chests in secret rooms, puzzle closets and the shop roll a level higher. Exploring is how you keep up.
+**The example from the brief, built from parts:** a single-shot gun + **Ricochet** + **Frost Rounds** + **Crystal Growth** (on bounce: drop a byproduct) + **Wispcraft** (byproducts spawn wisps of their element). The result: shots bounce off the walls, every bounce grows an icicle, and every icicle releases an ice wisp that hunts goblins. Nobody wrote "ricochet ice wisps": four rules multiplied.
 
-**Runes** are the other lever: they don't scale with level, but they multiply (Heavy Lead ×1.35, Twinshot, Splitter, Boom Bits) or add whole mechanics (Plague, Wildfire, Conductor). A low-level gun with the right runes can carry you a floor longer. Runes move freely between guns in the bag, so a good rune is never wasted.
+### 3.2 Elemental reactions (free, automatic)
+When a goblin carries two elements' statuses at once, they react:
 
-**Relics** are flat passives (Goblin Tooth Necklace +15% damage, Comfy Socks +12% speed, Banana Insurance...). The shop and chests sell them.
+| Pair | Reaction |
+|---|---|
+| Fire + Frost | **Steam:** a scalding burst around the goblin. |
+| Fire + Poison | **Combust:** an explosion that grows with the poison stacks. |
+| Fire + Shock | **Overload:** a knockback blast. |
+| Frost + Shock | **Superconduct:** one big hit and a stun. |
+| Frost + Poison | **Brittle Rot:** the goblin takes +50% damage for a while. |
+| Shock + Poison | **Toxic Arc:** the poison leaps to three neighbours. |
+| Arcane + anything | **Resonance:** an arcane mote bursts out. |
 
-Balance gets tuned against `npm run balance`, which has a bot play full runs with no cheats. Change one knob at a time and quote the before and after.
+Reactions are the free combo layer: any two elements make something happen.
+
+### 3.3 Rarity
+Common → Uncommon → Rare → Legendary → **Godly**. Godly items are rare (well under 1% per roll, more in secret rooms and at the altar). They're screen-changing and get a gold pedestal and a sound. They include *Prism Heart* (every shot is every element), *Recursion Engine* (children can have children, three deep), *Zippy's Shadow* (a clone copies your shots), *Event Horizon* (expiring shots collapse into small black holes), and *Frogsona* (Gribbus fires your shots).
+
+### 3.4 Pools
+Each room type draws from its own pool: treasure, shop, boss, secret, altar. An item that has been seen, offered or taken **leaves the pool for the run**, so seeing the same one twice is rare by design.
+
+### 3.5 Duos
+Some pairs of items are named. Owning both announces the duo ("DUO! BRAIN FREEZE") and adds a bonus on top of the emergent combo.
+
+### 3.6 Ascensions
+A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 
 ---
 
-## 4. Combat rules
+## 4. Zippy
 
 | | |
 |---|---|
-| **Wizard** | 100 HP, 100 mana (+7/s, +4 per kill). Carries up to 3 guns. 0.7 s of invulnerability after a hit. |
-| **Blink** | 3.6 tiles in 0.14 s, invulnerable for 0.3 s, 0.85 s cooldown. Crosses pits. |
-| **Pits** | Fall in: 10 damage and you're put back at the last safe tile. Goblins that fall in are gone. |
-
-**Elements** (applied on every hit):
-
-| Element | Status | Spell (RMB) |
-|---|---|---|
-| Arcane | +20% damage, big knockback (into pits!) | **Magic Missiles:** 5 homing bolts |
-| Fire | Burn: damage over 3 s | **Fireball:** slow orb, big explosion, sets alight |
-| Frost | Chill: slows 40%; 5 stacks **freeze** | **Frost Nova:** freezes everything near you and deletes enemy shots |
-| Poison | Stacking poison (up to 10 stacks) | **Plague Cloud:** a lingering cloud at the cursor |
-| Shock | 25% chance to arc to a neighbour | **Chain Lightning:** leaps between 6 goblins |
-
-**Runes (16):** Plague Spreader, Venom Tips, Ricochet, Splitter, Seeker, Skewer, Heavy Lead, Hair Trigger, Leech, Spell Surge, Boom Bits, Wildfire, Brittle, Conductor, Deep Pockets, Twinshot. Full text is in `data.js`.
-
-**Goblins:**
-
-| Goblin | From | Does |
-|---|---|---|
-| Grunt | floor 1 | Runs at you, winds up, lunges. |
-| Slinger | 1 | Keeps 4–7 tiles away, strafes, throws rocks. |
-| Bomber | 2 | Lobs bombs at where you are. A red circle shows where it lands. Bombs hurt goblins too. |
-| Shaman | 2 | Heals the most hurt goblin nearby (green beam), casts 3-way hexes that slow you. |
-| Brute | 3 | Big and slow. Paws the ground (a red lane shows the line), then charges. Hits a wall: dizzy for 1.4 s. |
-| Sneak | 3 | Nearly invisible. Circles behind where you're aiming, then stabs. |
-| **Grubnok** | boss | Bullet rings, aimed spit fans, belly flop (a red circle shows the landing, and it squashes his own goblins), summons the lads. Below half health: angrier and faster. |
+| **Health** | 100, plus **wards**: blue pips that each block one hit completely. |
+| **Mana** | 100. Pays for the gun's spell. |
+| **Blink** | `Space`. Invulnerable, crosses pits. |
+| **Guns** | Carries up to 3. A gun is its fire pattern, element and level; ascended guns can appear. Powerups apply to all of them. |
+| **Active item** | One at a time, on `F`. Charged by clearing rooms or getting kills. |
+| **Level-ups** | XP from kills. On level-up you pick **1 of 3 boons**: small character upgrades such as +crit, a fire trail behind blinks, mana on kill, a bigger pickup magnet, or Gribbus speed. The pick waits until the room is clear. |
 
 ---
 
-## 5. Procedural generation
+## 5. Gribbus the frog
 
-`js/core/dungeon.js`, deterministic from the seed:
+Gribbus follows Zippy, hops into fights, and attacks whatever is closest: a **tongue lash** up close, a **spit** at range. He can't die. If he's hit he's knocked out for a few seconds and croaks about it.
 
-1. **Room graph:** rooms grow on a 7×7 grid of cells from the start room. A new room is only added next to one existing room (most of the time), so the result is a tree. A few loops are then added between plain rooms.
-2. **Special rooms:** the farthest dead end becomes the boss room; two other dead ends become treasure and shop; a plain room at least two steps from the start becomes the puzzle. An empty cell next to the map becomes the secret room, joined by an illusionary wall.
-3. **Rectangles:** each cell gets a room of a size that fits its type (11×9 up to 22×16), placed randomly inside the cell.
-4. **Corridors:** neighbours are joined by 3-wide corridors, straight when the rooms overlap or with a dog-leg when they don't. There's a door at each end, and the secret one's host end is an illusion.
-5. **Contents:** furniture (rolled back if it would cut the room off from its doors), traps, waves of goblins paid for from a budget, elites, props, painted doors, puzzles.
-6. **Validation:** a flood fill from the start must reach every room. Otherwise the generator rolls again.
+**Frog ponds** are side rooms with a pond and three lily pads. Each pad holds a **Gribbus buff**. Pick one and the other two sink. The buffs include Long Tongue, Toxic Spit, Frost Croak, Hop Lightning, Tadpole Brood, Lily Shield (blocks shots near Zippy), Bullet Gulp (eats enemy shots and spits them back), Royal Crown, Big Boy, Fly Hunter, Mirror Skin (copies Zippy's elements), Bubble Blower, Croak of Doom and Twin Frog. The godly one, **Frogsona**, makes Gribbus fire Zippy's shots.
 
-The tests check this over hundreds of seeds: every room reachable, secret rooms reachable *only* through illusions, every riddle has exactly one answer, every brazier puzzle is solvable.
+**Golden flies** are rare drops: one in each frog pond, and bosses can drop them. They're saved between runs and unlock more Gribbus buffs in the pond pool.
 
 ---
 
-## 6. Assets
+## 6. The descent
 
-Everything is built in code, as in *Pine Hollow Rally* and *Gloom Shooter*. There are no image or sound files.
+| Floor | Name | Feel | Enemies | Boss |
+|---|---|---|---|---|
+| 1 | **The Goblin Cellars** | Warm torches, crates, barrels | Goblins | **Grubnok the Goblin King:** bullet rings, belly flop, summons |
+| 2 | **The Mushroom Grotto** | Glowing caps, spore haze | Shroom folk + goblins | **The Morel Matriarch:** spore storms, a mushroom ring that hems you in, splits her caps |
+| 3 | **The Haunted Crypt** | Cold blue, candles, graves, fog | Ghosts, skeletons | **The Weeping Bride:** three copies, only one real, and a wail that sweeps the room |
+| 4 | **The Weird Below** | Purple and red, eyes in the walls, flesh | Watchers, blobs, tentacles | **The Eye Below:** sweeping lasers, tentacle bursts, blinks shut to become invulnerable |
+| 5 | **The Hollow Heart** | Black and red, pulsing | Everything, twisted | **The Hollow Heart:** beats in rings, three phases |
 
-- **From Pine Hollow:** the chunky-pixel look (render at ~380 px tall and scale up with hard edges; `P` toggles it), the Saira Condensed type, the slanted menu plates with hard ink shadows, and fully synthesized audio.
-- **From Gloom Shooter:** the asset kit (`kit.js`: faceted lump geometry, vertex painting, geometry merging, the glow texture), the spark pool in `fx.js`, the synth sound engine in `audio.js`, the vendored three.js r128, and the architecture: pure-logic core under Node, with the view reading an event list.
-- **New:** stone and floor textures drawn on canvases; the wizard; six goblin kits and Grubnok; five guns; chests, signs, pedestals, braziers, portcullises, painted doors, torches, traps; a goblin-march soundtrack that adds drums in fights and speeds up for the boss.
+Deeper floors are darker. They have more **curses**: Darkness (less light), the Lost (no map), the Fog (shorter sight), and Haste (goblins are faster). They also get stranger dressing: whispers in the music and walls with eyes that follow you.
 
 ---
 
-## 7. Architecture
+## 7. Rooms
+- **Combat:** normal or **jumbo**, with furniture (pillars, pits, crates, cross walls, ring walls, gardens, graveyards…), **breakable** pots and crates, and **explosive barrels**.
+- **Treasure:** an item pedestal. **Shop:** two items, a gun, soup, and a mystery. **Boss:** an item pedestal and the portal.
+- **Secret:** behind an illusionary wall. Secret-pool items, with better godly odds.
+- **Frog pond:** a Gribbus buff (pick 1 of 3) and a golden fly.
+- **Cursed altar:** trade 20 max health for an altar-pool item. The pool has better odds of legendary and godly items.
+- **Puzzle:** see section 8.
+
+---
+
+## 8. Puzzles
+Every puzzle is generated and always solvable (the tests check). It rewards an item chest; failing some of them springs an ambush.
+
+| Puzzle | How it works |
+|---|---|
+| **Three doors** | Coloured doors and a riddle with exactly one answer. The wrong door is paint (BONK) and an ambush. |
+| **Braziers** | Lights-out. Shooting one flips it and its neighbours: a row on floors 1–2, a 3×3 grid deeper down. |
+| **Push blocks** | Walk into stone blocks to shove them onto pressure plates. |
+| **Shroom chorus** | Mushrooms glow in a sequence; shoot them in the same order. The sequence gets longer each round. |
+| **Statues** | Each statue turns 90° when shot. Make them all face the eye. |
+
+---
+
+## 9. Difficulty
+Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are how you keep up. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
+
+---
+
+## 10. Architecture
 
 ```
-js/core/      the game: no THREE, no DOM, runs under Node
-  core.js       namespace DG, seeded RNG, helpers
-  data.js       ALL content: elements, spells, guns, rarities, runes, relics, goblins, floors, traps, lines
-  loot.js       rolling, naming, pricing guns/runes/relics; gun stats from runes + relics
-  dungeon.js    the generator
-  game.js       the simulation: wizard, shots, statuses, rooms, waves, traps, puzzles, illusions, loot, shop
-  ai.js         goblin behaviours and Grubnok
-tools/bot.js  a bot that plays (tests, balance, and the title-screen attract mode)
-js/render/    three.js: stage (renderer, camera, lights), world (dungeon meshes, fog of war),
-              models, fx, view (reads the game, never writes it)
-js/ui/        hud.js (canvas HUD + minimap), menus.js (title, pause, bag, end)
-js/input.js   keyboard + mouse, gamepad
-js/audio.js   synthesized sound and music
-js/main.js    fixed 60 Hz loop and screen flow
+js/core/        no THREE, no DOM: runs under Node
+  core.js         namespace DG, seeded RNG, helpers
+  data.js         elements, statuses, reactions, spells, guns, enemies, bosses, floors, traps, lines
+  items.js        every powerup, Gribbus buff, boon and active item; pools; building the stat block
+  loot.js         guns and item rolls, prices
+  dungeon.js      the generator: graph, jumbo rooms, special rooms, furniture, props, puzzles
+  puzzles.js      puzzle rules
+  game.js         the simulation: Zippy, shots, triggers, payloads, reactions, hazards, allies, rooms
+  gribbus.js      the frog, and the other allies
+  ai.js           enemy and boss behaviours
+tools/bot.js    a bot that plays (tests, balance, attract mode)
+js/render/      kit (baked toon models with outlines), stage (lights, camera), world (dungeon,
+                decor, fog of war), models, fx, view
+js/ui/          hud.js, menus.js
 ```
 
-**House rules** (inherited from Gloom Shooter):
-- The game never waits on the view. `Game.update(dt, input)` resolves everything at once and appends events. The view, HUD and audio read them.
-- New content goes in `data.js`. Code changes only for a new *kind* of effect.
-- Every logic bug that gets fixed gets a regression test in `tests/rules.test.js`.
-- Balance changes are made one knob at a time and checked with `npm run balance`.
-
----
-
-## 8. Roadmap: from base to polished
-
-**Phase 2: assets and feel**
-- Wizard and goblin animation passes (proper walk cycles, hit reactions, death poses), robes that sway.
-- Gun-specific muzzle effects and shot shapes (shotgun pellets vs rifle tracer vs SMG stream); recoil, hit-stop on crits, screen-shake tuning.
-- Per-floor set dressing: sewer water channels, glowing fungus, lava cracks, Grubnok's gold.
-- Destructible crates and barrels (explosive barrels!), pots that drop coins.
-
-**Phase 3: content**
-- One boss per floor (a Shaman Council, a Brute in a mine cart, a giant mimic door…), with Grubnok as the finale.
-- More gun bases (beam staff, boomerang-blade, minigun, wand-bow), more runes (chain-reaction, orbiting bullets, time-slow on blink), runes with downsides (cursed).
-- More puzzles: pressure plates that need a goblin standing on them, a gong melody puzzle, a mirror-and-beam puzzle, a "which goblin is lying" riddle.
-- Mimic doors and mimic chests. Goblin "heist" rooms where they try to steal your gold.
-- NPC events: a lost goblin who wants escorting, a gambling goblin, a cursed altar trade.
-
-**Phase 4: the run and meta loop**
-- Unlocks: new guns, runes and relics added to the loot pool by achievements ("kill 50 goblins with plague").
-- A hub between runs (the wizard's tower) to choose a starting gun.
-- Daily seed with a shared leaderboard.
-- Curses and blessings at floor transitions (risk vs reward choices).
-
-**Phase 5: polish and platforms**
-- Touch twin-stick controls for phones (the HUD already scales).
-- Settings: rebinding, screen shake, colourblind-safe element markers.
-- The Gloom Shooter "ghost" approach: an automated playtester and screenshot audit.
+**House rules:**
+- The game never waits on the view.
+- Core code never calls `Math.random`.
+- New content goes in data.
+- Every fixed bug gets a regression test.
+- Balance changes are made one knob at a time, with `npm run balance` numbers before and after.

@@ -1,5 +1,5 @@
-/* The rules, tested under Node: dungeon generation, combat, rooms,
-   puzzles, illusions, loot. Run with `npm test`. */
+/* The rules, tested under Node: dungeon generation, powerups and combos,
+   reactions, Gribbus, rooms, puzzles, enemies, bosses. Run with `npm test`. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const DG = require("./load.js");
@@ -15,7 +15,7 @@ function reach(D, opts){
     const [x, y] = q.pop();
     for(const [dx, dy] of DG.DIRS4){
       const nx = x + dx, ny = y + dy, t = D.at(nx, ny);
-      const ok = t === T.FLOOR || t === T.DOOR || (t === T.FAKE && !opts.noFakes);
+      const ok = t === T.FLOOR || t === T.DOOR || t === T.WATER || (t === T.FAKE && !opts.noFakes);
       if(!ok || seen[ny*W + nx]) continue;
       seen[ny*W + nx] = 1; q.push([nx, ny]);
     }
@@ -26,23 +26,35 @@ function roomReached(D, r, seen){
   for(let y=r.y1; y<=r.y2; y++) for(let x=r.x1; x<=r.x2; x++) if(D.at(x, y) === T.FLOOR && seen(x, y)) return true;
   return false;
 }
-function game(word, floor){ return new DG.Game({ seedWord:word || "TESTER", floor:floor || 1 }); }
-function step(G, secs, input){ for(let i=0;i<Math.round(secs*60);i++){ G.update(1/60, input || {}); } return G.drain(); }
-function addGoblin(G, room, x, y, type){ return G.spawnEnemy(room, { type:type || "grunt", x, y }); }
-function readyAll(G){ G.enemies.forEach(e=> e.spawn = 0); }
+function game(word, floor, items){ const G = new DG.Game({ seedWord:word || "TESTER", floor:floor || 1, items }); return G; }
+function step(G, secs, input){ for(let i=0;i<Math.round(secs*60);i++){ if(G.state === "choose") G.choose(0); G.update(1/60, input || {}); } return G.drain(); }
+function combatRoom(G){ return G.D.rooms.find(x=> x.type === "combat" && !x.jumbo) || G.D.rooms.find(x=> x.type === "combat"); }
+function addEnemy(G, room, x, y, type){ const e = G.spawnEnemy(room, { type:type || "grunt", x, y }); e.spawn = 0; return e; }
+function park(G){ G.player.x = G.D.start.x; G.player.y = G.D.start.y; }   // somewhere quiet
 
-/* ---- the dungeon ---- */
+/* ================================================================== *
+ *  The dungeon
+ * ================================================================== */
 test("every floor of 150 seeds is fully reachable and has the right rooms", ()=>{
   for(let s=1; s<=150; s++){
     const floor = 1 + (s % 5), D = DG.Dungeon.generate(s*2654435761 >>> 0, floor);
     const seen = reach(D);
     const types = D.rooms.map(r=> r.type);
-    for(const need of ["start", "boss", "treasure", "shop", "puzzle"]) assert.equal(types.filter(t=> t === need).length, 1, "seed " + s + " needs one " + need);
+    const need = ["start", "boss", "treasure", "shop", "puzzle", "pond"].concat(floor >= 2 ? ["altar"] : []);
+    for(const t of need) assert.equal(types.filter(x=> x === t).length, 1, "seed " + s + " needs one " + t);
     D.rooms.forEach(r=> assert.ok(roomReached(D, r, seen), "seed " + s + ": room " + r.id + " (" + r.type + ") unreachable"));
-    const boss = D.rooms.find(r=> r.type === "boss");
-    assert.equal(boss.links.length, 1, "the boss room is a dead end");
-    D.rooms.filter(r=> r.type === "combat").forEach(r=> assert.ok(r.waves.length && r.waves.every(w=> w.length), "combat rooms have goblins"));
+    assert.equal(D.rooms.find(r=> r.type === "boss").links.length, 1, "the boss room is a dead end");
+    D.rooms.filter(r=> r.type === "combat").forEach(r=> assert.ok(r.waves.length && r.waves.every(w=> w.length), "combat rooms have enemies"));
   }
+});
+
+test("jumbo rooms turn up, span several cells, and are big", ()=>{
+  let n = 0;
+  for(let s=1; s<=40; s++){
+    const D = DG.Dungeon.generate(s*977, 1 + (s % 5));
+    D.rooms.filter(r=> r.jumbo).forEach(r=>{ n++; assert.ok(r.cells.length >= 2); assert.ok((r.x2 - r.x1 + 1)*(r.y2 - r.y1 + 1) > 400, "jumbo is big"); });
+  }
+  assert.ok(n >= 40);
 });
 
 test("secret rooms are only reachable through an illusionary wall", ()=>{
@@ -51,10 +63,10 @@ test("secret rooms are only reachable through an illusionary wall", ()=>{
     const D = DG.Dungeon.generate(s*7919, 1 + (s % 5));
     const sec = D.rooms.find(r=> r.type === "secret"); if(!sec) continue;
     n++;
-    assert.ok(roomReached(D, sec, reach(D)), "reachable with illusions");
-    assert.ok(!roomReached(D, sec, reach(D, { noFakes:true })), "seed " + s + ": not reachable without");
+    assert.ok(roomReached(D, sec, reach(D)));
+    assert.ok(!roomReached(D, sec, reach(D, { noFakes:true })), "seed " + s);
   }
-  assert.ok(n > 60, "most floors have a secret");
+  assert.ok(n > 60);
 });
 
 test("the same seed digs the same dungeon", ()=>{
@@ -63,84 +75,134 @@ test("the same seed digs the same dungeon", ()=>{
   assert.notDeepEqual(Array.from(a.tiles), Array.from(c.tiles));
 });
 
-test("the three-doors puzzle has exactly one honest door, and it's an illusion", ()=>{
-  let n = 0;
-  for(let s=1; s<=200 && n < 25; s++){
-    const D = DG.Dungeon.generate(s*31337, 2), r = D.rooms.find(x=> x.type === "puzzle");
-    if(r.puzzle.kind !== "doors") continue;
-    n++;
-    const doors = D.painted.filter(p=> p.room === r.id && p.puzzle !== undefined);
-    assert.equal(doors.length, 3);
-    assert.equal(doors.filter(p=> p.kind === "real").length, 1);
-    const real = doors.find(p=> p.kind === "real");
-    assert.equal(D.at(real.x, real.y), T.FAKE);
-    assert.equal(doors.indexOf(real), r.puzzle.answer);
-    assert.ok(r.props.some(p=> p.kind === "sign" && p.riddle && /HONEST GOBLIN/i.test(p.text)));
+test("each floor uses its own bestiary", ()=>{
+  for(let f=1; f<=5; f++){
+    const D = DG.Dungeon.generate(1234 + f, f), allowed = Object.keys(DG.FLOORS[f - 1].enemies);
+    D.rooms.forEach(r=> r.waves.forEach(w=> w.forEach(s=> assert.ok(allowed.indexOf(s.type) >= 0, "floor " + f + " spawned " + s.type))));
   }
-  assert.ok(n >= 10, "doors puzzles turn up");
 });
 
-/* ---- rooms ---- */
-test("walking into a goblin room shuts the doors; clearing it opens them", ()=>{
-  const G = game("LOCKUP");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  const spot = G.freeSpot(r, r.cxw, r.cyw);
-  G.player.x = spot.x; G.player.y = spot.y;
-  const ev = step(G, 0.1);
-  assert.ok(ev.some(e=> e.type === "lock"));
-  assert.ok(r.active && r.doors.every(id=> !G.D.doors[id].open));
-  // kill every wave
-  for(let k=0;k<6 && !r.cleared;k++){ readyAll(G); G.enemies.forEach(e=> G.damageEnemy(e, 1e6, {})); step(G, 1.2); }
-  assert.ok(r.cleared, "room cleared");
-  assert.ok(r.doors.every(id=> G.D.doors[id].open), "doors open again");
+/* ================================================================== *
+ *  Powerups
+ * ================================================================== */
+test("every powerup, boon and duo builds a valid stat block", ()=>{
+  for(const id in DG.ITEMS){
+    const M = DG.Items.build({ [id]:1 }, [], []);
+    assert.ok(isFinite(M.dmg) && isFinite(M.dmgMul) && M.maxDepth >= 1, id);
+    const d = DG.ITEMS[id];
+    assert.ok(d.name && d.desc && d.pools !== undefined && d.tier >= 0 && d.tier <= 4, id + " has its fields");
+  }
+  for(const id in DG.BOONS) assert.ok(DG.Items.build({}, [id], []), id);
+  DG.DUOS.forEach(d=>{ assert.ok(DG.ITEMS[d.a] && DG.ITEMS[d.b], d.name); assert.ok(DG.Items.build({ [d.a]:1, [d.b]:1 }).duos.indexOf(d.name) >= 0); });
+  assert.ok(Object.keys(DG.ITEMS).length >= 100, "a big pool");
+  assert.ok(Object.values(DG.ITEMS).filter(d=> d.tier === 4).length >= 8, "godly ones");
 });
 
-/* ---- combat ---- */
+test("powerups stack", ()=>{
+  const one = DG.Items.build({ spinach:1 }), two = DG.Items.build({ spinach:2 });
+  assert.equal(two.dmg, one.dmg*2);
+  assert.equal(DG.Items.build({ rubber:2 }).shot.bounces, 4);
+});
+
+test("item pools never offer the same thing twice in a run", ()=>{
+  const G = game("POOLS");
+  const seen = new Set();
+  for(let i=0;i<60;i++){ const id = DG.Items.roll(G, "t"); assert.ok(!seen.has(id), "repeat: " + id); seen.add(id); }
+});
+
+test("the brief's combo: a ricochet + frost + Crystal Growth + Wispcraft shot grows icicles that release ice wisps", ()=>{
+  const G = game("COMBO", 1, ["rubber", "frostrounds", "crystal", "wispcraft"]);
+  const r = combatRoom(G); park(G);
+  // fire one shot straight at a wall from inside the room
+  G.player.x = r.x1 + 3.5; G.player.y = Math.floor(r.cyw) + 0.5;
+  G.addShot({ x:r.x1 + 2.5, y:G.player.y, a:Math.PI, speed:12, r:0.15, dmg:5, range:20, bounces:G.mods.shot.bounces, els:G.shotEls(G.gun()), power:1, depth:0 });
+  const ev = step(G, 0.5);
+  assert.ok(ev.some(e=> e.type === "bounce"), "it bounced");
+  assert.ok(G.hazards.some(h=> h.kind === "icicle") || ev.some(e=> e.type === "byproduct" && e.kind === "icicle"), "an icicle grew");
+  assert.ok(G.allies.some(a=> a.kind === "wisp" && a.el === "frost"), "an ice wisp came out");
+});
+
+test("child shots can't trigger more payloads past the depth limit (and Recursion Engine raises it)", ()=>{
+  const count = items=>{
+    const G = game("DEPTH", 1, items);
+    const r = combatRoom(G); park(G);
+    for(let i=0;i<6;i++){ const e = addEnemy(G, r, r.cxw + (i % 3) - 1, r.cyw + Math.floor(i/3)); e.hp = e.maxHp = 1e6; e.speed = 0; }
+    G.addShot({ x:r.cxw - 3, y:r.cyw, a:0, speed:10, r:0.2, dmg:1, range:10, els:["arcane"], power:1, depth:0 });
+    let shots = 0;
+    for(let i=0;i<90;i++){ G.update(1/60, {}); G.drain(); shots = Math.max(shots, G.bullets.length); }
+    return shots;
+  };
+  const plain = count(["shrapnel", "shrapnel", "shrapnel", "shrapnel"]);
+  assert.ok(plain < 80, "bounded (" + plain + ")");
+  const deep = count(["shrapnel", "shrapnel", "shrapnel", "shrapnel", "recursion"]);
+  assert.ok(deep >= plain, "recursion allows more (" + deep + " vs " + plain + ")");
+});
+
 test("Plague Spreader: poison jumps from goblin to goblin", ()=>{
-  const G = game("PLAGUE");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  G.player.x = 2; G.player.y = 2;   // well away, so nothing activates
-  const a = addGoblin(G, r, r.cxw, r.cyw), b = addGoblin(G, r, r.cxw + 1.5, r.cyw), c = addGoblin(G, r, r.cxw + 9, r.cyw);
-  readyAll(G); [a, b, c].forEach(e=>{ e.hp = e.maxHp = 1e5; e.speed = 0; });
-  G.damageEnemy(a, 1, { el:"poison", power:1, fx:{ plagueSpread:1 } });
+  const G = game("PLAGUE", 1, ["plague"]); park(G);
+  const r = combatRoom(G);
+  const a = addEnemy(G, r, r.cxw, r.cyw), b = addEnemy(G, r, r.cxw + 1.5, r.cyw), c = addEnemy(G, r, r.cxw + 9, r.cyw);
+  [a, b, c].forEach(e=>{ e.hp = e.maxHp = 1e5; e.speed = 0; });
+  G.damageEnemy(a, 1, { els:["poison"], power:1 });
   assert.ok(a.st.poison.plague);
-  assert.ok(!b.st.poison);
   step(G, 1.1);
   assert.ok(b.st.poison && b.st.poison.stacks > 0 && b.st.poison.plague, "the neighbour caught it");
   assert.ok(!c.st.poison, "the far one didn't");
 });
 
-test("without the rune, poison stays put", ()=>{
-  const G = game("NOPLAGUE");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  G.player.x = 2; G.player.y = 2;
-  const a = addGoblin(G, r, r.cxw, r.cyw), b = addGoblin(G, r, r.cxw + 1.5, r.cyw);
-  readyAll(G); [a, b].forEach(e=>{ e.hp = e.maxHp = 1e5; e.speed = 0; });
-  G.damageEnemy(a, 1, { el:"poison", power:1, fx:{} });
+test("without Plague Spreader, poison stays put", ()=>{
+  const G = game("NOPLAGUE"); park(G);
+  const r = combatRoom(G);
+  const a = addEnemy(G, r, r.cxw, r.cyw), b = addEnemy(G, r, r.cxw + 1.5, r.cyw);
+  [a, b].forEach(e=>{ e.hp = e.maxHp = 1e5; e.speed = 0; });
+  G.damageEnemy(a, 1, { els:["poison"], power:1 });
   step(G, 1.5);
   assert.ok(!b.st.poison || !b.st.poison.stacks);
 });
 
+test("elemental reactions: fire + frost makes STEAM, frost + shock SUPERCONDUCTs", ()=>{
+  const G = game("REACT"); park(G);
+  const r = combatRoom(G);
+  const e = addEnemy(G, r, r.cxw, r.cyw); e.hp = e.maxHp = 1e5;
+  G.damageEnemy(e, 1, { els:["fire"], power:1 });
+  G.damageEnemy(e, 1, { els:["frost"], power:1 });
+  let ev = G.drain();
+  assert.ok(ev.some(x=> x.type === "react" && x.name === "STEAM"));
+  G.t += 1;
+  G.damageEnemy(e, 1, { els:["frost"], power:1 });
+  G.damageEnemy(e, 1, { els:["shock"], power:1 });
+  ev = G.drain();
+  assert.ok(ev.some(x=> x.type === "react" && x.name === "SUPERCONDUCT"));
+});
+
 test("five frost hits freeze a goblin", ()=>{
-  const G = game("FROSTY");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  const e = addGoblin(G, r, r.cxw, r.cyw); readyAll(G); e.hp = e.maxHp = 1e5;
-  for(let i=0;i<5;i++) G.damageEnemy(e, 1, { el:"frost", power:1, fx:{} });
+  const G = game("FROSTY"); park(G);
+  const e = addEnemy(G, combatRoom(G), 0, 0); e.hp = e.maxHp = 1e5;
+  for(let i=0;i<5;i++) G.damageEnemy(e, 1, { els:["frost"], power:1 });
   assert.ok(e.st.frozen > 0);
 });
 
-test("the wizard's shots hit goblins and the element applies", ()=>{
+test("Zippy's shots hit goblins and carry the gun's element", ()=>{
   const G = game("SHOOTY");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  const spot = G.freeSpot(r, r.cxw, r.cyw);
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
   G.player.x = spot.x; G.player.y = spot.y; step(G, 0.05);
   G.enemies.forEach(e=> e.dead = true); G.enemies = [];
-  G.player.guns[0] = DG.Loot.makeGun("smg", "poison", 0, 1, []);
-  const e = addGoblin(G, r, spot.x + 2.5, spot.y); readyAll(G); e.hp = e.maxHp = 1e5; e.speed = 0;
-  e.ai.cd = 99;
+  G.player.guns[0] = DG.Loot.makeGun("smg", "poison", 0, 1, []); G.recalc();
+  // somewhere with a clear line of fire
+  const at = [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5], [1.8, 1.8], [-1.8, -1.8]].map(([dx, dy])=> ({ x:spot.x + dx, y:spot.y + dy }))
+    .find(o=> G.D.at(Math.floor(o.x), Math.floor(o.y)) === T.FLOOR && G.los(spot.x, spot.y, o.x, o.y));
+  const e = addEnemy(G, r, at.x, at.y); e.hp = e.maxHp = 1e5; e.speed = 0; e.ai.cd = 99;
   const ev = step(G, 0.5, { fire:true, ax:e.x, ay:e.y });
   assert.ok(ev.some(x=> x.type === "hit"));
   assert.ok(e.st.poison && e.st.poison.stacks > 0);
+});
+
+test("wards block a hit completely", ()=>{
+  const G = game("WARDS");
+  G.addWards(1);
+  const hp = G.player.hp;
+  G.hurtPlayer(30, "test");
+  assert.equal(G.player.hp, hp); assert.equal(G.player.wards, 0);
 });
 
 test("blinking makes you untouchable", ()=>{
@@ -152,23 +214,152 @@ test("blinking makes you untouchable", ()=>{
 });
 
 test("goblin bombs hurt goblins too", ()=>{
-  const G = game("BOOMER");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  G.player.x = 2; G.player.y = 2;
-  const e = addGoblin(G, r, r.cxw, r.cyw); readyAll(G);
+  const G = game("BOOMER"); park(G);
+  const e = addEnemy(G, combatRoom(G), 0, 0);
+  e.x = 40; e.y = 40;
   const hp = e.hp;
   G.explode(e.x, e.y, 1.7, 10, "e", {});
   assert.ok(e.hp < hp);
 });
 
-/* ---- illusions and paint ---- */
-test("walking into a painted door: BONK", ()=>{
+test("an Event Horizon shot that runs out becomes a black hole", ()=>{
+  const G = game("HOLE", 1, ["horizon"]); park(G);
+  const r = combatRoom(G);
+  G.addShot({ x:r.cxw, y:r.cyw, a:0, speed:4, r:0.15, dmg:5, range:1, els:["arcane"], power:1, depth:0 });
+  step(G, 0.5);
+  assert.ok(G.hazards.some(h=> h.kind === "blackhole"));
+});
+
+test("an ascension: Seeker Spirit turns a pistol into the Seeker Sidearm", ()=>{
+  const G = game("ASCEND");
+  G.giveItem("seeker");
+  assert.equal(G.player.guns[0].name, "Seeker Sidearm");
+  assert.ok(G.drain().some(e=> e.type === "ascend"));
+});
+
+/* ================================================================== *
+ *  Zippy: levels, actives, the altar
+ * ================================================================== */
+test("levelling up offers three boons once the room is quiet, and picking one applies it", ()=>{
+  const G = game("LEVELS"); park(G);
+  G.gainXp(DG.PLAYER.xp(1));
+  G.update(1/60, {});
+  assert.equal(G.state, "choose");
+  assert.equal(G.choice.options.length, 3);
+  const id = G.choice.options[1];
+  G.choose(1);
+  assert.equal(G.state, "play");
+  assert.ok(G.player.boons.indexOf(id) >= 0);
+});
+
+test("the Pocket Watch stops time", ()=>{
+  const G = game("WATCH"); park(G);
+  G.player.active = { id:"watch", charge:3, max:3 };
+  const r = combatRoom(G), e = addEnemy(G, r, r.cxw, r.cyw);
+  G.useActive({});
+  const x = e.x, y = e.y;
+  step(G, 1);
+  assert.equal(e.x, x); assert.equal(e.y, y);
+  assert.equal(G.player.active.charge, 0);
+});
+
+test("the cursed altar costs 20 max health", ()=>{
+  const G = game("ALTAR", 2);
+  const r = G.D.rooms.find(x=> x.type === "altar"), ped = r.props.find(p=> p.kind === "pedestal");
+  const before = G.player.maxHp, id = ped.offer.id;
+  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2; G.room = r;
+  G.interact();
+  assert.equal(G.player.maxHp, before - 20 + (DG.ITEMS[id].stats && DG.ITEMS[id].stats.hp || 0));
+  assert.ok(G.player.items[id]);
+});
+
+test("the shop takes your gold", ()=>{
+  const G = game("SHOPPER");
+  const r = G.D.rooms.find(x=> x.type === "shop"), ped = r.props.find(p=> p.kind === "pedestal" && p.offer.kind === "heal");
+  G.player.gold = 999; G.player.hp = 10;
+  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2; G.room = r;
+  G.interact();
+  assert.ok(ped.taken);
+  assert.equal(G.player.gold, 999 - ped.offer.price);
+  assert.ok(G.player.hp > 10);
+});
+
+test("choosing one treasure pedestal sinks the other", ()=>{
+  const G = game("TREASURE", 3);
+  const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
+  assert.equal(peds.length, 2);
+  G.player.x = peds[0].x + 0.5; G.player.y = peds[0].y + 1.2; G.room = r;
+  G.interact();
+  assert.ok(peds[0].taken && peds[1].sunk);
+});
+
+/* ================================================================== *
+ *  Gribbus
+ * ================================================================== */
+test("Gribbus hops over and licks goblins on his own", ()=>{
+  const G = game("FROGGY");
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+  G.gribbus.x = spot.x - 1; G.gribbus.y = spot.y;
+  const e = addEnemy(G, r, spot.x - 3, spot.y); e.hp = e.maxHp = 1e5; e.speed = 0; e.ai.cd = 99;
+  const ev = step(G, 3);
+  assert.ok(ev.some(x=> x.type === "lick" || x.type === "spit"), "he attacked");
+  assert.ok(e.hp < 1e5, "it hurt");
+});
+
+test("a frog pond: one lily pad teaches Gribbus a trick, the others sink", ()=>{
+  const G = game("POND");
+  const r = G.D.rooms.find(x=> x.type === "pond");
+  DG.Gribbus.offerPond(G, r);
+  const pads = r.props.filter(p=> p.kind === "lilypad");
+  assert.equal(pads.length, 3);
+  assert.ok(pads.every(p=> p.buff));
+  DG.Gribbus.choosePad(G, pads[1]);
+  assert.ok(G.gribbus.buffs.indexOf(pads[1].buff) >= 0);
+  assert.ok(pads[0].sunk && pads[2].sunk);
+});
+
+test("golden flies unlock locked Gribbus buffs at ponds", ()=>{
+  const locked = Object.keys(DG.FROG_BUFFS).filter(id=> DG.FROG_BUFFS[id].locked);
+  let seenLocked = false;
+  for(let s=0; s<40 && !seenLocked; s++){
+    const G = new DG.Game({ seedWord:"FLIES" + s, meta:{ flies:99, unlocked:{} } });
+    const r = G.D.rooms.find(x=> x.type === "pond");
+    DG.Gribbus.offerPond(G, r);
+    if(r.props.some(p=> p.kind === "lilypad" && locked.indexOf(p.buff) >= 0)) seenLocked = true;
+  }
+  assert.ok(seenLocked);
+  for(let s=0; s<40; s++){
+    const G = new DG.Game({ seedWord:"NOFLY" + s, meta:{ flies:0, unlocked:{} } });
+    const r = G.D.rooms.find(x=> x.type === "pond");
+    DG.Gribbus.offerPond(G, r);
+    assert.ok(!r.props.some(p=> p.kind === "lilypad" && locked.indexOf(p.buff) >= 0), "locked ones stay locked");
+  }
+});
+
+/* ================================================================== *
+ *  Rooms, illusions, paint
+ * ================================================================== */
+test("walking into a goblin room shuts the doors; clearing it opens them", ()=>{
+  const G = game("LOCKUP");
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y;
+  const ev = step(G, 0.1);
+  assert.ok(ev.some(e=> e.type === "lock"));
+  assert.ok(r.active && r.doors.every(id=> !G.D.doors[id].open));
+  for(let k=0;k<8 && !r.cleared;k++){ G.enemies.forEach(e=>{ e.spawn = 0; e.untargetable = false; G.damageEnemy(e, 1e7, {}); }); step(G, 1.2); }
+  assert.ok(r.cleared);
+  assert.ok(r.doors.every(id=> G.D.doors[id].open));
+});
+
+test("walking into a painted door: BONK (but not from a room away)", ()=>{
   const G = game("BONKER");
   const p0 = G.D.painted.find(p=> p.kind === "bonk");
-  assert.ok(p0, "the start room always has one");
   G.player.x = p0.x + 0.5; G.player.y = p0.y + 1 + G.player.r + 0.02;
-  const ev = step(G, 0.3, { my:-1 });
-  assert.ok(ev.some(e=> e.type === "bonk"));
+  assert.ok(step(G, 0.3, { my:-1 }).some(e=> e.type === "bonk"));
+  const G2 = game("BONKER");
+  G2.player.x = p0.x + 0.5; G2.player.y = p0.y - 6;
+  assert.ok(!step(G2, 0.3, { my:-1 }).some(e=> e.type === "bonk"));
 });
 
 test("a shot through an illusionary wall reveals it", ()=>{
@@ -176,7 +367,7 @@ test("a shot through an illusionary wall reveals it", ()=>{
     const G = game("SECRET" + s);
     const f = G.D.fakes.find(x=> !x.puzzle); if(!f) continue;
     const [tx, ty] = f.tiles[1] || f.tiles[0];
-    G.addBullet({ team:"p", x:tx + 0.5, y:ty + 0.5, vx:0.01, vy:0, r:0.1, dmg:1, life:0.5, pierce:0, bounces:0, el:"arcane", power:1, fx:{}, kind:"bolt" });
+    G.addShot({ x:tx + 0.5, y:ty + 0.5, a:0, speed:0.1, r:0.1, dmg:1, range:1, els:["arcane"], power:1, depth:0 });
     const ev = step(G, 0.05);
     assert.ok(f.revealed && ev.some(e=> e.type === "illusion"));
     return;
@@ -184,138 +375,162 @@ test("a shot through an illusionary wall reveals it", ()=>{
   assert.fail("no secret found");
 });
 
-test("lighting every brazier unlocks the chest", ()=>{
-  for(let s=1; s<200; s++){
-    const G = game("BRAZ" + s);
-    const r = G.D.rooms.find(x=> x.type === "puzzle");
-    if(r.puzzle.kind !== "braziers") continue;
-    const chest = r.props.find(p=> p.kind === "chest");
-    assert.ok(chest.locked);
-    // brute-force the lights-out row: try every set of presses
-    const start = r.puzzle.lit.slice();
-    for(let mask=0; mask<32 && !r.puzzle.solved; mask++){
-      r.puzzle.lit = start.slice();
-      for(let i=0;i<5;i++) if(mask & (1 << i)) G.flipBrazier(r, i);
-    }
-    assert.ok(r.puzzle.solved, "solvable");
-    assert.ok(!chest.locked);
+test("breakables break, and explosive barrels explode", ()=>{
+  for(let s=1; s<60; s++){
+    const G = game("POTS" + s);
+    const x = G.D.breakables.find(b=> b.kind === "xbarrel"), pot = G.D.breakables.find(b=> b.kind !== "xbarrel");
+    if(!x || !pot) continue;
+    G.hitBreakable(pot.x, pot.y, 1000);
+    assert.equal(G.D.at(pot.x, pot.y), T.FLOOR);
+    G.hitBreakable(x.x, x.y, 1000);
+    assert.ok(G.drain().some(e=> e.type === "boom"));
     return;
   }
-  assert.fail("no brazier puzzle");
+  assert.fail("no barrels found");
 });
 
-/* ---- loot ---- */
-test("deeper loot and rarer loot hit harder", ()=>{
-  const g1 = DG.Loot.makeGun("smg", "poison", 0, 1, []), g4 = DG.Loot.makeGun("smg", "poison", 0, 4, []), r4 = DG.Loot.makeGun("smg", "poison", 3, 4, []);
-  assert.ok(DG.Loot.dps(g4) > DG.Loot.dps(g1)*1.8);
-  assert.ok(DG.Loot.dps(r4) > DG.Loot.dps(g4));
+/* ================================================================== *
+ *  Puzzles: every kind is solvable
+ * ================================================================== */
+function puzzleRoom(kind, floor){
+  for(let s=1; s<400; s++){
+    const G = game("PZ" + kind + s, floor || 1);
+    const r = G.D.rooms.find(x=> x.type === "puzzle");
+    if(r.puzzle.kind === kind){ G.room = r; return { G, r }; }
+  }
+  throw new Error("no " + kind + " puzzle");
+}
+test("the three-doors puzzle has exactly one honest door, and it's an illusion", ()=>{
+  const { G, r } = puzzleRoom("doors", 2);
+  const doors = G.D.painted.filter(p=> p.room === r.id && p.puzzle !== undefined);
+  assert.equal(doors.length, 3);
+  const real = doors.find(p=> p.kind === "real");
+  assert.equal(G.D.at(real.x, real.y), T.FAKE);
+  assert.equal(doors.indexOf(real), r.puzzle.answer);
+  assert.ok(r.props.some(p=> p.kind === "sign" && p.riddle && /HONEST GOBLIN/i.test(p.text)));
 });
-
-test("rarity rolls skew rarer as you go deeper", ()=>{
-  const rng = DG.RNG(5);
-  const avg = lvl=>{ let s = 0; for(let i=0;i<4000;i++) s += DG.Loot.rollRarity(rng, lvl); return s/4000; };
-  assert.ok(avg(5) > avg(1) + 0.3);
-});
-
-test("socketing and unsocketing runes", ()=>{
-  const G = game("RUNES");
-  const g = G.gun(); g.runes = []; g.slots = 2;
-  G.player.bag.push(DG.Loot.makeRune("plague"));
-  assert.ok(G.socket(0, 0));
-  assert.deepEqual(g.runes, ["plague"]);
-  assert.equal(G.player.bag.length, 0);
-  assert.ok(G.unsocket(0, 0));
-  assert.equal(G.player.bag.length, 1);
-});
-
-test("the shop takes your gold", ()=>{
-  const G = game("SHOPPER");
-  const r = G.D.rooms.find(x=> x.type === "shop"), ped = r.props.find(p=> p.kind === "pedestal" && p.slot === 3);
-  G.player.gold = 999; G.player.hp = 10;
-  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2;
-  G.room = r;
-  G.interact();
-  assert.ok(ped.item.sold);
-  assert.equal(G.player.gold, 999 - ped.item.price);
-  assert.ok(G.player.hp > 10);
-});
-
-/* ---- the whole thing ---- */
-test("a bot plays three runs past the first boss without anything going NaN", ()=>{
-  for(const w of ["ALPHA", "BRAVO", "CHARLI"]){
-    const G = game(w), bot = new DG.Bot(G);
-    G.player.hp = G.player.maxHp = 1e6;
-    for(let i=0; i<60*600 && G.floor < 2 && G.state === "play"; i++){
-      G.update(1/60, bot.input(1/60));
-      G.drain();
-      const p = G.player;
-      assert.ok(isFinite(p.x) && isFinite(p.y) && isFinite(p.mana), "player stays finite");
-      for(const e of G.enemies) assert.ok(isFinite(e.x) && isFinite(e.y) && isFinite(e.hp), "goblins stay finite");
-      assert.ok(!G.blocked(Math.floor(p.x), Math.floor(p.y), "player"), w + ": the wizard never ends up inside a wall");
+test("braziers (row and grid) can always be lit", ()=>{
+  [1, 3].forEach(f=>{
+    const { G, r } = puzzleRoom("braziers", f), pz = r.puzzle, n = pz.lit.length, start = pz.lit.slice();
+    let solved = false;
+    for(let mask=0; mask<(1 << n) && !solved; mask++){
+      pz.lit = start.slice();
+      for(let i=0;i<n;i++) if(mask & (1 << i)) DG.Puzzles.flipBraziers(pz, i);
+      solved = pz.lit.every(v=> v);
     }
-    assert.ok(G.floor >= 2, w + " reached floor 2 (got floor " + G.floor + ")");
+    assert.ok(solved, "floor " + f);
+  });
+});
+test("push blocks: pushing each block straight along its line solves it", ()=>{
+  const { G, r } = puzzleRoom("push", 1), pz = r.puzzle;
+  pz.blocks.forEach((b, i)=>{
+    const p = pz.plates[i], dx = Math.sign(p.x - b.x), dy = Math.sign(p.y - b.y);
+    let guard = 10;
+    while((b.x !== p.x || b.y !== p.y) && guard--){ pz.cd = 0; DG.Puzzles.push(G, b.x, b.y, dx, dy); }
+  });
+  assert.ok(pz.solved);
+  assert.ok(!r.props.find(p=> p.kind === "chest").locked);
+});
+test("statues can always be turned to face the eye", ()=>{
+  const { r } = puzzleRoom("statues", 3), pz = r.puzzle, start = pz.face.slice();
+  let ok = false;
+  for(let m=0; m<256 && !ok; m++){
+    pz.face = start.slice();
+    for(let i=0;i<4;i++) for(let k=0;k<((m >> (i*2)) & 3);k++) DG.Puzzles.turnStatue(pz, i, 1);
+    ok = pz.face.every((f, i)=> f === pz.want[i]);
+  }
+  assert.ok(ok);
+});
+test("the shroom chorus: repeat what they sing", ()=>{
+  const { G, r } = puzzleRoom("chorus", 1), pz = r.puzzle;
+  for(let round=0; round<pz.rounds; round++){
+    pz.phase = "listen"; pz.i = 0;
+    for(let k=0;k<pz.len + round;k++){ const it = pz.items[pz.seq[k]]; it.cd = 0; DG.Puzzles.shot(G, { x:it.x, y:it.y, r:0.1 }); }
+  }
+  assert.ok(pz.solved);
+});
+
+/* ================================================================== *
+ *  Enemies and bosses
+ * ================================================================== */
+test("every enemy type spawns, acts and dies without anything going NaN", ()=>{
+  for(const type of Object.keys(DG.ENEMIES)){
+    const G = game("BEAST" + type, 3);
+    const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+    G.player.x = spot.x; G.player.y = spot.y; G.god = true; step(G, 0.1);
+    G.enemies.forEach(e=> e.dead = true); G.enemies = [];
+    const e = addEnemy(G, r, spot.x + 3, spot.y, type);
+    for(let i=0;i<60*8;i++){ G.update(1/60, { ax:e.x, ay:e.y }); G.drain(); assert.ok(isFinite(e.x) && isFinite(e.y) && isFinite(e.hp), type); }
+    e.untargetable = false; e.spawn = 0; e.invuln = false; e.hidden = false;
+    G.damageEnemy(e, 1e7, {});
+    assert.ok(e.dead, type + " can die");
   }
 });
 
-test("a painted door only bonks you when you walk into it (not from a room away)", ()=>{
-  const G = game("BONKER");
-  const p0 = G.D.painted.find(p=> p.kind === "bonk");
-  G.player.x = p0.x + 0.5; G.player.y = p0.y - 6;      // same column, far to the north
-  const ev = step(G, 0.3, { my:-1 });
-  assert.ok(!ev.some(e=> e.type === "bonk"));
+test("every boss fights for 25 seconds, stays in its room, and can be killed", ()=>{
+  for(let f=1; f<=5; f++){
+    const G = game("BOSS" + f, f);
+    const r = G.D.rooms.find(x=> x.type === "boss");
+    G.player.x = r.cxw; G.player.y = r.y2 - 0.5; G.god = true;
+    step(G, 1.6);
+    const b = G.bossRef;
+    assert.ok(b && b.type === DG.FLOORS[f - 1].boss, "floor " + f + " boss");
+    for(let i=0;i<60*25;i++){
+      G.update(1/60, { mx:Math.sin(i/40), my:Math.cos(i/50)*0.5, ax:b.x, ay:b.y, fire:true });
+      G.drain();
+      for(const e of G.enemies) if(!e.dead && !e.airborne) assert.ok(G.inRoom(r, e.x, e.y), e.type + " left the boss room");
+    }
+    b.invuln = false; b.untargetable = false;
+    G.damageEnemy(b, 1e8, {});
+    assert.ok(b.dead && G.portal, "floor " + f + ": boss down, portal open");
+  }
 });
 
-/* ---- regression: goblins escaping through walls (rooms stayed locked forever) ---- */
+/* ---- regression: enemies escaping through walls (rooms stayed locked forever) ---- */
 test("a big body shoved into a wall can back out but never goes through it", ()=>{
   const G = game("WALLS");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  // a brute-sized body already overlapping the west wall, on a stretch with no doorway
+  const r = combatRoom(G);
   let wy = r.y1 + 2;
   while(wy < r.y2 - 1 && [-2, -1, 0, 1, 2].some(k=> G.D.at(r.x1 - 1, wy + k) !== T.SOLID)) wy++;
   assert.ok(wy < r.y2 - 1, "found solid wall");
   const e = { x:r.x1 + 0.3, y:wy + 0.5, r:0.6 };
   for(let i=0;i<200;i++) G.move(e, -0.15, (i % 3 - 1)*0.01, "enemy");
-  assert.ok(e.x >= r.x1 + 0.3 - 1e-6, "never pushed deeper or through (x=" + e.x + ")");
+  assert.ok(e.x >= r.x1 + 0.3 - 1e-6);
   G.move(e, 2, 0, "enemy");
-  assert.ok(e.x > r.x1 + 0.6, "it can walk back out");
-});
-
-test("brutes and Grubnok stay inside their rooms through whole fights", ()=>{
-  for(const [w, f] of [["STK2", 3], ["STK7", 3], ["STK19", 5], ["STK0", 1]]){
-    const G = game(w, f), bot = new DG.Bot(G);
-    G.player.hp = G.player.maxHp = 1e7;
-    for(let i=0; i<60*240 && G.floor === f; i++){
-      G.update(1/60, bot.input(1/60)); G.drain();
-      for(const e of G.enemies){
-        if(e.dead || e.airborne || e.spawn > 0) continue;
-        const t = G.D.at(Math.floor(e.x), Math.floor(e.y));
-        assert.ok(t !== T.SOLID && t !== T.BLOCK, w + ": " + e.type + " inside a wall at " + e.x.toFixed(1) + "," + e.y.toFixed(1));
-        const r = G.D.rooms[e.room];
-        if(r.active) assert.ok(G.inRoom(r, e.x, e.y), w + ": " + e.type + " left its locked room");
-      }
-    }
-  }
+  assert.ok(e.x > r.x1 + 0.6);
 });
 
 test("a goblin that somehow leaves its locked room is pulled back in", ()=>{
   const G = game("LEASH");
-  const r = G.D.rooms.find(x=> x.type === "combat");
-  const spot = G.freeSpot(r, r.cxw, r.cyw);
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
   G.player.x = spot.x; G.player.y = spot.y; step(G, 0.1);
-  readyAll(G);
+  G.enemies.forEach(e=> e.spawn = 0);
   const e = G.enemies[0];
   e.x = -500; e.y = -500;
   step(G, 1/60);
   assert.ok(G.inRoom(r, e.x, e.y));
 });
 
-test("Grubnok only summons goblins inside his room", ()=>{
-  const G = game("SUMMON");
-  const r = G.D.rooms.find(x=> x.type === "boss");
-  G.player.x = r.cxw; G.player.y = r.y2 - 0.5; step(G, 1.6);
-  const king = G.bossRef;
-  // stand him in a corner so half his summons would land in the wall
-  king.x = r.x1 + 1.2; king.y = r.y1 + 1.2;
-  for(let i=0;i<20;i++){ king.ai.state = "summon"; king.ai.t = 0; G.enemies.filter(e=> e !== king).forEach(e=> e.dead = true); step(G, 1/60); }
-  for(const e of G.enemies) assert.ok(G.inRoom(r, e.x, e.y), e.type + " summoned outside the room");
+/* ================================================================== *
+ *  The whole thing
+ * ================================================================== */
+test("a bot plays three runs past floor 2, with nobody ending up in a wall", ()=>{
+  for(const w of ["ALPHA", "BRAVO", "CHARLI"]){
+    const G = game(w), bot = new DG.Bot(G);
+    G.god = true;
+    for(let i=0; i<60*700 && G.floor < 3 && (G.state === "play" || G.state === "choose"); i++){
+      if(G.state === "choose") G.choose(0);
+      G.update(1/60, bot.input(1/60));
+      G.drain();
+      const p = G.player;
+      assert.ok(isFinite(p.x) && isFinite(p.y) && isFinite(p.mana));
+      assert.ok(!G.blocked(Math.floor(p.x), Math.floor(p.y), "player"), w + ": Zippy inside a wall");
+      for(const e of G.enemies){
+        if(e.dead || e.airborne || e.phases || e.spawn > 0) continue;
+        const t = G.D.at(Math.floor(e.x), Math.floor(e.y));
+        assert.ok(t !== T.SOLID && t !== T.BLOCK && t !== T.BREAK, w + ": " + e.type + " in a wall");
+      }
+    }
+    assert.ok(G.floor >= 3, w + " reached floor 3 (got " + G.floor + ")");
+  }
 });

@@ -1,7 +1,10 @@
 /* ------------------------------------------------------------------ *
- *  Goblin brains. Every attack is telegraphed (a "tell") so a good
- *  player can always read it: grunts wind up, slingers raise the
- *  sling, brutes paw the ground, the king squats before he flops.
+ *  Enemy brains, and the five bosses.
+ *
+ *  Every attack has a tell, so a good player can always read it:
+ *  grunts wind up, slingers raise the sling, pufflings swell, banshees
+ *  draw breath, watchers glare along a red line, tentacles bubble the
+ *  floor first, and every boss squats, inhales or blinks before it hits.
  *
  *  Each behaviour is a small state machine over e.ai:
  *    { state, t (time left in state), cd (attack cooldown), ... }
@@ -10,22 +13,24 @@
 "use strict";
 const DG = root.DG;
 const AI = DG.AI = {};
+const TAU = Math.PI*2;
 
 AI.update = function(G, e, dt){
   if(e.dead) return;
   if(e.spawn > 0){ e.spawn -= dt; return; }
-  // the safety net: a goblin is never allowed to end up outside its locked room
+  // the safety net: an enemy never ends up outside its locked room
   const room = G.D.rooms[e.room];
   if(room && room.active && !e.airborne && !G.inRoom(room, e.x, e.y)){
     const s = G.freeSpot(room, e.x, e.y);
     e.x = s.x; e.y = s.y; e.kx = e.ky = 0;
   }
+  if(e.decoy && e.ai.popped){ G.emit("decoyPop", { x:e.x, y:e.y, id:e.id }); G.killEnemy(e, {}); return; }
   // knockback first: this is how goblins end up in pits
   if(Math.abs(e.kx) + Math.abs(e.ky) > 0.05){
-    G.move(e, e.kx*dt, e.ky*dt, Math.hypot(e.kx, e.ky) > 2.5 ? "flying" : "enemy");
+    G.move(e, e.kx*dt, e.ky*dt, e.phases ? "ghost" : Math.hypot(e.kx, e.ky) > 2.5 ? "flying" : "enemy");
     const f = Math.exp(-dt*9); e.kx *= f; e.ky *= f;
   } else { e.kx = e.ky = 0; }
-  if(!e.airborne && G.D.at(Math.floor(e.x), Math.floor(e.y)) === DG.TILE.PIT && !e.boss){
+  if(!e.airborne && !e.phases && !e.boss && G.D.at(Math.floor(e.x), Math.floor(e.y)) === DG.TILE.PIT){
     G.emit("fall", { x:e.x, y:e.y, who:"enemy", id:e.id });
     G.killEnemy(e, {}, true);
     return;
@@ -33,8 +38,13 @@ AI.update = function(G, e, dt){
   e.vx = 0; e.vy = 0;
   if(e.st.frozen > 0 || e.st.stun > 0) return;
   e.ai.cd -= dt;
+  // bumping into Zippy hurts, for the squishy and the spooky
+  const p = G.player;
+  if((e.def.ai === "blob" || e.def.ai === "ghost" || e.boss) && !e.untargetable && !e.airborne && DG.dist(e.x, e.y, p.x, p.y) < e.r + p.r && (e.ai.touch || 0) <= G.t){
+    e.ai.touch = G.t + 0.9; G.hurtPlayer(e.dmg*0.6, e.type);
+  }
   const B = BEHAVIOUR[e.def.ai] || BEHAVIOUR.melee;
-  B(G, e, dt, G.player);
+  B(G, e, dt, p);
 };
 
 /* ---- shared moves ---- */
@@ -44,29 +54,26 @@ function walk(G, e, dx, dy, mul, dt){
   const s = speedOf(e)*(mul || 1);
   e.vx = dx/l*s; e.vy = dy/l*s;
   e.face = Math.atan2(dy, dx);
-  return G.move(e, e.vx*dt, e.vy*dt, "enemy");
+  return G.move(e, e.vx*dt, e.vy*dt, e.phases ? "ghost" : "enemy");
 }
-/* toward the wizard: straight if there's a clear line, else down the flow field */
 function approach(G, e, p, dt, mul){
-  if(G.los(e.x, e.y, p.x, p.y) && clearPath(G, e, p)) return walk(G, e, p.x - e.x, p.y - e.y, mul, dt);
+  if(e.phases || (G.los(e.x, e.y, p.x, p.y) && clearPath(G, e, p))) return walk(G, e, p.x - e.x, p.y - e.y, mul, dt);
   const f = G.flowDir(e.x, e.y);
   if(f) return walk(G, e, f.x, f.y, mul, dt);
   return walk(G, e, p.x - e.x, p.y - e.y, mul, dt);
 }
-/* no pit between here and there (goblins aren't THAT stupid) */
 function clearPath(G, e, p){
   const d = DG.dist(e.x, e.y, p.x, p.y), n = Math.ceil(d/0.4);
   for(let i=1;i<n;i++){ const t = i/n; if(G.blocked(Math.floor(e.x + (p.x - e.x)*t), Math.floor(e.y + (p.y - e.y)*t), "enemy")) return false; }
   return true;
 }
 function keepAway(G, e, p, dt, keep){
-  const d = DG.dist(e.x, e.y, p.x, p.y), los = G.los(e.x, e.y, p.x, p.y);
+  const d = DG.dist(e.x, e.y, p.x, p.y), los = e.phases || G.los(e.x, e.y, p.x, p.y);
   if(!los || d > keep[1]) return approach(G, e, p, dt);
   if(d < keep[0]){
     if(walk(G, e, e.x - p.x, e.y - p.y, 0.9, dt)) e.ai.strafe = -(e.ai.strafe || 1);
     return;
   }
-  // strafe round the wizard, switching direction now and then
   e.ai.st = (e.ai.st || 0) - dt;
   if(e.ai.st <= 0){ e.ai.st = 1 + G.rng.next()*1.5; e.ai.strafe = G.rng.sign(); }
   const a = Math.atan2(e.y - p.y, e.x - p.x) + (e.ai.strafe || 1)*Math.PI/2;
@@ -80,22 +87,34 @@ function tell(G, e, kind, t, extra){
 function shoot(G, e, a, speed, n, spreadDeg, kind, extra){
   for(let i=0;i<n;i++){
     const o = a + (n > 1 ? (i/(n - 1) - 0.5)*spreadDeg*Math.PI/180 : 0);
-    G.addBullet(Object.assign({ team:"e", x:e.x + Math.cos(o)*e.r, y:e.y + Math.sin(o)*e.r, vx:Math.cos(o)*speed, vy:Math.sin(o)*speed, r:0.18, dmg:e.dmg, life:3.5, kind }, extra || {}));
+    G.addBullet(Object.assign({ team:"e", x:e.x + Math.cos(o)*e.r, y:e.y + Math.sin(o)*e.r, vx:Math.cos(o)*speed, vy:Math.sin(o)*speed, r:0.18, dmg:e.dmg, life:4, kind }, extra || {}));
   }
   G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind });
 }
 function bark(G, e, chance){
   if(e.def.lines && G.rng.chance(chance || 0.08)) G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(e.def.lines) });
 }
+function aimAt(e, p){ return Math.atan2(p.y - e.y, p.x - e.x); }
+/* a floor tile near (x, y) in e's room */
+function spotNear(G, e, x, y, spread){
+  const r = G.D.rooms[e.room];
+  for(let i=0;i<12;i++){
+    const a = G.rng.next()*TAU, d = G.rng.next()*spread;
+    const tx = x + Math.cos(a)*d, ty = y + Math.sin(a)*d;
+    if(G.inRoom(r, tx, ty) && G.D.at(Math.floor(tx), Math.floor(ty)) === DG.TILE.FLOOR) return { x:Math.floor(tx) + 0.5, y:Math.floor(ty) + 0.5 };
+  }
+  return G.freeSpot(r, x, y);
+}
+/* a telegraphed slam: a mark on the floor, then it goes off */
+function slam(G, x, y, r, dmg, delay, kind){
+  G.marks.push({ kind:kind || "slam", x, y, r, t:delay, max:delay });
+  G.pending.push({ t:delay, fn:()=>{ G.explode(x, y, r, dmg, "e", { why:kind || "slam" }); } });
+}
 
-/* a stab or a lunge: shared by grunts and sneaks */
+/* a stab or a lunge: grunts, sneaks, shroomkin */
 function melee(G, e, dt, p, o){
   const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
-  if(A.state === "tell"){
-    A.t -= dt; e.face = A.a;
-    if(A.t <= 0){ A.state = "lunge"; A.t = 0.2; A.hit = false; }
-    return;
-  }
+  if(A.state === "tell"){ A.t -= dt; e.face = A.a; if(A.t <= 0){ A.state = "lunge"; A.t = 0.2; A.hit = false; } return; }
   if(A.state === "lunge"){
     A.t -= dt;
     walk(G, e, Math.cos(A.a), Math.sin(A.a), o.lunge/speedOf(e)*(e.st.chill > 0 ? DG.STATUS.chill.slow : 1), dt);
@@ -106,7 +125,7 @@ function melee(G, e, dt, p, o){
   if(A.state === "recover"){ A.t -= dt; if(A.t <= 0) A.state = "chase"; return; }
   A.state = "chase";
   if(d < o.reach && A.cd <= 0 && G.los(e.x, e.y, p.x, p.y)){
-    A.a = Math.atan2(p.y - e.y, p.x - e.x);
+    A.a = aimAt(e, p);
     tell(G, e, "stab", o.tell, { a:A.a });
     bark(G, e, 0.12);
     return;
@@ -114,12 +133,25 @@ function melee(G, e, dt, p, o){
   if(o.target){ const t = o.target(); walk(G, e, t.x - e.x, t.y - e.y, 1, dt); }
   else approach(G, e, p, dt);
 }
+/* aim, tell, fire: slingers, skeletons, toadstools */
+function ranged(G, e, dt, p, opts){
+  const A = e.ai, S = e.def.shot;
+  if(A.state === "tell"){
+    A.t -= dt; e.face = aimAt(e, p);
+    if(A.t <= 0){ A.state = "move"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, S.speed, S.n, S.spread || 0, S.kind || "rock", opts && opts.extra); }
+    return;
+  }
+  A.state = "move";
+  const d = DG.dist(e.x, e.y, p.x, p.y);
+  if(A.cd <= 0 && d < 12 && (e.phases || G.los(e.x, e.y, p.x, p.y))){ tell(G, e, "aim", S.tell); bark(G, e, 0.06); return; }
+  if(e.def.speed === 0) { e.face = aimAt(e, p); return; }
+  keepAway(G, e, p, dt, e.def.keep || [4, 7]);
+}
 
 const BEHAVIOUR = {
   melee(G, e, dt, p){ melee(G, e, dt, p, { reach:1.6, tell:0.38, lunge:9, cd:1.0 }); },
 
   sneak(G, e, dt, p){
-    // fades out, circles to your back, then stabs
     const A = e.ai;
     e.hidden = A.state !== "tell" && A.state !== "lunge" && A.state !== "recover";
     const behind = ()=>{
@@ -131,35 +163,24 @@ const BEHAVIOUR = {
     melee(G, e, dt, p, { reach:2.3, tell:0.32, lunge:11, cd:1.6, target:behind });
   },
 
-  ranged(G, e, dt, p){
-    const A = e.ai, S = e.def.shot;
-    if(A.state === "tell"){
-      A.t -= dt; e.face = Math.atan2(p.y - e.y, p.x - e.x);
-      if(A.t <= 0){ A.state = "move"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, S.speed, S.n, S.spread || 0, "rock"); }
-      return;
-    }
-    A.state = "move";
-    const d = DG.dist(e.x, e.y, p.x, p.y);
-    if(A.cd <= 0 && d < 12 && G.los(e.x, e.y, p.x, p.y)){ tell(G, e, "aim", S.tell); bark(G, e, 0.06); return; }
-    keepAway(G, e, p, dt, e.def.keep);
-  },
+  ranged(G, e, dt, p){ ranged(G, e, dt, p); },
 
   bomber(G, e, dt, p){
     const A = e.ai, B = e.def.bomb;
+    if(e.phases){ A.vis = (A.vis || 0) + dt; e.hidden = Math.sin(A.vis*1.3) < -0.5 && A.state !== "tell"; }
     if(A.state === "tell"){
-      A.t -= dt; e.face = Math.atan2(p.y - e.y, p.x - e.x);
+      A.t -= dt; e.face = aimAt(e, p);
       if(A.t <= 0){
         A.state = "move"; A.cd = B.cd*(0.8 + G.rng.next()*0.4);
-        // lob it where you're standing (a little off, they're goblins)
         const tx = p.x + (G.rng.next() - 0.5)*1.2, ty = p.y + (G.rng.next() - 0.5)*1.2;
-        G.bombs.push({ id:G.nextId++, x:e.x, y:e.y, tx, ty, t:0, flight:0.75, fuse:B.fuse, r:B.radius, dmg:e.dmg });
-        G.emit("throw", { id:e.id, x:e.x, y:e.y, tx, ty });
+        G.bombs.push({ id:G.nextId++, x:e.x, y:e.y, tx, ty, t:0, flight:B.junk ? 0.6 : 0.75, fuse:B.fuse, r:B.radius, dmg:e.dmg, junk:!!B.junk, team:"e" });
+        G.emit("throw", { id:e.id, x:e.x, y:e.y, tx, ty, junk:!!B.junk });
       }
       return;
     }
     A.state = "move";
     const d = DG.dist(e.x, e.y, p.x, p.y);
-    if(A.cd <= 0 && d < 10 && G.los(e.x, e.y, p.x, p.y)){ tell(G, e, "throw", 0.4); bark(G, e, 0.2); return; }
+    if(A.cd <= 0 && d < 10 && (e.phases || G.los(e.x, e.y, p.x, p.y))){ tell(G, e, "throw", 0.4); bark(G, e, 0.2); return; }
     keepAway(G, e, p, dt, e.def.keep);
   },
 
@@ -173,13 +194,12 @@ const BEHAVIOUR = {
         if(A.tell === "heal"){
           const o = G.enemies.find(x=> x.id === A.target);
           if(o && !o.dead){ o.hp = Math.min(o.maxHp, o.hp + H.amt*G.scale.hp); G.emit("healBeam", { x1:e.x, y1:e.y, x2:o.x, y2:o.y, id:o.id }); }
-        } else shoot(G, e, Math.atan2(p.y - e.y, p.x - e.x), S.speed, S.n, S.spread, "hex", { slow:1.4 });
+        } else shoot(G, e, aimAt(e, p), S.speed, S.n, S.spread, "hex", { slow:1.4 });
       }
       return;
     }
     A.state = "move";
     if(A.hcd <= 0){
-      // the most hurt friend in reach
       let best = null, bf = 0.85;
       G.enemies.forEach(o=>{ if(o === e || o.dead || o.spawn > 0 || o.room !== e.room) return; const f = o.hp/o.maxHp; if(f < bf && DG.dist(e.x, e.y, o.x, o.y) < H.range){ bf = f; best = o; } });
       if(best){ A.hcd = H.cd; A.target = best.id; tell(G, e, "heal", 0.5, { target:best.id }); bark(G, e, 0.4); return; }
@@ -199,9 +219,10 @@ const BEHAVIOUR = {
         p.vx += Math.cos(A.a)*12; p.vy += Math.sin(A.a)*12;
       }
       if(wall){
-        // straight into the wall. he'll need a minute
         A.state = "recover"; A.t = C.stun; A.cd = C.cd; e.st.stun = C.stun;
         G.emit("dizzy", { id:e.id, x:e.x, y:e.y, t:C.stun }); G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"ow" });
+        // a wall-smash knocks things loose
+        G.breakablesNear(e.x + Math.cos(A.a)*0.8, e.y + Math.sin(A.a)*0.8, 0.9);
         return;
       }
       if(A.t <= 0){ A.state = "recover"; A.t = 0.6; A.cd = C.cd; }
@@ -211,21 +232,150 @@ const BEHAVIOUR = {
     A.state = "chase";
     const d = DG.dist(e.x, e.y, p.x, p.y);
     if(A.cd <= 0 && d < 9 && d > 2 && G.los(e.x, e.y, p.x, p.y)){
-      A.a = Math.atan2(p.y - e.y, p.x - e.x);
+      A.a = aimAt(e, p);
       tell(G, e, "charge", C.tell, { a:A.a }); bark(G, e, 0.3);
       return;
     }
-    // a shove if you stand next to him
     if(d < e.r + p.r + 0.1 && (A.shove || 0) <= G.t){ A.shove = G.t + 1; G.hurtPlayer(e.dmg*0.5, "brute"); }
     approach(G, e, p, dt);
   },
 
-  /* ---- Grubnok ---- */
+  /* ---- shroom folk ---- */
+  puffling(G, e, dt, p){
+    const A = e.ai;
+    if(A.state === "tell"){
+      A.t -= dt; e.swell = 1 - A.t/0.55;
+      if(A.t <= 0){
+        // POOF: a spore cloud, and a little hurt for anyone close
+        G.addHazard({ kind:"spores", x:e.x, y:e.y, r:1.5, t:2.6, every:0.5, dmg:e.dmg*0.45, team:"e" });
+        if(DG.dist(e.x, e.y, p.x, p.y) < 1.5 + p.r) G.hurtPlayer(e.dmg, "puffling");
+        G.emit("poof", { x:e.x, y:e.y });
+        G.killEnemy(e, {});
+      }
+      return;
+    }
+    if(DG.dist(e.x, e.y, p.x, p.y) < 1.4){ tell(G, e, "swell", 0.55); bark(G, e, 0.3); return; }
+    approach(G, e, p, dt);
+  },
+  toadstool(G, e, dt, p){
+    const A = e.ai, S = e.def.shot;
+    A.n = A.n || 0;
+    if(A.state === "tell"){
+      A.t -= dt; e.face = aimAt(e, p);
+      if(A.t <= 0){
+        A.state = "idle"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); A.n++;
+        if(A.n % 3 === 0){
+          // every third: lob a cloud of spores where Zippy stands
+          G.bombs.push({ id:G.nextId++, x:e.x, y:e.y, tx:p.x, ty:p.y, t:0, flight:0.8, fuse:0, r:0.1, dmg:0, team:"e", spore:true, junk:false, cb:()=> G.addHazard({ kind:"spores", x:p.x, y:p.y, r:1.3, t:3, every:0.5, dmg:e.dmg*0.4, team:"e" }) });
+        } else shoot(G, e, e.face, S.speed, S.n, S.spread, "spore");
+      }
+      return;
+    }
+    e.face = aimAt(e, p);
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 11 && G.los(e.x, e.y, p.x, p.y)) tell(G, e, "puff", S.tell);
+  },
+
+  /* ---- the haunted ---- */
+  ghost(G, e, dt, p){
+    const A = e.ai, S = e.def.shot;
+    A.ph = (A.ph || G.rng.next()*6) + dt;
+    // fades in and out: while faded it can't be hit (and can't hurt)
+    const fade = Math.sin(A.ph*0.9) < -0.65;
+    e.untargetable = fade; e.hidden = fade;
+    if(fade){ walk(G, e, p.x - e.x + Math.sin(A.ph*2)*2, p.y - e.y + Math.cos(A.ph*2)*2, 0.6, dt); return; }
+    if(A.state === "tell"){ A.t -= dt; if(A.t <= 0){ A.state = "drift"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, aimAt(e, p), S.speed, 1, 0, "ecto", { r:0.24 }); } return; }
+    A.state = "drift";
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 9){ tell(G, e, "boo", S.tell); bark(G, e, 0.1); return; }
+    const a = aimAt(e, p) + Math.sin(A.ph*1.7)*0.9;
+    walk(G, e, Math.cos(a), Math.sin(a), 1, dt);
+  },
+  banshee(G, e, dt, p){
+    const A = e.ai, W = e.def.wail;
+    if(A.state === "tell"){ A.t -= dt; e.face = A.a; if(A.t <= 0){ A.state = "wail"; A.t = 0.6; A.k = 0; } return; }
+    if(A.state === "wail"){
+      // the scream: a fan of slow notes, swept across a cone
+      A.t -= dt;
+      const want = Math.floor((1 - A.t/0.6)*W.n);
+      while(A.k < want && A.k < W.n){
+        const o = A.a + (A.k/(W.n - 1) - 0.5)*W.arc*Math.PI/180;
+        G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(o)*W.speed, vy:Math.sin(o)*W.speed, r:0.2, dmg:e.dmg, life:3, kind:"wail", slow:1.2 });
+        A.k++;
+      }
+      if(A.t <= 0){ A.state = "float"; A.cd = W.cd*(0.8 + G.rng.next()*0.4); }
+      return;
+    }
+    A.state = "float";
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 9){ A.a = aimAt(e, p); tell(G, e, "inhale", W.tell, { a:A.a }); G.emit("wailTell", { id:e.id }); return; }
+    keepAway(G, e, p, dt, e.def.keep);
+  },
+
+  /* ---- the weird ---- */
+  watcher(G, e, dt, p){
+    const A = e.ai, Z = e.def.laser;
+    if(A.state === "glare"){ A.t -= dt; if(A.beam) e.face = A.beam.a; if(A.t <= 0) A.state = "drift"; return; }
+    A.state = "drift";
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 13 && G.los(e.x, e.y, p.x, p.y)){
+      A.cd = Z.cd*(0.8 + G.rng.next()*0.4);
+      A.state = "glare"; A.t = Z.tell + Z.time;
+      A.beam = G.addBeam({ owner:e.id, x:e.x, y:e.y, a:aimAt(e, p), tell:Z.tell, time:Z.time, dmg:e.dmg, w:0.35, max:Z.len });
+      G.emit("tell", { id:e.id, kind:"glare", x:e.x, y:e.y, t:Z.tell });
+      return;
+    }
+    keepAway(G, e, p, dt, e.def.keep);
+  },
+  blob(G, e, dt, p){
+    const A = e.ai;
+    if(A.state === "hop"){
+      A.t -= dt;
+      walk(G, e, Math.cos(A.a), Math.sin(A.a), 2.4, dt);
+      e.hop = Math.sin((1 - A.t/0.4)*Math.PI)*0.6;
+      if(A.t <= 0){ e.hop = 0; A.state = "squat"; A.t = 0.5 + G.rng.next()*0.4; if(G.rng.chance(0.4)) G.addHazard({ kind:"slime", x:e.x, y:e.y, r:0.8*e.r/0.5, t:4, team:"e" }); G.emit("splat", { x:e.x, y:e.y }); }
+      return;
+    }
+    A.t = (A.t || 0) - dt;
+    if(A.t <= 0){ A.state = "hop"; A.t = 0.4; A.a = aimAt(e, p) + (G.rng.next() - 0.5)*0.6; const f = !G.los(e.x, e.y, p.x, p.y) && G.flowDir(e.x, e.y); if(f) A.a = Math.atan2(f.y, f.x); }
+  },
+  tentacle(G, e, dt, p){
+    // burrows, bubbles up under Zippy, slams, sways about for a bit, burrows again
+    const A = e.ai, S = e.def.slam;
+    if(!A.state || A.state === "idle"){ A.state = "up"; A.t = 1.5; }
+    if(A.state === "under"){
+      e.untargetable = true; e.hidden = true;
+      A.t -= dt;
+      if(A.t <= 0){
+        const s = spotNear(G, e, p.x, p.y, 1.2);
+        e.x = s.x; e.y = s.y;
+        A.state = "rise"; A.t = S.tell;
+        G.marks.push({ kind:"tentacle", x:e.x, y:e.y, r:S.r, t:S.tell, max:S.tell });
+        G.emit("tell", { id:e.id, kind:"bubble", x:e.x, y:e.y, t:S.tell });
+      }
+      return;
+    }
+    if(A.state === "rise"){
+      A.t -= dt;
+      if(A.t <= 0){
+        e.untargetable = false; e.hidden = false;
+        if(DG.dist(e.x, e.y, p.x, p.y) < S.r + p.r) G.hurtPlayer(e.dmg, "tentacle");
+        G.emit("emerge", { id:e.id, x:e.x, y:e.y });
+        A.state = "up"; A.t = 2.4;
+      }
+      return;
+    }
+    // up: swipe at anything close
+    e.untargetable = false; e.hidden = false;
+    A.t -= dt; e.face = aimAt(e, p);
+    if(DG.dist(e.x, e.y, p.x, p.y) < 1.5 && A.cd <= 0){ A.cd = 1.2; slam(G, e.x + Math.cos(e.face)*0.9, e.y + Math.sin(e.face)*0.9, 0.9, e.dmg*0.8, 0.45, "swipe"); G.emit("tell", { id:e.id, kind:"swipe", x:e.x, y:e.y, t:0.45 }); }
+    if(A.t <= 0){ A.state = "under"; A.t = S.cd; G.emit("burrow", { id:e.id, x:e.x, y:e.y }); }
+  },
+
+  /* ================================================================== *
+   *  BOSSES
+   * ================================================================== */
+  /* ---- Grubnok the Goblin King ---- */
   king(G, e, dt, p){
     const A = e.ai, rage = e.hp/e.maxHp < 0.5;
     if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("GRUBNOK: \"NOW I'M ANGRY\"", 2.5); }
     const d = DG.dist(e.x, e.y, p.x, p.y);
-    if(!e.airborne && d < e.r + p.r && (A.touch || 0) <= G.t){ A.touch = G.t + 0.8; G.hurtPlayer(e.dmg*0.6, "king"); }
     switch(A.state){
       case "spray":
         A.t -= dt;
@@ -238,20 +388,11 @@ const BEHAVIOUR = {
         return;
       case "spit":
         A.t -= dt;
-        if(A.t <= 0){
-          shoot(G, e, Math.atan2(p.y - e.y, p.x - e.x), 8, rage ? 7 : 5, rage ? 50 : 40, "orb", { r:0.22, dmg:e.dmg*0.7 });
-          A.n++; A.t = 0.3;
-          if(A.n >= 3) A.state = "walk";
-        }
+        if(A.t <= 0){ shoot(G, e, aimAt(e, p), 8, rage ? 7 : 5, rage ? 50 : 40, "orb", { r:0.22, dmg:e.dmg*0.7 }); A.n++; A.t = 0.3; if(A.n >= 3) A.state = "walk"; }
         return;
       case "squat":
         A.t -= dt;
-        if(A.t <= 0){
-          A.state = "air"; A.t = 0.9; e.airborne = true;
-          A.fx = e.x; A.fy = e.y; A.tx = p.x; A.ty = p.y;
-          G.marks.push({ kind:"flop", x:p.x, y:p.y, r:2.5, t:0.9, max:0.9 });
-          G.emit("jump", { id:e.id });
-        }
+        if(A.t <= 0){ A.state = "air"; A.t = 0.9; e.airborne = true; A.fx = e.x; A.fy = e.y; A.tx = p.x; A.ty = p.y; G.marks.push({ kind:"flop", x:p.x, y:p.y, r:2.5, t:0.9, max:0.9 }); G.emit("jump", { id:e.id }); }
         return;
       case "air": {
         A.t -= dt;
@@ -259,9 +400,8 @@ const BEHAVIOUR = {
         e.x = A.fx + (A.tx - A.fx)*k; e.y = A.fy + (A.ty - A.fy)*k; e.hop = Math.sin(k*Math.PI)*4;
         if(A.t <= 0){
           e.airborne = false; e.hop = 0;
-          // land somewhere legal
           if(G.blocked(Math.floor(e.x), Math.floor(e.y), "enemy")){ e.x = A.fx; e.y = A.fy; }
-          G.explode(e.x, e.y, 2.5, e.dmg*1.2, "e", { el:null, skip:e.id });
+          G.explode(e.x, e.y, 2.5, e.dmg*1.2, "e", { skip:e.id, why:"king" });
           G.ring(e.x, e.y, rage ? 16 : 12, 4.5, e.dmg*0.6, G.rng.next(), "orb");
           G.emit("land", { id:e.id, x:e.x, y:e.y });
           A.state = "walk"; A.cd = rage ? 0.9 : 1.4;
@@ -270,31 +410,199 @@ const BEHAVIOUR = {
       }
       case "summon":
         A.t -= dt;
-        if(A.t <= 0){
-          const room = G.D.rooms[e.room], n = rage ? 3 : 2;
-          for(let i=0;i<n;i++){
-            const a = G.rng.next()*Math.PI*2, x = e.x + Math.cos(a)*2.5, y = e.y + Math.sin(a)*2.5;
-            // inside his own room, never through the wall
-            if(!G.inRoom(room, x, y) || G.blocked(Math.floor(x), Math.floor(y), "enemy")) continue;
-            G.spawnEnemy(room, { type:G.floor >= 2 && i === 2 ? "slinger" : "grunt", x, y, elite:null });
-          }
-          A.state = "walk";
-        }
+        if(A.t <= 0){ summon(G, e, rage ? 3 : 2, ["grunt", "grunt", G.floor >= 2 ? "slinger" : "grunt"]); A.state = "walk"; }
         return;
     }
-    // walking about between tricks
     A.state = "walk";
-    if(d > 3) approach(G, e, p, dt, 1); else e.face = Math.atan2(p.y - e.y, p.x - e.x);
+    if(d > 3) approach(G, e, p, dt, 1); else e.face = aimAt(e, p);
     if(A.cd > 0) return;
     const adds = G.enemies.filter(o=> o.room === e.room && o !== e && !o.dead).length;
     const order = ["spray", "flop", "spit", adds < 4 ? "summon" : "spray"];
     const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
     A.n = 0; A.cd = rage ? 1.1 : 1.7;
-    if(pick === "spray"){ A.state = "spray"; A.t = 0.5; tell(G, e, "spray", 0.5); A.state = "spray"; }
-    else if(pick === "spit"){ A.state = "spit"; A.t = 0.45; tell(G, e, "spit", 0.45); A.state = "spit"; }
+    if(pick === "spray"){ tell(G, e, "spray", 0.5); A.state = "spray"; A.t = 0.5; }
+    else if(pick === "spit"){ tell(G, e, "spit", 0.45); A.state = "spit"; A.t = 0.45; }
     else if(pick === "flop"){ tell(G, e, "squat", 0.6); A.state = "squat"; A.t = 0.6; }
     else { tell(G, e, "summon", 0.8); A.state = "summon"; A.t = 0.8; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"LADS! GET 'IM!" }); }
+  },
+
+  /* ---- The Morel Matriarch: spore storms, a ring of mushrooms that hems you in, her children ---- */
+  matriarch(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("MATRIARCH: \"You're making me SPORE-ADIC.\"", 2.5); }
+    switch(A.state){
+      case "storm":
+        A.t -= dt;
+        if(A.t <= 0){ G.ring(e.x, e.y, rage ? 14 : 10, 3.6, e.dmg*0.6, A.n*0.13, "spore"); A.n++; A.t = 0.32; if(A.n >= (rage ? 7 : 5)) A.state = "walk"; }
+        return;
+      case "spin":
+        A.t -= dt; A.spinA = (A.spinA || 0) + dt*(rage ? 3.2 : 2.4);
+        A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = 0.07; for(let k=0;k<(rage ? 3 : 2);k++){ const a = A.spinA + k*TAU/(rage ? 3 : 2); G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(a)*6.5, vy:Math.sin(a)*6.5, r:0.18, dmg:e.dmg*0.55, life:4, kind:"spore" }); } }
+        if(A.t <= 0) A.state = "walk";
+        return;
+      case "ringcast":
+        A.t -= dt;
+        if(A.t <= 0){
+          // mushrooms burst up in a ring around Zippy: don't be inside it when they do
+          const cx = p.x, cy = p.y, n = rage ? 12 : 9, R = 2.8;
+          for(let k=0;k<n;k++){ const a = k/n*TAU; slam(G, cx + Math.cos(a)*R, cy + Math.sin(a)*R, 0.75, e.dmg*0.9, 0.9, "shroomring"); }
+          G.pending.push({ t:0.9, fn:()=>{ for(let k=0;k<n;k++){ const a = k/n*TAU; G.addHazard({ kind:"spores", x:cx + Math.cos(a)*R, y:cy + Math.sin(a)*R, r:0.7, t:3.5, every:0.4, dmg:e.dmg*0.35, team:"e" }); } } });
+          A.state = "walk";
+        }
+        return;
+      case "children":
+        A.t -= dt;
+        if(A.t <= 0){ summon(G, e, rage ? 4 : 3, ["puffling", "puffling", "shroomkin", "puffling"]); A.state = "walk"; }
+        return;
+    }
+    A.state = "walk";
+    if(DG.dist(e.x, e.y, p.x, p.y) > 4) approach(G, e, p, dt, 1);
+    if(A.cd > 0) return;
+    const adds = G.enemies.filter(o=> o.room === e.room && o !== e && !o.dead).length;
+    const order = ["storm", "ringcast", "spin", adds < 5 ? "children" : "storm"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.n = 0; A.cd = rage ? 1.3 : 2;
+    const tl = { storm:0.6, ringcast:0.5, spin:0.7, children:0.9 }[pick];
+    tell(G, e, pick, tl); A.state = pick; A.t = pick === "spin" ? 2.6 + tl : tl;
+    if(pick === "children") G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"Come, my darlings!" });
+  },
+
+  /* ---- The Weeping Bride: copies, a wail that sweeps, tears from above, she vanishes ---- */
+  bride(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(e.decoy){ e.life = (e.life || 9) - dt; if(e.life <= 0){ e.ai.popped = true; return; } }
+    if(rage && !A.raged && !e.decoy){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE BRIDE: \"WHY WON'T YOU STAY\"", 2.5); }
+    switch(A.state){
+      case "sweep": {
+        A.t -= dt;
+        const k = 1 - A.t/1.4, a = A.a0 + (k - 0.5)*Math.PI*(rage ? 1.3 : 1);
+        A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = 0.05; G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(a)*7, vy:Math.sin(a)*7, r:0.19, dmg:e.dmg*(e.decoy ? 0.4 : 0.6), life:3.5, kind:"wail" }); }
+        if(A.t <= 0) A.state = "float";
+        return;
+      }
+      case "tears":
+        A.t -= dt;
+        if(A.t <= 0){
+          for(let k=0;k<(rage ? 9 : 6);k++){ const s = spotNear(G, e, p.x, p.y, 4.5); slam(G, s.x, s.y, 0.9, e.dmg*0.8, 0.9 + k*0.12, "tear"); }
+          A.state = "float";
+        }
+        return;
+      case "vanish":
+        A.t -= dt; e.untargetable = true; e.hidden = true;
+        if(A.t <= 0){
+          const r = G.D.rooms[e.room], a = G.rng.next()*TAU;
+          const s = G.freeSpot(r, r.cxw + Math.cos(a)*(r.x2 - r.x1)*0.35, r.cyw + Math.sin(a)*(r.y2 - r.y1)*0.35);
+          e.x = s.x; e.y = s.y; e.untargetable = false; e.hidden = false;
+          G.ring(e.x, e.y, rage ? 16 : 12, 4.8, e.dmg*0.55, G.rng.next(), "wail");
+          G.emit("appear", { id:e.id, x:e.x, y:e.y });
+          A.state = "float";
+        }
+        return;
+      case "mirror":
+        A.t -= dt;
+        if(A.t <= 0){
+          const r = G.D.rooms[e.room];
+          for(let k=0;k<(rage ? 3 : 2);k++){
+            const s = spotNear(G, e, e.x, e.y, 5);
+            const d = G.spawnEnemy(r, { type:"bride", x:s.x, y:s.y, quick:true }, DG.BOSSES.bride);
+            d.decoy = true; d.hp = d.maxHp = 1; d.life = 9; d.ai.cd = 1 + k*0.5;
+          }
+          G.emit("mirror", { id:e.id });
+          A.state = "float";
+        }
+        return;
+    }
+    A.state = "float";
+    A.ph = (A.ph || 0) + dt;
+    const a = aimAt(e, p) + Math.PI/2*Math.sin(A.ph*0.8);
+    if(DG.dist(e.x, e.y, p.x, p.y) > 4) walk(G, e, Math.cos(a), Math.sin(a), 1, dt); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const copies = G.enemies.filter(o=> o.decoy && !o.dead && o.room === e.room).length;
+    const order = e.decoy ? ["sweep", "tears"] : ["sweep", "vanish", "tears", copies ? "sweep" : "mirror"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = (rage ? 1.2 : 1.8)*(e.decoy ? 1.6 : 1);
+    const tl = { sweep:0.7, vanish:0.4, tears:0.5, mirror:0.8 }[pick];
+    tell(G, e, pick, tl); A.state = pick; A.t = pick === "sweep" ? 1.4 + tl : pick === "vanish" ? 0.9 + tl : tl;
+    A.a0 = aimAt(e, p);
+    if(pick === "vanish"){ e.untargetable = true; e.hidden = true; }
+  },
+
+  /* ---- The Eye Below: sweeping lasers, tentacles, blinks shut ---- */
+  eye(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE EYE: \"I SEE EVERYTHING NOW\"", 2.5); }
+    e.face = aimAt(e, p);
+    switch(A.state){
+      case "lasers":
+        A.t -= dt; if(A.t <= 0) A.state = "stare";
+        return;
+      case "tentacles":
+        A.t -= dt;
+        if(A.t <= 0){ for(let k=0;k<(rage ? 6 : 4);k++){ const s = spotNear(G, e, p.x, p.y, 3); slam(G, s.x, s.y, 1.1, e.dmg, 0.85 + k*0.2, "tentacle"); } A.state = "stare"; }
+        return;
+      case "blink":
+        A.t -= dt;
+        A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = 0.5; G.ring(e.x, e.y, rage ? 14 : 10, 4.2, e.dmg*0.5, G.rng.next(), "tear"); }
+        if(A.t <= 0){ e.invuln = false; A.state = "stare"; G.emit("open", { id:e.id }); }
+        return;
+      case "gaze":
+        A.t -= dt; A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = rage ? 0.12 : 0.18; shoot(G, e, aimAt(e, p) + (G.rng.next() - 0.5)*0.25, 9, 1, 0, "orb", { dmg:e.dmg*0.5 }); }
+        if(A.t <= 0) A.state = "stare";
+        return;
+    }
+    A.state = "stare";
+    if(A.cd > 0) return;
+    const order = ["lasers", "gaze", "tentacles", "blink"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = rage ? 1.1 : 1.6;
+    if(pick === "lasers"){
+      const n = rage ? 3 : 2, base = aimAt(e, p);
+      for(let k=0;k<n;k++) G.addBeam({ owner:e.id, x:e.x, y:e.y, a:base + k*TAU/n, tell:1.0, time:2.6, dmg:e.dmg*0.8, w:0.4, sweep:(k % 2 ? -1 : 1)*(rage ? 0.9 : 0.65), max:22 });
+      G.emit("tell", { id:e.id, kind:"lasers", x:e.x, y:e.y, t:1 });
+      A.state = "lasers"; A.t = 3.6;
+    } else if(pick === "blink"){ e.invuln = true; G.emit("tell", { id:e.id, kind:"blink", x:e.x, y:e.y, t:0.3 }); G.emit("shut", { id:e.id }); A.state = "blink"; A.t = 2.2; }
+    else { const tl = pick === "gaze" ? 0.5 : 0.4; tell(G, e, pick, tl); A.state = pick; A.t = pick === "gaze" ? 1.6 + tl : tl; }
+  },
+
+  /* ---- The Hollow Heart: it beats, and every beat is a shockwave ---- */
+  heart(G, e, dt, p){
+    const A = e.ai, f = e.hp/e.maxHp, phase = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
+    if(phase !== (A.phase || 0)){
+      A.phase = phase; G.emit("bossPhase", { id:e.id });
+      G.say(phase === 1 ? "THE HEART: \"ba-DUM. ba-DUM. BA-DUM.\"" : "THE HEART: \"you can't stop a heart. you can only BREAK it.\"", 3);
+      summon(G, e, 2 + phase, ["blob", "tentacle", "ghost", "watcher"]);
+    }
+    const period = [1.6, 1.25, 0.95][phase];
+    A.beat = (A.beat || 0) + dt;
+    e.pulse = Math.max(0, 1 - A.beat/0.25);
+    if(A.beat >= period){
+      A.beat = 0; A.n = (A.n || 0) + 1;
+      G.emit("beat", { id:e.id, x:e.x, y:e.y });
+      if(A.n % 2 === 0) G.addHazard({ kind:"shockwave", x:e.x, y:e.y, r:13, t:1.6, dmg:e.dmg*0.8, team:"e" });
+      else G.ring(e.x, e.y, 10 + phase*4, 4 + phase*0.6, e.dmg*0.55, A.n*0.07, "blood");
+      if(phase >= 1 && A.n % 4 === 1){ const s = spotNear(G, e, p.x, p.y, 2.5); slam(G, s.x, s.y, 1.3, e.dmg, 0.9, "vein"); }
+    }
+    // arteries: rotating beams from phase 2
+    if(phase === 2 && A.cd <= 0){
+      A.cd = 5;
+      for(let k=0;k<4;k++) G.addBeam({ owner:e.id, x:e.x, y:e.y, a:k*Math.PI/2 + G.rng.next(), tell:1.1, time:3, dmg:e.dmg*0.7, w:0.4, sweep:0.55, max:24 });
+      G.emit("tell", { id:e.id, kind:"arteries", x:e.x, y:e.y, t:1.1 });
+    }
   }
 };
+
+function summon(G, e, n, types){
+  const r = G.D.rooms[e.room];
+  for(let i=0;i<n;i++){
+    const a = G.rng.next()*TAU, x = e.x + Math.cos(a)*2.6, y = e.y + Math.sin(a)*2.6;
+    if(!G.inRoom(r, x, y) || G.blocked(Math.floor(x), Math.floor(y), "enemy")) continue;
+    G.spawnEnemy(r, { type:types[i % types.length], x, y, elite:null });
+  }
+  G.emit("summon", { id:e.id });
+}
 
 })(typeof window !== "undefined" ? window : globalThis);
