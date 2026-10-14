@@ -377,9 +377,9 @@ proto.poison = function(e, stacks, power, plague){
   st.poison.dps = Math.max(st.poison.dps, P.dps*power);
   st.poison.plague = st.poison.plague || plague;
 };
-proto.nearestEnemy = function(x, y, range, not, struck){
+proto.nearestEnemy = function(x, y, range, not, struck, room){
   let best = null, bd = range;
-  this.enemies.forEach(o=>{ if(o === not || o.dead || o.spawn > 0 || o.untargetable || (struck && struck.indexOf(o.id) >= 0)) return; const d = DG.dist(x, y, o.x, o.y); if(d < bd){ bd = d; best = o; } });
+  this.enemies.forEach(o=>{ if(o === not || o.dead || o.spawn > 0 || o.untargetable || (struck && struck.indexOf(o.id) >= 0) || (room !== undefined && o.room !== room)) return; const d = DG.dist(x, y, o.x, o.y); if(d < bd){ bd = d; best = o; } });
   return best;
 };
 

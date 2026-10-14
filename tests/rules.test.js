@@ -461,6 +461,42 @@ test("Gribbus left outside a room that locks poofs back to Zippy", ()=>{
   assert.ok(ev.some(e=> e.type === "frogPoof"));
 });
 
+test("Gribbus hunts across a big room, round the furniture, without poofing back", ()=>{
+  for(let s=1; s<40; s++){
+    const G = game("ROAMER" + s), r = G.D.rooms.find(x=> x.type === "combat" && x.x2 - x.x1 >= 16 && (x.style === "pillars" || x.style === "crates"));
+    if(!r) continue;
+    G.god = true; G.room = r; r.active = true;
+    const a = G.freeSpot(r, r.x1 + 2.5, r.cyw), b = G.freeSpot(r, r.x2 - 1.5, r.cyw);
+    if(!a || !b || DG.dist(a.x, a.y, b.x, b.y) < 12) continue;
+    G.player.x = a.x; G.player.y = a.y; G.gribbus.x = a.x + 0.6; G.gribbus.y = a.y;
+    G.enemies = [];
+    const e = addEnemy(G, r, b.x, b.y); e.hp = e.maxHp = 1e5; e.speed = 0; e.def = Object.assign({}, e.def, { speed:0 }); e.update = null;
+    let poofs = 0;
+    for(let i=0; i<60*14; i++){
+      e.x = b.x; e.y = b.y; e.cd = 99;
+      G.update(1/60, {});
+      poofs += G.drain().filter(x=> x.type === "frogPoof").length;
+      G.player.x = a.x; G.player.y = a.y;
+    }
+    assert.equal(poofs, 0, "he was never pulled back to Zippy");
+    assert.ok(DG.dist(G.gribbus.x, G.gribbus.y, b.x, b.y) < 3.5, "he went all the way over to it");
+    assert.ok(e.hp < 1e5, "and got stuck in");
+    return;
+  }
+  assert.fail("no big furnished room found");
+});
+
+test("Gribbus finds his own way back to Zippy round a corner", ()=>{
+  // a quiet room (no fight starts), Zippy in one corner, Gribbus in the far one
+  const G = game("HOMING"), r = G.D.rooms.find(x=> x.type === "start"), f = G.gribbus;
+  const a = G.freeSpot(r, r.x1 + 1.5, r.y1 + 1.5), b = G.freeSpot(r, r.x2 - 0.5, r.y2 - 0.5);
+  G.player.x = a.x; G.player.y = a.y; f.x = b.x; f.y = b.y;
+  let poofs = 0;
+  for(let i=0; i<60*6; i++){ G.update(1/60, {}); poofs += G.drain().filter(x=> x.type === "frogPoof").length; }
+  assert.equal(poofs, 0);
+  assert.ok(DG.dist(f.x, f.y, G.player.x, G.player.y) < 2.5, "he hopped back on his own");
+});
+
 /* ================================================================== *
  *  The odd ones, and keeping power in check
  * ================================================================== */

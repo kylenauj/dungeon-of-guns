@@ -129,11 +129,20 @@ K.textTex = function(lines, w, h, opts){
    moving group merge into one vertex-coloured mesh, plus an inverted-hull
    outline in the floor's ink colour. Glowing parts stay unlit. */
 K.INK = {
-  uSteps:{ value:4 }, uInk:{ value:new THREE.Color(0x0a0612) }, uRim:{ value:new THREE.Color(0x8a7aff) },
-  uHatch:{ value:1 }, uHatchAt:{ value:0.42 }, uLift:{ value:0.06 }, uRimK:{ value:0.5 }
+  uSteps:{ value:5 }, uInk:{ value:new THREE.Color(0x0a0612) }, uRim:{ value:new THREE.Color(0x8a7aff) },
+  uHatch:{ value:0.45 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.3 },
+  // the grim look: light falls off smoothly (uSoft blends the bands away),
+  // and characters wear grime: mottled, darker in the creases and lower down
+  uSoft:{ value:0.72 }, uGrime:{ value:0.55 }
 };
+/* outlines are a thin contour now, not a cartoon line */
+K.OUTLINE = 0.4;
 const INK_PARS = [
-  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK; uniform vec3 uInk, uRim;",
+  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime; uniform vec3 uInk, uRim;",
+  "float igh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7)))*43758.5453); }",
+  "float ign(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);",
+  "  return mix(mix(mix(igh(i), igh(i + vec3(1,0,0)), f.x), mix(igh(i + vec3(0,1,0)), igh(i + vec3(1,1,0)), f.x), f.y),",
+  "             mix(mix(igh(i + vec3(0,0,1)), igh(i + vec3(1,0,1)), f.x), mix(igh(i + vec3(0,1,1)), igh(i + vec3(1,1,1)), f.x), f.y), f.z); }",
   "float inkBayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y*0.75))); }",
   "float inkBayer(vec2 a){ return inkBayer2(0.5*a)*0.25 + inkBayer2(a); }",
   "vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection){ float d = clamp(dot(normal, lightDirection)*0.5 + 0.5, 0.0, 1.0); return vec3(d*d*1.15); }"
@@ -143,14 +152,14 @@ const INK_MAIN = [
   "float inkA = max(dot(inkAlb, vec3(0.299, 0.587, 0.114)), 0.02);",
   "float inkL = dot(outgoingLight - totalEmissiveRadiance, vec3(0.299, 0.587, 0.114))/inkA;",
   "float inkB = inkBayer(gl_FragCoord.xy);",
-  "float inkQ = max(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, uLift);",
+  "float inkQ = max(mix(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, clamp(inkL*inkL*1.05, 0.0, 1.15), uSoft), uLift);",
   "vec3 inkLit = (outgoingLight - totalEmissiveRadiance)*(inkQ/max(inkL, 0.0001)) + totalEmissiveRadiance;",
   // the darkest band: diagonal lines of ink
   "float inkHatch = (1.0 - step(0.99, mod(gl_FragCoord.x + gl_FragCoord.y, 4.0)))*step(inkQ, uHatchAt)*uHatch;",
   "inkLit = mix(inkLit, uInk, inkHatch*0.75);",
   "#ifdef INK_RIM",
   // characters sink into a soft contact shadow near the floor, so all of them sit in the world the same way
-  "  inkLit *= mix(0.55, 1.0, smoothstep(0.0, 0.45, vInkY));",
+  "  inkLit *= mix(0.4, 1.0, smoothstep(0.0, 0.6, vInkY));",
   "  float inkRim = 1.0 - clamp(dot(normal, geometry.viewDir), 0.0, 1.0);",
   "  inkLit += uRim*step(0.62 + inkB*0.12, inkRim)*uRimK*(0.35 + 0.65*inkA);",
   "#endif",
@@ -207,6 +216,16 @@ const GLOOM_WALL = [GLOOM_COMMON,
   "  gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.25*(0.6 + 0.4*sin(uGTime*2.0 + wp.x))*gR;",
   "  diffuseColor.rgb = gc;",
   "}"].join("\n");
+/* grime on characters, in their own space so it rides along with them:
+   mottled stains at two scales, a fine grain, and dirt that rises from the feet */
+const GRIME = [
+  "float gr1 = ign(vInkO*7.0), gr2 = ign(vInkO*23.0 + 5.0), gr3 = igh(floor(vInkO*90.0));",
+  "float grime = (0.78 + 0.32*gr1)*(0.9 + 0.16*gr2)*(0.95 + 0.08*gr3);",
+  "grime *= mix(0.72, 1.0, smoothstep(0.0, 0.5, vInkO.y + gr1*0.15));",
+  "diffuseColor.rgb *= mix(1.0, grime, uGrime);",
+  // and the colours go a little dead: pulled toward their own grey
+  "diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, 1.0 - 0.28*uGrime);"
+].join("\n");
 K.inkify = function(mat, opts){
   opts = opts || {};
   mat.onBeforeCompile = sh=>{
@@ -223,9 +242,9 @@ K.inkify = function(mat, opts){
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
     if(opts.rim){
-      sh.fragmentShader = "#define INK_RIM\nvarying float vInkY;\n" + sh.fragmentShader;
-      sh.vertexShader = "varying float vInkY;\n" + sh.vertexShader.replace("#include <project_vertex>",
-        "#include <project_vertex>\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
+      sh.fragmentShader = "#define INK_RIM\nvarying float vInkY; varying vec3 vInkO;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" + GRIME);
+      sh.vertexShader = "varying float vInkY; varying vec3 vInkO;\n" + sh.vertexShader.replace("#include <project_vertex>",
+        "#include <project_vertex>\n vInkO = transformed;\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
   mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "");
@@ -242,7 +261,7 @@ K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));
 K.vlambert = opts=> K.ink(opts);
 K.outlineMat = (w)=> new THREE.ShaderMaterial({
-  uniforms:{ uW:{ value:w || 0.028 }, uA:{ value:1 }, uInk:K.INK.uInk }, side:THREE.BackSide, transparent:true,
+  uniforms:{ uW:{ value:(w || 0.028)*K.OUTLINE }, uA:{ value:1 }, uInk:K.INK.uInk }, side:THREE.BackSide, transparent:true,
   vertexShader:"uniform float uW; void main(){ vec3 p = position + normal*uW; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
   fragmentShader:"uniform float uA; uniform vec3 uInk; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(uInk, 1.0); }"
 });
@@ -291,10 +310,53 @@ K.lathe = function(prof, seg){
   // a profile drawn top-down would turn the faces inside out (and the
   // outline shell would cover the model): always build it bottom-up
   if(prof[0][1] > prof[prof.length - 1][1]) prof = prof.slice().reverse();
-  return new THREE.LatheGeometry(prof.map(p=> new THREE.Vector2(p[0], p[1])), seg || 16);
+  return new THREE.LatheGeometry(prof.map(p=> new THREE.Vector2(p[0], p[1])), Math.round((seg || 16)*1.5));
+};
+/* the same, but the profile is smoothed into a curve first (organic shapes:
+   robes, skulls, bellies). n: points per profile segment */
+K.slathe = function(prof, seg, n){
+  if(prof[0][1] > prof[prof.length - 1][1]) prof = prof.slice().reverse();
+  const c = new THREE.SplineCurve(prof.map(p=> new THREE.Vector2(p[0], p[1])));
+  const pts = c.getPoints((prof.length - 1)*(n || 4)).map(p=> new THREE.Vector2(Math.max(0, p.x), p.y));
+  return new THREE.LatheGeometry(pts, Math.round((seg || 16)*1.5));
+};
+/* tear a hem: vertices below y0 get dragged down into ragged strips (and a
+   little outward), so cloth ends in tatters instead of a clean ring.
+   strips: how many tatters around; len: how long the longest hangs */
+K.tatter = function(g, y0, strips, len, seed){
+  const a = g.attributes.position, s = seed || 1.3;
+  for(let i=0;i<a.count;i++){
+    const x = a.getX(i), y = a.getY(i), z = a.getZ(i);
+    if(y > y0) continue;
+    const ang = Math.atan2(x, z), k = (y0 - y)/(Math.abs(y0) + 0.0001 + 0.2);
+    const h = Math.sin(Math.floor((ang + Math.PI)/(Math.PI*2)*strips)*12.9898 + s)*43758.5453;
+    const cut = (h - Math.floor(h));
+    const tri = Math.abs(((ang + Math.PI)/(Math.PI*2)*strips) % 1 - 0.5)*2;
+    a.setY(i, y - len*(0.25 + 0.75*cut)*(1 - tri*0.7)*Math.min(1, k*3 + 0.3));
+    const r = Math.hypot(x, z), o = 1 + 0.06*cut;
+    if(r > 0.001){ a.setX(i, x*o); a.setZ(i, z*o); }
+  }
+  g.computeVertexNormals();
+  return g;
+};
+/* push a geometry's surface in and out with smooth noise: sculpted, not
+   faceted (flesh, bark, rock, gaunt faces). amt in units, freq per unit */
+K.sculpt = function(g, amt, freq, seed){
+  // (indexed geometry with its own smooth normals, so the surface stays closed)
+  const a = g.attributes.position, f = freq || 4, s = seed || 0;
+  const n3 = (x, y, z)=> Math.sin(x*f + s)*Math.sin(y*f*1.3 + s*2.1)*Math.sin(z*f*0.9 + s*0.7)
+    + 0.5*Math.sin(x*f*2.3 + 1.7 + s)*Math.sin(y*f*2.1 + s)*Math.sin(z*f*2.7 + 0.4);
+  if(!g.attributes.normal) g.computeVertexNormals();
+  const nr = g.attributes.normal;
+  for(let i=0;i<a.count;i++){
+    const x = a.getX(i), y = a.getY(i), z = a.getZ(i), d = n3(x, y, z)*amt;
+    a.setXYZ(i, x + nr.getX(i)*d, y + nr.getY(i)*d, z + nr.getZ(i)*d);
+  }
+  g.computeVertexNormals();
+  return g;
 };
 /* a tube along points */
-K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), seg || 12, r, rseg || 6, false); };
+K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), Math.round((seg || 12)*1.5), r, Math.max(8, rseg || 6), false); };
 
 K.timed = [];
 K.tick = t=>{ K.GLOOM.uGTime.value = t; K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t; }); };

@@ -29,16 +29,19 @@ S.init = function(){
   const r = S.renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
   r.setPixelRatio(1);
   document.getElementById("view").appendChild(r.domElement);
-  try{ S.pixel = localStorage.getItem("dungeonofguns.pixel") !== "0"; }catch(e){ S.pixel = true; }
+  // full resolution by default now (P still gives the old chunky pixels)
+  try{ S.pixel = localStorage.getItem("dungeonofguns.pixel2") === "1"; }catch(e){ S.pixel = false; }
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
   S.camera = new THREE.PerspectiveCamera(36, 1, 0.5, 200);
 
-  S.hemi = new THREE.HemisphereLight(0xa8b0d8, 0x3a2e22, 0.9);
+  S.hemi = new THREE.HemisphereLight(0x8a90a8, 0x1a140e, 0.7);
   scene.add(S.hemi);
-  S.fill = new THREE.DirectionalLight(0x9098c0, 0.45); S.fill.position.set(-0.3, 1, 0.6); scene.add(S.fill);
-  S.playerLight = new THREE.PointLight(0xe0c8ff, 1.7, 12, 1.3);
+  // a cold, low moon from one side, so every shape has a lit face and a dark one
+  S.fill = new THREE.DirectionalLight(0x8a98c0, 0.55); S.fill.position.set(-0.7, 1, 0.35); scene.add(S.fill);
+  // Zippy carries a warm, guttering lantern light
+  S.playerLight = new THREE.PointLight(0xffc890, 1.5, 10, 1.8);
   scene.add(S.playerLight);
   S.torches = [];
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 11, 1.4); scene.add(l); S.torches.push(l); }
@@ -59,10 +62,13 @@ S.init = function(){
 
 S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
-  const k = S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 2)**-1;
+  const k = S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.5)**-1;
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
-  if(S.post){ const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh); }
+  if(S.post){
+    const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh);
+    const f = S.pixel ? THREE.NearestFilter : THREE.LinearFilter; S.post.rt.texture.minFilter = S.post.rt.texture.magFilter = f; S.post.rt.texture.needsUpdate = true;
+  }
   const c = S.renderer.domElement; c.style.width = w + "px"; c.style.height = h + "px";
   c.style.imageRendering = S.pixel ? "pixelated" : "auto";
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
@@ -79,11 +85,12 @@ S.initPost = function(){
   const mat = new THREE.ShaderMaterial({
     uniforms:{ tCol:{ value:rt.texture }, tDep:{ value:rt.depthTexture }, uRes:{ value:new THREE.Vector2(16, 16) }, uNear:{ value:S.camera.near }, uFar:{ value:S.camera.far },
       uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
-      uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x2a1838) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) } },
+      uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x2a1838) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
+      uDesat:{ value:0.42 }, uBloom:{ value:0.6 } },
     depthTest:false, depthWrite:false,
     vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
     fragmentShader:[
-      "uniform sampler2D tCol, tDep; uniform vec2 uRes; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt;",
+      "uniform sampler2D tCol, tDep; uniform vec2 uRes; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom;",
       "uniform vec3 uInk, uShade, uHigh, uFog; varying vec2 vUv;",
       "float lin(vec2 uv){ float z = texture2D(tDep, uv).r*2.0 - 1.0; return 2.0*uNear*uFar/(uFar + uNear - z*(uFar - uNear)); }",
       "void main(){",
@@ -96,18 +103,26 @@ S.initPost = function(){
       "  vec2 px = 1.0/uRes; float d0 = lin(uv);",
       "  float dn = lin(uv - vec2(px.x, 0.0)) + lin(uv + vec2(px.x, 0.0)) + lin(uv + vec2(0.0, px.y)) + lin(uv - vec2(0.0, px.y));",
       "  float e = max(0.0, dn - 4.0*d0)/d0;",
-      "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*0.9);",
-      // the floor's grade: shadows lean to its shade colour, lights to its highlight
+      "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*0.45);",
+      // bloom: what burns bright (candles, eyes, spells) bleeds into the dark around it
+      "  vec3 bl = vec3(0.0); float bw = 0.0;",
+      "  for(int i=0;i<12;i++){ float a = float(i)*2.39996 + 0.5, rr = 2.5 + float(i)*1.6;",
+      "    vec2 o = vec2(cos(a), sin(a))*rr*px*(uRes.y/540.0); vec3 s = texture2D(tCol, uv + o).rgb;",
+      "    float w = 1.0/(1.0 + float(i)*0.25); bl += max(s - 0.78, 0.0)*w; bw += w; }",
+      "  col += bl/bw*uBloom*1.8;",
+      // the grade: colours drained toward grey, blacks crushed, shadows sunk in the
+      // floor's shade colour, lights a little warm; an S-curve for weight
       "  float l = dot(col, vec3(0.299, 0.587, 0.114));",
-      "  col = mix(col, col*0.55 + uShade*0.5, (1.0 - smoothstep(0.0, 0.32, l))*0.6);",
-      "  col = mix(col, col*0.8 + uHigh*0.3*l, smoothstep(0.4, 1.0, l)*0.6);",
-      "  col = mix(vec3(l), col, 1.18);",
-      // corners sink into the fog (and pulse, deep down)
-      "  float v = smoothstep(0.16, 0.72, r2*(1.55 + uWeird*0.25*sin(uTime*1.1)));",
-      "  col = mix(col, uFog*0.6, v*uVig);",
-      "  col = mix(col, vec3(0.6, 0.0, 0.05), uHurt*smoothstep(0.08, 0.5, r2));",
+      "  col = mix(col, vec3(l), uDesat*(1.0 - smoothstep(0.55, 1.1, l)*0.5));",
+      "  col = mix(col, col*0.5 + uShade*0.4, (1.0 - smoothstep(0.0, 0.3, l))*0.55);",
+      "  col = mix(col, col*0.85 + uHigh*0.25*l, smoothstep(0.45, 1.0, l)*0.5);",
+      "  col = max(col - 0.012, 0.0)*1.04; col = col*col*(3.0 - 2.0*col)*0.35 + col*0.65;",
+      // corners sink into the dark (and pulse, deep down)
+      "  float v = smoothstep(0.1, 0.6, r2*(1.6 + uWeird*0.25*sin(uTime*1.1)));",
+      "  col = mix(col, uFog*0.3, v*uVig);",
+      "  col = mix(col, vec3(0.45, 0.0, 0.02), uHurt*smoothstep(0.05, 0.45, r2));",
       "  float n = fract(sin(dot(floor(gl_FragCoord.xy) + floor(uTime*24.0)*vec2(17.3, 41.9), vec2(12.9898, 78.233)))*43758.5453);",
-      "  col += (n - 0.5)*0.03;",
+      "  col += (n - 0.5)*0.045*(0.6 + 0.4*(1.0 - l));",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
   });
@@ -120,10 +135,10 @@ S.initPost = function(){
    it, the HUD frames it) */
 S.initPortrait = function(){
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1422);
-  scene.add(new THREE.HemisphereLight(0xfff0e0, 0x3a2e48, 1.05));
-  const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(1.5, 3, 4); scene.add(key);
-  const rim = new THREE.DirectionalLight(0xb36bff, 0.5); rim.position.set(-2, 1.5, -3); scene.add(rim);
+  scene.background = new THREE.Color(0x0c0a0c);
+  scene.add(new THREE.HemisphereLight(0xc8c0b0, 0x1a1418, 0.7));
+  const key = new THREE.DirectionalLight(0xffd8a8, 0.95); key.position.set(2, 2.5, 3); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x8aa0d8, 0.7); rim.position.set(-2.5, 1.5, -3); scene.add(rim);
   const cam = new THREE.PerspectiveCamera(31, 1, 0.1, 50);
   cam.position.set(0.15, 1.55, 4.25); cam.lookAt(0.15, 1.08, 0);
   const root = new THREE.Group(); scene.add(root);
@@ -141,7 +156,7 @@ S.renderPortrait = function(){
 };
 S.togglePixel = function(){
   S.pixel = !S.pixel;
-  try{ localStorage.setItem("dungeonofguns.pixel", S.pixel ? "1" : "0"); }catch(e){}
+  try{ localStorage.setItem("dungeonofguns.pixel2", S.pixel ? "1" : "0"); }catch(e){}
   S.resize();
   return S.pixel;
 };
@@ -153,14 +168,14 @@ S.theme = function(th, curses){
   S.scene.background = new THREE.Color(th.fog);
   S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);
-  S.hemi.intensity = 0.9*(th.light || 1)*(dark ? 0.55 : 1);
-  S.fill.intensity = 0.45*(th.light || 1)*(dark ? 0.5 : 1);
-  S.playerLight.distance = dark ? 8 : 12;
-  S.playerLight.intensity = dark ? 2.1 : 1.7;
+  S.hemi.intensity = 0.62*(th.light || 1)*(dark ? 0.55 : 1);
+  S.fill.intensity = 0.5*(th.light || 1)*(dark ? 0.5 : 1);
+  S.playerLight.distance = dark ? 7.5 : 10;
+  S.playerLight.intensity = dark ? 1.8 : 1.5;
   // the ink: line colour, rim colour, grade, and how weird the picture gets
   K.INK.uInk.value.setHex(th.ink || 0x0a0612);
   K.INK.uRim.value.setHex(th.rim || 0x8a7aff);
-  K.INK.uLift.value = dark ? 0.04 : 0.06;
+  K.INK.uLift.value = dark ? 0.018 : 0.028;
   const u = S.post.mat.uniforms;
   u.uShade.value.setHex(th.shade || 0x2a1838); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
   u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 1 : 0.85;

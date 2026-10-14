@@ -1,8 +1,9 @@
 /* ------------------------------------------------------------------ *
  *  Gribbus the frog (and, with Twin Frog, his brother Grobbus).
  *
- *  He hops after Zippy, picks his own fights, licks goblins that get
- *  close and spits at the ones that don't. He can't be hurt: he is a
+ *  He hops after Zippy, picks his own fights anywhere in the room
+ *  (finding his way round the furniture), licks goblins that get close
+ *  and spits at the ones that don't. He can't be hurt: he is a
  *  very good frog. Frog ponds teach him tricks (one of three lily
  *  pads); golden flies, saved between runs, unlock more tricks.
  * ------------------------------------------------------------------ */
@@ -88,6 +89,49 @@ Gr.recall = function(G, f){
   f.x = x; f.y = y; f.hopT = 0; f.hop = 0; f.stuck = 0; f.rest = 0.2;
 };
 
+/* the next place to hop toward (tx, ty) without bumping into furniture:
+   a breadth-first search over the tiles between them, then the furthest
+   tile along the path a straight hop of at most `step` reaches cleanly */
+Gr.waypoint = function(G, f, tx, ty, step){
+  const D = G.D, fx = Math.floor(f.x), fy = Math.floor(f.y), gx = Math.floor(tx), gy = Math.floor(ty);
+  if(fx === gx && fy === gy) return { x:tx, y:ty };
+  const pad = 6, x0 = Math.max(0, Math.min(fx, gx) - pad), y0 = Math.max(0, Math.min(fy, gy) - pad);
+  const w = Math.min(D.w, Math.max(fx, gx) + pad + 1) - x0, h = Math.min(D.h, Math.max(fy, gy) + pad + 1) - y0;
+  if(w*h > 6400) return null;
+  const from = new Int32Array(w*h).fill(-1), at = (x, y)=> (y - y0)*w + (x - x0);
+  const free = (x, y)=> x >= x0 && y >= y0 && x < x0 + w && y < y0 + h && !G.blocked(x, y, "frog");
+  const q = [at(fx, fy)]; from[q[0]] = q[0];
+  let found = -1;
+  for(let qi=0; qi<q.length && found < 0; qi++){
+    const i = q[qi], x = x0 + i % w, y = y0 + Math.floor(i/w);
+    for(const [dx, dy] of DG.DIRS8){
+      const nx = x + dx, ny = y + dy;
+      if(!free(nx, ny) || (dx && dy && (!free(x + dx, y) || !free(x, y + dy)))) continue;
+      const j = at(nx, ny); if(from[j] >= 0) continue;
+      from[j] = i; q.push(j);
+      if(nx === gx && ny === gy){ found = j; break; }
+    }
+  }
+  if(found < 0) return null;
+  const path = []; for(let i=found; i !== from[i]; i = from[i]) path.unshift(i);
+  const cx = i=> x0 + i % w + 0.5, cy = i=> y0 + Math.floor(i/w) + 0.5;
+  let best = { x:cx(path[0]), y:cy(path[0]) };
+  for(let k=1; k<path.length; k++){
+    const x = k === path.length - 1 ? tx : cx(path[k]), y = k === path.length - 1 ? ty : cy(path[k]);
+    if(DG.dist(f.x, f.y, x, y) > step || !clearHop(G, f.x, f.y, x, y)) break;
+    best = { x, y };
+  }
+  return best;
+};
+function clearHop(G, ax, ay, bx, by){
+  const n = Math.ceil(DG.dist(ax, ay, bx, by)/0.2);
+  for(let i=1; i<=n; i++){
+    const x = ax + (bx - ax)*i/n, y = ay + (by - ay)*i/n;
+    for(const [ox, oy] of [[-0.28, -0.28], [0.28, -0.28], [-0.28, 0.28], [0.28, 0.28]]) if(G.blocked(Math.floor(x + ox), Math.floor(y + oy), "frog")) return false;
+  }
+  return true;
+}
+
 /* ---- per frame ---- */
 Gr.update = function(G, dt){
   G.frogs.forEach((f, i)=> updateFrog(G, f, i, dt));
@@ -99,13 +143,15 @@ function updateFrog(G, f, idx, dt){
   f.cd -= dt*rate; f.spitCd -= dt*rate; f.rest -= dt;
   for(const k in f.timers) f.timers[k] -= dt;
   const fight = G.room && G.room.active;
-  // left behind (outside a room that just locked, far away, or stuck on a
-  // wall or a gate): poof back to Zippy's side
-  const away = DG.dist(f.x, f.y, p.x, p.y);
-  if(away > 9 || (fight && !G.inRoom(G.room, f.x, f.y)) || (f.stuck || 0) > 1.2) Gr.recall(G, f);
+  // he roams and hunts on his own, and finds his own way back. He only
+  // poofs to Zippy's side when he can't: shut outside a room that just
+  // locked, lost far away, or properly stuck
+  const away = DG.dist(f.x, f.y, p.x, p.y), stuck = f.stuck || 0;
+  if(fight ? !G.inRoom(G.room, f.x, f.y) || stuck > 5 : away > 26 || stuck > 2.5) Gr.recall(G, f);
 
   const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = 1 + 0.5*(g.size || 0);
-  const tg = fight ? G.nearestEnemy(f.x, f.y, 8) : null;
+  // in a fight: the nearest goblin anywhere in the room, however far from Zippy
+  const tg = fight ? G.nearestEnemy(f.x, f.y, 99, null, null, G.room.id) : null;
   const els = g.mirrorEls ? G.shotEls(G.gun()) : [];
 
   // the tongue
@@ -173,31 +219,36 @@ function updateFrog(G, f, idx, dt){
     f.stuck = bumped ? (f.stuck || 0) + dt : 0;
     f.hop = Math.sin(k*Math.PI)*0.6;
     if(f.hopT <= 0){
-      f.hop = 0; f.rest = 0.12 + rng.next()*0.25;
+      f.hop = 0; f.rest = (f.far ? 0.05 : 0.12) + rng.next()*(f.far ? 0.08 : 0.25);
       if(g.hopZap && tg && DG.dist(f.x, f.y, tg.x, tg.y) < 1.6) G.chain(tg, dmg*0.8, 2, f.x, f.y, { els:["shock"], power:1, depth:1, noArc:true, from:"gribbus" });
     }
     return;
   }
   if(f.rest > 0) return;
-  // where to hop: at a goblin (to lick it), else to Zippy's side
-  let gx, gy;
-  if(tg && DG.dist(p.x, p.y, tg.x, tg.y) < 10){
-    const a = Math.atan2(tg.y - f.y, tg.x - f.x), d = DG.dist(f.x, f.y, tg.x, tg.y);
-    const want = Math.max(0, d - reach*0.8);
-    gx = f.x + Math.cos(a)*Math.min(2.4, want); gy = f.y + Math.sin(a)*Math.min(2.4, want);
-    f.face = a;
+  // where to hop: at a goblin (to lick it), else back to Zippy's side;
+  // round furniture, not into it. Far behind, he takes longer, quicker hops
+  let gx, gy, step = 2.4;
+  if(tg){
+    const d = DG.dist(f.x, f.y, tg.x, tg.y);
+    if(d <= reach*0.8){ f.face = Math.atan2(tg.y - f.y, tg.x - f.x); return; }
+    gx = tg.x; gy = tg.y; step = Math.min(2.4, d - reach*0.8);
   } else {
     const side = idx === 0 ? 1 : -1;
     gx = p.x - Math.cos(p.aim)*0.9 + Math.cos(p.aim + Math.PI/2)*1.1*side;
     gy = p.y - Math.sin(p.aim)*0.9 + Math.sin(p.aim + Math.PI/2)*1.1*side;
+    if(G.blocked(Math.floor(gx), Math.floor(gy), "frog")){ gx = p.x; gy = p.y; }
     if(DG.dist(f.x, f.y, gx, gy) < 0.6) return;
-    const d = DG.dist(f.x, f.y, gx, gy);
-    if(d > 2.4){ gx = f.x + (gx - f.x)/d*2.4; gy = f.y + (gy - f.y)/d*2.4; }
-    f.face = Math.atan2(gy - f.y, gx - f.x);
+    if(away > 5) step = 3.4;
   }
-  if(DG.dist(f.x, f.y, gx, gy) < 0.2) return;
-  f.sx = f.x; f.sy = f.y; f.tx = gx; f.ty = gy;
-  f.hopDur = 0.26 + DG.dist(f.x, f.y, gx, gy)*0.03; f.hopT = f.hopDur;
+  let w = clearHop(G, f.x, f.y, gx, gy) && DG.dist(f.x, f.y, gx, gy) <= step ? { x:gx, y:gy } : Gr.waypoint(G, f, gx, gy, step);
+  if(!w){ const d = DG.dist(f.x, f.y, gx, gy) || 1; w = { x:f.x + (gx - f.x)/d*Math.min(step, d), y:f.y + (gy - f.y)/d*Math.min(step, d) }; }
+  // stuck against something: a hop to one side shakes him loose
+  if(stuck > 0.5){ const a = rng.next()*Math.PI*2; w = { x:f.x + Math.cos(a)*1.2, y:f.y + Math.sin(a)*1.2 }; }
+  if(DG.dist(f.x, f.y, w.x, w.y) < 0.2) return;
+  f.face = Math.atan2(w.y - f.y, w.x - f.x);
+  f.far = DG.dist(f.x, f.y, gx, gy) > 5;
+  f.sx = f.x; f.sy = f.y; f.tx = w.x; f.ty = w.y;
+  f.hopDur = (away > 5 && !tg ? 0.2 : 0.26) + DG.dist(f.x, f.y, w.x, w.y)*0.03; f.hopT = f.hopDur;
 }
 
 })(typeof window !== "undefined" ? window : globalThis);
