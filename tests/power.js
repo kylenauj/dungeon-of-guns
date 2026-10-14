@@ -46,7 +46,7 @@ function rollBuild(i){
   const plan = ["t", "b", "t", "s", "b", "t", "t", "s", "b", "t"];
   if(G.rng.chance(0.6)) plan.push("x");
   if(G.rng.chance(0.3)) plan.push("a");
-  plan.forEach((pool, k)=>{ G.floor = 1 + Math.floor(k/3); items.push(DG.Items.roll(G, pool)); });
+  plan.forEach((pool, k)=>{ G.floor = 1 + Math.floor(k/3); const id = DG.Items.roll(G, pool); items.push(id); G.giveItem(id, true); });
   const boons = []; for(let k=0;k<9;k++){ const o = DG.Items.rollBoons(G, 3); boons.push(o[0]); G.player.boons.push(o[0]); }
   return { items, boons };
 }

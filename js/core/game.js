@@ -395,7 +395,7 @@ proto.giveItem = function(id, quiet){
   p.items[id] = (p.items[id] || 0) + 1;
   G.seenItems[id] = true;
   G.stats.items++;
-  const duosBefore = G.duoKey || "";
+  const duosBefore = G.duoKey || "", setsBefore = G.player.sets || [];
   G.recalc();
   if(d.stats && d.stats.wards) G.addWards(d.stats.wards);
   if(!quiet){
@@ -403,6 +403,9 @@ proto.giveItem = function(id, quiet){
     if(d.tier >= 4) G.emit("godly", { id, name:d.name });
   }
   G.mods.duos.forEach(n=>{ if(duosBefore.split(",").indexOf(n) < 0 && !quiet){ const duo = DG.DUOS.find(x=> x.name === n); G.emit("duo", { name:n, desc:duo.desc }); } });
+  // a third item of a set: a transformation
+  G.mods.sets.forEach(sid=>{ if(setsBefore.indexOf(sid) < 0){ const s = DG.SETS.find(x=> x.id === sid); G.emit("transform", { id:sid, name:s.name, desc:s.desc }); if(!quiet) G.say("TRANSFORMATION! You are the " + s.name + ".", 4); } });
+  p.sets = G.mods.sets.slice();
   G.checkAscensions();
   if(d.special === "moons" || d.special === "shadow") DG.Gribbus.spawnPermanents(G);
 };

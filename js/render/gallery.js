@@ -28,6 +28,8 @@ Gallery.start = function(){
       ["Godwand", ["godwand", "prismheart", "infinity"]], ["Comet", ["comet", "portal", "boots"]], ["Goofball", ["chicken", "beehive", "dice", "bubblegum", "spikyhat", "spaghetti"]],
       ["Tinkerer", ["tallhat", "clockwork", "lens", "accordion", "haunted", "disco"]]
     ].map(([name, ids])=> [name, ()=>{ const R = M.zippy(DG.Items.costume(ids)); M.setGun(R, { base:"pistol", element:"fire", uid:1 }); return R; }]) },
+    { name:"FORMS", gap:2.2, items:DG.SETS.map(s=> [s.name, ()=>{ const R = M.zippy(DG.Items.costume([], [s.id])); M.setGun(R, { base:"smg", element:(s.els || ["arcane"])[0], uid:1 }, s.els || []); return R; }]).concat([
+      ["Gribbus+", ()=> M.frog(false, ["lily", "zoomies", "hop", "bubble", "flyhunt"])], ["Gribbus++", ()=> M.frog(false, ["doom", "brood", "croak", "gulp", "spit"])]]) },
     { name:"GOBLINS", gap:2.2, items:["grunt", "slinger", "bomber", "shaman", "brute", "sneak", "merchant"].map(k=> [k, ()=> M.goblin(k)]) },
     { name:"SHROOMS & HAUNTS", gap:2.2, items:["puffling", "toadstool", "shroomkin", "shroomlet", "ghost", "banshee", "skeleton", "poltergeist"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"THE WEIRD", gap:2.4, items:["watcher", "blob", "blobling", "tentacle"].map(k=> [k, ()=> M.enemy(k)]) },

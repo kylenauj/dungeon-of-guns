@@ -117,6 +117,27 @@ test("costumes: every costume belongs to a real item and uses real dyes, parts a
   assert.equal(DG.Items.costume(["inferno", "frostrounds"]).cape, "fire");
 });
 
+test("transformations: a third item from a set transforms Zippy (once), with a bonus and a new look", ()=>{
+  DG.SETS.forEach(s=>{
+    s.items.forEach(id=> assert.ok(DG.ITEMS[id], s.id + ": " + id + " is an item"));
+    assert.equal(new Set(s.items).size, s.items.length, s.id + " has no repeats");
+    assert.ok(s.items.length > s.need, s.id + " has more items than it needs");
+    assert.ok(DG.DYES.indexOf(s.look.robe) >= 0 && s.look.parts.every(p=> DG.COSTUME_PARTS.indexOf(p) >= 0), s.id + " look");
+  });
+  const G = game("PYRO");
+  G.giveItem("emberrounds"); G.giveItem("hotpotato");
+  assert.equal(G.mods.sets.length, 0);
+  const dmg = G.mods.dmg;
+  G.giveItem("fireworks");
+  const ev = G.drain();
+  assert.ok(ev.some(e=> e.type === "transform" && e.id === "pyromancer"));
+  assert.ok(G.mods.dmg > dmg && G.mods.special.wildfire, "the bonus applies");
+  G.giveItem("trailblazer");
+  assert.ok(!G.drain().some(e=> e.type === "transform"), "only once");
+  const look = DG.Items.costume(Object.keys(G.player.items), G.mods.sets);
+  assert.equal(look.robe, "fire"); assert.ok(look.parts.indexOf("horns") >= 0);
+});
+
 test("powerups stack", ()=>{
   const one = DG.Items.build({ spinach:1 }), two = DG.Items.build({ spinach:2 });
   assert.equal(two.dmg, one.dmg*2);

@@ -199,6 +199,40 @@ DG.DUOS = [
   { a:"comet",       b:"trailblazer", name:"Shooting Star",  desc:"Comet blinks leave your element all along the trail.", special:"shootingstar" }
 ];
 
+/* transformations (Isaac's): own 3 items of a set and Zippy becomes something
+   else, with a new look and a modest bonus. `look` overrides his costume. */
+DG.SETS = [
+  { id:"pyromancer", name:"Pyromancer",    need:3, items:["emberrounds", "inferno", "wildfire", "hotpotato", "fireworks", "trailblazer", "hotswap"],
+    desc:"Fire on every shot, +15% damage, and burning goblins explode into flames.", els:["fire"], stats:{ dmg:0.15 }, special:"wildfire",
+    look:{ robe:"fire", cape:"fire", parts:["horns", "flamehat"], aura:"embers" } },
+  { id:"lich",       name:"Ice Lich",      need:3, items:["frostrounds", "blizzard", "brittle", "popsicle", "coldshoulder", "snowball"],
+    desc:"Frost on every shot, chilled goblins take more damage, and a frost nova goes off around you every 6 seconds.", els:["frost"], special:"brittle",
+    on:{ tick:[{ do:"nova", r:3, dmg:0.8, el:"frost", every:6, at:"player" }] },
+    look:{ robe:"frost", cape:"frost", parts:["lichmask", "icecrown"], aura:"snow" } },
+  { id:"storm",      name:"Storm Lord",    need:3, items:["staticrounds", "stormcaller", "conductor", "staticcling", "discharge", "thundersocks"],
+    desc:"Shock on every shot, and lightning strikes a goblin every 3 seconds in a fight.", els:["shock"],
+    on:{ tick:[{ do:"chain", jumps:2, dmg:0.9, every:3, target:"random" }] },
+    look:{ robe:"shock", cape:"shock", parts:["statichair", "stormcloud"], aura:"sparks" } },
+  { id:"plague",     name:"Plague Doctor", need:3, items:["venomrounds", "plague", "rotbloom", "leaky", "swampfeet"],
+    desc:"Poison on every shot, poison spreads from goblin to goblin, and +15 max health.", els:["poison"], special:"plague", stats:{ hp:15 },
+    look:{ robe:"poison", cape:"shadow", parts:["plaguemask", "tophat"], aura:"toxic" } },
+  { id:"gardener",   name:"Gardener",      need:3, items:["overgrowth", "blossom", "rotbloom", "beehive", "clover", "luckyfoot", "spinach", "swampfeet"],
+    desc:"Byproducts last longer, +1 luck, and kills sometimes sprout a healing flower.", stats:{ byproductDur:0.5, luck:1 },
+    on:{ kill:[{ do:"candy", chance:0.12 }] },
+    look:{ robe:"leaf", cape:"leaf", parts:["vines", "flowers", "flowerhat"], aura:"petals" } },
+  { id:"goldfinger", name:"Goldfinger",    need:3, items:["midaspocket", "midas", "magnet", "penny", "luckyfoot"],
+    desc:"+50% gold, a bigger coin magnet, and every kill has a chance to drop a coin.", stats:{ gold:0.5, magnet:2 },
+    on:{ kill:[{ do:"gold", n:1, chance:0.3 }] },
+    look:{ robe:"gold", cape:"gold", parts:["crown", "coinpouch"], aura:"glints" } },
+  { id:"frogprince", name:"Frog Prince",   need:3, items:["frogsona", "tadpact", "froglock", "twister", "swampfeet", "lantern"],
+    desc:"Gribbus hits 50% harder and 30% faster, and tadpoles are twice as many.", stats:{ frogDmg:0.5, frogRate:0.3 }, special:"frogswarm",
+    look:{ robe:"leaf", cape:"arcane", parts:["froghood", "lilycape"], aura:"bubbles" } },
+  { id:"clown",      name:"Goofball",      need:3, items:["chicken", "hiccups", "spaghetti", "bubblegum", "dice", "accordion", "wiggle", "chaos"],
+    desc:"+2 luck, and 6% of hits leave a goblin confused.", stats:{ luck:2 },
+    on:{ hit:[{ do:"status", st:"confused", t:2.5, chance:0.06 }] },
+    look:{ robe:"clown", cape:"clown", parts:["clownnose", "ruff"], aura:"rainbow" } }
+];
+
 /* guns + the right powerup become something else (Vampire Survivors' evolutions) */
 DG.ASCENSIONS = [
   { base:"pistol",   item:"seeker",      name:"Seeker Sidearm",    innate:["seeker", "sharp"],         flavor:"It finds them. It always finds them." },
@@ -290,12 +324,19 @@ DG.CURSES = {
 /* ---- costumes: what Zippy wears for what he carries (Isaac-style) ----
    cape / robe: a dye (the robe only changes for the big ones, and the
    highest tier wins); parts: costume pieces that stack; aura: particles. */
-DG.DYES = ["arcane", "fire", "frost", "poison", "shock", "gold", "shadow", "star"];
+DG.DYES = ["arcane", "fire", "frost", "poison", "shock", "gold", "shadow", "star", "leaf", "clown"];
 DG.COSTUME_PARTS = ["vines", "flowers", "goggles", "monocle", "wingboots", "stripysocks", "mudboots", "tallhat", "spikyhat", "flamehat", "icecrown",
   "stormcloud", "plaguemask", "chicken", "hive", "accordion", "dice", "penny", "gear", "ghostpal", "discoball", "gum", "napkin", "noodles",
   "pinatastick", "teapot", "heartjar", "lunchbox", "coinpouch", "clover", "muscles", "cracks", "bombbelt", "starcape", "portalcuffs", "antenna",
-  "halo", "prismgem", "froghood", "cubes", "voidtip", "mirrorshield", "orbitrings"];
-DG.AURAS = ["embers", "snow", "sparks", "toxic", "glints", "smoke", "rainbow", "stars"];
+  "halo", "prismgem", "froghood", "cubes", "voidtip", "mirrorshield", "orbitrings",
+  /* transformations */
+  "horns", "lichmask", "statichair", "tophat", "flowerhat", "crown", "lilycape", "clownnose", "ruff",
+  /* more odds and ends */
+  "spinachcan", "coffeecup", "magnet", "hourglass", "sandwich", "pauldrons", "spikepauldrons", "rubberball", "hateye", "sideeyes",
+  "backeye", "worm", "jetpack", "wildhair", "icepauldron", "crystals", "wisplantern", "souljar", "tombstone", "bombtip", "hydra",
+  "offhand", "gremlin", "boomerang", "papershield", "rocketsback", "alarmclock", "sodacan", "fangs", "angrybrows", "tadpolejar",
+  "frogbrolly", "seashell", "snail", "goblet", "kaleido", "handmirror", "elementgems", "snowhat", "bandage"];
+DG.AURAS = ["embers", "snow", "sparks", "toxic", "glints", "smoke", "rainbow", "stars", "petals", "bubbles"];
 DG.COSTUMES = {
   /* elements dye the cape; their legendary forms dye the whole robe */
   emberrounds:{ cape:"fire" }, frostrounds:{ cape:"frost" }, venomrounds:{ cape:"poison" }, staticrounds:{ cape:"shock" }, arcanerounds:{ cape:"arcane" },
@@ -316,6 +357,18 @@ DG.COSTUMES = {
   clover:{ parts:["clover"] }, luckyfoot:{ parts:["clover"] }, steroids:{ parts:["muscles"] }, glasscannon:{ parts:["cracks"] },
   stickybomb:{ parts:["bombbelt"] }, comet:{ cape:"star", parts:["starcape"], aura:"stars" }, portal:{ parts:["portalcuffs"] },
   shrinkray:{ parts:["antenna"] },
+  spinach:{ parts:["spinachcan"] }, coffee:{ parts:["coffeecup"] }, caffeine:{ parts:["coffeecup"] }, magnet:{ parts:["magnet"] },
+  hourglass:{ parts:["hourglass"] }, snack:{ parts:["sandwich"] }, chunky:{ parts:["pauldrons"] }, sharp:{ parts:["spikepauldrons"] },
+  drill:{ parts:["spikepauldrons"] }, rubber:{ parts:["rubberball"] }, seeker:{ parts:["hateye"] }, sideeyes:{ parts:["sideeyes"] },
+  rearguard:{ parts:["backeye"] }, wiggle:{ parts:["worm"] }, rocket:{ parts:["jetpack"] }, chaos:{ parts:["wildhair"] },
+  staticcling:{ parts:["statichair"] }, coldshoulder:{ parts:["icepauldron"] }, crystal:{ parts:["crystals"] },
+  wispcraft:{ parts:["wisplantern"] }, lantern:{ parts:["wisplantern"] }, wisplord:{ parts:["wisplantern"] }, siphon:{ parts:["souljar"] },
+  graverise:{ parts:["tombstone"] }, megabombs:{ parts:["bombtip"] }, hydra:{ parts:["hydra"] }, dualwield:{ parts:["offhand"] },
+  gremlin:{ parts:["gremlin"] }, boomerang:{ parts:["boomerang"] }, papershield:{ parts:["papershield"] }, fireworks:{ parts:["rocketsback"] },
+  tictoc:{ parts:["alarmclock"] }, fizzlepop:{ parts:["sodacan"] }, leech:{ parts:["fangs"] }, spite:{ parts:["angrybrows"] },
+  tadpact:{ parts:["tadpolejar"] }, froglock:{ parts:["frogbrolly"] }, echo:{ parts:["seashell"] }, patience:{ parts:["snail"] },
+  overflow:{ parts:["goblet"] }, kaleido:{ parts:["kaleido"] }, mirrorblink:{ parts:["handmirror"] }, elementalist:{ parts:["elementgems"] },
+  snowball:{ parts:["snowhat"] }, desperation:{ parts:["bandage"] }, trailblazer:{ aura:"embers" }, hotpotato:{ parts:["bombbelt"] },
   /* godly */
   godwand:{ parts:["halo"], aura:"glints" }, midas:{ robe:"gold", cape:"gold", aura:"glints" }, prismheart:{ parts:["prismgem"], aura:"rainbow" },
   shadow:{ robe:"shadow", cape:"shadow", aura:"smoke" }, frogsona:{ parts:["froghood"] }, recursion:{ parts:["cubes"] },
@@ -334,7 +387,7 @@ Items.blank = function(){
     frogRate:0, frogDmg:0, killMana:0,
     shot:{ bounces:0, pierce:0, homing:0, split:0, extra:0, side:0, back:0, wiggle:0, orbit:0, boomerang:0, spectral:0, grow:0,
            accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0, portal:0, jitter:0 },
-    els:[], on:{}, special:{}, duos:[]
+    els:[], on:{}, special:{}, duos:[], sets:[]
   };
 }
 
@@ -358,13 +411,16 @@ Items.build = function(items, boons, extra){
   (extra || []).forEach(id=> DG.ITEMS[id] && addDef(M, DG.ITEMS[id], 1));
   const has = id=> items[id] || (extra || []).indexOf(id) >= 0;
   DG.DUOS.forEach(d=>{ if(has(d.a) && has(d.b)){ M.duos.push(d.name); addDef(M, d, 1); } });
+  M.sets = [];
+  DG.SETS.forEach(s=>{ if(s.items.filter(id=> items[id]).length >= s.need){ M.sets.push(s.id); addDef(M, s, 1); } });
   if(M.special.prismheart) DG.ELEMENT_ORDER.forEach(e=>{ if(M.els.indexOf(e) < 0) M.els.push(e); });
   M.maxDepth = 1 + (M.special.recursion ? 2 : 0);
   return M;
 };
 
-/* what Zippy looks like with these items (ids in the order he got them) */
-Items.costume = function(ids){
+/* what Zippy looks like with these items (ids in the order he got them), and
+   any transformations (set ids): a transformation's look wins the dyes */
+Items.costume = function(ids, sets){
   const look = { robe:"arcane", cape:"arcane", parts:[], auras:[] };
   let robeT = -1, capeT = -1;
   ids.forEach(id=>{
@@ -373,6 +429,13 @@ Items.costume = function(ids){
     if(c.cape && d.tier >= capeT){ capeT = d.tier; look.cape = c.cape; }
     (c.parts || []).forEach(p=>{ if(look.parts.indexOf(p) < 0) look.parts.push(p); });
     if(c.aura && look.auras.indexOf(c.aura) < 0) look.auras.push(c.aura);
+  });
+  (sets || []).forEach(sid=>{
+    const s = DG.SETS.find(x=> x.id === sid); if(!s) return;
+    if(s.look.robe) look.robe = s.look.robe;
+    if(s.look.cape) look.cape = s.look.cape;
+    s.look.parts.forEach(p=>{ if(look.parts.indexOf(p) < 0) look.parts.push(p); });
+    if(s.look.aura && look.auras.indexOf(s.look.aura) < 0) look.auras.push(s.look.aura);
   });
   look.auras = look.auras.slice(-3);
   look.key = look.robe + "/" + look.cape + "/" + look.parts.join(",") + "/" + look.auras.join(",");
@@ -394,7 +457,7 @@ Items.roll = function(G, pool){
   for(let tries=0; tries<6; tries++){
     const tier = rng.weighted(tierW.map((x, i)=> ({ i, w:x }))).i;
     const cand = P.filter(id=> DG.ITEMS[id].tier === tier && !G.seenItems[id]);
-    if(cand.length){ const id = rng.pick(cand); Items.offer(G, id); return id; }
+    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id) }))).id; Items.offer(G, id); return id; }
   }
   // the pool's run dry at those tiers: anything left, anywhere
   const any = Object.keys(DG.ITEMS).filter(id=> !G.seenItems[id] && DG.ITEMS[id].tier < 4);
@@ -402,6 +465,15 @@ Items.roll = function(G, pool){
   return "spinach";
 };
 Items.offer = function(G, id){ G.seenItems[id] = true; };
+/* items from a set you've started turn up more often, so a transformation is
+   something you can chase */
+const SET_PULL = 2.5;
+function setPull(G, id){
+  const owned = G.player ? G.player.items : {};
+  let k = 0;
+  DG.SETS.forEach(s=>{ if(s.items.indexOf(id) >= 0) k = Math.max(k, s.items.filter(x=> owned[x]).length); });
+  return 1 + SET_PULL*k;
+}
 
 Items.rollBoons = function(G, n){
   const owned = G.player.boons, ids = Object.keys(DG.BOONS);

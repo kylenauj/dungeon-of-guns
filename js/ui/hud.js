@@ -46,6 +46,7 @@ H.handle = function(ev, G){
     case "nocharge": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"not charged", t:0, col:DIM }); break;
     case "levelup": H.nums.push({ x:p.x, y:p.y, z:2.6, v:"LEVEL UP!", t:0, col:XP, crit:true, big:true }); break;
     case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6 }; break;
+    case "transform": H.card = { title:ev.name.toUpperCase() + "!", sub:ev.desc, col:"#ff6ad8", tier:"TRANSFORMATION", t:0, life:5 }; H.banner = { a:"TRANSFORMATION", b:ev.name, t:0 }; break;
     case "duo": H.card = { title:"DUO! " + ev.name, sub:ev.desc, col:"#ff4fd8", tier:"SYNERGY", t:0, life:4 }; break;
     case "ascend": H.card = { title:"ASCENSION: " + ev.name, sub:ev.flavor, col:"#ffb12e", tier:"YOUR GUN EVOLVED", t:0, life:4.5 }; break;
     case "frogbuff": H.card = { title:"GRIBBUS LEARNED " + ev.name.toUpperCase(), sub:ev.desc, col:"#9cff6a", tier:"FROG TRICK", t:0, life:3.6 }; break;

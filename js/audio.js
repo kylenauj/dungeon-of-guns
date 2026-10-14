@@ -168,6 +168,7 @@ A.play = function(name, o){
     case "splash": burst(0.4, "lowpass", 1400, 0.35, 1, 0, 0, 300); break;
     case "splat":  burst(0.15, "lowpass", 600, 0.35, 2, 0, 0, 120); tone(90, 0.12, "sine", 0.2, 0, 0, 50); break;
     case "stone":  burst(0.35, "lowpass", 260, 0.5, 1); tone(70, 0.3, "square", 0.08, 0, 0, 45); break;
+    case "transform": [60, 64, 67, 72, 76, 79, 84, 88].forEach((m, i)=> tone(mtof(m), 0.6, "sawtooth", 0.04, i*0.06, 0, 0, true)); burst(1.2, "highpass", 3000, 0.2, 1, 0.3, 0, 9000, true); break;
     case "squeak": tone(1400, 0.12, "square", 0.05, 0, 0, 2400); tone(2200, 0.1, "square", 0.04, 0.08, 0, 1200); break;
     case "stick":  tone(900, 0.05, "square", 0.04); tone(1200, 0.05, "square", 0.04, 0.12); break;
     case "portalShot": tone(300, 0.2, "sine", 0.06, 0, 0, 1800, true); break;

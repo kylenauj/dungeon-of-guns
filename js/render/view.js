@@ -48,7 +48,11 @@ proto.dressPlayer = function(look){
   S.scene.add(R.root);
   V.player = R; V.lookKey = look.key;
 };
+const W0els = G=> [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
+const W0gunKey = G=> G.gun().uid + ":" + W0els(G).join(",");
 const AURA = {
+  petals(x, z){ if(Math.random() < 0.5) return; FX.emit(x + (Math.random() - 0.5)*1.2, 2 + Math.random()*0.4, z + (Math.random() - 0.5)*1.2, (Math.random() - 0.5)*0.4, -0.6, 0, Math.random() < 0.5 ? 0xff8ac8 : 0xfff0a0, 0.18, 1.2, 0, 1); },
+  bubbles(x, z){ if(Math.random() < 0.6) return; FX.emit(x + (Math.random() - 0.5)*0.8, 0.3, z + (Math.random() - 0.5)*0.8, 0, 0.9, 0, 0x9cf0ff, 0.22, 0.8, 0, 1); },
   embers(x, z){ FX.emit(x + (Math.random() - 0.5)*0.7, 0.2 + Math.random()*0.8, z + (Math.random() - 0.5)*0.7, 0, 1.5 + Math.random(), 0, Math.random() < 0.5 ? 0xff7a2a : 0xffd23d, 0.18, 0.6, 0, 1); },
   snow(x, z){ FX.emit(x + (Math.random() - 0.5)*1.4, 2.2 + Math.random()*0.5, z + (Math.random() - 0.5)*1.4, (Math.random() - 0.5)*0.3, -0.8, 0, 0xeaf8ff, 0.16, 1.2, 0, 1); },
   sparks(x, z){ if(Math.random() < 0.5) return; const a = Math.random()*6.28; FX.emit(x + Math.cos(a)*0.4, 0.4 + Math.random()*1.2, z + Math.sin(a)*0.4, Math.cos(a)*2, 0, Math.sin(a)*2, 0xfff04a, 0.14, 0.15, 0, 1); },
@@ -219,6 +223,19 @@ proto.handle = function(ev){
     case "croak": FX.ring(ev.x, ev.y, ev.kind === "doom" ? 10 : 3, ev.kind === "doom" ? 0x9cff3a : 0x8ad8ff, 0.6); play("croak"); break;
     case "gulp": play("gulp"); break;
     case "frogbuff": play("frog"); FX.rise(G.gribbus.x, G.gribbus.y, 0x9cff6a, 20, 0.5, { v:3 }); break;
+    case "item": {
+      if(V.hold) S.scene.remove(V.hold.g);
+      const g = M.powerup(ev.id); S.scene.add(g);
+      V.hold = { t:1.4, g };
+      FX.burst(p.x, 2.6, p.y, DG.TIERS[ev.tier] ? new THREE.Color(DG.TIERS[ev.tier].color).getHex() : 0xffffff, 14, 2.5, 0.25, 0.5, { up:1 });
+      break;
+    }
+    case "transform":
+      V.spinT = 1.4;
+      FX.ring(p.x, p.y, 5, 0xfff27a, 0.9); FX.ring(p.x, p.y, 3, 0xff6ad8, 0.7);
+      FX.burst(p.x, 1.2, p.y, 0xfff27a, 60, 7, 0.35, 1, { up:2, col2:0xffffff });
+      S.shake(0.4); play("transform");
+      break;
     case "frogPoof": FX.burst(ev.x, 0.4, ev.y, 0x9cff6a, 10, 2, 0.3, 0.5); if(ev.x2 !== undefined) FX.burst(ev.x2, 0.4, ev.y2, 0x9cff6a, 12, 2.5, 0.3, 0.5); play("poof"); break;
     /* the odd ones */
     case "status": if(ev.st === "confused"){ FX.burst(ev.x, 1.6, ev.y, 0xffd23d, 8, 2, 0.22, 0.5, { up:1 }); play("squeak"); } break;
@@ -348,10 +365,10 @@ function hazardMesh(h){
 proto.update = function(dt, t){
   const V = this, G = V.G, p = G.player;
   // Zippy, dressed in whatever he's carrying
-  const ids = Object.keys(p.items).join(",");
+  const ids = Object.keys(p.items).join(",") + "|" + G.mods.sets.join(",");
   if(ids !== V.itemIds){
     V.itemIds = ids;
-    const look = DG.Items.costume(Object.keys(p.items));
+    const look = DG.Items.costume(Object.keys(p.items), G.mods.sets);
     if(look.key !== V.lookKey){
       const first = V.lookKey === undefined;
       V.dressPlayer(look);
@@ -362,15 +379,26 @@ proto.update = function(dt, t){
   const W = V.player;
   W.root.position.set(p.x, 0, p.y);
   W.root.rotation.y = PI/2 - p.aim;
-  if(W.gunKey !== G.gun().uid) M.setGun(W, G.gun());
+  const gunEls = [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
+  if(W.gunKey !== G.gun().uid + ":" + gunEls.join(",")) M.setGun(W, G.gun(), gunEls);
+  // holding up what he just found (Isaac's pose); a transformation spins him round
+  if(V.hold){
+    V.hold.t -= dt;
+    const k = V.hold.t, up = Math.min(1, (1.4 - k)*6, k*5);
+    W.parts.armL.rotation.x = -1.0 - 1.9*up; W.parts.armL.rotation.z = -0.3 + 0.25*up;
+    V.hold.g.position.set(p.x, 2.55 + 0.25*up + Math.sin(t*4)*0.05, p.y); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
+    if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
+  }
+  if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
   const speed = Math.hypot(p.vx, p.vy);
   M.idle(W, t, p.blinkT > 0 ? 0 : speed);
+  M.animate(W, t, speed);
   // little puffs of dust where Zippy steps
   V.stride = (V.stride || 0) + speed*dt;
   if(V.stride > 0.75 && p.blinkT <= 0){ V.stride = 0; FX.burst(p.x + (Math.random() - 0.5)*0.3, 0.06, p.y + (Math.random() - 0.5)*0.3, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 }); }
   V.recoil = Math.max(0, (V.recoil || 0) - dt*8);
   W.parts.armR.rotation.x = -1.1 - V.recoil*0.25 + (p.reloadT > 0 ? 0.7 + Math.sin(t*20)*0.1 : 0);
-  W.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
+  if(!V.hold) W.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
   if(W.parts.beard) W.parts.beard.rotation.x = Math.sin(t*3)*0.05 + speed*0.02;
   const flick = p.iframes > 0 && p.blinkT <= 0 ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
@@ -407,7 +435,10 @@ proto.update = function(dt, t){
 
 proto.updateFrogs = function(dt, t){
   const V = this, G = V.G;
-  while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
+  // Gribbus wears his tricks: rebuild the frogs whenever he learns one
+  const fk = G.gribbus.buffs.join(",");
+  if(fk !== V.frogKey){ V.frogKey = fk; V.frogs.forEach(R=> S.scene.remove(R.root)); V.frogs = []; }
+  while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
   G.frogs.forEach((f, i)=>{
     const R = V.frogs[i], g = G.gribbus.g;
     R.root.position.set(f.x, f.hop || 0, f.y);
@@ -418,6 +449,7 @@ proto.updateFrogs = function(dt, t){
     const air = (f.hop || 0) > 0.05;
     R.body.scale.set(air ? 0.9 : 1 + Math.sin(t*3 + i)*0.03, air ? 1.15 : 1 - Math.sin(t*3 + i)*0.03, air ? 1.1 : 1);
     if(R.parts.crown) R.parts.crown.visible = !!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0;
+    M.animate(R, t, 0);
     // the tongue
     const tg = R.parts.tongue;
     if(R.lick > 0){
@@ -529,7 +561,7 @@ proto.updateAllies = function(dt, t){
     o.g.position.set(a.x, y + (a.kind === "wisp" ? Math.sin(t*6 + a.id)*0.12 : 0), a.y);
     if(Math.hypot(a.vx, a.vy) > 0.1) o.g.rotation.y = Math.atan2(a.vx, a.vy);
     if(a.kind === "wisp" && Math.random() < 0.5) FX.emit(a.x, y, a.y, 0, 0.1, 0, ELC(a.el), 0.3, 0.3, 0, 1);
-    if(a.kind === "shadow"){ const R = o.g.userData.rig, p = G.player; o.g.rotation.y = PI/2 - p.aim; if(R.gunKey !== G.gun().uid){ M.setGun(R, G.gun()); } M.idle(R, t, Math.hypot(p.vx, p.vy)); }
+    if(a.kind === "shadow"){ const R = o.g.userData.rig, p = G.player; o.g.rotation.y = PI/2 - p.aim; if(R.gunKey !== W0gunKey(G)){ M.setGun(R, G.gun(), W0els(G)); } M.idle(R, t, Math.hypot(p.vx, p.vy)); }
     if(a.kind === "tadpole") o.g.children.forEach(c=>{ if(c.userData.baked) c.rotation.y = Math.sin(t*20 + a.id)*0.3; });
     if(a.kind === "bee"){ o.g.position.y = y + Math.sin(t*14 + a.id)*0.1; o.g.userData.wings.forEach((w, i)=> w.rotation.z = Math.sin(t*60)*0.6*(i ? -1 : 1)); }
     if(a.kind === "ghoul"){ M.idle(o.g.userData.rig, t, Math.hypot(a.vx, a.vy)); o.g.position.y = 0.15 + Math.sin(t*3 + a.id)*0.08; if(Math.random() < 0.2) FX.emit(a.x, 0.6, a.y, 0, 0.6, 0, 0x6aff9a, 0.25, 0.4, 0, 1); }

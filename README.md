@@ -3,6 +3,7 @@
 A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, a wizard who casts spells **through guns**, with **Gribbus** the frog hopping along beside you. The dungeon is dug fresh every run, and it gets spookier and weirder the deeper you go.
 
 - **No slots, just powerups.** 127 passive items stack on everything. Some are godly, and some are just weird: Rubber Chicken, Portal Pockets, Loaded Dice, a Haunted Gun, bees. Ricochet + Frost Rounds + Crystal Growth + Wispcraft makes every bounce grow an icicle that releases an ice wisp. Items fire triggers (on hit, on kill, on bounce, on hurt...) into payloads that can trigger further, three deep. There are 12 **duos**, 5 gun **ascensions** and 15 **active items** (F).
+- **Transformations.** Three items from a set turn Zippy into a Pyromancer, Ice Lich, Storm Lord, Plague Doctor, Gardener, Goldfinger, Frog Prince or Goofball.
 - **Zippy wears what he carries.** A fire item turns his cape red, a legendary one his whole robe. Vine items wind vines round him. Goggles, a beehive, a rubber chicken in the hat band, a halo, a Gribbus hood: about 40 items change how he looks.
 - **Elements react.** Arcane, fire, frost, poison and shock leave byproducts (icicles, flames, puddles, sparks, runes) and combine into Steam, Conduct, Brittle Rot and more.
 - **Gribbus** licks, spits and croaks on his own. **Frog ponds** teach him new tricks, and **golden flies** unlock rarer ones for every future run.

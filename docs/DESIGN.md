@@ -108,6 +108,21 @@ Zippy wears what he carries, as in Isaac (`DG.COSTUMES` in `items.js`, resolved 
 - **Auras.** The big ones add particles: embers, snow, sparks, toxic bubbles, gold glints, smoke, rainbow, stars.
 - **Live.** He's rebuilt with a sparkle whenever the look changes. `?gallery` has a COSTUMES row.
 
+### 3.5d Transformations
+Collect 3 items from a set (`DG.SETS`) and Zippy transforms, as in Isaac. Each form has its own look, which beats any item dye, and a modest bonus:
+- **Pyromancer:** red, horns, fire on every shot.
+- **Ice Lich:** a skull mask and an ice crown, frost novas.
+- **Storm Lord:** lightning strikes.
+- **Plague Doctor:** a beak and a top hat, plague on every shot.
+- **Gardener:** a flower hat, petals, luck.
+- **Goldfinger:** a crown, gold.
+- **Frog Prince:** a lily cape, a stronger Gribbus.
+- **Goofball:** a clown nose and ruff, confusion.
+
+Items from a set you've started roll 2.5x more often per item you own from it, so a form is something you can chase. About a third of runs transform by floor 4.
+
+Costumes also move: the cape flares as he runs; halos, ghosts and gremlins bob; the disco ball and orbit rings spin; flames flicker. The gun grows a little gem for every element its shots carry. Gribbus wears each trick he learns: goggles, a lily-pad hat, a doom hood, a bubble pipe, a pet fly. Zippy holds each new item up over his head, Isaac-style.
+
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 
