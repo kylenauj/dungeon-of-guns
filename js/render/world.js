@@ -64,6 +64,7 @@ proto.buildAreas = function(){
   const solidish = (x, y)=>{ const t = D.at(x, y); return t === T.SOLID || t === T.FAKE; };
   const cF1 = new THREE.Color(th.floor).multiplyScalar(1.35), cF2 = new THREE.Color(th.floor2).multiplyScalar(1.35), cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
   const style = (x, y)=>{ const r = DG.Dungeon.roomAt(D, x + 0.5, y + 0.5); return r ? r.style : null; };
+  const clumps = DG.Dungeon.clumps(D);
   for(let y=0; y<D.h; y++) for(let x=0; x<D.w; x++){
     const t = D.at(x, y), a = W.area[y*D.w + x];
     if(a < 0) continue;
@@ -79,7 +80,12 @@ proto.buildAreas = function(){
       });
       b.floor.push(g);
     }
-    if(t === T.BLOCK){
+    const ci = t === T.BLOCK ? clumps.of[y*D.w + x] : -1;
+    if(ci >= 0){
+      // four blocks in a square are one big obstacle, drawn from its top-left tile
+      const cl = clumps.list[ci];
+      if(cl.x === x && cl.y === y) W.bigBlock(b, x, y, style(x, y), h, a, cW, cTop);
+    } else if(t === T.BLOCK){
       const st = style(x, y);
       if(st === "crates"){
         K.part(b.parts, new THREE.BoxGeometry(0.9, 0.85, 0.9), 0x7a5232, x + 0.5, 0.425, y + 0.5);
@@ -145,13 +151,65 @@ proto.buildAreas = function(){
       }
     }
   }
-  (W.capGlows || []).forEach(c=>{ const sp = K.sprite(c.c, 1.4, 0.3); sp.position.set(c.x, c.y, c.z); W.areaGroup(c.area).add(sp); });
+  (W.capGlows || []).forEach(c=>{ const sp = K.sprite(c.c, c.s || 1.4, 0.3); sp.position.set(c.x, c.y, c.z); W.areaGroup(c.area).add(sp); });
   for(const id in buckets){
     const b = buckets[id], g = W.areaGroup(+id);
     if(b.floor.length){ const m = new THREE.Mesh(K.merge(b.floor), W.mats.floor); g.add(m); }
     if(b.wall.length) g.add(new THREE.Mesh(K.merge(b.wall), W.mats.wall));
     if(b.plain.length) g.add(new THREE.Mesh(K.merge(b.plain), W.mats.plain));
     if(b.parts.children.length){ g.add(b.parts); K.bake(b.parts, { w:0.02 }); }
+  }
+};
+
+/* a 2x2 obstacle, in the room's style: a crate stack, a giant glowcap,
+   an old stump, or a broad stone pillar */
+proto.bigBlock = function(b, x, y, st, h, a, cW, cTop){
+  const W = this, th = W.th, gl = th.gloom || 0, P = K.part, cx = x + 1, cz = y + 1;
+  if(st === "crates"){
+    P(b.parts, new THREE.BoxGeometry(1.8, 0.95, 1.8), 0x7a5232, cx, 0.475, cz, 0, (h - 0.5)*0.1, 0);
+    P(b.parts, new THREE.BoxGeometry(1.84, 0.08, 1.84), 0x5a3a1a, cx, 0.92, cz, 0, (h - 0.5)*0.1, 0);
+    [-0.5, 0.5].forEach(o=>{
+      P(b.parts, new THREE.BoxGeometry(0.12, 0.95, 1.84), 0x5a3a1a, cx + o, 0.475, cz);
+      P(b.parts, new THREE.BoxGeometry(1.84, 0.95, 0.12), 0x5a3a1a, cx, 0.475, cz + o);
+    });
+    // a smaller crate left on top
+    const ox = (h - 0.5)*0.6, oz = (h*7 % 1 - 0.5)*0.6;
+    P(b.parts, new THREE.BoxGeometry(0.8, 0.7, 0.8), 0x8a6040, cx + ox, 1.3, cz + oz, 0, h*3, 0);
+    P(b.parts, new THREE.BoxGeometry(0.84, 0.07, 0.84), 0x5a3a1a, cx + ox, 1.62, cz + oz, 0, h*3, 0);
+  } else if(gl >= 0.75 && h < (gl - 0.5)*1.4){
+    // a giant glowcap, with a few small ones at its foot
+    const cap = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888][Math.floor(h*4)], ht = 1.5 + h*0.3;
+    P(b.parts, new THREE.CylinderGeometry(0.34, 0.6, ht, 11), 0x9ab0c4, cx, ht/2, cz);
+    P(b.parts, new THREE.TorusGeometry(0.4, 0.06, 6, 14), 0xb8c8d8, cx, ht*0.7, cz, PI/2);
+    P(b.parts, new THREE.SphereGeometry(0.92, 18, 8, 0, PI*2, 0, PI/2), cap, cx, ht - 0.08, cz, 0, h*6, 0, 1, 0.5, 1);
+    for(let k=0;k<8;k++){ const an = k*0.785 + h*6; P(b.parts, new THREE.SphereGeometry(0.07, 6, 4), 0xb8e8ff, cx + Math.cos(an)*0.56, ht + 0.26, cz + Math.sin(an)*0.56); }
+    P(b.parts, new THREE.CylinderGeometry(0.9, 0.98, 0.14, 12), 0x2a4a3a, cx, 0.07, cz);
+    for(let k=0;k<3;k++){
+      const an = h*9 + k*2.1, r = 0.72, sh = 0.3 + k*0.12;
+      P(b.parts, new THREE.CylinderGeometry(0.05, 0.07, sh, 6), 0x9ab0c4, cx + Math.cos(an)*r, sh/2, cz + Math.sin(an)*r);
+      P(b.parts, new THREE.SphereGeometry(0.17, 8, 4, 0, PI*2, 0, PI/2), cap, cx + Math.cos(an)*r, sh - 0.02, cz + Math.sin(an)*r, 0, 0, 0, 1, 0.6, 1);
+    }
+    const gr = DG.Dungeon.roomAt(W.D, cx, cz);
+    if(gr) W.lights.push({ x:cx, y:ht + 0.4, z:cz, c:cap, i:1.1, room:gr.id, ph:h*6, small:true });
+    (W.capGlows = W.capGlows || []).push({ x:cx, y:ht - 0.08, z:cz, c:cap, area:+a, s:2.4 });
+  } else if(gl >= 0.9){
+    // a great old stump, mossy on top, with shelf fungus up its side
+    const ht = 1.3 + h*0.5, bark = [0x3a2418, 0x2e1c14][Math.floor(h*2)];
+    P(b.parts, new THREE.CylinderGeometry(0.72, 0.88, ht, 12), bark, cx, ht/2, cz, 0, h*6, 0);
+    P(b.parts, new THREE.CylinderGeometry(0.73, 0.73, 0.1, 12), 0x8a6a4a, cx, ht, cz);
+    P(b.parts, new THREE.TorusGeometry(0.4, 0.03, 4, 16), 0x6a4a2a, cx, ht + 0.06, cz, PI/2);
+    P(b.parts, new THREE.CylinderGeometry(0.6, 0.66, 0.06, 12), 0x2a5a3a, cx, ht + 0.07, cz, 0, 0, 0, 1, 1, 0.8);
+    for(let k=0;k<6;k++){ const an = k*PI/3 + h*3; P(b.parts, new THREE.ConeGeometry(0.22, 0.85, 5), 0x2e1c14, cx + Math.cos(an)*0.82, 0.22, cz + Math.sin(an)*0.82, Math.sin(an)*1.15, 0, -Math.cos(an)*1.15); }
+    for(let k=0;k<3;k++){ const an = h*9 + k*2.2; P(b.parts, new THREE.CylinderGeometry(0.24, 0.14, 0.05, 10, 1, false, 0, PI), 0x1a78a8, cx + Math.cos(an)*0.72, 0.45 + k*0.32, cz + Math.sin(an)*0.72, 0, -an + PI/2, 0); }
+    P(b.parts, new THREE.SphereGeometry(0.16, 8, 4, 0, PI*2, 0, PI/2), 0x3ab8ff, cx + 0.25, ht + 0.08, cz - 0.2);
+  } else {
+    // a broad stone pillar on a plinth, with a capstone
+    const g = new THREE.BoxGeometry(1.72, 1.5, 1.72); g.translate(cx, 0.75, cz);
+    b.wall.push(K.paint(g, cW, (c, px, py)=>{ if(py > 1.45) c.copy(cTop); c.multiplyScalar(0.9 + h*0.2); }));
+    P(b.parts, new THREE.BoxGeometry(2, 0.18, 2), cTop.getHex(), cx, 0.09, cz);
+    P(b.parts, new THREE.BoxGeometry(1.88, 0.14, 1.88), cTop.getHex(), cx, 1.52, cz);
+    // carved bands down each corner
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v])=> P(b.parts, new THREE.BoxGeometry(0.16, 1.3, 0.16), cW.clone().multiplyScalar(0.8).getHex(), cx + u*0.84, 0.82, cz + v*0.84));
   }
 };
 

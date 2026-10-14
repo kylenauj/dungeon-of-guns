@@ -728,3 +728,22 @@ test("a bot plays three runs past floor 2, with nobody ending up in a wall", ()=
     assert.ok(G.floor >= 3, w + " reached floor 3 (got " + G.floor + ")");
   }
 });
+
+test("blocks standing in a 2x2 square are drawn as one big obstacle", ()=>{
+  let squares = 0;
+  for(let s=1; s<=30; s++){
+    const D = game("CLUMP" + s).D, C = DG.Dungeon.clumps(D), seen = new Set();
+    C.list.forEach((c, i)=>{
+      [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([dx, dy])=>{
+        const x = c.x + dx, y = c.y + dy, k = y*D.w + x;
+        assert.equal(D.at(x, y), T.BLOCK, "every tile of a big obstacle is a block");
+        assert.equal(C.of[k], i, "and knows which obstacle it is part of");
+        assert.ok(!seen.has(k), "no block is part of two big obstacles"); seen.add(k);
+      });
+    });
+    // a lone block is never claimed
+    for(let k=0; k<D.w*D.h; k++) if(C.of[k] >= 0) assert.ok(seen.has(k));
+    squares += C.list.length;
+  }
+  assert.ok(squares > 0, "big pillars do turn up");
+});

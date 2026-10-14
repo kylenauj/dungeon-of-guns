@@ -516,6 +516,18 @@ Dungeon.corridorKnown = function(D, c){
   if(c.secret) return D.fakes.some(f=> f.corridor === c.id && f.revealed) || !!D.rooms[c.a].found || !!D.rooms[c.b].found;
   return !!(D.rooms[c.a].seen || D.rooms[c.b].seen);
 };
+/* obstacles that stand in a 2x2 square are one big obstacle, not four
+   small ones. Returns the top-left tile of each square (they never
+   overlap) and, by tile index, which square a block belongs to. */
+Dungeon.clumps = function(D){
+  const list = [], of = new Int32Array(D.w*D.h).fill(-1), B = (x, y)=> D.at(x, y) === T.BLOCK && of[y*D.w + x] < 0;
+  for(let y=0; y<D.h - 1; y++) for(let x=0; x<D.w - 1; x++){
+    if(!(B(x, y) && B(x + 1, y) && B(x, y + 1) && B(x + 1, y + 1))) continue;
+    const i = list.length; list.push({ x, y });
+    of[y*D.w + x] = of[y*D.w + x + 1] = of[(y + 1)*D.w + x] = of[(y + 1)*D.w + x + 1] = i;
+  }
+  return { list, of };
+};
 Dungeon.roomAt = function(D, x, y){
   const tx = Math.floor(x), ty = Math.floor(y);
   for(const r of D.rooms) if(tx >= r.x1 && tx <= r.x2 && ty >= r.y1 && ty <= r.y2) return r;
