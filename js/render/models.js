@@ -1183,99 +1183,397 @@ Models.king = function(){
   R.h = 3.2; R.size = 2.5;
   return finish(R, { w:0.03 });
 };
+/* a tube that tapers from r0 to r1 along its length (roots, nerves, tendrils, fingers) */
+function bsTaper(pts, r0, r1, seg, rseg){
+  const curve = new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2])));
+  const ts = Math.round((seg || 12)*1.5), rs = Math.max(8, rseg || 8);
+  const g = new THREE.TubeGeometry(curve, ts, 1, rs, false), a = g.attributes.position, c = new THREE.Vector3();
+  for(let j=0;j<=ts;j++){
+    const t = j/ts, r = r0 + (r1 - r0)*Math.pow(t, 0.8); curve.getPointAt(t, c);
+    for(let k=0;k<=rs;k++){ const i = j*(rs + 1) + k; a.setXYZ(i, c.x + (a.getX(i) - c.x)*r, c.y + (a.getY(i) - c.y)*r, c.z + (a.getZ(i) - c.z)*r); }
+  }
+  g.computeVertexNormals();
+  return g;
+}
+/* point a part's +y (or +z) along a direction */
+const bsUp = new THREE.Vector3(0, 1, 0), bsFwd = new THREE.Vector3(0, 0, 1), bsV = new THREE.Vector3();
+function bsAim(m, d, axis){ m.quaternion.setFromUnitVectors(axis || bsUp, bsV.set(d[0], d[1], d[2]).normalize()); return m; }
+/* an egg in a sac: pale, veined, something curled up dark inside */
+const bsEgg = ()=> bsPrefab("egg", g=>{
+  const e = new THREE.SphereGeometry(0.1, 16, 12); e.scale(1, 1.25, 1);
+  bsPaint(e, 0xc8bc8a, 0x8a8058, 18, 3, (c, x, y, z)=>{ const d = Math.hypot(x - 0.02, y + 0.01, z - 0.1); if(d < 0.07) c.lerp(bsC.setHex(0x2a1a14), (0.07 - d)/0.07*0.9); if(Math.abs(bsN(x, y, z, 40, 1)) < 0.06) c.lerp(bsC.setHex(0x6a2a3a), 0.6); });
+  P(g, e, 0xffffff);
+});
+/* a wilted rose: a lump of dark petals */
+const bsRose = ()=> bsPrefab("rose", g=>{
+  const r = K.lump(0.05, 1, 0.5, 7.7); bsPaint(r, 0x3a0c12, 0x140608, 60, 2); P(g, r, 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.8, 1);
+  [0, 2.1, 4.2].forEach(a=> P(g, S(0.032, 8, 6), 0x2a0a0e, Math.cos(a)*0.04, -0.02, Math.sin(a)*0.04, 0, -a, 0.9, 1, 0.3, 1.3));
+});
+
+/* ---- floor 2, the Undercroft: the Morel Matriarch, a swollen broodmother.
+   A bloated egg-sac behind her, gill slits down a stalk of a body, long
+   threadlike arms, and a honeycomb cap hanging over a face like a curtain ---- */
 Models.matriarch = function(){
   const R = rig("matriarch"), b = R.body;
-  // a frilly skirt with a ring of babies at the hem, a stalk of a body, a honeycomb cap
-  P(b, K.lathe([[0.0, 0.02], [1.0, 0.0], [0.95, 0.18], [0.7, 0.45], [0.5, 0.9], [0.0, 0.95]], 22), 0xf0e2c8);
-  [0.18, 0.42].forEach((y, i)=> P(b, TO(0.93 - i*0.22, 0.05), 0xe0d0b0, 0, y, 0, PI/2));
-  for(let i=0;i<9;i++){ const a = i/9*PI*2, x = Math.cos(a)*1.1, z = Math.sin(a)*1.1; P(b, CY(0.04, 0.05, 0.16, 6), 0xf0e6d4, x, 0.08, z); P(b, new THREE.SphereGeometry(0.12, 10, 6, 0, PI*2, 0, PI/2), [0xb08850, 0xd8302a, 0x8a4ab0][i % 3], x, 0.16, z); }
-  const cap = group(b, 0, 1.0, 0); R.parts.head = cap;
-  const g = K.lathe([[0.0, 1.5], [0.4, 1.4], [0.75, 1.05], [0.95, 0.55], [0.9, 0.15], [0.55, 0.0], [0, 0]], 24);
-  K.paint(g, 0xb08850, (c, x, y, z)=>{ const a = Math.atan2(z, x); if(Math.sin(a*9)*Math.sin(y*14) > 0.25) c.multiplyScalar(0.45); });
-  P(cap, g, 0xffffff);
-  gills(cap, 0.85, 0.02, 0xc8b090, 22);
-  // glowing spores in the pits of her cap, and a crown of little mushrooms
-  for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, y = 0.7 + (i % 2)*0.35, rr = y > 0.9 ? 0.82 : 0.95; glow(R, cap, 0.06, 0x9cff6a, Math.cos(a)*rr, y, Math.sin(a)*rr); }
-  for(let i=0;i<5;i++){ const a = i/5*PI*2; P(cap, CY(0.03, 0.04, 0.16, 6), 0xf0e6d4, Math.cos(a)*0.25, 1.48, Math.sin(a)*0.25); P(cap, new THREE.SphereGeometry(0.09, 10, 6, 0, PI*2, 0, PI/2), 0xd8302a, Math.cos(a)*0.25, 1.55, Math.sin(a)*0.25); }
-  eyes(b, 0.22, 0.75, 0.55, 0.1);
-  [-1, 1].forEach(s=>{ for(let k=0;k<3;k++) P(b, BX(0.012, 0.07, 0.012), 0x2a1a10, s*(0.16 + k*0.05), 0.87, 0.6, 0, 0, s*(0.4 - k*0.3)); });
-  P(b, TO(0.18, 0.025, PI), 0x3a2a1a, 0, 0.58, 0.6, 0, 0, PI);
-  [-1, 1].forEach(s=>{ const a = group(b, s*0.6, 0.7, 0.2); P(a, CY(0.07, 0.09, 0.5, 8), 0xf0e2c8, 0, -0.2, 0, 0, 0, s*0.6); P(a, S(0.1, 8, 6), 0xf0e2c8, s*0.15, -0.42, 0.02); });
-  for(let i=0;i<6;i++){ const a = i/6*PI*2; halo(R, b, 0x9cff6a, 0.5, Math.cos(a)*1.0, 0.1, Math.sin(a)*1.0, 0.5); }
-  R.h = 2.6; return finish(R, { w:0.035 });
+  const PALE = 0x9a907a, PALE2 = 0x4a4038, CAP = 0x8e6e44, CAP2 = 0x140c08, SPORE = 0x9cff6a;
+  // a mat of mycelium spread over the floor, threads crawling off it
+  P(b, bsPaint(bsBlob(1.15, 1, 0.1, 1.05, 0.03, 4, 2.2, 36, 12), 0x8a8478, 0x24201c, 5, 1), 0xffffff, 0, 0.02, -0.12);
+  for(let i=0;i<16;i++){ const a = i/16*PI*2 + Math.sin(i*3.1)*0.15, r0 = 0.9, r1 = 1.45 + (i % 3)*0.12;
+    P(b, K.tube([[Math.sin(a)*r0, 0.05, Math.cos(a)*r0 - 0.12], [Math.sin(a + 0.08)*(r0 + r1)/2, 0.03, Math.cos(a + 0.08)*(r0 + r1)/2 - 0.12], [Math.sin(a - 0.05)*r1, 0.015, Math.cos(a - 0.05)*r1 - 0.12]], 0.014, 6, 4), 0xa8a090); }
+  // the brood sac: segmented, veined, crusted with eggs and shelf fungus
+  const ab = bsBlob(0.75, 1.15, 0.7, 1.35, 0.04, 4.5, 1.7, 48, 32);
+  bsPaint(ab, PALE, 0x5a4a50, 4, 2, (c, x, y, z)=>{ if(Math.abs(bsN(x, y, z, 6, 3)) < 0.055) c.lerp(bsC.setHex(0x3a1430), 0.75); if(y < -0.2) c.multiplyScalar(0.6); if(y > 0.25) c.lerp(bsC.setHex(0xa8a070), 0.25); });
+  P(b, ab, 0xffffff, 0, 0.55, -0.45);
+  [-0.9, -0.55, -0.2].forEach(z=>{ const f = Math.sqrt(1 - Math.pow((z + 0.45)/1.01, 2)); P(b, bsRing(1, 0.028), 0x3e3230, 0, 0.55, z, 0, 0, 0, 0.87*f, 0.53*f, 1); });
+  for(let i=0;i<26;i++){
+    const a = i*2.39996, e = 0.15 + (i % 7)*0.18, d = [Math.cos(a)*Math.cos(e), Math.sin(e), Math.sin(a)*Math.cos(e)];
+    const x = d[0]*0.86, y = 0.55 + d[1]*0.52, z = -0.45 + d[2]*1.0;
+    if(z > 0.3) continue;
+    const m = P(b, bsEgg(), 0xffffff, x*1.04, y + 0.03, z*1.02 + (z < 0 ? -0.02 : 0), 0, 0, 0, 1 + (i % 4)*0.25);
+    bsAim(m, [d[0], d[1] + 0.5, d[2]]);
+    if(i % 5 === 1) glow(R, b, 0.028, SPORE, x*1.13, y + 0.1, z*1.06);
+  }
+  // burst eggs, empty and dark inside
+  [[0.5, 0.95, -0.7], [-0.45, 0.98, -0.3], [0.1, 1.08, -0.85]].forEach(([x, y, z], i)=>{
+    P(b, new THREE.SphereGeometry(0.13, 16, 10, 0, PI*2, PI*0.35, PI*0.65), 0xb8ac80, x, y, z, 0, i, 0, 1, 1.2, 1);
+    P(b, S(0.11, 12, 8), 0x140a08, x, y + 0.01, z, 0, 0, 0, 1, 0.5, 1);
+  });
+  // shelf fungus on her flanks
+  [[1, 0.6, -0.9, 0.22], [1, 0.42, -0.4, 0.17], [-1, 0.55, -0.75, 0.25], [-1, 0.75, -1.1, 0.15], [1, 0.75, -1.2, 0.14], [-1, 0.38, -0.25, 0.16]].forEach(([s, y, z, r], i)=>{
+    const sh = new THREE.CylinderGeometry(r, r*1.08, 0.05, 20, 1, false, -PI/2, PI);
+    bsPaint(sh, 0x7a5a3a, 0x2a1a10, 30, i, (c, x, y2, z2)=>{ if(y2 < 0) c.setHex(0xb8a888); if(Math.sin(Math.hypot(x, z2)*90) > 0.6) c.multiplyScalar(0.7); });
+    const f = Math.sqrt(Math.max(0.1, 1 - Math.pow((z + 0.45)/1.01, 2))), yy = (y - 0.55)/0.52;
+    P(b, sh, 0xffffff, s*0.86*f*Math.sqrt(Math.max(0, 1 - yy*yy)), y, z, 0, s > 0 ? PI/2 : -PI/2, 0);
+  });
+  for(let i=0;i<9;i++){ const a = 1.2 + i*0.75, x = Math.cos(a)*0.55, z = -0.6 + Math.sin(a)*0.75, h = 0.08 + (i % 3)*0.05;
+    P(b, CY(0.012, 0.018, h, 6), 0xc8c0a8, x, 0.98 + (i % 2)*0.04, z); P(b, new THREE.SphereGeometry(0.04 + (i % 3)*0.012, 10, 6, 0, PI*2, 0, PI/2), [0x5a4030, 0x3a2a24, 0x8a6a4a][i % 3], x, 0.98 + (i % 2)*0.04 + h/2, z); }
+  // her body: a stooped stalk rising from the front of the sac, gill slits down both sides
+  const tg = group(b, 0, 0.42, 0.42); tg.rotation.x = 0.38;
+  const st = bsLathe([[0.4, 0], [0.36, 0.22], [0.28, 0.5], [0.24, 0.78], [0.27, 0.98], [0.2, 1.12], [0.1, 1.2]], 40);
+  K.sculpt(st, 0.018, 9, 3);
+  bsPaint(st, PALE, PALE2, 6, 4, (c, x, y, z)=>{ c.multiplyScalar(0.82 + 0.18*Math.sin(Math.atan2(x, z)*26 + y*3)); if(y < 0.25) c.multiplyScalar(0.7); });
+  P(tg, st, 0xffffff);
+  [-1, 1].forEach(s=>{
+    for(let i=0;i<5;i++){ const y = 0.42 + i*0.1, r = 0.27 - i*0.008;
+      P(tg, BX(0.02, 0.14, 0.06), 0x1a0a0c, s*r, y, 0.02, 0, 0, s*0.35);
+      P(tg, BX(0.025, 0.15, 0.02), 0xb8a890, s*(r + 0.01), y + 0.01, 0.055, 0, 0, s*0.35); }
+    // egg sacs hanging under her arms
+    for(let k=0;k<3;k++) P(tg, bsEgg(), 0xffffff, s*(0.26 + k*0.03), 0.3 - k*0.12, 0.16 + k*0.04, 0.3, 0, 0, 1.3 - k*0.2);
+  });
+  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(tg, K.tube([[Math.sin(a)*0.3, 0.5, Math.cos(a)*0.28], [Math.sin(a)*0.36, 0.2, Math.cos(a)*0.34], [Math.sin(a)*0.44, -0.1 - (i % 3)*0.08, Math.cos(a)*0.42]], 0.01, 6, 4), 0xb0a894); }
+  // long thread-thin arms, fingers like roots
+  const arm = s=>{
+    const a = group(tg, s*0.26, 1.0, 0.04); a.rotation.z = s*0.22;
+    P(a, S(0.07, 12, 8), PALE, 0, 0, 0);
+    P(a, CY(0.04, 0.055, 0.5, 12), PALE, 0, -0.25, 0.02);
+    P(a, S(0.05, 10, 8), 0xb8ac94, 0, -0.5, 0.04);
+    P(a, CY(0.03, 0.042, 0.5, 12), PALE2, 0, -0.74, 0.12, 0.35);
+    P(a, S(0.045, 10, 8), PALE2, 0, -0.98, 0.21);
+    for(let k=0;k<5;k++){ const ang = (k - 2)*0.35; P(a, K.tube([[0, -1.0, 0.22], [Math.sin(ang)*0.06, -1.1, 0.24 + Math.cos(ang)*0.04], [Math.sin(ang)*0.1, -1.22, 0.23 + Math.cos(ang)*0.08]], 0.011, 6, 4), 0x8a8270); }
+    P(a, K.tube([[0, -0.6, 0.06], [0.03, -0.9, 0.0], [0.02, -1.2, 0.03]], 0.006, 6, 4), 0xc8c0b0);
+    return a;
+  };
+  R.parts.armR = arm(1); R.parts.armL = arm(-1);
+  // the head: a wizened face under a honeycomb cap, gills hanging round it like a veil
+  const cap = group(tg, 0, 1.2, 0.06); R.parts.head = cap; cap.rotation.x = -0.25;
+  const face = bsBlob(0.15, 0.82, 1.1, 0.9, 0.012, 14, 2);
+  bsPaint(face, 0xa89a80, 0x3a3028, 9, 5, (c, x, y, z)=>{ if(z > 0.05 && y > -0.02 && y < 0.07 && Math.abs(x) > 0.02 && Math.abs(x) < 0.11) c.multiplyScalar(0.35); });
+  P(cap, face, 0xffffff, 0, -0.1, 0.16);
+  [-1, 1].forEach(s=>{ P(cap, S(0.032, 10, 8), BS.black, s*0.05, -0.07, 0.29, 0, 0, 0, 1.2, 0.8, 0.5); glow(R, cap, 0.011, SPORE, s*0.05, -0.07, 0.305); });
+  P(cap, S(0.04, 10, 8), 0x140808, 0, -0.2, 0.29, 0, 0, 0, 1, 1.6, 0.5);
+  for(let i=0;i<4;i++) P(cap, bsTooth(), 0xffffff, -0.024 + i*0.016, -0.15, 0.3, PI, 0, 0, 0.5, 0.6, 0.5);
+  const cg = bsLathe([[0.6, -0.08], [0.7, 0.05], [0.72, 0.22], [0.66, 0.48], [0.5, 0.78], [0.26, 1.0], [0.0, 1.08]], 84);
+  { const a = cg.attributes.position;
+    for(let i=0;i<a.count;i++){
+      const x = a.getX(i), y = a.getY(i), z = a.getZ(i), ang = Math.atan2(x, z), r = Math.hypot(x, z);
+      if(r < 0.02 || y < 0.0) continue;
+      const u = ang/PI*7 + bsN(x, y, z, 5, 1)*0.35, v = y*6.5 + (Math.floor(u) % 2)*0.5 + bsN(x, y, z, 4, 2)*0.3;
+      const du = Math.abs(u - Math.floor(u) - 0.5)*2, dv = Math.abs(v - Math.floor(v) - 0.5)*2;
+      const pit = Math.max(0, 1 - du*du)*Math.max(0, 1 - dv*dv), k = 1 - 0.11*pit*Math.min(1, y*4);
+      a.setX(i, x*k); a.setZ(i, z*k);
+    }
+    cg.computeVertexNormals();
+    K.paint(cg, CAP, (c, x, y, z)=>{
+      const u = Math.atan2(x, z)/PI*7 + bsN(x, y, z, 5, 1)*0.35, v = y*6.5 + (Math.floor(u) % 2)*0.5 + bsN(x, y, z, 4, 2)*0.3;
+      const du = Math.abs(u - Math.floor(u) - 0.5)*2, dv = Math.abs(v - Math.floor(v) - 0.5)*2, pit = Math.max(0, 1 - du*du)*Math.max(0, 1 - dv*dv);
+      if(y > 0.02) c.lerp(bsC.setHex(CAP2), Math.min(1, pit*1.3)); else c.setHex(0x8a7a5e); if(bsN(x, y, z, 11, 3) > 0.5) c.lerp(bsC.setHex(0x3a4a30), 0.4); });
+  }
+  P(cap, cg, 0xffffff, 0, 0.02, -0.05);
+  // gills: a ragged curtain under the rim, parted at the front so the face shows
+  for(let i=0;i<44;i++){
+    const a = i/44*PI*2; if(Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.42) continue;
+    const l = 0.25 + ((i*7) % 5)*0.06;
+    P(cap, BX(0.008, l, 0.1), i % 2 ? 0x8a7a62 : 0x6a5a48, Math.sin(a)*0.6, -0.05 - l/2, Math.cos(a)*0.6 - 0.05, 0, a, 0);
+  }
+  for(let i=0;i<16;i++){ const a = i*2.39996, e = 0.15 + (i % 5)*0.17, y = e*1.25, r = 0.7*Math.cos(e*1.2);
+    glow(R, cap, 0.022 + (i % 3)*0.01, SPORE, Math.sin(a)*r*0.95, y, Math.cos(a)*r*0.95 - 0.05); }
+  halo(R, cap, SPORE, 1.6, 0, 0.5, 0, 0.18);
+  for(let i=0;i<5;i++){ const a = i/5*PI*2 + 0.4; halo(R, b, SPORE, 0.9, Math.sin(a)*1.0, 0.15, Math.cos(a)*1.0 - 0.2, 0.3); }
+  R.h = 2.7; return finish(R, { w:0.03 });
 };
+
+/* ---- floor 3, the Rotting Crypt: the Weeping Bride. A towering corpse in
+   a torn wedding dress, face hidden under a veil, long dead hands, a
+   bouquet gone black, and the candles of a wedding nobody came to ---- */
 Models.bride = function(){
   const R = rig("bride"), b = R.body;
-  const float = group(b, 0, 0.3, 0); R.parts.head = float;
-  // the dress, ruffled in tiers, and a long ghostly train behind
-  P(float, K.lathe([[0, 1.5], [0.2, 1.42], [0.28, 1.1], [0.3, 0.85], [0.55, 0.4], [0.75, 0.05], [0, 0.05]], 20), 0xe8ecff);
-  [[0.08, 0.74], [0.32, 0.6], [0.58, 0.44]].forEach(([y, r])=> P(float, TO(r, 0.045), 0xd0d8f8, 0, y, 0, PI/2));
-  P(float, K.lathe([[0.7, 0.04], [0.5, 0.3], [0.25, 0.6], [0, 0.65]], 14), 0xc8d0f0, 0, 0, -0.55, 0, 0, 0, 0.9, 0.5, 1.8);
-  P(float, TO(0.29, 0.03), 0xb8c0e8, 0, 0.92, 0, PI/2);
-  // pearls, a tiara, her face, sad brows and glowing tears
-  for(let i=0;i<9;i++){ const a = -1.2 + i*0.3; P(float, S(0.025, 6, 4), 0xfff8f0, Math.sin(a)*0.21, 1.36 + Math.cos(a*1.3)*0.02, Math.cos(a)*0.21); }
-  P(float, S(0.2, 14, 10), 0xd8e0ff, 0, 1.6, 0.03);
-  P(float, TO(0.17, 0.02, PI), 0xe8e8ff, 0, 1.72, 0.0, 0, 0, 0);
-  for(let i=0;i<5;i++) P(float, CO(0.022, 0.08 + (i === 2 ? 0.05 : 0), 4), 0xe8e8ff, -0.12 + i*0.06, 1.8 + (i === 2 ? 0.03 : 0), 0.02);
-  glow(R, float, 0.03, 0x8ae8ff, 0, 1.9, 0.03);
-  [-1, 1].forEach(s=>{ glow(R, float, 0.04, 0x8ae8ff, s*0.075, 1.62, 0.18); P(float, BX(0.07, 0.015, 0.02), 0x5a6a9a, s*0.075, 1.7, 0.19, 0, 0, s*-0.4); glow(R, float, 0.018, 0x8ae8ff, s*0.08, 1.5, 0.2); });
-  P(float, S(0.035, 8, 6), 0x3a2a4a, 0, 1.52, 0.2, 0, 0, 0, 1.3, 0.6, 0.5);
-  // the veil, and long dark hair under it
-  P(float, new THREE.LatheGeometry([[0.55, 0.6], [0.4, 1.3], [0.27, 1.75], [0.05, 1.93]].map(p=> new THREE.Vector2(p[0], p[1])), 16, PI*0.62, PI*0.76), 0xf8f8ff, 0, 0, -0.04);
-  P(float, TO(0.24, 0.025, PI*0.9), 0xf0f0ff, 0, 1.76, -0.02, PI/2 - 0.3, 0, -PI*0.95);
-  for(let i=0;i<5;i++){ const x = (i - 2)*0.08; P(float, K.tube([[x, 1.7, -0.05], [x*1.4, 1.3, -0.2], [x*1.6, 0.85, -0.25]], 0.035, 8, 5), 0x2a2238); }
-  // sleeves, hands, and a bouquet gone to seed
-  [-1, 1].forEach(s=>{ const a = group(float, s*0.24, 1.25, 0.05); P(a, CY(0.05, 0.09, 0.45, 10), 0xe8ecff, s*0.05, -0.18, 0.12, 0.7, 0, s*0.35); P(a, S(0.05, 8, 6), 0xd8e0ff, -s*0.06, -0.38, 0.3); });
-  P(float, CY(0.06, 0.03, 0.25, 6), 0x3a5a2a, 0, 0.82, 0.42, 0.3);
-  [[0, 0.98, 0.45], [-0.08, 0.95, 0.42], [0.08, 0.95, 0.43], [-0.04, 1.02, 0.38], [0.05, 1.03, 0.38]].forEach(([x, y, z], i)=> P(float, S(0.06, 8, 6), [0x5a3a4a, 0x8a5a7a, 0x4a2a3a][i % 3], x, y, z));
-  P(float, TO(0.04, 0.015), 0xb8c0e8, 0, 0.85, 0.44, PI/2);
-  halo(R, float, 0xa8d8ff, 3, 0, 1, 0, 0.35);
-  R.h = 2.3; R.ghostly = true; return finish(R, { w:0.03 });
+  const f = group(b, 0, 0.3, 0); R.parts.head = f;
+  const DRESS = 0xaca48e, DRESS2 = 0x3e382e, FLESH = 0x7c7e86, FLESH2 = 0x34343e, SOUL = 0x8ad8ff;
+  const stain = (c, x, y, z)=>{ if(y < 0.5) c.multiplyScalar(0.55 + y*0.9); if(bsN(x, y, z, 6, 9) > 0.55) c.lerp(bsC.setHex(0x3a1410), 0.55); };
+  // the underskirt and the dress over it, split at the front, hanging in rags below the floor
+  const us = K.tatter(bsLathe([[0.66, -0.25], [0.58, 0.2], [0.4, 0.62], [0.24, 1.0], [0.18, 1.2]], 44), 0.15, 26, 0.35, 4.1);
+  bsPaint(us, 0x6a6456, 0x2a2620, 7, 2, stain); P(f, us, 0xffffff);
+  const prof = [[0.78, -0.25], [0.64, 0.1], [0.47, 0.46], [0.3, 0.84], [0.2, 1.13], [0.18, 1.26]];
+  const ds = K.tatter(bsLathe(prof, 48, 0.32), 0.3, 28, 0.5, 2.3); bsPaint(ds, DRESS, DRESS2, 4, 1, stain); P(f, ds, 0xffffff);
+  const dl = K.tatter(bsLathe(prof.map(p=> [p[0]*0.975, p[1]]), 48, 0.32, true), 0.3, 28, 0.5, 2.3); bsPaint(dl, 0x3a362e, 0x1a1814, 5, 1); P(f, dl, 0xffffff);
+  // ruffles, torn
+  { const g = K.tatter(bsLathe([[0.36, 0.62], [0.29, 0.8], [0.26, 0.86]], 48, 0.32), 0.7, 30, 0.2, 5); bsPaint(g, 0xa8a08a, 0x4a4438, 9, 1, stain); P(f, g, 0xffffff); }
+  // the train, dragging behind her, candles melted onto it
+  const tr = new THREE.PlaneGeometry(1, 1.5, 12, 18); tr.rotateX(-PI/2);
+  { const a = tr.attributes.position;
+    for(let i=0;i<a.count;i++){ const x = a.getX(i), z = a.getZ(i), t = (0.75 - z)/1.5; // t: 0 near her, 1 at the end
+      a.setX(i, x*(0.95 - (1 - t)*0.35)); a.setY(i, Math.sin(x*9 + z*2)*0.035 + (1 - t)*0.25 + Math.max(0, 0.06 - t*0.06));
+      if(t > 0.85) a.setZ(i, z - (Math.sin(x*37.1)*0.5 + 0.5)*0.25*(t - 0.85)/0.15); }
+    tr.computeVertexNormals(); bsPaint(tr, DRESS, 0x4a443a, 4, 3, (c, x, y, z)=>{ c.multiplyScalar(0.65 + (z + 0.75)*0.2); }); }
+  P(f, tr, 0xffffff, 0, -0.28, 0.0 - 1.15, 0, 0, 0);
+  [[0.25, -1.2, 0.2], [-0.3, -1.45, 0.14], [0.05, -1.75, 0.26], [-0.12, -1.05, 0.1]].forEach(([x, z, h])=> bsCandle(R, f, x, -0.28 + (1 - (0.75 - (z + 1.15))/1.5)*0.25, z, h));
+  // the bodice: laced, torn open over her ribs
+  const bod = bsLathe([[0.17, 1.18], [0.15, 1.32], [0.18, 1.46], [0.21, 1.58], [0.2, 1.66], [0.12, 1.72]], 36);
+  bsPaint(bod, 0xb8ae96, 0x5a5244, 7, 6, (c, x, y, z)=>{ if(z > 0.1 && y > 1.38 && y < 1.6 && Math.abs(x) < 0.09) c.setHex(0x120808); });
+  P(f, bod, 0xffffff);
+  for(let i=0;i<4;i++){ const y = 1.4 + i*0.05; P(f, K.tube([[-0.08, y, 0.17], [0, y + 0.012, 0.195], [0.08, y, 0.17]], 0.006, 6, 4), 0x7a7262); }
+  P(f, BX(0.012, 0.2, 0.02), 0x6a6252, 0, 1.49, 0.19);
+  for(let i=0;i<5;i++){ const y = 1.2 + i*0.035; [-1, 1].forEach(s=> P(f, BX(0.06, 0.006, 0.006), 0x2a2420, s*0.03, y, 0.165, 0, 0, s*0.6)); }
+  P(f, bsRing(0.175, 0.022), 0x3a3430, 0, 1.2, 0, PI/2);
+  P(f, S(0.03, 10, 8), BS.brass, 0, 1.2, 0.19);
+  // shoulders, collarbones, a long grey neck
+  [-1, 1].forEach(s=>{ P(f, S(0.065, 12, 8), FLESH, s*0.18, 1.68, 0); P(f, K.tube([[s*0.03, 1.7, 0.1], [s*0.1, 1.71, 0.08], [s*0.17, 1.7, 0.03]], 0.012, 6, 4), 0x9a9aa0); });
+  P(f, CY(0.04, 0.05, 0.2, 12), FLESH, 0, 1.79, 0.02, 0.2);
+  // the head, bowed, sunk in the veil; only the eyes come through
+  const hd = group(f, 0, 1.94, 0.05); hd.rotation.set(0.35, 0, 0.22);
+  P(hd, bsPaint(bsBlob(0.11, 0.85, 1.05, 0.95, 0.008, 16, 3), FLESH2, 0x14141a, 9, 2), 0xffffff, 0, 0, 0);
+  for(let i=0;i<12;i++){ const a = (i/11 - 0.5)*2.6 + PI, r = 0.1;
+    P(hd, K.tube([[Math.sin(a)*r, 0.08, Math.cos(a)*r], [Math.sin(a)*(r + 0.06), -0.2, Math.cos(a)*(r + 0.06)], [Math.sin(a)*(r + 0.1) + Math.sin(i)*0.04, -0.55 - (i % 3)*0.1, Math.cos(a)*(r + 0.1)]], 0.014, 8, 4), 0x121016); }
+  // the veil: a short one over the face, a long one down her back
+  const fv = [[0.03, 0.22], [0.15, 0.16], [0.19, 0.02], [0.2, -0.12], [0.21, -0.2]];
+  P(f, bsPaint(K.tatter(bsLathe(fv, 40), -0.08, 14, 0.12, 3.3), 0xb8b2a4, 0x5a5650, 8, 4), 0xffffff, 0, 1.98, 0.1);
+  P(f, K.tatter(bsLathe(fv.map(p=> [p[0]*0.96, p[1]]), 40, 0, true), -0.08, 14, 0.12, 3.3), 0x1e1e24, 0, 1.98, 0.1);
+  const veil = [[0.16, 0.18], [0.2, 0.02], [0.23, -0.15], [0.3, -0.4], [0.38, -0.75], [0.44, -1.05]];
+  const vo = K.tatter(bsLathe(veil, 44, 1.25), -0.75, 16, 0.35, 7.1); bsPaint(vo, 0xb0aa9c, 0x4a4640, 8, 4, (c, x, y)=>{ c.multiplyScalar(0.95 + y*0.25); }); P(f, vo, 0xffffff, 0, 1.98, 0.08);
+  const vi = K.tatter(bsLathe(veil.map(p=> [p[0]*0.96, p[1]]), 44, 1.25, true), -0.75, 16, 0.35, 7.1); P(f, vi, 0x1e1e24, 0, 1.98, 0.08);
+  [-1, 1].forEach(s=>{ glow(R, f, 0.015, SOUL, s*0.05, 1.92, 0.31); halo(R, f, SOUL, 0.25, s*0.05, 1.92, 0.32, 0.6); });
+  
+  // a wreath of dead flowers and a tarnished tiara
+  for(let i=0;i<10;i++){ const a = i/10*PI*2; P(f, bsRose(), 0xffffff, Math.sin(a)*0.17, 2.11 + Math.cos(a*3)*0.02, 0.1 + Math.cos(a)*0.16, 0, a, 0, 0.8); P(f, CO(0.006, 0.08, 4), 0x2a2018, Math.sin(a + 0.3)*0.19, 2.14, 0.1 + Math.cos(a + 0.3)*0.18, Math.cos(a)*0.7, 0, -Math.sin(a)*0.7); }
+  for(let i=0;i<5;i++) P(f, CO(0.013, 0.06 + (i === 2 ? 0.05 : 0), 4), 0x5a4a30, -0.08 + i*0.04, 2.19 + (i === 2 ? 0.02 : 0), 0.24 - Math.abs(i - 2)*0.02);
+  glow(R, f, 0.016, SOUL, 0, 2.27, 0.25);
+  // arms: long, grey, the right reaching for you, the left clutching a bouquet gone black
+  const arm = (s, reach)=>{
+    const a = group(f, s*0.2, 1.66, 0.02);
+    const el = reach ? [s*0.05, -0.32, 0.16] : [s*0.04, -0.38, 0.02], wr = reach ? [s*0.02, -0.46, 0.52] : [-s*0.05, -0.5, 0.3];
+    P(a, S(0.05, 10, 8), FLESH, 0, 0, 0);
+    P(a, K.tube([[0, 0, 0], [el[0]*0.5, el[1]*0.5, el[2]*0.5], el], 0.035, 8, 8), FLESH);
+    P(a, K.tube([el, [(el[0] + wr[0])/2, (el[1] + wr[1])/2, (el[2] + wr[2])/2], wr], 0.026, 8, 8), FLESH2);
+    P(a, S(0.032, 8, 6), 0x9a9aa0, el[0], el[1], el[2]);
+    const sl = K.tatter(bsLathe([[0.09, -0.2], [0.07, -0.05], [0.05, 0.05]], 20), -0.12, 9, 0.15, s + 3); P(a, sl, 0xc0b6a0, el[0]*0.35, el[1]*0.35, el[2]*0.35, reach ? 0.5 : 0.1, 0, s*0.1);
+    P(a, S(0.04, 10, 8), FLESH2, wr[0], wr[1], wr[2], 0, 0, 0, 0.8, 0.5, 1.2);
+    return { a, wr };
+  };
+  const rA = arm(1, true), lA = arm(-1, false);
+  R.parts.armR = rA.a; R.parts.armL = lA.a;
+  for(let k=0;k<5;k++){ const sp = (k - 2)*0.05, w = rA.wr;
+    P(rA.a, K.tube([[w[0] + sp*0.5, w[1], w[2] + 0.03], [w[0] + sp, w[1] - 0.03, w[2] + 0.13], [w[0] + sp*1.3, w[1] - 0.09, w[2] + 0.22 - Math.abs(k - 2)*0.03]], 0.008, 8, 4), FLESH2);
+    P(rA.a, CO(0.007, 0.04, 4), 0x1a1614, w[0] + sp*1.3, w[1] - 0.1, w[2] + 0.24 - Math.abs(k - 2)*0.03, PI/2 + 0.6); }
+  const bq = group(lA.a, lA.wr[0], lA.wr[1], lA.wr[2]);
+  for(let k=0;k<7;k++) P(bq, CY(0.005, 0.005, 0.3, 4), 0x2a2a18, (k - 3)*0.008, -0.1, 0.0, 0.1*(k - 3), 0, 0.08*(k - 3));
+  P(bq, bsRing(0.03, 0.01), 0x4a3a40, 0, -0.03, 0, PI/2);
+  [[0, 0.1, 0.02], [-0.06, 0.07, 0.03], [0.06, 0.08, 0.0], [-0.03, 0.12, -0.04], [0.04, 0.13, 0.05], [0.0, 0.05, 0.07], [-0.07, 0.03, -0.03]].forEach(([x, y, z], i)=> P(bq, bsRose(), 0xffffff, x, y, z, i, i*2, 0, 0.9 + (i % 3)*0.15));
+  for(let k=0;k<4;k++){ const a = k*1.6; P(bq, BX(0.04, 0.005, 0.02), 0x2a3018, Math.cos(a)*0.08, 0.02 - k*0.02, Math.sin(a)*0.08, 0.3, a, 0.5); }
+  P(bq, K.tube([[0.01, -0.03, 0.03], [0.03, -0.2, 0.05], [0.0, -0.42, 0.04]], 0.008, 6, 4), 0x5a4a50);
+  // candles drifting round her, and the cold light she gives off
+  [[0.62, 1.5, 0.35, 0.16], [-0.65, 1.25, 0.1, 0.22], [0.45, 0.95, -0.55, 0.12]].forEach(([x, y, z, h])=> bsCandle(R, f, x, y, z, h, 1.2));
+  halo(R, f, SOUL, 1.4, 0, 1.5, 0.2, 0.3);
+  halo(R, f, 0xa8d8ff, 3.2, 0, 0.3, 0, 0.18);
+  R.h = 2.5; R.ghostly = true; return finish(R, { w:0.028 });
 };
+
+/* ---- floor 4, the Gloomwood Edge: the Eye Below. A vast bloodshot eye in a
+   socket of meat, its lids rimmed with teeth that close like a mouth when it
+   blinks, nerves running out of it into the floor ---- */
+function bsEyeball(R, parent, r, iris, seed){
+  const e = new THREE.SphereGeometry(r, r > 0.5 ? 64 : 22, r > 0.5 ? 48 : 16);
+  K.paint(e, 0xb4a88a, (c, x, y, z)=>{ const cz = z/r;
+    if(cz < 0.2) c.lerp(bsC.setHex(0x7a4438), Math.min(1, (0.2 - cz)*0.8));
+    if(cz > 0.6) c.lerp(bsC.setHex(0xa85a48), (cz - 0.6)*1.4);
+    if(cz < 0.86 && Math.abs(bsN(x/r, y/r, z/r, 5, seed)) < 0.022) c.lerp(bsC.setHex(0x7a0e0c), 0.9);
+    if(cz < 0.86 && Math.abs(bsN(x/r, y/r, z/r, 12, seed + 2)) < 0.02) c.lerp(bsC.setHex(0x9a2018), 0.75);
+    if(bsN(x/r, y/r, z/r, 2.2, seed + 5) > 0.35) c.lerp(bsC.setHex(0x8a6a3a), 0.35); });
+  P(parent, e, 0xffffff);
+  const ic = new THREE.SphereGeometry(r*1.004, r > 0.5 ? 56 : 18, r > 0.5 ? 18 : 6, 0, PI*2, 0, 0.52); ic.rotateX(PI/2);
+  const ir = new THREE.Color(iris), dk = new THREE.Color(0x1a0402);
+  K.paint(ic, iris, (c, x, y, z)=>{
+    const t = Math.acos(Math.min(1, z/(r*1.004)))/0.52, ang = Math.atan2(y, x), xs = x/r, ys = y/r;
+    c.copy(ir).multiplyScalar(0.45 + 0.55*(0.5 + 0.5*Math.sin(ang*38 + Math.sin(ang*7)*2)))
+      .lerp(dk, Math.max(0, t - 0.75)*3);
+    if(t < 0.35) c.lerp(bsC.setHex(0xffd080), (0.35 - t)*1.2);
+    if(Math.abs(xs) < 0.07*Math.max(0, 1 - Math.pow(ys/0.36, 2)) + 0.004) c.setHex(0x000000);
+  });
+  const m = new THREE.Mesh(ic, new THREE.MeshBasicMaterial({ vertexColors:true, transparent:true }));
+  parent.add(m); R.glows.push(m);
+  return m;
+}
 Models.eye = function(){
   const R = rig("eye"), b = R.body;
-  const float = group(b, 0, 1.6, 0); R.parts.head = float;
-  eyeball(R, float, 1.2, 0xff4a2a, 0);
-  // eyelids that close when it blinks, fringed with lashes
-  const top = group(float, 0, 0, 0), bot = group(float, 0, 0, 0);
-  P(top, new THREE.SphereGeometry(1.26, 22, 12, 0, PI*2, 0, PI/2), 0x7a2a4a);
-  P(bot, new THREE.SphereGeometry(1.26, 22, 12, 0, PI*2, PI/2, PI/2), 0x7a2a4a);
-  for(let i=0;i<9;i++){ const a = -1.1 + i*0.275; P(top, CO(0.04, 0.4, 4), 0x1a0810, Math.sin(a)*1.22, 0.05, Math.cos(a)*1.22, PI/2 + 0.5, a, 0); }
-  P(top, TO(1.25, 0.05, PI), 0x5a1a3a, 0, 0, 0, 0, 0, 0);
+  const FL = 0x5a3440, FL2 = 0x1e0c14, IRIS = 0xff4a1a;
+  const float = group(b, 0, 1.65, 0); R.parts.head = float;
+  bsEyeball(R, float, 1.2, IRIS, 1.3);
+  // veins standing out on the white
+  for(let i=0;i<9;i++){
+    const a = i/9*PI*2 + Math.sin(i*5)*0.3, pts = [];
+    for(let k=0;k<8;k++){ const th = 2.1 - k*0.19, w = a + Math.sin(k*2.3 + i)*0.16; pts.push([Math.sin(th)*Math.cos(w)*1.21, Math.sin(th)*Math.sin(w)*1.21, Math.cos(th)*1.21]); }
+    P(float, bsTaper(pts, 0.022, 0.004, 14, 6), 0x5a0c0c);
+  }
+  // the socket: meat behind and round the eye
+  const sock = bsBlob(1.0, 1.25, 1.2, 0.9, 0.08, 3.5, 2.2, 44, 32);
+  bsPaint(sock, FL, FL2, 4, 3, (c, x, y, z)=>{ if(Math.abs(bsN(x, y, z, 5, 1)) < 0.05) c.lerp(bsC.setHex(0x8a1a2a), 0.7); });
+  P(float, sock, 0xffffff, 0, -0.05, -0.62);
+  // lids: wrinkled, bruised, and lined with teeth that meet when it shuts
+  const lid = top=>{
+    const g = group(float, 0, 0, 0);
+    const sh = new THREE.SphereGeometry(1.3, 60, 22, 0, PI*2, top ? 0 : PI/2, PI/2);
+    K.sculpt(sh, 0.04, 4.5, top ? 1 : 2);
+    bsPaint(sh, FL, FL2, 5, top ? 3 : 4, (c, x, y, z)=>{ const ay = Math.abs(y); if(ay < 0.35) c.multiplyScalar(0.75 + 0.25*Math.sin(ay*70)); if(Math.abs(bsN(x, y, z, 4, 7)) < 0.04) c.lerp(bsC.setHex(0x7a1424), 0.7); });
+    P(g, sh, 0xffffff);
+    P(g, bsRing(1.3, 0.1, PI), 0x4a2630, 0, 0, 0, PI/2, 0, 0, 1, 1, top ? 1.15 : 0.9);
+    P(g, bsRing(1.22, 0.07, PI), 0x5a1018, 0, top ? -0.06 : 0.06, 0, PI/2);
+    for(let i=0;i<24;i++){ const a = 0.16 + i/23*(PI - 0.32), big = (i*7) % 5 === 0;
+      P(g, bsTooth(), 0xffffff, Math.cos(a)*1.24, top ? -0.06 : 0.06, Math.sin(a)*1.24, top ? PI : 0, 0, (i % 3 - 1)*0.12, 1.7, big ? 2.6 : 1.4 + (i % 3)*0.25, 1.7); }
+    return g;
+  };
+  const top = lid(true), bot = lid(false);
   top.rotation.x = -1.35; bot.rotation.x = 1.35;
   R.parts.lidT = top; R.parts.lidB = bot;
-  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(b, K.tube([[Math.cos(a)*0.6, 1.0, Math.sin(a)*0.6], [Math.cos(a)*1.4, 0.5, Math.sin(a)*1.4], [Math.cos(a + 0.4)*1.8, 0.05, Math.sin(a + 0.4)*1.8]], 0.13, 10, 8), 0x8a3a7a); P(b, S(0.09, 6, 4), 0xf0a8d8, Math.cos(a + 0.4)*1.8, 0.06, Math.sin(a + 0.4)*1.8); }
-  // little eyes on stalks, watching everything else
-  for(let i=0;i<4;i++){
-    const a = i/4*PI*2 + PI/4, x = Math.cos(a)*1.25, z = Math.sin(a)*1.25;
-    P(b, K.tube([[x*0.7, 1.0, z*0.7], [x, 1.6, z], [x*1.15, 2.4, z*1.15]], 0.06, 8, 5), 0x8a3a7a);
-    const e = group(b, x*1.15, 2.5, z*1.15); e.rotation.y = Math.atan2(x, z)*0.3;
-    eyeball(R, e, 0.16, 0xffd23d, 0);
+  // the optic nerve, trailing out the back and down into the floor
+  P(float, K.tube([[0, -0.1, -1.4], [0, -0.6, -1.85], [0.1, -1.3, -1.9], [0.15, -1.62, -1.7]], 0.2, 14, 12), FL);
+  for(let i=0;i<5;i++) P(float, bsRing(0.21, 0.02), 0x3a1a24, 0, -0.35 - i*0.25, -1.62 - Math.sin(i*0.6)*0.25, 0.6 + i*0.25);
+  // nerves into the floor, splitting at the ends into claws
+  for(let i=0;i<8;i++){
+    const a = i/8*PI*2 + 0.2, ca = Math.cos(a), sa = Math.sin(a), bend = 0.35*(i % 2 ? 1 : -1);
+    const p = [[ca*0.5, 1.05, sa*0.5], [ca*1.0, 0.75, sa*1.0], [Math.cos(a + bend*0.4)*1.45, 0.3, Math.sin(a + bend*0.4)*1.45], [Math.cos(a + bend)*1.95, 0.06, Math.sin(a + bend)*1.95]];
+    P(b, bsPaint(bsTaper([[ca*0.3, 1.2, sa*0.3]].concat(p), 0.24, 0.035, 20, 12), FL, FL2, 7, i, (c, x, y, z)=>{ if(Math.sin((x*ca + z*sa)*30) > 0.7) c.multiplyScalar(0.6); }), 0xffffff);
+    P(b, bsTaper([[ca*0.6, 0.9, sa*0.6], [ca*0.95 - sa*0.15, 0.5, sa*0.95 + ca*0.15], [Math.cos(a - bend*0.6)*1.3, 0.04, Math.sin(a - bend*0.6)*1.3]], 0.05, 0.01, 10, 6), 0x6a3a44);
+    const e = [Math.cos(a + bend)*1.95, 0.06, Math.sin(a + bend)*1.95], d = [Math.cos(a + bend), 0, Math.sin(a + bend)];
+    [-1, 0, 1].forEach(k=>{ const m = P(b, CO(0.035, 0.22, 6), 0x1a1214, e[0] + d[0]*0.08 - d[2]*k*0.07, 0.04, e[2] + d[2]*0.08 + d[0]*k*0.07); bsAim(m, [d[0] - d[2]*k*0.4, -0.25, d[2] + d[0]*k*0.4]); });
+    glow(R, b, 0.03, 0xff3a2a, p[1][0]*1.06, p[1][1] + 0.1, p[1][2]*1.06);
   }
-  halo(R, float, 0xff4a2a, 4, 0, 0, 1, 0.3);
-  R.h = 3.4; return finish(R, { w:0.04 });
+  // fibres dangling from its underside
+  for(let i=0;i<14;i++){ const a = i*2.39996, r = 0.25 + (i % 4)*0.12;
+    P(b, K.tube([[Math.cos(a)*r, 0.75, Math.sin(a)*r], [Math.cos(a)*r*1.1 + 0.05, 0.42, Math.sin(a)*r*1.1], [Math.cos(a + 0.3)*r*1.2, 0.08 + (i % 3)*0.08, Math.sin(a + 0.3)*r*1.2]], 0.015 + (i % 3)*0.006, 8, 4), 0x7a4a50); }
+  // lesser eyes on stalks, half-lidded, looking everywhere else
+  for(let i=0;i<4;i++){
+    const a = i/4*PI*2 + PI/4, x = Math.cos(a)*1.3, z = Math.sin(a)*1.3, h = 2.35 + (i % 2)*0.45;
+    P(b, K.tube([[x*0.6, 0.6, z*0.6], [x*1.05, 1.4, z*1.05], [x*1.15, h - 0.15, z*1.15]], 0.06, 12, 8), FL);
+    const e = group(b, x*1.15, h, z*1.15); e.rotation.y = Math.atan2(x, z) + (i % 2 ? 0.5 : -0.5);
+    bsEyeball(R, e, 0.17, 0xffb03a, i + 4);
+    P(e, new THREE.SphereGeometry(0.185, 20, 8, 0, PI*2, 0, PI*0.42), FL, 0, 0, 0, -0.35);
+    P(e, new THREE.SphereGeometry(0.185, 20, 8, 0, PI*2, PI*0.7, PI*0.3), FL, 0, 0, 0, 0.2);
+  }
+  halo(R, float, IRIS, 3.4, 0, 0, 1.1, 0.25);
+  R.h = 3.4; return finish(R, { w:0.035 });
+};
+
+/* ---- floor 5, the Gloom Forest: the Gloom Heart. A heart the size of a
+   cart, rotten and still beating, cradled in the ribs of whatever it used
+   to be inside, rooted into the forest floor, eyes open in the meat ---- */
+const bsHeartShape = (x, y, z)=>{
+  // a sphere pulled into a heart: tapered to a leaning apex below, shoulders above
+  const k = y < 0 ? 1 + y*0.4 : 1 - y*y*0.08;
+  return [x*k + y*y*0.2*(y < 0 ? 1 : 0), y*(y > 0 ? 0.92 : 1.1), z*k*0.86];
 };
 Models.heart = function(){
-  // the Gloom Heart: a knot of rot flesh rooted in the forest floor, veined
-  // with glowing bile, crowned with cordyceps and glowcaps
   const R = rig("heart"), b = R.body;
-  const beat = group(b, 0, 1.3, 0); R.parts.head = beat;
-  P(beat, fleshGeo(1.0, 2, 0.22, 0x6a1240, 0x9a1a5a), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
-  P(beat, fleshGeo(0.55, 1, 0.3, 0x4a0a30, 0x7a1a4a), 0xffffff, 0.55, 0.45, 0.35);
-  P(beat, fleshGeo(0.5, 1, 0.3, 0x4a0a30, 0x7a1a4a), 0xffffff, -0.6, 0.35, 0.3);
-  pustules(R, beat, 18, 0.98, 0.0, 1, 0.9, 1, ROT.vein);
-  pustules(R, beat, 9, 0.98, 0.0, 1, 0.9, 1, ROT.bile);
-  // eyes peering out of the flesh
-  [[0.0, 0.25, 0.9, 0.16], [0.4, -0.1, 0.85, 0.11], [-0.42, 0.0, 0.85, 0.1], [0.2, 0.55, 0.75, 0.08]].forEach(([x, y, z, r])=>{ P(beat, S(r, 10, 8), 0x1a0a1a, x, y, z); glow(R, beat, r*0.6, ROT.eye, x, y, z + r*0.5); });
-  // cordyceps and glowcaps out of the top
-  for(let i=0;i<9;i++){ const a = i/9*PI*2, rr = 0.45, h = 0.5 + (i % 3)*0.25;
-    P(beat, CO(0.05, h, 5), ROT.cord, Math.cos(a)*rr, 0.75 + h/2, Math.sin(a)*rr, Math.sin(a)*0.5, 0, -Math.cos(a)*0.5);
-    glow(R, beat, 0.06, ROT.vein, Math.cos(a)*(rr + h*0.25), 0.75 + h, Math.sin(a)*(rr + h*0.25)); }
-  [[0.7, 0.6, -0.3, 0.32], [-0.75, 0.5, -0.2, 0.26]].forEach(([x, y, z, r])=>{ P(beat, CY(r*0.25, r*0.3, r*1.2, 8), 0xcfe4ff, x, y, z); P(beat, new THREE.SphereGeometry(r, 12, 6, 0, PI*2, 0, PI/2), 0x2a8aff, x, y + r*0.6, z, 0, 0, 0, 1, 0.55, 1); glow(R, beat, r*0.3, 0x6ad8ff, x, y + r*0.6, z); });
-  // roots: thick violet tubes into the floor
-  for(let i=0;i<7;i++){ const a = i/7*PI*2; P(b, K.tube([[Math.cos(a)*0.6, 0.9, Math.sin(a)*0.6], [Math.cos(a)*1.4, 0.3, Math.sin(a)*1.4], [Math.cos(a)*2.1, 0.02, Math.sin(a)*2.1]], 0.13, 10, 6), 0x3a0a2a); P(b, S(0.2, 10, 6), 0x2a0a20, Math.cos(a)*2.1, 0.02, Math.sin(a)*2.1, 0, 0, 0, 1, 0.4, 1); }
-  halo(R, beat, 0xff3fb0, 5, 0, 0, 0.5, 0.35);
-  R.h = 3; return finish(R, { w:0.04 });
+  const M1 = 0x6e1a2c, M2 = 0x260812, FAT = 0x8a7a4a, VEIN = 0xff3fb0, BILE = 0x9cff3a, BONE = 0xb0a488;
+  // a mound of rot it's rooted in
+  P(b, bsPaint(bsBlob(1.3, 1, 0.26, 1, 0.08, 3, 9, 40, 18), 0x1e0e1a, 0x0a0608, 3, 2, (c, x, y, z)=>{ if(bsN(x, y, z, 5, 4) > 0.4) c.lerp(bsC.setHex(0x22341e), 0.6); }), 0xffffff, 0, 0.02, 0);
+  // roots, thick near it and knotted, splitting into rootlets
+  for(let i=0;i<9;i++){
+    const a = i/9*PI*2 + 0.15, w = (i % 2 ? 0.3 : -0.25), c = Math.cos(a), s = Math.sin(a);
+    const p = [[c*0.8, 0.35, s*0.8], [c*1.35, 0.15, s*1.35], [Math.cos(a + w*0.5)*1.85, 0.06, Math.sin(a + w*0.5)*1.85], [Math.cos(a + w)*2.35, 0.02, Math.sin(a + w)*2.35]];
+    P(b, bsPaint(bsTaper([[c*0.5, 0.45, s*0.5]].concat(p.map(q=> [q[0], Math.min(q[1], 0.12) + 0.02, q[2]])), 0.22, 0.03, 20, 10), 0x3a1430, 0x14060e, 6, i), 0xffffff);
+    for(let k=0;k<2;k++){ const q = p[2 + k*0], ang = a + w + (k ? 0.6 : -0.6);
+      P(b, K.tube([q, [q[0] + Math.cos(ang)*0.3, 0.02, q[2] + Math.sin(ang)*0.3], [q[0] + Math.cos(ang + 0.3)*0.55, 0.01, q[2] + Math.sin(ang + 0.3)*0.55]], 0.03, 8, 5), 0x24101e); }
+    glow(R, b, 0.025, BILE, p[1][0], p[1][1] + 0.12, p[1][2]);
+  }
+  // ribs of something huge around it, some broken off
+  for(let i=0;i<7;i++){
+    const a = PI*0.5 + i/6*PI, c = Math.sin(a), s = Math.cos(a), br = i === 1 ? 2 : i === 4 ? 3 : 5;
+    const p = [[c*1.45, 0.05, s*1.45], [c*1.68, 0.85, s*1.68], [c*1.6, 1.65, s*1.6], [c*1.3, 2.3, s*1.3], [c*0.95, 2.65, s*0.95]].slice(0, br);
+    const t = bsTaper(p, 0.11, 0.06, 18, 10); bsPaint(t, BONE, 0x4a4434, 7, i); P(b, t, 0xffffff);
+    const e = p[p.length - 1], q = p[p.length - 2];
+    const m = P(b, CO(0.06, 0.16, 8), BONE, e[0], e[1], e[2]); bsAim(m, [e[0] - q[0], e[1] - q[1], e[2] - q[2]]);
+  }
+  for(let i=0;i<6;i++){ const z = -1.35 - i*0.03, x = (i - 2.5)*0.3; P(b, bsPaint(K.sculpt(new THREE.BoxGeometry(0.22, 0.16, 0.26, 3, 3, 3), 0.015, 18, i), BONE, 0x3a3428, 9, i), 0xffffff, x, 0.1, z - Math.abs(x)*0.15, 0, 0.1*i, 0); P(b, CO(0.05, 0.2, 6), BONE, x, 0.25, z - Math.abs(x)*0.15 - 0.05, -0.4); }
+  // the heart
+  const beat = group(b, 0, 1.38, 0); R.parts.head = beat;
+  const H = group(beat); H.scale.setScalar(1.1);
+  const hg = new THREE.SphereGeometry(1, 64, 48);
+  { const a = hg.attributes.position; for(let i=0;i<a.count;i++){ const q = bsHeartShape(a.getX(i), a.getY(i), a.getZ(i)); a.setXYZ(i, q[0], q[1], q[2]); } hg.computeVertexNormals(); }
+  K.sculpt(hg, 0.06, 2.6, 4); K.sculpt(hg, 0.014, 11, 8);
+  bsPaint(hg, M1, M2, 3, 2, (c, x, y, z)=>{
+    if(y > 0.45 && bsN(x, y, z, 6, 1) > 0.05) c.lerp(bsC.setHex(FAT), 0.7);
+    if(Math.abs(bsN(x, y, z, 2.5, 5)) < 0.04) c.lerp(bsC.setHex(0x0a0206), 0.8);
+    if(bsN(x, y, z, 4, 7) > 0.55) c.lerp(bsC.setHex(0x3a2a3a), 0.6);
+  });
+  P(H, hg, 0xffffff, 0, 0, 0, 0, 0, 0.22);
+  const onH = (u, v, r)=>{ const d = [Math.cos(v)*Math.sin(u), Math.sin(v), Math.cos(v)*Math.cos(u)], q = bsHeartShape(d[0]*r, d[1]*r, d[2]*r), c = Math.cos(0.22), s = Math.sin(0.22); return [q[0]*c - q[1]*s, q[0]*s + q[1]*c, q[2]]; };
+  // vessels down its face: dark ones raised, and veins of glowing rot
+  const veinMat = new THREE.MeshBasicMaterial({ color:VEIN, transparent:true });
+  for(let i=0;i<9;i++){
+    const u0 = -1.4 + i*0.38 + Math.sin(i*3.3)*0.15, pts = [];
+    for(let k=0;k<7;k++){ const v = 0.75 - k*0.27, u = u0 + Math.sin(k*1.3 + i)*0.18 + k*0.04*(i % 2 ? 1 : -1); pts.push(onH(u, v, 1.035)); }
+    if(i % 3 === 1){ const m = new THREE.Mesh(K.tube(pts, 0.022, 14, 6), veinMat); H.add(m); R.glows.push(m); }
+    else P(H, K.tube(pts, 0.03 + (i % 2)*0.01, 14, 6), 0x2a0818);
+  }
+  for(let i=0;i<5;i++){ const u0 = 2.0 + i*0.45, pts = []; for(let k=0;k<6;k++) pts.push(onH(u0 + Math.sin(k + i)*0.2, 0.6 - k*0.3, 1.035)); const m = new THREE.Mesh(K.tube(pts, 0.02, 12, 6), veinMat); H.add(m); R.glows.push(m); }
+  // great vessels torn off at the top, hanging open
+  [[[0.25, 0.75, -0.05], [0.35, 1.35, 0.0], [0.05, 1.7, -0.25], [-0.35, 1.55, -0.55], 0.2, 0x7a3a4a],
+   [[-0.2, 0.8, 0.15], [-0.32, 1.25, 0.3], [-0.5, 1.4, 0.5], null, 0.16, 0x6a2a50],
+   [[0.55, 0.55, -0.35], [0.85, 0.95, -0.55], [0.95, 1.2, -0.5], null, 0.13, 0x4a2a5a]].forEach(([p0, p1, p2, p3, r, col], i)=>{
+    const pts = [p0, p1, p2].concat(p3 ? [p3] : []);
+    P(H, K.tube(pts, r, 16, 14), col);
+    const e = pts[pts.length - 1], q = pts[pts.length - 2], d = [e[0] - q[0], e[1] - q[1], e[2] - q[2]];
+    bsAim(P(H, bsRing(r*0.92, r*0.22), 0x4a1a2a, e[0], e[1], e[2]), d, bsFwd);
+    bsAim(P(H, CY(r*0.8, r*0.8, 0.02, 14), 0x0a0206, e[0], e[1], e[2]), d);
+    [0.3, 0.6].forEach(t=> P(H, bsRing(r*1.02, 0.014), 0x2a0a18, p0[0] + (p1[0] - p0[0])*t*2, p0[1] + (p1[1] - p0[1])*t*2, p0[2] + (p1[2] - p0[2])*t*2, PI/2));
+  });
+  // eyes open in the meat, lidded, glowing
+  [[0.1, 0.25, 0.17], [0.65, -0.05, 0.12], [-0.55, 0.05, 0.13], [0.35, 0.55, 0.09], [-0.15, -0.4, 0.11], [1.6, 0.2, 0.1], [-1.5, 0.35, 0.1], [0.55, -0.55, 0.07]].forEach(([u, v, r], i)=>{
+    const p = onH(u, v, 1.0), n = onH(u, v, 1.3); const d = [n[0] - p[0], n[1] - p[1], n[2] - p[2]];
+    const g = group(H, p[0], p[1], p[2]); bsAim(g, d, bsFwd);
+    P(g, bsRing(r*1.05, r*0.35), 0x3a0c1c, 0, 0, 0.01);
+    P(g, S(r, 14, 10), 0xb0a080, 0, 0, -r*0.2);
+    P(g, new THREE.SphereGeometry(r*1.1, 16, 8, 0, PI*2, 0, PI*(0.3 + (i % 3)*0.08)), 0x4a1424, 0, 0, -r*0.2, 0.9);
+    glow(R, g, r*0.42, ROT.eye, 0, -r*0.05, r*0.72);
+    P(g, BX(r*0.12, r*0.6, 0.01), 0x000000, 0, -r*0.05, r*0.95);
+  });
+  // cordyceps bursting out of it in clumps, and two blue glowcaps
+  [[0.4, 0.85, 7], [-0.7, 0.55, 5], [1.2, 0.35, 4], [-1.9, 0.15, 4]].forEach(([u, v, n], ci)=>{
+    const p = onH(u, v, 0.98), o = onH(u, v, 1.5), d = [o[0] - p[0], o[1] - p[1], o[2] - p[2]];
+    for(let k=0;k<n;k++){
+      const sp = (k - (n - 1)/2)*0.2, h = 0.45 + ((k*5 + ci) % 4)*0.17, w = [Math.sin(k*2.1 + ci)*0.25, 0, Math.cos(k*1.7)*0.25];
+      const base = [p[0] + sp*0.15, p[1], p[2] + Math.sin(k)*0.08], mid = [base[0] + d[0]*h*0.5 + w[0]*0.5, base[1] + d[1]*h*0.5 + h*0.3, base[2] + d[2]*h*0.5 + w[2]*0.5], tip = [base[0] + d[0]*h + w[0] + sp*0.5, base[1] + d[1]*h + h*0.55, base[2] + d[2]*h + w[2]];
+      P(H, bsTaper([base, mid, tip], 0.035, 0.014, 10, 6), 0x8a5a3a);
+      const club = new THREE.SphereGeometry(0.045, 10, 8); club.scale(1, 2.6, 1);
+      bsAim(P(H, bsPaint(club, 0xc86a2a, 0x3a1a0a, 60, k), 0xffffff, tip[0], tip[1], tip[2]), [tip[0] - mid[0], tip[1] - mid[1], tip[2] - mid[2]]);
+      if(k % 2 === 0) glow(R, H, 0.03, ROT.cord, tip[0], tip[1] + 0.08, tip[2]);
+    }
+  });
+  [[0.75, 0.6, -0.55, 0.3], [-0.8, 0.45, -0.45, 0.24]].forEach(([x, y, z, r])=>{ P(H, CY(r*0.22, r*0.3, r*1.2, 10), 0x9ab0c0, x, y, z); P(H, new THREE.SphereGeometry(r, 18, 8, 0, PI*2, 0, PI/2), 0x1a4a8a, x, y + r*0.6, z, 0, 0, 0, 1, 0.55, 1); glow(R, H, r*0.3, 0x6ad8ff, x, y + r*0.62, z); });
+  // pustules of bile, weeping
+  for(let i=0;i<22;i++){ const u = i*2.39996, v = Math.asin((i + 0.5)/22*1.7 - 0.85), p = onH(u, v, 1.03); glow(R, H, 0.03 + (i % 3)*0.015, i % 4 ? BILE : VEIN, p[0], p[1], p[2]); }
+  halo(R, beat, 0xff3fb0, 4.5, 0, 0, 0.6, 0.28);
+  halo(R, b, BILE, 2.5, 0, 0.1, 0, 0.15);
+  R.h = 3.1; return finish(R, { w:0.035 });
 };
 
 /* keep the moving bits of a costume moving: the cape flares when he runs, things bob, spin and flicker */
