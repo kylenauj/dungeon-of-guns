@@ -553,6 +553,22 @@ test("reactions share a budget: a packed room can't set off a blast per goblin e
   assert.ok(reacts >= 8, "but they still happen (" + reacts + ")");
 });
 
+test("the Gloom: a Bloater bursts into spores that hurt Zippy, a Blight Husk shrugs off a quarter of every hit", ()=>{
+  const G = game("GLOOMY", 5);
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true;
+  const b = addEnemy(G, r, spot.x + 0.6, spot.y, "bloater"); b.ai.cd = 99;
+  G.damageEnemy(b, 1e6, {});
+  const hp = G.player.hp; G.player.iframes = 0;
+  step(G, 1.2);
+  assert.ok(G.player.hp < hp, "the spores hurt");
+  const h = addEnemy(G, r, spot.x + 3, spot.y, "husk"), h0 = h.hp;
+  G.damageEnemy(h, 20, {});
+  assert.ok(Math.abs((h0 - h.hp) - 15) < 1e-6, "armour takes a quarter");
+  assert.equal(DG.FLOORS[0].gloom, 0); assert.equal(DG.FLOORS[4].gloom, 1);
+  DG.FLOORS.forEach((f, i)=> i && assert.ok(f.gloom > DG.FLOORS[i - 1].gloom, "the Gloom only grows"));
+});
+
 test("breakables break, and explosive barrels explode", ()=>{
   for(let s=1; s<60; s++){
     const G = game("POTS" + s);

@@ -19,7 +19,8 @@ const ELC = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
 const SPLAT = { grunt:0x2a5a14, slinger:0x2a5a14, bomber:0x2a5a14, shaman:0x2a5a14, brute:0x2a5a14, sneak:0x2a4a1a, king:0x2a5a14,
   puffling:0xa89870, toadstool:0x8a2a1a, shroomkin:0x5a2a7a, shroomlet:0x6a2a8a, matriarch:0x8a6a3a,
   ghost:0x6ab8d8, banshee:0x6a8ad8, poltergeist:0x6aa84a, skeleton:0xb8b09a, bride:0x8ab8e8,
-  watcher:0x7a1a4a, blob:0x5aa82a, blobling:0x6ab83a, tentacle:0x5a1a5a, eye:0x8a1a2a, heart:0x6a0a10 };
+  watcher:0x7a1a4a, blob:0x5aa82a, blobling:0x6ab83a, tentacle:0x5a1a5a, eye:0x8a1a2a, heart:0x5a0a3a,
+  rotling:0x3a1a3e, spitter:0x5a6a2a, bloater:0x5a2a4a, husk:0x5a4a5a };
 
 function shadowBlob(r){
   const s = new THREE.Mesh(K.glowPlane, new THREE.MeshBasicMaterial({ map:K.glowTex, color:0x000000, transparent:true, opacity:0.55, depthWrite:false }));
@@ -245,6 +246,7 @@ proto.handle = function(ev){
       FX.burst(p.x, 1.2, p.y, 0xfff27a, 60, 7, 0.35, 1, { up:2, col2:0xffffff });
       S.shake(0.4); play("transform");
       break;
+    case "burst": FX.burst(ev.x, 0.8, ev.y, 0x9cff3a, 30, 4, 0.4, 0.8, { up:1, col2:0xb36bff }); FX.ring(ev.x, ev.y, 1.9, 0x9cff3a, 0.5); play("splat"); break;
     case "frogPoof": FX.burst(ev.x, 0.4, ev.y, 0x9cff6a, 10, 2, 0.3, 0.5); if(ev.x2 !== undefined) FX.burst(ev.x2, 0.4, ev.y2, 0x9cff6a, 12, 2.5, 0.3, 0.5); play("poof"); break;
     /* the odd ones */
     case "status": if(ev.st === "confused"){ FX.burst(ev.x, 1.6, ev.y, 0xffd23d, 8, 2, 0.22, 0.5, { up:1 }); play("squeak"); } break;

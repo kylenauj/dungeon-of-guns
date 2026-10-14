@@ -33,6 +33,7 @@ Gallery.start = function(){
     { name:"GOBLINS", gap:2.2, items:["grunt", "slinger", "bomber", "shaman", "brute", "sneak", "merchant"].map(k=> [k, ()=> M.goblin(k)]) },
     { name:"SHROOMS & HAUNTS", gap:2.2, items:["puffling", "toadstool", "shroomkin", "shroomlet", "ghost", "banshee", "skeleton", "poltergeist"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"THE WEIRD", gap:2.4, items:["watcher", "blob", "blobling", "tentacle"].map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"THE GLOOM", gap:2.4, items:["rotling", "spitter", "bloater", "husk"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"BOSSES", gap:5, items:["king", "matriarch", "bride", "eye", "heart"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"LOOT", gap:1.6, items:[...["gold", "heart", "mana", "ward", "fly"].map(k=> [k, ()=>{ const g = M.pickup({ kind:k, value:5 }); g.position.y = 0.5; return { root:g }; }]),
       ...Object.keys(DG.ITEMS).filter((id, i, a)=> ["spinach", "pinball", "frostrounds", "wispcraft", "plague", "orbiter", "prismheart", "midas", "echo"].indexOf(id) >= 0).map(id=> [DG.ITEMS[id].name, ()=>{ const g = M.powerup(id); g.position.y = 0.8; return { root:g, spin:true }; }])] },

@@ -579,7 +579,7 @@ const BEHAVIOUR = {
     else { const tl = pick === "gaze" ? 0.5 : 0.4; tell(G, e, pick, tl); A.state = pick; A.t = pick === "gaze" ? 1.6 + tl : tl; }
   },
 
-  /* ---- The Hollow Heart: it beats, and every beat is a shockwave ---- */
+  /* ---- The Gloom Heart: it beats, and every beat is a shockwave ---- */
   heart(G, e, dt, p){
     const A = e.ai, f = e.hp/e.maxHp, phase = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
     if(phase !== (A.phase || 0)){

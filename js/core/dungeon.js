@@ -262,7 +262,7 @@ function furnish(D, rng, r){
   const w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1, theme = D.theme.decor;
   const styles = [
     { s:"pillars", w:3 }, { s:"pit", w:w >= 15 && h >= 11 ? 2 : 0 }, { s:"crates", w:2.5 }, { s:"cross", w:w >= 15 ? 1.5 : 0 }, { s:"empty", w:1 },
-    { s:"ring", w:w >= 15 && h >= 11 ? 1.5 : 0 }, { s:"graves", w:theme === "crypt" ? 3 : 0 }, { s:"pools", w:theme === "grotto" || theme === "weird" ? 2 : 0.5 },
+    { s:"ring", w:w >= 15 && h >= 11 ? 1.5 : 0 }, { s:"graves", w:theme === "crypt" ? 3 : 0 }, { s:"pools", w:theme === "gloomwood" || theme === "forest" ? 2 : theme === "undercroft" ? 1 : 0.5 },
     { s:"islands", w:r.jumbo ? 2.5 : 0 }, { s:"maze", w:r.jumbo ? 1.5 : 0 }
   ];
   const style = rng.weighted(styles).s;
@@ -321,7 +321,7 @@ function furnish(D, rng, r){
 function breakables(D, rng, r){
   const area = (r.x2 - r.x1 + 1)*(r.y2 - r.y1 + 1);
   const n = Math.round(area/(rng.chance(0.3) ? 18 : 40));
-  const kinds = { cellar:["pot", "crate", "barrel"], grotto:["shroomcap", "pot", "barrel"], crypt:["urn", "coffin", "pot"], weird:["eggsac", "pot", "urn"], heart:["pustule", "urn", "eggsac"] }[D.theme.decor] || ["pot"];
+  const kinds = { castle:["pot", "crate", "barrel"], undercroft:["barrel", "crate", "shroomcap"], crypt:["urn", "coffin", "pot"], gloomwood:["shroomcap", "eggsac", "pustule"], forest:["pustule", "shroomcap", "eggsac"] }[D.theme.decor] || ["pot"];
   const added = [];
   for(let i=0;i<n;i++){
     const edge = rng.chance(0.65);
@@ -458,15 +458,15 @@ Dungeon.paintDoor = paintDoor;
 function dress(D, rng){
   const theme = D.theme.decor;
   const floorKinds = {
-    cellar:["bones", "rubble", "candle", "sack", "cobweb", "barrelstack"],
-    grotto:["mushrooms", "glowshroom", "rubble", "moss", "bones", "toadstools"],
-    crypt:["candle", "bones", "skull", "cobweb", "gravestone", "candles"],
-    weird:["eyestalk", "tendril", "goo", "bones", "skull", "crystal"],
-    heart:["vein", "goo", "eyestalk", "bones", "skull", "ember"]
+    castle:["armour", "candelabra", "weaponrack", "barrelstack", "rubble", "sack"],
+    undercroft:["barrelstack", "rubble", "mushrooms", "rotpod", "bones", "cobweb", "sack"],
+    crypt:["candle", "bones", "skull", "gravestone", "candles", "mushrooms", "rotpod", "roots"],
+    gloomwood:["glowcap", "fallenpillar", "roots", "rotpod", "fern", "cordyceps", "mushrooms", "rubble"],
+    forest:["glowcap", "glowcap", "fern", "log", "rotpod", "cordyceps", "firsapling", "toadstools", "roots"]
   }[theme] || ["bones"];
   const wallKinds = {
-    cellar:["banner", "shelf", "chains"], grotto:["wallshroom", "vines", "glowmoss"], crypt:["chains", "skullniche", "candleshelf"],
-    weird:["walleye", "walleye", "tendrils"], heart:["walleye", "veins", "ribs"]
+    castle:["banner", "shieldwall", "tapestry", "banner"], undercroft:["banner", "shelf", "chains", "wallshroom"], crypt:["chains", "skullniche", "candleshelf", "wallroots"],
+    gloomwood:["wallroots", "wallshroom", "glowmoss", "walleye"], forest:["wallroots", "wallcaps", "glowmoss", "cordycepswall"]
   }[theme] || ["banner"];
   D.rooms.forEach(r=>{
     const area = (r.x2 - r.x1 + 1)*(r.y2 - r.y1 + 1);

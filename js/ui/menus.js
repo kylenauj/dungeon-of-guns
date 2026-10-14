@@ -161,7 +161,7 @@ UI.choose = function(G){
 UI.end = function(G, won){
   const s = G.stats, m = Math.floor(s.time/60), sec = Math.floor(s.time % 60);
   const killer = { orb:"Grubnok's royal spit", rock:"a rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a bomb", pit:"a pit", brute:"a Brute's hug", king:"Grubnok's belly", grunt:"a Grunt's stab", sneak:"a Sneak",
-    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar", matriarch:"the Shroom Matriarch", bride:"the Bride", eye:"the Eye", heart:"the Heart" };
+    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar", matriarch:"the Shroom Matriarch", bride:"the Bride", eye:"the Eye", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores" };
   const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "goblins";
   UI.show(`
     <div class="title-wrap">

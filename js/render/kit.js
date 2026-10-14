@@ -157,10 +157,68 @@ const INK_MAIN = [
   "outgoingLight = inkLit;",
   "gl_FragColor = vec4( outgoingLight, diffuseColor.a );"
 ].join("\n");
+/* ---- the Gloom on the world (floors and walls only) ------------------------
+   uGloom goes 0 (a clean castle) .. 1 (a mushroom forest). On floors: moss in
+   spreading patches, pale mycelium threads, glowing specks, and from the
+   middle floors violet rot with bile-green veins that glow. On walls: bark
+   and roots creeping up from the floor, rot veins, moss on top. Shared
+   uniforms, set per floor by the stage. */
+K.GLOOM = { uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWallLum:{ value:0.4 } };
+const GLOOM_PARS = [
+  "uniform float uGloom, uGTime, uFloorLum, uWallLum; varying vec3 vGW; varying vec3 vGN;",
+  "float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+  "float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(gh(i), gh(i + vec2(1, 0)), f.x), mix(gh(i + vec2(0, 1)), gh(i + vec2(1, 1)), f.x), f.y); }",
+  "float gfbm(vec2 p){ return gn(p)*0.55 + gn(p*2.1 + 3.7)*0.28 + gn(p*4.3 + 1.3)*0.17; }"
+].join("\n");
+const GLOOM_COMMON = [
+  "vec3 gloomGlow = vec3(0.0);",
+  "float gRot = clamp((uGloom - 0.3)*0.75, 0.0, 0.52);",
+  "vec3 gBase = diffuseColor.rgb;"
+].join("\n");
+const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surface at vGW.xz
+  "float gn1 = gfbm(vGW.xz*0.35), gn2 = gfbm(vGW.xz*1.7 + 9.0);",
+  "float gCover = smoothstep(1.0 - uGloom*1.25, 1.12 - uGloom*1.25, mix(gn1, gn2, 0.3));",
+  "vec3 gMoss = mix(vec3(0.075, 0.13, 0.13), vec3(0.12, 0.2, 0.16), gn2)*2.3*gShade;",
+  "vec3 gc = mix(gBase, gMoss, gCover);",
+  "float gTh = abs(sin(vGW.x*0.9 + sin(vGW.z*0.7)*2.4 + gn1*5.0))*abs(sin(vGW.z*1.1 + sin(vGW.x*0.6)*2.0));",
+  "gc = mix(gc, vec3(0.62, 0.7, 0.74)*gShade, smoothstep(0.035, 0.0, gTh)*0.45*gCover);",
+  "float gR = smoothstep(1.0 - gRot, 1.08 - gRot, gfbm(vGW.xz*0.22 + 17.0));",
+  "gc = mix(gc, mix(vec3(0.14, 0.05, 0.13), vec3(0.21, 0.07, 0.17), gn2)*1.45*gShade, gR);",
+  "float gVein = smoothstep(0.035, 0.0, abs(gfbm(vGW.xz*0.8 + 4.0) - 0.5));",
+  "gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.2*(0.6 + 0.4*sin(uGTime*2.0 + vGW.x))*gR;",
+  "float gSp = step(0.955, gh(floor(vGW.xz*2.6)))*smoothstep(0.4, 0.15, length(fract(vGW.xz*2.6) - 0.5));",
+  "gloomGlow += vec3(0.25, 0.75, 1.0)*gSp*0.55*(0.7 + 0.3*sin(uGTime*1.3 + gh(floor(vGW.xz*2.6))*20.0))*gCover*(1.0 - gR);"
+].join("\n");
+const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND, "diffuseColor.rgb = gc;"].join("\n");
+const GLOOM_WALL = [GLOOM_COMMON,
+  "float gShade = clamp(dot(vColor, vec3(0.333))/uWallLum, 0.35, 1.3);",
+  "if(vGN.y > 0.5){", GLOOM_GROUND, "diffuseColor.rgb = gc; } else {",
+  // bark and roots, climbing from the floor; rot veins up the lower wall
+  "  vec2 wp = vec2(vGW.x + vGW.z, vGW.y);",
+  "  float gB = smoothstep(1.0 - uGloom*1.35, 1.1 - uGloom*1.35, gfbm(wp*vec2(0.5, 0.8) + 2.0) + (1.0 - clamp(vGW.y/1.7, 0.0, 1.0))*0.3);",
+  "  float st = abs(sin(wp.x*7.0 + gfbm(wp*vec2(2.0, 0.4))*7.0));",
+  "  vec3 bark = mix(vec3(0.15, 0.1, 0.11), vec3(0.27, 0.18, 0.15), st)*1.7*gShade;",
+  "  float gm = smoothstep(0.55, 0.0, vGW.y)*gB*uGloom;",
+  "  bark = mix(bark, vec3(0.12, 0.2, 0.16)*2.0*gShade, gm);",
+  "  vec3 gc = mix(gBase, bark, gB);",
+  "  float gR = smoothstep(1.0 - gRot, 1.08 - gRot, gfbm(wp*0.6 + 3.0))*smoothstep(1.7, 0.1, vGW.y);",
+  "  gc = mix(gc, vec3(0.24, 0.07, 0.2)*1.6*gShade, gR*0.85);",
+  "  float gVein = smoothstep(0.07, 0.0, abs(gfbm(wp*vec2(1.2, 0.7) + 4.0) - 0.5));",
+  "  gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.25*(0.6 + 0.4*sin(uGTime*2.0 + wp.x))*gR;",
+  "  diffuseColor.rgb = gc;",
+  "}"].join("\n");
 K.inkify = function(mat, opts){
   opts = opts || {};
   mat.onBeforeCompile = sh=>{
     for(const k in K.INK) sh.uniforms[k] = K.INK[k];
+    if(opts.gloom){
+      for(const k in K.GLOOM) sh.uniforms[k] = K.GLOOM[k];
+      sh.vertexShader = "varying vec3 vGW; varying vec3 vGN;\n" + sh.vertexShader.replace("#include <project_vertex>",
+        "#include <project_vertex>\n vGW = (modelMatrix*vec4(transformed, 1.0)).xyz; vGN = normalize(mat3(modelMatrix)*objectNormal);");
+      sh.fragmentShader = GLOOM_PARS + "\n" + sh.fragmentShader
+        .replace("#include <color_fragment>", "#include <color_fragment>\n" + (opts.gloom === "wall" ? GLOOM_WALL : GLOOM_FLOOR))
+        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += gloomGlow;");
+    }
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
@@ -170,14 +228,15 @@ K.inkify = function(mat, opts){
         "#include <project_vertex>\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
-  mat.customProgramCacheKey = ()=> opts.rim ? "ink-rim" : "ink";
+  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "");
   return mat;
 };
-/* the material: vertex colours by default; { rim:true } for characters */
+/* the material: vertex colours by default; { rim:true } for characters,
+   { gloom:"floor" | "wall" } for the dungeon's own floors and walls */
 K.ink = (opts)=>{
   opts = Object.assign({}, opts);
-  const rim = opts.rim; delete opts.rim;
-  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim });
+  const rim = opts.rim, gloom = opts.gloom; delete opts.rim; delete opts.gloom;
+  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim, gloom });
 };
 K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));
@@ -238,7 +297,7 @@ K.lathe = function(prof, seg){
 K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), seg || 12, r, rseg || 6, false); };
 
 K.timed = [];
-K.tick = t=>{ K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t; }); };
+K.tick = t=>{ K.GLOOM.uGTime.value = t; K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t; }); };
 
 K.hex = c=> "#" + new THREE.Color(c).getHexString();
 

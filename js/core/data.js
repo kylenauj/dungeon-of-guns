@@ -135,7 +135,16 @@ DG.ENEMIES = {
   blob:     { name:"Blob",            hp:40,  speed:2.6, radius:0.5,  cost:2.5, dmg:12, gold:[1,3], ai:"blob",    model:"blob", splits:"blobling" },
   blobling: { name:"Blobling",        hp:14,  speed:3.4, radius:0.3,  cost:0.5, dmg:8,  gold:[0,1], ai:"blob",    model:"blobling" },
   tentacle: { name:"Tentacle",        hp:36,  speed:0,   radius:0.4,  cost:2.5, dmg:16, gold:[2,3], ai:"tentacle",model:"tentacle",
-              slam:{ cd:2.6, tell:0.85, r:1.2 } }
+              slam:{ cd:2.6, tell:0.85, r:1.2 } },
+  /* the Gloom (from Gloom Shooter): rot, mould and cordyceps */
+  rotling:  { name:"Rotling",         hp:11,  speed:5.0, radius:0.3,  cost:0.7, dmg:8,  gold:[0,1], ai:"melee",   model:"rotling",
+              lines:["skrrk", "*squelch*"] },
+  spitter:  { name:"Mould Spitter",   hp:26,  speed:2.2, radius:0.4,  cost:2,   dmg:11, gold:[1,3], ai:"ranged",  model:"spitter",
+              shot:{ speed:7, cd:2.3, tell:0.55, n:3, spread:24, kind:"acid" }, keep:[4.5, 7.5] },
+  bloater:  { name:"Bloater",         hp:60,  speed:1.6, radius:0.62, cost:2.5, dmg:14, gold:[2,4], ai:"melee",   model:"bloater", deathCloud:true,
+              lines:["blorp", "*gurgle*"] },
+  husk:     { name:"Blight Husk",     hp:58,  speed:2.6, radius:0.45, cost:3,   dmg:16, gold:[2,4], ai:"brute",   model:"husk", armor:0.75,
+              charge:{ cd:3.8, tell:0.8, speed:9, time:0.6, stun:1.2 }, lines:["...the Gloom...", "join us"] }
 };
 
 DG.BOSSES = {
@@ -147,8 +156,8 @@ DG.BOSSES = {
                lines:["You're not him.", "Stay. Stay forever.", "Why does everyone leave?"] },
   eye:       { name:"The Eye Below",           hp:1700, speed:0.8, radius:1.5, dmg:19, ai:"eye",       model:"eye",
                lines:["I SEE YOU", "BLINK, LITTLE WIZARD", "LOOK AT ME"] },
-  heart:     { name:"The Hollow Heart",        hp:2300, speed:0,   radius:1.6, dmg:20, ai:"heart",     model:"heart",
-               lines:["ba-dum.", "BA-DUM.", "you are inside me now."] }
+  heart:     { name:"The Gloom Heart",         hp:2300, speed:0,   radius:1.6, dmg:20, ai:"heart",     model:"heart",
+               lines:["ba-dum.", "the forest is mine.", "rot with me, little wizard."] }
 };
 
 /* elite affixes */
@@ -174,28 +183,32 @@ DG.FLOOR_SCALE = f=>({
 });
 DG.FINAL_FLOOR = 5;
 
-/* ---- floors: spookier and weirder the deeper you go ---- */
+/* ---- floors: a castle that the Gloom (rot, mould, cordyceps, from Gloom
+   Shooter) eats a little more of every floor, until floor 5 is no castle at
+   all but a spooky mushroom forest. `gloom` (0..1) drives the look: moss and
+   rot on the floors, roots and bark over the walls, glowcaps for torches,
+   brambles for gates, a forest beyond the walls. ---- */
 DG.FLOORS = [
-  { name:"The Goblin Cellars",  boss:"king",      floor:0x3a3330, floor2:0x2e2826, wall:0x5a4e45, top:0x6e6155, torch:0xffa04a, fog:0x0d0a0a,
-    ambient:0x9a8a7a, light:1.0, decor:"cellar", motes:"dust",
-    ink:0x160a06, rim:0xffb070, shaft:0xffe2a8, mist:0.18, shade:0x2a1838, high:0xffe2b0, weird:0,
+  { name:"The Castle Keep",       boss:"king",      gloom:0,    floor:0x4a4650, floor2:0x3e3a44, wall:0x6a6672, top:0x827e8a, torch:0xffa04a, fog:0x0b0a10, water:0x2a6a8a,
+    ambient:0xa8a0b0, light:1.0, decor:"castle", motes:"dust",
+    ink:0x100a10, rim:0xffb070, shaft:0xffe2a8, mist:0.12, shade:0x241838, high:0xffe2b0, weird:0,
     enemies:{ grunt:3, slinger:2.2, bomber:0.8, sneak:0.3 } },
-  { name:"The Mushroom Grotto", boss:"matriarch", floor:0x2c3a30, floor2:0x223026, wall:0x3d5244, top:0x4f6a56, torch:0x9cff6a, fog:0x050d07,
-    ambient:0x6a9a7a, light:0.9, decor:"grotto", motes:"spores",
-    ink:0x03140a, rim:0x9cff8a, shaft:0xc8ff9a, mist:0.3, shade:0x08263a, high:0xeaffb0, weird:0.12,
-    enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2.2, toadstool:1.4, shroomkin:1.6 } },
-  { name:"The Haunted Crypt",   boss:"bride",     floor:0x2a2e3e, floor2:0x222533, wall:0x3e4460, top:0x535a7a, torch:0x6ad8ff, fog:0x04060c,
-    ambient:0x6a7aa8, light:0.75, decor:"crypt", motes:"ghostfog",
-    ink:0x05081a, rim:0x8ad8ff, shaft:0xa8d0ff, mist:0.42, shade:0x180e40, high:0xd8f0ff, weird:0.32,
-    enemies:{ ghost:2.4, banshee:1.2, skeleton:2.2, poltergeist:1.2, sneak:0.8, brute:0.8, shroomkin:0.6 } },
-  { name:"The Weird Below",     boss:"eye",       floor:0x3a2434, floor2:0x2e1c2a, wall:0x5a2e4a, top:0x7a3e60, torch:0xff4ad8, fog:0x0c0308,
-    ambient:0x9a6a9a, light:0.62, decor:"weird", motes:"eyes",
-    ink:0x14031a, rim:0xff6ad8, shaft:0xff9ae8, mist:0.36, shade:0x2a0838, high:0xffd0ff, weird:0.68,
-    enemies:{ watcher:1.6, blob:2, tentacle:1.4, ghost:1.2, banshee:0.8, skeleton:1, brute:0.8, puffling:1 } },
-  { name:"The Hollow Heart",    boss:"heart",     floor:0x2e1414, floor2:0x240e0e, wall:0x4a1a1e, top:0x6a2428, torch:0xff2a3a, fog:0x080202,
-    ambient:0x9a5a5a, light:0.5, decor:"heart", motes:"embers",
-    ink:0x1c0204, rim:0xff5a4a, shaft:0xff7a5a, mist:0.38, shade:0x380010, high:0xffd8b0, weird:1,
-    enemies:{ watcher:1.4, blob:1.4, tentacle:1.4, banshee:1.2, ghost:1, brute:1.2, shroomkin:1, bomber:1, poltergeist:1, shaman:0.8 } }
+  { name:"The Undercroft",        boss:"matriarch", gloom:0.28, floor:0x3e3a3a, floor2:0x343030, wall:0x5a5452, top:0x6e6866, torch:0xffa04a, fog:0x080a08, water:0x2a6a5a,
+    ambient:0x9a9a8a, light:0.9, decor:"undercroft", motes:"spores",
+    ink:0x0a0c08, rim:0xc8ff8a, shaft:0xd8f0b0, mist:0.24, shade:0x1a1a30, high:0xf0f0c0, weird:0.1,
+    enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2, toadstool:1.2, shroomkin:1.4, rotling:0.8 } },
+  { name:"The Rotting Crypt",     boss:"bride",     gloom:0.5,  floor:0x2e2e3e, floor2:0x262634, wall:0x464a62, top:0x5a5e7a, torch:0x6ad8ff, fog:0x05060c, water:0x2a4a8a,
+    ambient:0x7a7ab0, light:0.78, decor:"crypt", motes:"ghostfog",
+    ink:0x08061a, rim:0x9ad8ff, shaft:0xb8d0ff, mist:0.36, shade:0x200e40, high:0xe0f0ff, weird:0.3,
+    enemies:{ ghost:2.2, banshee:1, skeleton:2, poltergeist:1, sneak:0.6, brute:0.6, rotling:1.2, spitter:0.8 } },
+  { name:"The Gloomwood Edge",    boss:"eye",       gloom:0.78, floor:0x26302e, floor2:0x1e2826, wall:0x3a3440, top:0x4a4252, torch:0x5ab8ff, fog:0x03060a, water:0x3a2a6a,
+    ambient:0x6a8ab0, light:0.66, decor:"gloomwood", motes:"glowbugs",
+    ink:0x0a0414, rim:0x7ad8ff, shaft:0x9ad0ff, mist:0.4, shade:0x1a0a38, high:0xd8f8ff, weird:0.62,
+    enemies:{ watcher:1.2, blob:1.2, tentacle:1.4, rotling:1.6, spitter:1.4, bloater:1.2, shroomkin:0.8, puffling:0.8, ghost:0.6 } },
+  { name:"The Gloom Forest",      boss:"heart",     gloom:1,    floor:0x1e2a2c, floor2:0x182224, wall:0x2a2030, top:0x3a2a40, torch:0x3ab8ff, fog:0x02050a, water:0x4a1a5a,
+    ambient:0x5a7ab8, light:0.6, decor:"forest", motes:"glowbugs",
+    ink:0x0c0414, rim:0xff6ad8, shaft:0x8ab8ff, mist:0.46, shade:0x200a3a, high:0xc8f0ff, weird:1,
+    enemies:{ rotling:2, spitter:1.6, bloater:1.4, husk:1.6, shroomkin:1, toadstool:1, puffling:1, tentacle:1, banshee:0.6, watcher:0.6 } }
 ];
 
 /* ---- traps (minor: they sting, they don't end runs) ---- */

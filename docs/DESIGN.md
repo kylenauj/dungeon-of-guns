@@ -159,13 +159,25 @@ Gribbus follows Zippy, hops into fights, and attacks whatever is closest: a **to
 
 ## 6. The descent
 
-| Floor | Name | Feel | Enemies | Boss |
-|---|---|---|---|---|
-| 1 | **The Goblin Cellars** | Warm torches, crates, barrels | Goblins | **Grubnok the Goblin King:** bullet rings, belly flop, summons |
-| 2 | **The Mushroom Grotto** | Glowing caps, spore haze | Shroom folk + goblins | **The Morel Matriarch:** spore storms, a mushroom ring that hems you in, splits her caps |
-| 3 | **The Haunted Crypt** | Cold blue, candles, graves, fog | Ghosts, skeletons | **The Weeping Bride:** three copies, only one real, and a wail that sweeps the room |
-| 4 | **The Weird Below** | Purple and red, eyes in the walls, flesh | Watchers, blobs, tentacles | **The Eye Below:** sweeping lasers, tentacle bursts, blinks shut to become invulnerable |
-| 5 | **The Hollow Heart** | Black and red, pulsing | Everything, twisted | **The Hollow Heart:** beats in rings, three phases |
+The dungeon starts as a castle, and the **Gloom** (Gloom Shooter's rot, mould and cordyceps) eats more of it each floor until, by floor 5, there's no castle left: only a spooky mushroom forest. Each floor has a `gloom` value from 0 to 1 that drives the look:
+- **Floors:** moss spreads in patches, with mycelium threads and glowing specks; from the middle floors, violet rot with glowing veins.
+- **Walls:** bark and roots creep up them; the battlements crumble into ferns and glowcaps.
+- **Light and gates:** torches become glowcap sconces, portcullises become bramble gates, and pillars become glowcap stalks and then mossy stumps.
+- **Beyond the walls:** a forest of firs and giant glowcaps grows in the dark.
+
+| Floor | Name | Gloom | Feel | Enemies | Boss |
+|---|---|---|---|---|---|
+| 1 | **The Castle Keep** | 0 | Grey ashlar, battlements, banners, tapestries, suits of armour, red carpets | Goblins | **Grubnok the Goblin King** |
+| 2 | **The Undercroft** | 0.28 | Damp castle cellars, the first moss and rot in the cracks | Goblins, shroom folk, the first rotlings | **The Morel Matriarch** |
+| 3 | **The Rotting Crypt** | 0.5 | Cold blue crypt, roots splitting the walls, rot patches | Ghosts, skeletons, rotlings, mould spitters | **The Weeping Bride** |
+| 4 | **The Gloomwood Edge** | 0.78 | Walls half bark, mossy floors, glowcap stalks, firs beyond | Watchers, blobs, tentacles, the Gloom | **The Eye Below** |
+| 5 | **The Gloom Forest** | 1 | No stone: stumps, glowcaps, rot, bramble gates, glowbugs | **The Gloom:** rotlings, mould spitters, bloaters, blight husks, plus shrooms | **The Gloom Heart:** a rot-flesh knot with eyes and cordyceps; beats in rings, three phases |
+
+The Gloom creatures come from Gloom Shooter:
+- **Rotling:** a fast swarm.
+- **Mould Spitter:** spits acid in volleys.
+- **Bloater:** bursts into a spore cloud when killed, so don't pop it next to yourself.
+- **Blight Husk:** an armoured cordyceps shroom that charges and shrugs off a quarter of every hit.
 
 Deeper floors are darker. They have more **curses**: Darkness (less light), the Lost (no map), the Fog (shorter sight), and Haste (goblins are faster). They also get stranger dressing: whispers in the music and walls with eyes that follow you.
 

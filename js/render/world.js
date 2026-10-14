@@ -18,8 +18,8 @@ const World = DG.World = function(D){
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
-    floor: K.ink({ map:K.floorTex }),
-    wall:  K.ink({ map:K.stoneTex }),
+    floor: K.ink({ map:K.floorTex, gloom:"floor" }),
+    wall:  K.ink({ map:K.stoneTex, gloom:"wall" }),
     plain: K.ink()
   };
   W.rnd = DG.RNG(D.seed ^ 0x51ed).next;
@@ -88,6 +88,25 @@ proto.buildAreas = function(){
         K.part(b.parts, new THREE.BoxGeometry(0.6, 0.8, 0.2), 0x7a7a88, x + 0.5, 0.4, y + 0.5);
         K.part(b.parts, new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12), 0x7a7a88, x + 0.5, 0.8, y + 0.5, PI/2);
         K.part(b.parts, new THREE.BoxGeometry(0.08, 0.3, 0.04), 0x4a4a58, x + 0.5, 0.6, y + 0.62);
+      } else if((th.gloom || 0) >= 0.75 && h < (th.gloom - 0.5)*0.9){
+        // the forest has grown a giant glowcap where a pillar stood
+        const P = K.part, cap = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888][Math.floor(h*4)], ht = 1.15 + h*0.5;
+        P(b.parts, new THREE.CylinderGeometry(0.18, 0.3, ht, 9), 0x9ab0c4, x + 0.5, ht/2, y + 0.5);
+        P(b.parts, new THREE.TorusGeometry(0.21, 0.035, 6, 12), 0xb8c8d8, x + 0.5, ht*0.72, y + 0.5, PI/2);
+        P(b.parts, new THREE.SphereGeometry(0.46, 14, 7, 0, PI*2, 0, PI/2), cap, x + 0.5, ht - 0.05, y + 0.5, 0, h*6, 0, 1, 0.55, 1);
+        for(let k=0;k<5;k++){ const a = k*1.25 + h*6; P(b.parts, new THREE.SphereGeometry(0.045, 6, 4), 0xb8e8ff, x + 0.5 + Math.cos(a)*0.27, ht + 0.16, y + 0.5 + Math.sin(a)*0.27); }
+        P(b.parts, new THREE.CylinderGeometry(0.45, 0.5, 0.12, 9), 0x2a4a3a, x + 0.5, 0.06, y + 0.5);
+        const gr = DG.Dungeon.roomAt(D, x + 0.5, y + 0.5);
+        if(gr) W.lights.push({ x:x + 0.5, y:ht + 0.3, z:y + 0.5, c:cap, i:0.8, room:gr.id, ph:h*6, small:true });
+        (W.capGlows = W.capGlows || []).push({ x:x + 0.5, y:ht - 0.05, z:y + 0.5, c:cap, area:+a });
+      } else if((th.gloom || 0) >= 0.9){
+        // in the forest the pillar is a gnarled old stump, mossy on top
+        const P = K.part, cx = x + 0.5, cz = y + 0.5, ht = 1.1 + h*0.6;
+        P(b.parts, new THREE.CylinderGeometry(0.36, 0.46, ht, 9), [0x3a2418, 0x2e1c14][Math.floor(h*2)], cx, ht/2, cz, 0, h*6, 0);
+        P(b.parts, new THREE.CylinderGeometry(0.37, 0.37, 0.08, 9), 0x8a6a4a, cx, ht, cz);
+        P(b.parts, new THREE.CylinderGeometry(0.3, 0.34, 0.05, 9), 0x2a5a3a, cx, ht + 0.05, cz);
+        for(let k=0;k<4;k++){ const a = k*PI/2 + h*3; P(b.parts, new THREE.ConeGeometry(0.14, 0.5, 5), 0x2e1c14, cx + Math.cos(a)*0.42, 0.15, cz + Math.sin(a)*0.42, Math.sin(a)*1.1, 0, -Math.cos(a)*1.1); }
+        for(let k=0;k<2;k++){ const a = h*9 + k*2.4; P(b.parts, new THREE.CylinderGeometry(0.13, 0.08, 0.04, 8, 1, false, 0, PI), 0x1a78a8, cx + Math.cos(a)*0.38, 0.5 + k*0.3, cz + Math.sin(a)*0.38, 0, -a + PI/2, 0); }
       } else {
         const g = new THREE.BoxGeometry(0.86, 1.5, 0.86); g.translate(x + 0.5, 0.75, y + 0.5);
         b.wall.push(K.paint(g, cW, (c, px, py)=>{ if(py > 1.45) c.copy(cTop); c.multiplyScalar(0.9 + h*0.2); }));
@@ -117,9 +136,16 @@ proto.buildAreas = function(){
       const south = walkable(D.at(x, y - 1)) && !walkable(D.at(x, y + 1));
       b.wall.push(W.wallBlock(x, y, south));
       // a skirting stone along the bottom of walls facing a room
-      if(!south && walkable(D.at(x, y + 1))) K.part(b.parts, new THREE.BoxGeometry(1, 0.18, 0.12), cW.clone().multiplyScalar(0.7).getHex(), x + 0.5, 0.09, y + 1.03);
+      if(!south && walkable(D.at(x, y + 1))){
+        const gl = th.gloom || 0;
+        if(gl < 0.9) K.part(b.parts, new THREE.BoxGeometry(1, 0.18, 0.12), cW.clone().multiplyScalar(0.7).getHex(), x + 0.5, 0.09, y + 1.03);
+        // the castle: battlements; the Gloom: they crumble, then the wall grows a tuft of fern and glowcaps
+        if(gl < 0.45 && (x & 1) === 0 && h > gl*1.6) K.part(b.parts, new THREE.BoxGeometry(0.55, 0.32, 0.6), cTop.getHex(), x + 0.5, WH + 0.16, y + 0.55);
+        if(gl >= 0.45 && h < gl*0.55){ const c = h < 0.25 ? 0x3ab8ff : 0x2a5a3a; K.part(b.parts, h < 0.25 ? new THREE.SphereGeometry(0.18, 8, 4, 0, PI*2, 0, PI/2) : new THREE.ConeGeometry(0.22, 0.3, 6), c, x + 0.5, WH + (h < 0.25 ? 0 : 0.15), y + 0.6); }
+      }
     }
   }
+  (W.capGlows || []).forEach(c=>{ const sp = K.sprite(c.c, 1.4, 0.3); sp.position.set(c.x, c.y, c.z); W.areaGroup(c.area).add(sp); });
   for(const id in buckets){
     const b = buckets[id], g = W.areaGroup(+id);
     if(b.floor.length){ const m = new THREE.Mesh(K.merge(b.floor), W.mats.floor); g.add(m); }
@@ -148,7 +174,7 @@ proto.buildWater = function(){
     const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, -0.12, y + 0.5);
     (by[a] = by[a] || []).push(g);
   }
-  const col = new THREE.Color(W.th.decor === "heart" ? 0x8a1a2a : W.th.decor === "weird" ? 0x6a2a8a : 0x2a8a7a);
+  const col = new THREE.Color(W.th.water || 0x2a8a7a);
   W.waterMat = new THREE.ShaderMaterial({
     uniforms:{ uTime:{ value:0 }, uCol:{ value:col } }, transparent:true, depthWrite:false,
     vertexShader:"varying vec2 vW; void main(){ vec4 w = modelMatrix*vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix*viewMatrix*w; }",
@@ -165,9 +191,29 @@ proto.buildWater = function(){
 proto.buildDoors = function(){
   const W = this;
   const barM = K.lambert(0x3a3a44);
+  const bramble = (W.th.gloom || 0) >= 0.7;
   W.D.doors.forEach(d=>{
     const g = new THREE.Group();
     const along = d.axis === "v" ? "z" : "x";
+    if(bramble){
+      // thorny roots knotted across the doorway
+      const P = K.part, rr = W.rnd;
+      for(let i=0;i<6;i++){
+        const o = -1.3 + i*0.52, pts = [];
+        for(let k=0;k<=4;k++){ const y = k/4*WH, w = Math.sin(k*1.7 + i)*0.18; pts.push(along === "x" ? [o + w, y, (rr() - 0.5)*0.2] : [(rr() - 0.5)*0.2, y, o + w]); }
+        P(g, K.tube(pts, 0.07, 10, 5), 0x3a2418);
+        for(let k=0;k<4;k++){ const p = pts[k], q = rr()*6.28; P(g, new THREE.ConeGeometry(0.035, 0.18, 4), 0x6a5a3a, p[0], p[1] + 0.15, p[2], Math.cos(q)*1.3, 0, Math.sin(q)*1.3); }
+      }
+      for(const yy of [0.45, 1.1]){ const pts = [-1.5, -0.5, 0.5, 1.5].map((o, k)=> along === "x" ? [o, yy + Math.sin(k*2)*0.12, 0] : [0, yy + Math.sin(k*2)*0.12, o]); P(g, K.tube(pts, 0.06, 12, 5), 0x2a1a14); }
+      K.bake(g, { w:0.018 });
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(3, 0.3), new THREE.MeshBasicMaterial({ color:0xff3fb0, transparent:true, opacity:0 }));
+      glow.rotation.x = -PI/2; glow.position.y = 0.03; if(along === "z") glow.rotation.z = PI/2; g.add(glow);
+      g.position.set(d.x, -WH - 0.1, d.y);
+      const a = W.area[(d.y - 0.5)*W.D.w + (d.x - 0.5)];
+      W.areaGroup(a >= 0 ? a : d.room).add(g);
+      W.doors.push({ d, g, glow, h:-WH - 0.1 });
+      return;
+    }
     for(let i=0;i<9;i++){
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, WH, 0.09), barM);
       const o = -1.4 + i*0.35;
@@ -198,7 +244,7 @@ proto.buildFakes = function(){
       parts.push(W.wallBlock(x, y, low));
       if(y === r.y1 - 1){ const sk = new THREE.BoxGeometry(1, 0.18, 0.12); sk.translate(x + 0.5, 0.09, y + 1.03); parts.push(K.paint(sk, new THREE.Color(th.wall).multiplyScalar(1.2*0.7))); }
     });
-    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex }));
+    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex, gloom:"wall" }));
     const a = W.area[f.tiles[0][1]*W.D.w + f.tiles[0][0]];
     W.areaGroup(a >= 0 ? a : f.room).add(m);
     W.fakes.push({ f, m, t:0 });
@@ -249,6 +295,16 @@ proto.buildTorches = function(){
       if(r.props.some(p=> p.kind === "sign" && Math.abs(p.x - x) < 1)) continue;
       if(D.decor.some(d=> d.wall && Math.abs(d.x - x - 0.5) < 0.8 && Math.abs(d.y - y - 1) < 0.5)) continue;
       const g = new THREE.Group(); g.position.set(x + 0.5, 1.15, y + 1.05);
+      if((W.th.gloom || 0) >= 0.7){
+        // a cluster of shelf glowcaps on the wall instead of a torch
+        for(let k=0;k<3;k++) K.part(g, new THREE.CylinderGeometry(0.16 - k*0.03, 0.1 - k*0.02, 0.05, 10, 1, false, 0, PI), W.th.torch, (k - 1)*0.12, -0.2 + k*0.2, -0.05);
+        K.bake(g, { w:0.012 });
+        const glow = K.sprite(W.th.torch, 0.9, 0.7); glow.position.set(0, 0.05, 0.1); g.add(glow);
+        W.areaGroup(r.id).add(g);
+        W.flames.push({ flame:glow, s:0.9, ph:W.rnd()*6, slow:true });
+        W.lights.push({ x:x + 0.5, y:1.4, z:y + 1.4, c:W.th.torch, i:1.3, room:r.id, ph:W.rnd()*6 });
+        continue;
+      }
       K.part(g, new THREE.BoxGeometry(0.16, 0.22, 0.04), 0x2a2a30, 0, -0.12, -0.04);
       K.part(g, new THREE.CylinderGeometry(0.04, 0.03, 0.4, 6), 0x4a3020, 0, 0, 0, 0.5);
       K.part(g, new THREE.CylinderGeometry(0.11, 0.05, 0.12, 8), 0x2a2a30, 0, 0.2, 0.1);
@@ -393,9 +449,9 @@ proto.buildMotes = function(){
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aPh", new THREE.BufferAttribute(ph, 1));
   const kind = W.th.motes;
-  const col = { dust:[0.9, 0.8, 0.6], spores:[0.6, 1.0, 0.5], ghostfog:[0.6, 0.8, 1.0], eyes:[0.9, 0.4, 1.0], embers:[1.0, 0.4, 0.2] }[kind] || [0.9, 0.9, 0.9];
+  const col = { dust:[0.9, 0.8, 0.6], spores:[0.6, 1.0, 0.5], ghostfog:[0.6, 0.8, 1.0], eyes:[0.9, 0.4, 1.0], embers:[1.0, 0.4, 0.2], glowbugs:[0.4, 0.85, 1.0] }[kind] || [0.9, 0.9, 0.9];
   const m = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{ value:0 }, uCenter:{ value:new THREE.Vector3() }, uScale:{ value:300 }, uCol:{ value:new THREE.Vector3(col[0], col[1], col[2]) }, uRise:{ value:kind === "embers" || kind === "spores" ? 0.5 : 0.08 } },
+    uniforms:{ uTime:{ value:0 }, uCenter:{ value:new THREE.Vector3() }, uScale:{ value:300 }, uCol:{ value:new THREE.Vector3(col[0], col[1], col[2]) }, uRise:{ value:kind === "embers" || kind === "spores" ? 0.5 : kind === "glowbugs" ? 0.2 : 0.08 } },
     transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
     vertexShader:["attribute float aPh; uniform float uTime, uScale, uRise; uniform vec3 uCenter; varying float vA;",
       "void main(){ vec3 p = position; p.y = mod(p.y + uTime*uRise + aPh, 3.2);",
@@ -569,7 +625,7 @@ proto.update = function(G, dt, t){
     o.m.material.depthWrite = false;
   });
   // torches flicker; the nearest light sources get the real lights
-  W.flames.forEach(f=> f.flame.scale.setScalar(f.s*(0.85 + 0.15*Math.sin(t*13 + f.ph) + 0.08*Math.sin(t*31 + f.ph*2))));
+  W.flames.forEach(f=> f.flame.scale.setScalar(f.slow ? f.s*(0.9 + 0.1*Math.sin(t*1.7 + f.ph)) : f.s*(0.85 + 0.15*Math.sin(t*13 + f.ph) + 0.08*Math.sin(t*31 + f.ph*2))));
   const dark = G.curses.indexOf("dark") >= 0 ? 0.5 : 1;
   const near = W.lights.filter(o=> D.rooms[o.room] && D.rooms[o.room].seen && Math.abs(o.x - p.x) < 20 && Math.abs(o.z - p.y) < 16).sort((a, b)=> DG.dist2(a.x, a.z, p.x, p.y) - DG.dist2(b.x, b.z, p.x, p.y));
   S.torches.forEach((l, i)=>{

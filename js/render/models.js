@@ -834,6 +834,86 @@ Models.tentacle = function(){
 };
 
 /* ================================================================== *
+ *  The Gloom (Gloom Shooter's rot): violet-black flesh, bile-green
+ *  pustules that glow, too many eyes, cordyceps out of what used to be folk
+ * ================================================================== */
+const ROT = { flesh:0x3a1a3e, flesh2:0x5a2050, bile:0x9cff3a, pus:0xffe14a, eye:0xffe14a, cord:0xff7a2a, vein:0xff3fb0 };
+Models.ROT = ROT;
+let _rotSeed = 1;
+function fleshGeo(r, det, amt, c1, c2){
+  return K.paint(K.lump(r, det, amt, _rotSeed++*1.7), c1, (c, x, y, z)=>{ const k = Math.sin(x*9/r*0.3 + z*7/r*0.3)*Math.sin(y*11/r*0.3); if(k > 0.3) c.lerp(new THREE.Color(c2), 0.6); });
+}
+function pustules(R, parent, n, r, y, sx, sy, sz, col){
+  for(let i=0;i<n;i++){
+    const a = i*2.39996, e = Math.asin(((i + 0.5)/n)*1.6 - 0.8);
+    const x = Math.cos(a)*Math.cos(e)*r*sx, yy = y + Math.sin(e)*r*sy, z = Math.sin(a)*Math.cos(e)*r*sz;
+    glow(R, parent, 0.035 + (i % 3)*0.015, col || ROT.bile, x, yy, z);
+  }
+}
+function rotEyes(R, parent, n, y, z, r, col){
+  for(let i=0;i<n;i++){ const x = (i - (n - 1)/2)*r*2.3, yy = y + (i % 2)*r*0.8; P(parent, S(r, 8, 6), 0x1a0a1a, x, yy, z); glow(R, parent, r*0.6, col || ROT.eye, x, yy, z + r*0.5); }
+}
+function rotLegs(R, parent, n, r, y, len){
+  const legs = [];
+  for(let i=0;i<n;i++){
+    const a = (i/n)*PI*2 + PI/n, g = group(parent, Math.cos(a)*r, y, Math.sin(a)*r); g.rotation.y = -a;
+    P(g, CY(0.035, 0.05, len, 6), 0x2a1430, len*0.35, -len*0.3, 0, 0, 0, -1.0);
+    P(g, CO(0.035, len*0.6, 5), 0x1a0a20, len*0.75, -len*0.75, 0, 0, 0, -0.3 + PI);
+    legs.push(g);
+  }
+  R.parts.legs = legs;
+}
+Models.rotling = function(){
+  const R = rig("rotling"), b = R.body;
+  P(b, fleshGeo(0.36, 1, 0.38, ROT.flesh, ROT.flesh2), 0xffffff, 0, 0.36, 0, 0, 0, 0, 1, 0.72, 1.12);
+  pustules(R, b, 6, 0.34, 0.42, 1, 0.7, 1.1);
+  rotEyes(R, b, 4, 0.46, 0.34, 0.06);
+  rotLegs(R, b, 6, 0.26, 0.3, 0.45);
+  [-1, 1].forEach(s=> P(b, CO(0.04, 0.4, 4), 0x2a1430, s*0.17, 0.3, 0.42, 1.9));
+  teeth(b, 0.28, 0.4, 0.2, 5, 0xe8f0c8);
+  R.h = 0.9; return finish(R);
+};
+Models.spitter = function(){
+  const R = rig("spitter"), b = R.body;
+  P(b, fleshGeo(0.45, 1, 0.3, 0x3b4a2a, 0x5a6a3a), 0xffffff, 0, 0.55, 0, 0, 0, 0, 1, 1.15, 1);
+  // mould hairs all over, and a spout on top
+  for(let i=0;i<22;i++){ const a = i*2.4, e = (i % 7)/7*1.3 - 0.2; P(b, CO(0.02, 0.14, 3), 0xb8d8a0, Math.cos(a)*Math.cos(e)*0.46, 0.55 + Math.sin(e)*0.5, Math.sin(a)*Math.cos(e)*0.46, Math.sin(a)*0.8, 0, -Math.cos(a)*0.8); }
+  const sp = group(b, 0, 0.98, 0.18); sp.rotation.x = 0.7; R.parts.head = sp;
+  P(sp, CY(0.09, 0.16, 0.36, 10), 0x2a361e, 0, 0.14, 0);
+  glow(R, sp, 0.08, ROT.bile, 0, 0.33, 0);
+  rotEyes(R, b, 2, 0.72, 0.42, 0.13, 0xffe14a);
+  pustules(R, b, 4, 0.45, 0.6, 1, 1.1, 1);
+  rotLegs(R, b, 3, 0.28, 0.25, 0.38);
+  halo(R, sp, ROT.bile, 0.8, 0, 0.33, 0, 0.4);
+  R.h = 1.4; return finish(R);
+};
+Models.bloater = function(){
+  const R = rig("bloater"), b = R.body;
+  const belly = group(b, 0, 0.82, 0); R.parts.head = belly;
+  P(belly, fleshGeo(0.75, 2, 0.12, 0x5b4a5e, 0x7a6a3a), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  pustules(R, belly, 14, 0.74, 0.05, 1, 0.9, 1);
+  rotEyes(R, belly, 2, 0.25, 0.66, 0.18, 0xffe14a);
+  P(belly, S(0.2, 10, 8), 0x1a0a1a, 0, -0.1, 0.68, 0, 0, 0, 1.4, 0.6, 0.4);
+  for(let i=0;i<3;i++) P(belly, CY(0.04, 0.09, 0.25, 6), 0x3a2a3e, (i - 1)*0.25, 0.68, -0.1, 0, 0, (i - 1)*0.3);
+  rotLegs(R, b, 4, 0.5, 0.35, 0.45);
+  halo(R, belly, ROT.bile, 2.2, 0, 0, 0, 0.25);
+  R.h = 1.9; return finish(R);
+};
+Models.husk = function(){
+  // a mushroom-folk the Gloom took: grey stem, a dead cap, cordyceps bursting out
+  const R = rig("husk");
+  shroomPerson(R, 1.25, 0x5a5660, 0x8a8690);
+  const cap = R.parts.head;
+  for(let i=0;i<7;i++){ const a = i/7*PI*2, rr = 0.18, h = 0.3 + (i % 3)*0.12;
+    P(cap, CO(0.03, h, 5), ROT.cord, Math.cos(a)*rr, 0.26 + h/2, Math.sin(a)*rr, Math.sin(a)*0.5, 0, -Math.cos(a)*0.5);
+    glow(R, cap, 0.04, ROT.vein, Math.cos(a)*(rr + h*0.25), 0.26 + h, Math.sin(a)*(rr + h*0.25)); }
+  // a fist of dead cap for a maul
+  P(R.parts.armR, fleshGeo(0.16, 1, 0.3, 0x3a2c3a, 0x5a3a4a), 0xffffff, 0, -0.32, 0.08);
+  pustules(R, R.body, 5, 0.25, 0.45, 1, 1, 1, ROT.cord);
+  return finish(R);
+};
+
+/* ================================================================== *
  *  Bosses
  * ================================================================== */
 Models.king = function(){ return Models.goblin("king"); };
@@ -910,22 +990,25 @@ Models.eye = function(){
   R.h = 3.4; return finish(R, { w:0.04 });
 };
 Models.heart = function(){
+  // the Gloom Heart: a knot of rot flesh rooted in the forest floor, veined
+  // with glowing bile, crowned with cordyceps and glowcaps
   const R = rig("heart"), b = R.body;
-  const beat = group(b, 0, 1.4, 0); R.parts.head = beat;
-  P(beat, S(0.85, 20, 16), 0xa82a3a, -0.35, 0.1, 0, 0, 0, 0.3, 1, 1.1, 0.95);
-  P(beat, S(0.85, 20, 16), 0xb83242, 0.35, 0.1, 0, 0, 0, -0.3, 1, 1.1, 0.95);
-  P(beat, CO(0.95, 1.2, 20), 0xa02838, 0, -0.75, 0, PI);
-  // the aorta arching over the top, vessels with rings, valves that glow
-  P(beat, K.tube([[0.15, 0.7, 0], [0.25, 1.3, 0.05], [-0.25, 1.5, 0], [-0.6, 1.1, -0.05]], 0.2, 14, 10), 0xc83a4a);
-  [[-0.3, 0.9, 0.1, 0.18], [0.2, 1.0, -0.1, 0.22], [0.55, 0.85, 0.05, 0.14]].forEach(([x, y, z, r])=>{ P(beat, CY(r*0.9, r, 0.8, 12), 0x8a2030, x, y, z); P(beat, TO(r*0.95, 0.03), 0x6a1020, x, y + 0.3, z, PI/2); glow(R, beat, r*0.6, 0xff6a3a, x, y + 0.42, z); });
-  for(let i=0;i<7;i++){ const a = i*0.9; P(beat, K.tube([[Math.cos(a)*0.5, 0.6, 0.75], [Math.cos(a)*0.8, 0, 0.7], [Math.cos(a)*0.5, -0.6, 0.5]], 0.04, 10, 5), 0x4a1aa0); }
-  // stitches down the middle, where someone tried to mend it
-  P(beat, K.tube([[0, 0.75, 0.62], [0.05, 0.1, 0.85], [0, -0.6, 0.6]], 0.02, 10, 4), 0x1a0a0a);
-  for(let i=0;i<6;i++){ const y = 0.6 - i*0.24; P(beat, BX(0.2, 0.025, 0.025), 0x1a0a0a, 0.03, y, 0.8 - Math.abs(y - 0.1)*0.18, 0, 0, 0.3); }
-  for(let i=0;i<5;i++){ const a = i/5*PI*2; P(b, K.tube([[Math.cos(a)*0.6, 0.9, Math.sin(a)*0.6], [Math.cos(a)*1.4, 0.3, Math.sin(a)*1.4], [Math.cos(a)*2, 0.02, Math.sin(a)*2]], 0.12, 10, 6), 0x6a1a2a); P(b, S(0.2, 10, 6), 0x4a1018, Math.cos(a)*2, 0.02, Math.sin(a)*2, 0, 0, 0, 1, 0.4, 1); }
-  // chained to the floor
-  [0.6, 2.2, 3.8, 5.4].forEach(a=> chain(b, [Math.cos(a)*0.7, 1.0, Math.sin(a)*0.7], [Math.cos(a)*1.6, 0.05, Math.sin(a)*1.6], 7, 0x4a4a54));
-  halo(R, beat, 0xff2a3a, 5, 0, 0, 0.5, 0.35);
+  const beat = group(b, 0, 1.3, 0); R.parts.head = beat;
+  P(beat, fleshGeo(1.0, 2, 0.22, 0x6a1240, 0x9a1a5a), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  P(beat, fleshGeo(0.55, 1, 0.3, 0x4a0a30, 0x7a1a4a), 0xffffff, 0.55, 0.45, 0.35);
+  P(beat, fleshGeo(0.5, 1, 0.3, 0x4a0a30, 0x7a1a4a), 0xffffff, -0.6, 0.35, 0.3);
+  pustules(R, beat, 18, 0.98, 0.0, 1, 0.9, 1, ROT.vein);
+  pustules(R, beat, 9, 0.98, 0.0, 1, 0.9, 1, ROT.bile);
+  // eyes peering out of the flesh
+  [[0.0, 0.25, 0.9, 0.16], [0.4, -0.1, 0.85, 0.11], [-0.42, 0.0, 0.85, 0.1], [0.2, 0.55, 0.75, 0.08]].forEach(([x, y, z, r])=>{ P(beat, S(r, 10, 8), 0x1a0a1a, x, y, z); glow(R, beat, r*0.6, ROT.eye, x, y, z + r*0.5); });
+  // cordyceps and glowcaps out of the top
+  for(let i=0;i<9;i++){ const a = i/9*PI*2, rr = 0.45, h = 0.5 + (i % 3)*0.25;
+    P(beat, CO(0.05, h, 5), ROT.cord, Math.cos(a)*rr, 0.75 + h/2, Math.sin(a)*rr, Math.sin(a)*0.5, 0, -Math.cos(a)*0.5);
+    glow(R, beat, 0.06, ROT.vein, Math.cos(a)*(rr + h*0.25), 0.75 + h, Math.sin(a)*(rr + h*0.25)); }
+  [[0.7, 0.6, -0.3, 0.32], [-0.75, 0.5, -0.2, 0.26]].forEach(([x, y, z, r])=>{ P(beat, CY(r*0.25, r*0.3, r*1.2, 8), 0xcfe4ff, x, y, z); P(beat, new THREE.SphereGeometry(r, 12, 6, 0, PI*2, 0, PI/2), 0x2a8aff, x, y + r*0.6, z, 0, 0, 0, 1, 0.55, 1); glow(R, beat, r*0.3, 0x6ad8ff, x, y + r*0.6, z); });
+  // roots: thick violet tubes into the floor
+  for(let i=0;i<7;i++){ const a = i/7*PI*2; P(b, K.tube([[Math.cos(a)*0.6, 0.9, Math.sin(a)*0.6], [Math.cos(a)*1.4, 0.3, Math.sin(a)*1.4], [Math.cos(a)*2.1, 0.02, Math.sin(a)*2.1]], 0.13, 10, 6), 0x3a0a2a); P(b, S(0.2, 10, 6), 0x2a0a20, Math.cos(a)*2.1, 0.02, Math.sin(a)*2.1, 0, 0, 0, 1, 0.4, 1); }
+  halo(R, beat, 0xff3fb0, 5, 0, 0, 0.5, 0.35);
   R.h = 3; return finish(R, { w:0.04 });
 };
 

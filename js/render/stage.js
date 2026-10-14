@@ -164,6 +164,11 @@ S.theme = function(th, curses){
   const u = S.post.mat.uniforms;
   u.uShade.value.setHex(th.shade || 0x2a1838); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
   u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 1 : 0.85;
+  // the Gloom: how far it has taken the floors and walls
+  const lum = c=>{ const k = new THREE.Color(c); return (k.r + k.g + k.b)/3; };
+  K.GLOOM.uGloom.value = th.gloom || 0;
+  K.GLOOM.uFloorLum.value = Math.max(0.05, lum(th.floor)*1.35);
+  K.GLOOM.uWallLum.value = Math.max(0.05, lum(th.wall)*1.2*0.75);
 };
 
 /* follow (x, z), leaning toward the aim point (ax, az) */

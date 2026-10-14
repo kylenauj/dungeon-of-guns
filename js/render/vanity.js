@@ -69,16 +69,16 @@ const decalMat = ()=> K.ink({ map:atlas(), transparent:true, depthWrite:false, a
 
 /* ---- what each floor scatters about ---- */
 const THEMES = {
-  cellar:{ decals:[["crack", 4, 0x1a1210], ["stain", 3, 0x1a140e], ["straw", 2, 0xc8a860], ["grate", 0.4, 0x6a6a70], ["doodle", 0.35, 0xf0f0e0], ["coins", 0.25, 0xffd23d], ["prints", 0.4, 0x2a1a10], ["tiles", 0.6, 0x2a2420], ["splat", 0.4, 0x3a5a1a]], rug:[0.35, 0xa83a2a],
-    walls:["beam", "pipes", "poster", "barrelrack", "cornerweb", "banner", "shelf"], tops:["toprubble", "toprubble", "topcandle"], critters:{ rats:2.2 }, motes:{ c:0xfff0c0, n:0, sp:0.2 } },
-  grotto:{ decals:[["moss", 6, 0x3a6a2a], ["leaves", 3, 0x6a8a3a], ["puddle", 1.5, 0x10302a], ["crack", 2, 0x0a1a10], ["stain", 2, 0x1a3a20], ["prints", 0.3, 0x1a2a10]], rug:[0, 0],
-    walls:["roots", "stalactites", "glowworms", "vines", "wallshroom"], tops:["topgrass", "topgrass", "toprubble"], critters:{ rats:0.6 }, motes:{ c:0xd8ff6a, n:14, sp:0.6 } },
-  crypt:{ decals:[["crack", 5, 0x0a0a14], ["stain", 3, 0x1a1a30], ["rune", 0.5, 0x8ad8ff], ["tiles", 1, 0x1a1a24], ["prints", 0.5, 0x0a0a14], ["doodle", 0.15, 0xc8d8ff]], rug:[0.45, 0x6a1a2a],
-    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "candleshelf", "chains"], tops:["topcandle", "topskull", "toprubble"], critters:{ rats:1.2, bats:2 }, motes:{ c:0x9ad8ff, n:8, sp:0.3 } },
-  weird:{ decals:[["rune", 1.2, 0xff6ad8], ["puddle", 2, 0x3a0a3a], ["splat", 1.5, 0x8a3a8a], ["crack", 3, 0x14041a], ["stain", 3, 0x2a0a2a]], rug:[0, 0],
-    walls:["drips", "mouthwall", "walleye", "stalactites", "tendrils"], tops:["topeye", "toprubble", "topeye"], critters:{ bats:1.4 }, motes:{ c:0xff8ae8, n:12, sp:0.4 } },
-  heart:{ decals:[["splat", 3, 0x5a0a10], ["stain", 4, 0x3a0408], ["puddle", 1.5, 0x4a0408], ["rune", 0.8, 0xff4a3a], ["crack", 3, 0x1a0204]], rug:[0, 0],
-    walls:["valve", "veins", "drips", "ribs", "mouthwall"], tops:["topeye", "topskull", "toprubble"], critters:{ bats:0.8 }, motes:{ c:0xff4a3a, n:16, sp:0.25 } }
+  castle:{ decals:[["crack", 2, 0x1a1418], ["stain", 1.5, 0x1a1418], ["tiles", 1.2, 0x2a2630], ["straw", 0.6, 0xc8a860], ["coins", 0.3, 0xffd23d], ["prints", 0.3, 0x1a1418], ["doodle", 0.25, 0xf0f0e0]], rug:[0.7, 0xa83a2a],
+    walls:["banner", "tapestry", "shieldwall", "cornerweb", "window"], tops:["toprubble", "topcandle"], critters:{ rats:1.4 }, motes:{ c:0xfff0c0, n:0, sp:0.2 } },
+  undercroft:{ decals:[["crack", 4, 0x141210], ["stain", 3, 0x18140e], ["moss", 2.5, 0x2a5a3a], ["puddle", 1, 0x10202a], ["grate", 0.4, 0x6a6a70], ["prints", 0.4, 0x1a1410], ["splat", 0.5, 0x3a1a3e]], rug:[0.3, 0x7a2a2a],
+    walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster"], tops:["toprubble", "topgrass", "topcandle"], critters:{ rats:2 }, motes:{ c:0xd8ff6a, n:6, sp:0.5 } },
+  crypt:{ decals:[["crack", 5, 0x0a0a14], ["stain", 3, 0x1a1a30], ["rune", 0.5, 0x8ad8ff], ["tiles", 1, 0x1a1a24], ["moss", 2, 0x1a4a3a], ["splat", 1, 0x3a1a3e]], rug:[0.3, 0x6a1a2a],
+    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "roots", "glowworms"], tops:["topcandle", "topskull", "topgrass"], critters:{ rats:1, bats:2 }, motes:{ c:0x9ad8ff, n:8, sp:0.3 } },
+  gloomwood:{ decals:[["moss", 5, 0x1a4a3a], ["leaves", 3, 0x2a4a3a], ["splat", 2, 0x3a1a3e], ["puddle", 1.5, 0x1a0a2a], ["rune", 0.4, 0x6ad8ff], ["crack", 1.5, 0x0a0a10]], rug:[0, 0],
+    walls:["roots", "glowworms", "stalactites", "vines", "drips"], tops:["topgrass", "topgrass", "toprubble"], critters:{ bats:1.2 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
+  forest:{ decals:[["moss", 5, 0x1a4a3a], ["leaves", 5, 0x2a4a3a], ["splat", 2.5, 0x3a1a3e], ["puddle", 1.5, 0x2a0a3a], ["prints", 0.4, 0x0a1a10]], rug:[0, 0],
+    walls:["roots", "glowworms", "vines", "roots"], tops:["topgrass", "topgrass", "topgrass"], critters:{ bats:0.8 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
 };
 const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v = rnd()*tot; for(const e of list){ v -= e[1]; if(v <= 0) return e; } return list[0]; };
 
@@ -167,6 +167,7 @@ proto.buildVanity = function(){
   W.buildMist();
   W.buildShafts();
   W.buildCritters(T0);
+  W.buildBackdrop();
   W.buildSplats();
 };
 
@@ -175,7 +176,7 @@ proto.buildArches = function(){
   const W = this, D = W.D, th = W.th;
   const walk = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
   const stone = new THREE.Color(th.top).multiplyScalar(1.35).getHex(), dark = new THREE.Color(th.wall).multiplyScalar(0.9).getHex();
-  const key = { cellar:0xc8a040, grotto:0x7ab84a, crypt:0xe8e2cc, weird:0xd84aff, heart:0xc83a4a }[th.decor] || 0xc8a040;
+  const key = { castle:0xc8a040, undercroft:0xa8a070, crypt:0xe8e2cc, gloomwood:0x3ab8ff, forest:0x9cff3a }[th.decor] || 0xc8a040;
   const byArea = {};
   D.doors.forEach(d=>{
     const tx = Math.floor(d.x), ty = Math.floor(d.y), h = d.axis !== "v";
@@ -269,6 +270,40 @@ proto.buildShafts = function(){
     const mesh = new THREE.Mesh(merged, m); mesh.renderOrder = 5; mesh.frustumCulled = false;
     W.areaGroup(+r).add(mesh);
   }
+};
+
+/* ---- beyond the walls: as the Gloom takes over, a dark forest of firs and
+   giant glowcaps grows in the void around the rooms (never south of anything
+   Zippy stands on, so it never hides him) ---- */
+proto.buildBackdrop = function(){
+  const W = this, D = W.D, g = W.th.gloom || 0;
+  if(g < 0.5) return;
+  const walk = t=> t !== T.SOLID && t !== T.FAKE;
+  const rnd = DG.RNG(D.seed ^ 0x6100).next, trees = [], caps = {}, stems = [], halos = [];
+  const near = (x, y, d)=>{ for(let yy=y - d; yy<=y + d; yy++) for(let xx=x - d; xx<=x + d; xx++) if(walk(D.at(xx, yy))) return true; return false; };
+  const hidesSomething = (x, y)=>{ for(let k=1;k<=6;k++) for(let dx=-2; dx<=2; dx++) if(walk(D.at(x + dx, y - k))) return true; return false; };
+  const dens = (g - 0.45)*0.18;
+  for(let y=0; y<D.h; y+=2) for(let x=0; x<D.w; x+=2){
+    if(rnd() > dens || near(x, y, 3) || hidesSomething(x, y)) continue;
+    const wx = x + rnd()*2, wz = y + rnd()*2;
+    if(rnd() < 0.3){
+      const h = 2.5 + rnd()*4, cr = 0.8 + h*0.2 + rnd()*0.5, c = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888, 0x6a3ab0][Math.floor(rnd()*5)];
+      const st = new THREE.CylinderGeometry(cr*0.1, cr*0.16, h, 8); st.translate(wx, h/2, wz); stems.push(K.paint(st, 0xcfe4ff));
+      const cp = new THREE.SphereGeometry(cr, 14, 7, 0, Math.PI*2, 0, Math.PI/2); cp.scale(1, 0.55, 1); cp.translate(wx, h - 0.05, wz);
+      (caps[c] = caps[c] || []).push(K.paint(cp, c));
+      halos.push({ x:wx, y:h + 0.1, z:wz, c, s:cr*3 });
+    } else {
+      const h = 3 + rnd()*4, col = new THREE.Color().setHSL(0.48 + rnd()*0.06, 0.35, 0.06 + rnd()*0.04);
+      const tr = new THREE.CylinderGeometry(0.15, 0.28, h*0.3, 5); tr.translate(wx, h*0.15, wz); trees.push(K.paint(tr, 0x1a1410));
+      for(let k=0;k<4;k++){ const f = k/4, r = (1 - f)*h*0.26 + 0.5; const cn = new THREE.ConeGeometry(r, h*0.42, 7); cn.translate(wx, h*0.25 + f*h*0.62, wz); trees.push(K.paint(cn, col)); }
+    }
+  }
+  const grp = new THREE.Group();
+  if(trees.length) grp.add(new THREE.Mesh(K.merge(trees), K.ink()));
+  if(stems.length) grp.add(new THREE.Mesh(K.merge(stems), K.ink({ emissive:0x1d3a66 })));
+  for(const c in caps) grp.add(new THREE.Mesh(K.merge(caps[c]), K.ink({ emissive:new THREE.Color(+c).multiplyScalar(0.25) })));
+  halos.forEach(h=>{ const sp = K.sprite(h.c, h.s, 0.22); sp.position.set(h.x, h.y, h.z); grp.add(sp); const pool = new THREE.Mesh(K.glowPlane, K.glowMat(h.c, 0.3)); pool.scale.set(h.s, 1, h.s); pool.position.set(h.x, 0.05, h.z); grp.add(pool); });
+  W.group.add(grp);
 };
 
 /* ---- little lives ---- */

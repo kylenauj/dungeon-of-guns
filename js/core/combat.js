@@ -320,6 +320,7 @@ proto.damageEnemy = function(e, amt, src){
   const els = src.els || (src.el ? [src.el] : []);
   let m = 1;
   if(e.affix && DG.AFFIXES[e.affix].dmgTaken) m *= DG.AFFIXES[e.affix].dmgTaken;
+  if(e.def.armor) m *= e.def.armor;
   if(M.special.brittle && (e.st.chill > 0 || e.st.frozen > 0)) m *= 1 + 0.35*M.special.brittle;
   if(e.st.rot > 0) m *= 1.5;
   if(els.indexOf("arcane") >= 0 && !src.dot) m *= DG.STATUS.arcane.mul;
@@ -475,6 +476,8 @@ proto.killEnemy = function(e, src, fell){
   if(e.st.burn && e.st.burn.t > 0 && e.st.burn.wildfire){ G.explode(e.x, e.y, 1.9, e.st.burn.dps*2, "p", { els:["fire"], depth:1, react:true }); G.byproduct("fire", e.x, e.y, G.payloadPower(), 1); }
   if(e.affix === "vengeful") G.ring(e.x, e.y, DG.AFFIXES.vengeful.deathRing, 5.5, e.dmg*0.7, G.rng.next());
   if(e.affix === "haunted" && !e.boss){ const r = G.D.rooms[e.room]; G.pending.push({ t:0.4, fn:()=>{ if(r.active) G.spawnEnemy(r, { type:"ghost", x:e.x, y:e.y, quick:true, hpMul:0.5 }); } }); }
+  // a Bloater bursts into a cloud of Gloom spores: don't pop it next to yourself
+  if(e.def.deathCloud && !fell){ G.addHazard({ kind:"spores", x:e.x, y:e.y, r:1.9, t:3.2, dmg:e.dmg*0.45, every:0.5, team:"e" }); G.emit("burst", { x:e.x, y:e.y }); }
   if(e.def.splits && !fell){
     const r = G.D.rooms[e.room];
     for(let i=0;i<2;i++){ const a = G.rng.next()*TAU; G.spawnEnemy(r, { type:e.def.splits, x:e.x + Math.cos(a)*0.4, y:e.y + Math.sin(a)*0.4, quick:true }); }

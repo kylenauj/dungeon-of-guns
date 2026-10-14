@@ -655,7 +655,7 @@ proto.bossDown = function(e){
   if(G.chance(0.35)) G.addPickup("fly", r.cxw + 2, r.cyw, 1);
   G.dropGold(e.x, e.y, 25 + 10*G.floor);
   G.emit("portal", G.portal);
-  G.say(G.floor >= DG.FINAL_FLOOR && !G.endless ? "The Hollow Heart is still. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
+  G.say(G.floor >= DG.FINAL_FLOOR && !G.endless ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
 };
 
 /* ---- things on the floor ---- */
