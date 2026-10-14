@@ -290,7 +290,7 @@ H.draw = function(G, dt, opts){
 
   // ---- top left: health, wards, mana, blink, xp, gold ----
   const x0 = 24, y0 = 22;
-  const bw = Math.min(small ? W*0.52 : 320, (150 + p.maxHp*0.9))*k;   // the bar grows with your max health
+  const bw = Math.min(small ? W*0.42 : 320, (150 + p.maxHp*0.9))*k;   // the bar grows with your max health
   const hk = p.hp/p.maxHp;
   if(H.hpLag === null || H.hpLag === undefined || hk > H.hpLag) H.hpLag = hk;
   H.hpHold = hk < (H.hpLast === undefined ? hk : H.hpLast) ? 0.55 : Math.max(0, (H.hpHold || 0) - dt);

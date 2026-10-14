@@ -102,6 +102,7 @@ kbd{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.06
 .gel{color:var(--dim);}
 
 @media (max-width:760px){
+  .screens{background:linear-gradient(180deg,rgba(5,4,4,.9) 0%,rgba(5,4,4,.8) 60%,rgba(5,4,4,.92) 100%);}
   .cols{grid-template-columns:1fr;}
   .logo span{font-size:clamp(40px,13vw,60px);}
   .item{padding-top:8px;padding-bottom:7px;}
@@ -134,14 +135,14 @@ kbd{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.06
 /* ---- the end of a run: YOU DIED ---- */
 .screens.end{display:flex;flex-direction:column;align-items:center;text-align:center;background:transparent;animation:dimdown 2.6s ease-out forwards;}
 .screens.end.win{animation-duration:1.6s;}
-@keyframes dimdown{from{background:rgba(3,2,2,0);}to{background:rgba(3,2,2,.72);}}
+@keyframes dimdown{from{background:rgba(3,2,2,0);}to{background:rgba(3,2,2,.5);}}
 .endwrap{margin:auto;width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2vh,18px);}
-.died-band{position:relative;left:50%;transform:translateX(-50%);width:100vw;padding:clamp(18px,4.5vh,40px) 0;
+.died-band{position:relative;width:100vw;flex:none;padding:clamp(18px,4.5vh,40px) 16px;
   background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.82) 26%,rgba(0,0,0,.82) 74%,transparent 100%);opacity:0;animation:fadein 1.4s .1s ease-out forwards;}
 .died{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(46px,9vw,112px);line-height:1;letter-spacing:.1em;color:#a51c12;
   text-shadow:0 0 28px rgba(150,16,8,.45),0 2px 0 rgba(0,0,0,.9);opacity:0;animation:youdied 4.2s .5s cubic-bezier(.2,.6,.3,1) forwards;white-space:nowrap;}
 .died.win{color:var(--gold2);text-shadow:0 0 30px rgba(232,180,80,.45),0 2px 0 rgba(0,0,0,.9);font-size:clamp(36px,7vw,92px);}
-.died-sub{margin:8px 0 0;font-family:var(--body);font-style:italic;font-size:clamp(16px,1.6vw,20px);color:var(--bone);opacity:0;animation:fadein 1.4s 1.6s forwards;}
+.died-sub{margin:10px auto 0;max-width:46em;font-family:var(--body);font-style:italic;font-size:clamp(16px,1.6vw,20px);color:var(--bone);opacity:0;animation:fadein 1.4s 1.6s forwards;}
 @keyframes youdied{0%{opacity:0;transform:scale(.97);letter-spacing:.06em;}35%{opacity:1;}100%{opacity:1;transform:scale(1.03);letter-spacing:.13em;}}
 @keyframes fadein{to{opacity:1;}}
 @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
