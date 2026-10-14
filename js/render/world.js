@@ -7,20 +7,125 @@
  *  (a cheap ambient occlusion). Decor is flattened and baked per room.
  *  A small pool of point lights follows the nearest torches, candles,
  *  glowing mushrooms and crystals (a fixed count: no shader recompiles).
+ *
+ *  The stone is old and dead: worn flagstones in four cuts, ashlar walls
+ *  whose courses run on from tile to tile (world-space UVs), a plinth
+ *  and a cornice along every face, stones that jut, merlons that have
+ *  crumbled. Things that glow by themselves (glowcap gills, embers)
+ *  bake into one unlit mesh per area.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
 const DG = window.DG, K = DG.Kit, T = DG.TILE, M = DG.Models;
 const WH = K.WALL_H, LOW = 0.55, PI = Math.PI;
+const frac = v=> v - Math.floor(v);
+const hash2 = (x, y)=> frac(Math.sin(x*127.1 + y*311.7)*43758.5453);
+
+/* ---- the stone, painted once: greyscale, so vertex colours tint it per floor ---- */
+const TEX = {};
+function texDone(cv, mip){
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.LinearFilter; t.minFilter = mip === false ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter; t.anisotropy = 1;
+  return t;
+}
+function slab(g, r, x, y, w, h, v, cracks){
+  // one dressed stone: a worn face, bevelled edges, pits, a stain, maybe a crack
+  const grd = g.createLinearGradient(x, y, x + w*0.3, y + h);
+  grd.addColorStop(0, "rgb(" + (v + 14) + "," + (v + 14) + "," + (v + 14) + ")"); grd.addColorStop(1, "rgb(" + (v - 16) + "," + (v - 16) + "," + (v - 16) + ")");
+  g.fillStyle = grd; g.fillRect(x, y, w, h);
+  g.fillStyle = "rgba(255,255,255,0.16)"; g.fillRect(x, y, w, 2); g.fillRect(x, y, 2, h);
+  g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(x, y + h - 2, w, 2); g.fillRect(x + w - 2, y, 2, h);
+  for(let k=0;k<w*h/18;k++){ const q = r(); g.fillStyle = q < 0.5 ? "rgba(0,0,0," + (0.08 + r()*0.18) + ")" : "rgba(255,255,255," + (0.04 + r()*0.08) + ")"; g.fillRect(x + r()*w, y + r()*h, 1 + r()*2, 1 + r()*2); }
+  if(r() < 0.6){ const sx = x + r()*w, sy = y + r()*h, rr = 6 + r()*Math.min(w, h)*0.5, gr = g.createRadialGradient(sx, sy, 0, sx, sy, rr); gr.addColorStop(0, "rgba(0,0,0,0.28)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x, y, w, h); }
+  // chipped corners
+  if(r() < 0.35){ const c = 3 + r()*7; g.fillStyle = "rgba(0,0,0,0.6)"; g.beginPath(); const cx = r() < 0.5 ? x : x + w, cy = r() < 0.5 ? y : y + h; g.moveTo(cx, cy); g.lineTo(cx + (cx === x ? c : -c), cy); g.lineTo(cx, cy + (cy === y ? c : -c)); g.fill(); }
+  if(r() < cracks){
+    g.strokeStyle = "rgba(0,0,0,0.75)"; g.lineWidth = 1 + r(); g.beginPath();
+    let px = x + r()*w, py = y + (r() < 0.5 ? 1 : h - 1), a = py > y + h/2 ? -PI/2 : PI/2; g.moveTo(px, py);
+    for(let k=0;k<6;k++){ a += (r() - 0.5)*1.4; px += Math.cos(a)*h*0.22; py += Math.sin(a)*h*0.22; g.lineTo(Math.max(x, Math.min(x + w, px)), Math.max(y, Math.min(y + h, py))); }
+    g.stroke();
+  }
+}
+/* walls: ashlar courses over 2x2 units, tiling both ways */
+function stoneTex(){
+  if(TEX.stone) return TEX.stone;
+  const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(77).next;
+  g.fillStyle = "#2e2e2e"; g.fillRect(0, 0, N, N);
+  const rows = 8, rh = N/rows;
+  for(let row=0; row<rows; row++){
+    const o = r()*30; let x = o;
+    while(x < o + N - 1){
+      let w = 28 + r()*44; if(x + w > o + N - 20) w = o + N - x;
+      const v = 150 + (r()*70 | 0), seed = (r()*1e6) | 0;
+      [x, x - N].forEach(px=> slab(g, DG.RNG(seed).next, px + 1.5, row*rh + 1.5, w - 3, rh - 3, v, 0.3));
+      x += w;
+    }
+  }
+  // damp streaks running down
+  for(let k=0;k<18;k++){ const x = r()*N, l = 30 + r()*140, y = r()*N; const gr = g.createLinearGradient(0, y, 0, y + l); gr.addColorStop(0, "rgba(0,0,0,0.22)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x, y, 2 + r()*5, l); }
+  return TEX.stone = texDone(cv);
+}
+/* floors: flagstones of every size laid over 4x4 units (cut and cut again,
+   so no two neighbours match), tiling seamlessly */
+function floorTex(){
+  if(TEX.floor) return TEX.floor;
+  const N = 512, U = N/4, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(91).next;
+  g.fillStyle = "#242424"; g.fillRect(0, 0, N, N);
+  const G = 2.5, slabs = [];
+  const cut = (x, y, w, h)=>{
+    const big = Math.max(w, h);
+    if(big <= 0.75 || (big <= 1.75 && r() < 0.42)){ slabs.push([x, y, w, h]); return; }
+    const vert = w > h ? true : w < h ? false : r() < 0.5, len = vert ? w : h;
+    const k = Math.max(1, Math.min(len/0.25 - 1, Math.round((0.3 + r()*0.4)*len/0.25)))*0.25;
+    if(vert){ cut(x, y, k, h); cut(x + k, y, w - k, h); } else { cut(x, y, w, k); cut(x, y + k, w, h - k); }
+  };
+  cut(0, 0, 4, 4);
+  slabs.forEach(([x, y, w, h])=> slab(g, r, x*U + G, y*U + G, w*U - 2*G, h*U - 2*G, 150 + (r()*62 | 0), 0.5));
+  // hollows worn by feet, dark seepage
+  for(let k=0;k<6;k++){ const sx = r()*N, sy = r()*N, rr = 30 + r()*70; [[0, 0], [N, 0], [-N, 0], [0, N], [0, -N]].forEach(([ox, oy])=>{ const gr = g.createRadialGradient(sx + ox, sy + oy, 0, sx + ox, sy + oy, rr); gr.addColorStop(0, "rgba(0,0,0,0.18)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(sx + ox - rr, sy + oy - rr, rr*2, rr*2); }); }
+  return TEX.floor = texDone(cv);
+}
+/* smooth value noise over the floor, so tone drifts without showing the tile grid */
+const vnoise = (x, y)=>{ const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx*fx*(3 - 2*fx), sy = fy*fy*(3 - 2*fy);
+  const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+  return a + (b - a)*sx + (c - a)*sy + (a - b - c + d)*sx*sy; };
+
+/* world-space UVs on a positioned geometry, so courses run on across tiles */
+function wuv(g){
+  if(g.index) g = g.toNonIndexed();
+  if(!g.attributes.normal) g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal;
+  let uv = g.attributes.uv; if(!uv){ uv = new THREE.BufferAttribute(new Float32Array(p.count*2), 2); g.setAttribute("uv", uv); }
+  for(let i=0;i<p.count;i++){
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    if(ay > 0.7) uv.setXY(i, x*0.5, z*0.5);
+    else if(ax > az) uv.setXY(i, z*0.5, y*0.5);
+    else uv.setXY(i, x*0.5, y*0.5);
+  }
+  return g;
+}
+/* a stone part for the wall mesh: world UVs, tops in the top colour, darker low down */
+function stone(list, g, cW, cTop, k){
+  g = wuv(g);
+  const n = g.attributes.normal;
+  K.paint(g, cW, (c, px, py, pz, i)=>{
+    if(n.getY(i) > 0.7) c.copy(cTop);
+    c.multiplyScalar((k || 1)*(0.5 + 0.5*Math.min(1, py/WH + 0.15)));
+  });
+  list.push(g);
+  return g;
+}
+const box = (w, h, d, x, y, z, rx, ry, rz)=>{ const g = new THREE.BoxGeometry(w, h, d); if(rx) g.rotateX(rx); if(ry) g.rotateY(ry); if(rz) g.rotateZ(rz); g.translate(x, y, z); return g; };
 
 const World = DG.World = function(D){
   const W = this;
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
-    floor: K.ink({ map:K.floorTex, gloom:"floor" }),
-    wall:  K.ink({ map:K.stoneTex, gloom:"wall" }),
-    plain: K.ink()
+    floor: K.ink({ map:floorTex(), gloom:"floor" }),
+    wall:  K.ink({ map:stoneTex(), gloom:"wall" }),
+    plain: K.ink(),
+    lit:   new THREE.MeshBasicMaterial({ vertexColors:true })
   };
   W.rnd = DG.RNG(D.seed ^ 0x51ed).next;
   W.assignAreas();
@@ -39,6 +144,7 @@ const World = DG.World = function(D){
   D.rooms.forEach(r=>{ if(r.puzzle) W.buildPuzzle(r); });
 };
 const proto = World.prototype;
+World.stone = stone; World.wuv = wuv; World.stoneTex = stoneTex;
 
 /* ---- which area each tile draws in ---- */
 proto.assignAreas = function(){
@@ -56,11 +162,10 @@ proto.areaGroup = function(id){
 proto.areaOfTile = function(x, y){ const a = this.area[Math.floor(y)*this.D.w + Math.floor(x)]; return a >= 0 ? a : null; };
 
 /* ---- floor, walls, pillars, pits ---- */
+const walkable = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
 proto.buildAreas = function(){
-  const W = this, D = W.D, th = W.th, buckets = {};
-  const Bk = id=> buckets[id] || (buckets[id] = { floor:[], wall:[], plain:[], parts:new THREE.Group() });
-  const hash = (x, y)=>{ const h = Math.sin(x*127.1 + y*311.7)*43758.5453; return h - Math.floor(h); };
-  const walkable = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
+  const W = this, D = W.D, th = W.th, gl = th.gloom || 0, buckets = {};
+  const Bk = id=> buckets[id] || (buckets[id] = { floor:[], wall:[], plain:[], parts:new THREE.Group(), lit:new THREE.Group() });
   const solidish = (x, y)=>{ const t = D.at(x, y); return t === T.SOLID || t === T.FAKE; };
   const cF1 = new THREE.Color(th.floor).multiplyScalar(1.35), cF2 = new THREE.Color(th.floor2).multiplyScalar(1.35), cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
   const style = (x, y)=>{ const r = DG.Dungeon.roomAt(D, x + 0.5, y + 0.5); return r ? r.style : null; };
@@ -68,15 +173,18 @@ proto.buildAreas = function(){
   for(let y=0; y<D.h; y++) for(let x=0; x<D.w; x++){
     const t = D.at(x, y), a = W.area[y*D.w + x];
     if(a < 0) continue;
-    const b = Bk(a), h = hash(x, y);
+    const b = Bk(a), h = hash2(x, y);
     if(t === T.FLOOR || t === T.DOOR || t === T.BLOCK || t === T.BREAK || t === T.PUSH){
       const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, 0, y + 0.5);
-      const base = ((x + y) & 1 ? cF1 : cF2).clone().multiplyScalar(0.85 + h*0.3);
-      // corners next to walls are darker: a little ambient occlusion
-      K.paint(g, base, (c, px, py, pz)=>{
+      const uv = g.attributes.uv, pa = g.attributes.position;
+      for(let i=0;i<uv.count;i++) uv.setXY(i, pa.getX(i)/4, -pa.getZ(i)/4);
+      // tone drifts across the floor; corners next to walls are darker (a little ambient occlusion)
+      K.paint(g, cF1, (c, px, py, pz)=>{
+        const nz = vnoise(px*0.33, pz*0.33)*0.7 + vnoise(px*1.1 + 9, pz*1.1)*0.3;
+        c.lerp(cF2, vnoise(px*0.21 + 3, pz*0.21 - 5)).multiplyScalar(0.72 + nz*0.5);
         const cx = Math.round(px), cz = Math.round(pz);
         let n = 0; [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]].forEach(([u, v])=>{ if(solidish(u, v)) n++; });
-        c.multiplyScalar(1 - 0.17*n);
+        c.multiplyScalar(1 - 0.2*n);
       });
       b.floor.push(g);
     }
@@ -85,69 +193,48 @@ proto.buildAreas = function(){
       // four blocks in a square are one big obstacle, drawn from its top-left tile
       const cl = clumps.list[ci];
       if(cl.x === x && cl.y === y) W.bigBlock(b, x, y, style(x, y), h, a, cW, cTop);
-    } else if(t === T.BLOCK){
-      const st = style(x, y);
-      if(st === "crates"){
-        K.part(b.parts, new THREE.BoxGeometry(0.9, 0.85, 0.9), 0x7a5232, x + 0.5, 0.425, y + 0.5);
-        K.part(b.parts, new THREE.BoxGeometry(0.92, 0.08, 0.92), 0x5a3a1a, x + 0.5, 0.8, y + 0.5);
-      } else if(st === "graves"){
-        K.part(b.parts, new THREE.BoxGeometry(0.6, 0.8, 0.2), 0x7a7a88, x + 0.5, 0.4, y + 0.5);
-        K.part(b.parts, new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12), 0x7a7a88, x + 0.5, 0.8, y + 0.5, PI/2);
-        K.part(b.parts, new THREE.BoxGeometry(0.08, 0.3, 0.04), 0x4a4a58, x + 0.5, 0.6, y + 0.62);
-      } else if((th.gloom || 0) >= 0.75 && h < (th.gloom - 0.5)*0.9){
-        // the forest has grown a giant glowcap where a pillar stood
-        const P = K.part, cap = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888][Math.floor(h*4)], ht = 1.15 + h*0.5;
-        P(b.parts, new THREE.CylinderGeometry(0.18, 0.3, ht, 9), 0x9ab0c4, x + 0.5, ht/2, y + 0.5);
-        P(b.parts, new THREE.TorusGeometry(0.21, 0.035, 6, 12), 0xb8c8d8, x + 0.5, ht*0.72, y + 0.5, PI/2);
-        P(b.parts, new THREE.SphereGeometry(0.46, 14, 7, 0, PI*2, 0, PI/2), cap, x + 0.5, ht - 0.05, y + 0.5, 0, h*6, 0, 1, 0.55, 1);
-        for(let k=0;k<5;k++){ const a = k*1.25 + h*6; P(b.parts, new THREE.SphereGeometry(0.045, 6, 4), 0xb8e8ff, x + 0.5 + Math.cos(a)*0.27, ht + 0.16, y + 0.5 + Math.sin(a)*0.27); }
-        P(b.parts, new THREE.CylinderGeometry(0.45, 0.5, 0.12, 9), 0x2a4a3a, x + 0.5, 0.06, y + 0.5);
-        const gr = DG.Dungeon.roomAt(D, x + 0.5, y + 0.5);
-        if(gr) W.lights.push({ x:x + 0.5, y:ht + 0.3, z:y + 0.5, c:cap, i:0.8, room:gr.id, ph:h*6, small:true });
-        (W.capGlows = W.capGlows || []).push({ x:x + 0.5, y:ht - 0.05, z:y + 0.5, c:cap, area:+a });
-      } else if((th.gloom || 0) >= 0.9){
-        // in the forest the pillar is a gnarled old stump, mossy on top
-        const P = K.part, cx = x + 0.5, cz = y + 0.5, ht = 1.1 + h*0.6;
-        P(b.parts, new THREE.CylinderGeometry(0.36, 0.46, ht, 9), [0x3a2418, 0x2e1c14][Math.floor(h*2)], cx, ht/2, cz, 0, h*6, 0);
-        P(b.parts, new THREE.CylinderGeometry(0.37, 0.37, 0.08, 9), 0x8a6a4a, cx, ht, cz);
-        P(b.parts, new THREE.CylinderGeometry(0.3, 0.34, 0.05, 9), 0x2a5a3a, cx, ht + 0.05, cz);
-        for(let k=0;k<4;k++){ const a = k*PI/2 + h*3; P(b.parts, new THREE.ConeGeometry(0.14, 0.5, 5), 0x2e1c14, cx + Math.cos(a)*0.42, 0.15, cz + Math.sin(a)*0.42, Math.sin(a)*1.1, 0, -Math.cos(a)*1.1); }
-        for(let k=0;k<2;k++){ const a = h*9 + k*2.4; P(b.parts, new THREE.CylinderGeometry(0.13, 0.08, 0.04, 8, 1, false, 0, PI), 0x1a78a8, cx + Math.cos(a)*0.38, 0.5 + k*0.3, cz + Math.sin(a)*0.38, 0, -a + PI/2, 0); }
-      } else {
-        const g = new THREE.BoxGeometry(0.86, 1.5, 0.86); g.translate(x + 0.5, 0.75, y + 0.5);
-        b.wall.push(K.paint(g, cW, (c, px, py)=>{ if(py > 1.45) c.copy(cTop); c.multiplyScalar(0.9 + h*0.2); }));
-        K.part(b.parts, new THREE.BoxGeometry(1, 0.15, 1), cTop.getHex(), x + 0.5, 0.075, y + 0.5);
-      }
-    }
+    } else if(t === T.BLOCK) W.pillar(b, x, y, style(x, y), h, a, cW, cTop);
     if(t === T.PIT){
       const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, -2.2, y + 0.5);
       b.plain.push(K.paint(g, 0x020203));
       DG.DIRS4.forEach(([dx, dy])=>{
         if(D.at(x + dx, y + dy) === T.PIT) return;
+        // the shaft's sides: the same stone, sinking into black
         const s = new THREE.PlaneGeometry(1, 2.2);
         s.translate(0, -1.1, 0);
         s.rotateY(dx === 1 ? -PI/2 : dx === -1 ? PI/2 : dy === 1 ? PI : 0);
         s.translate(x + 0.5 + dx*0.5, 0, y + 0.5 + dy*0.5);
-        b.plain.push(K.paint(s, cW.clone().multiplyScalar(0.35), (c, px, py)=> c.multiplyScalar(Math.max(0.05, 1 + py/1.4))));
+        const sg = wuv(s);
+        b.wall.push(K.paint(sg, cW.clone().multiplyScalar(0.5), (c, px, py)=> c.multiplyScalar(Math.max(0.03, 1 + py/1.2))));
+        // a broken lip of stone round the edge
+        const lip = box(dx ? 0.1 : 1, 0.06, dy ? 0.1 : 1, x + 0.5 + dx*0.47, 0.03, y + 0.5 + dy*0.47);
+        stone(b.wall, lip, cF1, cF1, 0.8);
       });
     }
     if(t === T.WATER){
       const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, -0.35, y + 0.5);
-      b.plain.push(K.paint(g, 0x1a3a2a));
+      b.plain.push(K.paint(g, 0x0a1410));
     }
     if(t === T.SOLID){
       let touch = false;
       for(const [dx, dy] of DG.DIRS8){ const n = D.at(x + dx, y + dy); if(walkable(n) || n === T.FAKE){ touch = true; break; } }
       if(!touch) continue;
       const south = walkable(D.at(x, y - 1)) && !walkable(D.at(x, y + 1));
-      b.wall.push(W.wallBlock(x, y, south));
-      // a skirting stone along the bottom of walls facing a room
+      b.wall.push(...W.wallBlock(x, y, south));
+      // on top of walls facing a room
       if(!south && walkable(D.at(x, y + 1))){
-        const gl = th.gloom || 0;
-        if(gl < 0.9) K.part(b.parts, new THREE.BoxGeometry(1, 0.18, 0.12), cW.clone().multiplyScalar(0.7).getHex(), x + 0.5, 0.09, y + 1.03);
-        // the castle: battlements; the Gloom: they crumble, then the wall grows a tuft of fern and glowcaps
-        if(gl < 0.45 && (x & 1) === 0 && h > gl*1.6) K.part(b.parts, new THREE.BoxGeometry(0.55, 0.32, 0.6), cTop.getHex(), x + 0.5, WH + 0.16, y + 0.55);
-        if(gl >= 0.45 && h < gl*0.55){ const c = h < 0.25 ? 0x3ab8ff : 0x2a5a3a; K.part(b.parts, h < 0.25 ? new THREE.SphereGeometry(0.18, 8, 4, 0, PI*2, 0, PI/2) : new THREE.ConeGeometry(0.22, 0.3, 6), c, x + 0.5, WH + (h < 0.25 ? 0 : 0.15), y + 0.6); }
+        // the keep: merlons, most of them crumbled
+        if(th.decor === "castle" && (x & 1) === 0 && h > 0.25){
+          const mh = 0.14 + frac(h*9.1)*0.3, tilt = (frac(h*5.3) - 0.5)*0.25;
+          stone(b.wall, box(0.6, mh, 0.62, x + 0.5, WH + mh/2 - 0.02, y + 0.55, 0, 0, tilt), cW, cTop, 0.95);
+          if(h > 0.8) stone(b.wall, box(0.24, 0.12, 0.2, x + 0.5 + (h - 0.9)*3, WH + mh + 0.04, y + 0.6, h*3, h*5, 0), cW, cTop, 0.9);
+        }
+        // the Gloom: shelf fungus and dead moss hanging over the lip
+        if(gl >= 0.45 && h < gl*0.55){
+          const P = K.part;
+          if(h < 0.22){ for(let k=0;k<3;k++){ const r = 0.12 - k*0.025; P(b.parts, new THREE.CylinderGeometry(r, r*0.5, 0.04, 10, 1, false, 0, PI), 0x4a4440, x + 0.3 + k*0.18, WH - 0.25 - k*0.22, y + 1.0, 0, -PI/2, 0); P(b.lit, new THREE.TorusGeometry(r*0.9, 0.012, 3, 10, PI), th.torch, x + 0.3 + k*0.18, WH - 0.27 - k*0.22, y + 1.0, PI/2, 0, 0); } }
+          else for(let k=0;k<4;k++){ const l = 0.25 + frac(h*(k + 3)*7.7)*0.5; P(b.parts, new THREE.ConeGeometry(0.045, l, 4), 0x2e3428, x + 0.15 + k*0.23, WH - l/2 + 0.02, y + 1.03, PI); }
+        }
       }
     }
   }
@@ -158,69 +245,272 @@ proto.buildAreas = function(){
     if(b.wall.length) g.add(new THREE.Mesh(K.merge(b.wall), W.mats.wall));
     if(b.plain.length) g.add(new THREE.Mesh(K.merge(b.plain), W.mats.plain));
     if(b.parts.children.length){ g.add(b.parts); K.bake(b.parts, { w:0.02 }); }
+    if(b.lit.children.length){ g.add(b.lit); K.bake(b.lit, { mat:W.mats.lit, outline:false }); }
+  }
+};
+
+/* ---- the shapes things take ---- */
+/* a dead tree: a twisting trunk in three tapering lengths, roots flared
+   into the floor, a few bare branches clawing up, dead moss hanging */
+function deadTree(P, g, cx, cz, ht, rs, s){
+  const rr = DG.RNG(Math.floor(s*1e6) + 7).next, bark = [0x2a2420, 0x2e2622, 0x262022][Math.floor(rr()*3)];
+  const pts = []; let px = cx, pz = cz;
+  for(let k=0;k<=6;k++){ pts.push([px, k/6*ht, pz]); px += (rr() - 0.5)*rs*1.6; pz += (rr() - 0.5)*rs*1.6; }
+  [[0, 3, 1], [2, 5, 0.72], [4, 7, 0.48]].forEach(([a, b, k])=> P(g, K.tube(pts.slice(a, b), rs*k, 8, 7), bark));
+  P(g, K.slathe([[rs*1.9, 0], [rs*1.25, 0.12], [rs*1.02, 0.35], [rs*0.98, 0.5]], 9, 3), bark, cx, 0, cz);
+  for(let k=0;k<5;k++){
+    const a = k/5*PI*2 + rr()*0.8, l = rs*(2.6 + rr()*2.4);
+    P(g, K.tube([[cx + Math.cos(a)*rs*0.6, 0.35, cz + Math.sin(a)*rs*0.6], [cx + Math.cos(a)*l*0.5, 0.14, cz + Math.sin(a)*l*0.5], [cx + Math.cos(a)*l, 0.0, cz + Math.sin(a)*l]], rs*0.32, 6, 6), bark);
+  }
+  const tips = [];
+  for(let k=0;k<3;k++){
+    const i = 3 + Math.floor(rr()*3), o = pts[Math.min(6, i)], a = rr()*PI*2, l = ht*(0.3 + rr()*0.2);
+    const m1 = [o[0] + Math.cos(a)*l*0.45, o[1] + l*0.2, o[2] + Math.sin(a)*l*0.45], e = [o[0] + Math.cos(a + 0.6)*l, o[1] + l*0.55, o[2] + Math.sin(a + 0.6)*l];
+    P(g, K.tube([o, m1, e], rs*0.28, 6, 6), bark);
+    const tw = [e[0] + Math.cos(a - 0.9)*l*0.35, e[1] + l*0.3, e[2] + Math.sin(a - 0.9)*l*0.35];
+    P(g, K.tube([m1, [(m1[0] + tw[0])/2, m1[1] + l*0.2, (m1[2] + tw[2])/2], tw], rs*0.14, 4, 6), bark);
+    tips.push(m1, e);
+  }
+  // dead moss hanging off the branches
+  tips.forEach((t, i)=>{ if(rr() < 0.65) for(let k=0;k<3;k++){ const l = 0.3 + rr()*0.6; P(g, new THREE.ConeGeometry(0.035 + rr()*0.02, l, 4), [0x3a4034, 0x2e3428][k % 2], t[0] + (rr() - 0.5)*0.2, t[1] - l/2, t[2] + (rr() - 0.5)*0.2, PI); } });
+  return pts[6];
+}
+/* a giant glowcap: a pale fibrous stalk with a swollen foot and a torn ring,
+   a dark bell of a cap that is lumpy and sagging, glowing at the gills */
+function glowcap(P, g, lit, cx, cz, ht, R, col, s){
+  const rr = DG.RNG(Math.floor(s*1e6) + 3).next, lean = (rr() - 0.5)*0.25;
+  const tx = cx - Math.sin(lean)*ht, top = ht*Math.cos(lean);
+  P(g, K.sculpt(K.slathe([[R*0.5, 0], [R*0.4, R*0.12], [R*0.24, R*0.4], [R*0.19, ht*0.55], [R*0.22, ht + 0.02]], 10, 3), R*0.035, 6/R, s*9), 0x8e8a86, cx, 0, cz, 0, 0, lean);
+  P(g, K.tatter(new THREE.CylinderGeometry(R*0.26, R*0.42, R*0.3, 16, 3, true), -R*0.04, 11, R*0.22, s*5), 0xa4a098, cx - Math.sin(lean)*ht*0.72, ht*0.72, cz);
+  const cap = K.sculpt(K.slathe([[R, 0], [R*0.94, R*0.22], [R*0.74, R*0.56], [R*0.42, R*0.82], [R*0.12, R*0.94], [0, R*0.96]], 14, 3), R*0.07, 3.2/R, s*13);
+  const capCol = [0x2e2a34, 0x2a2e32, 0x332a30, 0x28302e][Math.floor(rr()*4)];
+  P(g, cap, capCol, tx, top - R*0.08, cz, 0, rr()*6, lean*0.6, 1, 0.9, 1);
+  // the gills glow: an unlit ring at the rim and a bright cone under the cap
+  P(lit, new THREE.TorusGeometry(R*0.97, R*0.03, 4, 28), col, tx, top - R*0.08, cz, PI/2, 0, lean*0.6);
+  P(lit, new THREE.CylinderGeometry(R*0.92, R*0.2, R*0.2, 20, 1, true), new THREE.Color(col).multiplyScalar(0.7).getHex(), tx, top - R*0.18, cz, 0, 0, lean*0.6);
+  // threads of mycelium hanging from the rim
+  for(let k=0;k<6;k++){ const a = rr()*PI*2, l = 0.15 + rr()*0.45; P(g, new THREE.CylinderGeometry(0.008, 0.003, l, 3), 0xb8c0c4, tx + Math.cos(a)*R*0.9, top - R*0.1 - l/2, cz + Math.sin(a)*R*0.9); }
+  return { x:tx, y:top - R*0.15, z:cz };
+}
+/* a crate gone soft with age: dark planks, iron at the corners */
+function crate(P, g, s, x, y, z, ry, wood){
+  const iron = 0x26262a, dk = new THREE.Color(wood).multiplyScalar(0.62).getHex();
+  P(g, new THREE.BoxGeometry(s, s*0.92, s), wood, x, y + s*0.46, z, 0, ry, 0);
+  const c = Math.cos(ry), sn = Math.sin(ry), at = (u, v)=> [x + u*c + v*sn, z - u*sn + v*c];
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v])=>{ const [px, pz] = at(u*s*0.48, v*s*0.48); P(g, new THREE.BoxGeometry(s*0.1, s*0.94, s*0.1), iron, px, y + s*0.46, pz, 0, ry, 0); });
+  [0.06, 0.86].forEach(k=>{ P(g, new THREE.BoxGeometry(s*1.02, s*0.08, s*1.02), dk, x, y + s*k, z, 0, ry, 0); });
+  // planks scored across the top, a brace across the front
+  for(let k=-1;k<=1;k++){ const [px, pz] = at(k*s*0.3, 0); P(g, new THREE.BoxGeometry(s*0.02, s*0.02, s*0.96), dk, px, y + s*0.925, pz, 0, ry, 0); }
+  const [bx, bz] = at(0, s*0.51); P(g, new THREE.BoxGeometry(s*1.1, s*0.08, s*0.03), dk, bx, y + s*0.46, bz, 0, ry, 0.72);
+}
+/* a skull, small enough to scatter (faces +z) */
+function skull(P, g, x, y, z, r, ry, col){
+  col = col || 0xb8ac90;
+  P(g, new THREE.SphereGeometry(r, 10, 8), col, x, y + r, z, 0, ry, 0, 1, 0.92, 1.12);
+  const c = Math.cos(ry), s = Math.sin(ry), at = (u, v)=> [x + u*c + v*s, z - u*s + v*c];
+  const [jx, jz] = at(0, r*0.62); P(g, new THREE.BoxGeometry(r*1.05, r*0.55, r*0.6), col, jx, y + r*0.42, jz, 0, ry, 0);
+  [-1, 1].forEach(k=>{ const [ex, ez] = at(k*r*0.38, r*0.86); P(g, new THREE.SphereGeometry(r*0.24, 6, 4), 0x0e0a08, ex, y + r*1.02, ez); });
+  const [nx, nz] = at(0, r*1.0); P(g, new THREE.ConeGeometry(r*0.12, r*0.2, 3), 0x0e0a08, nx, y + r*0.7, nz, PI, ry, 0);
+}
+World.deadTree = deadTree; World.glowcap = glowcap; World.crate = crate; World.skull = skull;
+
+/* a lone block, in the room's style: a column (cracked, banded, broken, or
+   ringed with skulls in the crypt), a stack of rotten crates, a leaning
+   gravestone, a glowcap, or a dead tree */
+proto.pillar = function(b, x, y, st, h, a, cW, cTop){
+  const W = this, D = W.D, th = W.th, gl = th.gloom || 0, P = K.part, cx = x + 0.5, cz = y + 0.5;
+  const h2 = frac(h*7.31 + 0.2), h3 = frac(h*13.7 + 0.5);
+  if(st === "crates"){
+    const wood = [0x3e2c1e, 0x36281c, 0x44301e][Math.floor(h2*3)];
+    crate(P, b.parts, 0.84, cx, 0, cz, (h - 0.5)*0.3, wood);
+    if(h3 < 0.5) crate(P, b.parts, 0.56, cx + (h2 - 0.5)*0.2, 0.78, cz + (h - 0.5)*0.2, h*4, wood);
+    else if(h3 < 0.7) skull(P, b.parts, cx + 0.1, 0.78, cz + 0.05, 0.1, h*6);
+    else { P(b.parts, new THREE.SphereGeometry(0.2, 10, 8), 0x4a3e2c, cx - 0.12, 0.92, cz, 0, 0, 0.3, 1.2, 0.7, 0.9); P(b.parts, new THREE.CylinderGeometry(0.04, 0.06, 0.1, 6), 0x4a3e2c, cx - 0.24, 1.04, cz, 0, 0, 0.6); }
+  } else if(st === "graves"){
+    // a leaning gravestone on a sunken slab, or a stone cross
+    const sc = 0x56565c, lean = (h2 - 0.5)*0.32, tw = (h3 - 0.5)*0.4;
+    stone(b.wall, box(0.78, 0.1, 0.6, cx, 0.05, cz + 0.05), cW, cTop, 0.75);
+    if(h < 0.35){
+      stone(b.wall, box(0.14, 1.05, 0.14, cx, 0.6, cz - 0.1, 0, tw, lean), cW, cW, 1.1);
+      stone(b.wall, box(0.56, 0.13, 0.14, cx - Math.sin(lean)*0.55, 0.85, cz - 0.1, 0, tw, lean), cW, cW, 1.1);
+      P(b.parts, new THREE.TorusGeometry(0.16, 0.03, 4, 14), sc, cx - Math.sin(lean)*0.55, 0.85, cz - 0.1, 0, tw, lean);
+    } else {
+      const g = new THREE.BoxGeometry(0.58, 0.7, 0.15); g.translate(0, 0.35, 0);
+      const top = new THREE.CylinderGeometry(0.29, 0.29, 0.15, 14, 1, false, 0, PI); top.rotateX(PI/2); top.rotateZ(PI/2); top.translate(0, 0.7, 0);
+      [g, top].forEach(q=>{ q.rotateZ(lean); q.rotateY(tw); q.translate(cx, 0.06, cz - 0.08); stone(b.wall, q, cW, cW, 1.05); });
+      // a carved cross, and a crack through it
+      P(b.parts, new THREE.BoxGeometry(0.04, 0.26, 0.02), 0x1a1a1e, cx - Math.sin(lean)*0.5, 0.56, cz, 0, tw, lean);
+      P(b.parts, new THREE.BoxGeometry(0.16, 0.04, 0.02), 0x1a1a1e, cx - Math.sin(lean)*0.55, 0.6, cz, 0, tw, lean);
+    }
+    for(let k=0;k<3;k++) P(b.parts, new THREE.ConeGeometry(0.03, 0.16 + k*0.04, 3), 0x3a4232, cx - 0.28 + k*0.22, 0.12, cz + 0.22, (k - 1)*0.3, 0, 0.2);
+  } else if(gl >= 0.75 && h < (gl - 0.5)*0.9){
+    const col = [0x4ab8e8, 0x3ad0c8, 0x6a8aff, 0x8ae0ff][Math.floor(h2*4)];
+    const c = glowcap(P, b.parts, b.lit, cx, cz, 1.2 + h3*0.45, 0.46, col, h);
+    const gr = DG.Dungeon.roomAt(D, cx, cz);
+    if(gr) W.lights.push({ x:c.x, y:c.y + 0.2, z:c.z, c:col, i:0.8, room:gr.id, ph:h*6, small:true });
+    (W.capGlows = W.capGlows || []).push({ x:c.x, y:c.y, z:c.z, c:col, area:+a, s:1.5 });
+  } else if(gl >= 0.9){
+    deadTree(P, b.parts, cx, cz, 1.5 + h2*0.6, 0.15, h);
+  } else if(th.decor === "crypt"){
+    // the crypt: a squat column banded with skulls set into the stone
+    stone(b.wall, box(0.96, 0.2, 0.96, cx, 0.1, cz), cW, cTop, 0.85);
+    stone(b.wall, new THREE.CylinderGeometry(0.36, 0.4, 1.4, 8).rotateY(PI/8).translate(cx, 0.85, cz), cW, cTop, 1);
+    stone(b.wall, box(0.92, 0.16, 0.92, cx, 1.6, cz), cW, cTop, 0.95);
+    for(let k=0;k<6;k++){ const an = k/6*PI*2 + h; skull(P, b.parts, cx + Math.sin(an)*0.36, 0.86, cz + Math.cos(an)*0.36, 0.085, an, 0xa89c84); }
+    P(b.parts, new THREE.CylinderGeometry(0.42, 0.42, 0.04, 8), 0x1a1a20, cx, 1.08, cz, 0, PI/8, 0);
+    P(b.parts, new THREE.CylinderGeometry(0.42, 0.42, 0.04, 8), 0x1a1a20, cx, 0.74, cz, 0, PI/8, 0);
+  } else {
+    // a column: plinth, a cracked octagonal shaft, a capital; some banded in
+    // iron, some broken off and lying in pieces
+    const broken = h2 < 0.28, sh = broken ? 0.55 + h3*0.5 : 1.3;
+    stone(b.wall, box(0.98, 0.18, 0.98, cx, 0.09, cz), cW, cTop, 0.8);
+    stone(b.wall, box(0.84, 0.12, 0.84, cx, 0.24, cz), cW, cTop, 0.9);
+    stone(b.wall, new THREE.CylinderGeometry(0.33, 0.36, sh, 8).rotateY(PI/8).translate(cx, 0.3 + sh/2, cz), cW, cTop, 1);
+    if(!broken){
+      stone(b.wall, box(0.82, 0.1, 0.82, cx, 1.65, cz), cW, cTop, 0.95);
+      stone(b.wall, box(0.94, 0.14, 0.94, cx, 1.77, cz), cW, cTop, 1);
+    } else {
+      // the break: a jagged top, and the rest of it on the floor
+      for(let k=0;k<3;k++) stone(b.wall, box(0.26, 0.18 + k*0.06, 0.24, cx + (k - 1)*0.18, 0.3 + sh + 0.05, cz + (h3 - 0.5)*0.2, h*k, h*3 + k, (k - 1)*0.4), cW, cTop, 0.9);
+      for(let k=0;k<3;k++) stone(b.wall, box(0.16 + k*0.04, 0.12, 0.18, cx + Math.cos(h*9 + k*2)*0.42, 0.06, cz + Math.sin(h*9 + k*2)*0.42, 0, h*7 + k, 0.2), cW, cTop, 0.8);
+    }
+    if(th.decor === "castle" && h3 > 0.45){
+      // an iron band, riveted
+      const by = 0.3 + Math.min(sh, 1.3)*0.55;
+      P(b.parts, new THREE.CylinderGeometry(0.375, 0.375, 0.09, 8), 0x26262a, cx, by, cz, 0, PI/8, 0);
+      for(let k=0;k<8;k++){ const an = k/8*PI*2 + PI/8; P(b.parts, new THREE.SphereGeometry(0.022, 4, 3), 0x4a4a50, cx + Math.cos(an)*0.385, by, cz + Math.sin(an)*0.385); }
+      P(b.parts, new THREE.TorusGeometry(0.07, 0.015, 4, 10), 0x2e2e32, cx, by - 0.1, cz + 0.39, 0, 0, 0);
+    }
+    if(th.decor === "undercroft"){
+      // mould creeping up from the floor, and shelf fungus
+      for(let k=0;k<3;k++){ const an = h*7 + k*2.1, r = 0.09 + k*0.02; P(b.parts, new THREE.CylinderGeometry(r, r*0.4, 0.035, 10, 1, false, 0, PI), 0x6a5e48, cx + Math.cos(an)*0.36, 0.45 + k*0.28, cz + Math.sin(an)*0.36, 0, -an + PI/2, 0); }
+    }
   }
 };
 
 /* a 2x2 obstacle, in the room's style: a crate stack, a giant glowcap,
-   an old stump, or a broad stone pillar */
+   a great dead tree, a sarcophagus, a ruined knight on his plinth, or a
+   broad pier of stone */
 proto.bigBlock = function(b, x, y, st, h, a, cW, cTop){
   const W = this, th = W.th, gl = th.gloom || 0, P = K.part, cx = x + 1, cz = y + 1;
+  const h2 = frac(h*7.31 + 0.2), h3 = frac(h*13.7 + 0.5);
   if(st === "crates"){
-    P(b.parts, new THREE.BoxGeometry(1.8, 0.95, 1.8), 0x7a5232, cx, 0.475, cz, 0, (h - 0.5)*0.1, 0);
-    P(b.parts, new THREE.BoxGeometry(1.84, 0.08, 1.84), 0x5a3a1a, cx, 0.92, cz, 0, (h - 0.5)*0.1, 0);
-    [-0.5, 0.5].forEach(o=>{
-      P(b.parts, new THREE.BoxGeometry(0.12, 0.95, 1.84), 0x5a3a1a, cx + o, 0.475, cz);
-      P(b.parts, new THREE.BoxGeometry(1.84, 0.95, 0.12), 0x5a3a1a, cx, 0.475, cz + o);
-    });
-    // a smaller crate left on top
-    const ox = (h - 0.5)*0.6, oz = (h*7 % 1 - 0.5)*0.6;
-    P(b.parts, new THREE.BoxGeometry(0.8, 0.7, 0.8), 0x8a6040, cx + ox, 1.3, cz + oz, 0, h*3, 0);
-    P(b.parts, new THREE.BoxGeometry(0.84, 0.07, 0.84), 0x5a3a1a, cx + ox, 1.62, cz + oz, 0, h*3, 0);
+    const wood = [0x3e2c1e, 0x36281c, 0x44301e][Math.floor(h2*3)];
+    crate(P, b.parts, 0.9, cx - 0.45, 0, cz - 0.42, 0.05, wood);
+    crate(P, b.parts, 0.86, cx + 0.46, 0, cz - 0.4, -0.08, wood);
+    crate(P, b.parts, 0.88, cx - 0.4, 0, cz + 0.46, 0.12, wood);
+    crate(P, b.parts, 0.7, cx - 0.1, 0.84, cz - 0.2, h*3, wood);
+    // a burst sack, and a body somebody shoved in the corner
+    P(b.parts, K.sculpt(K.slathe([[0, 0], [0.3, 0.05], [0.34, 0.25], [0.22, 0.48], [0.08, 0.56], [0, 0.56]], 10, 3), 0.03, 7, h*9), 0x4a3e2c, cx + 0.5, 0, cz + 0.5, 0.2, h, 0.1);
+    skull(P, b.parts, cx + 0.42, 0.52, cz + 0.62, 0.11, -0.3);
   } else if(gl >= 0.75 && h < (gl - 0.5)*1.4){
-    // a giant glowcap, with a few small ones at its foot
-    const cap = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888][Math.floor(h*4)], ht = 1.5 + h*0.3;
-    P(b.parts, new THREE.CylinderGeometry(0.34, 0.6, ht, 11), 0x9ab0c4, cx, ht/2, cz);
-    P(b.parts, new THREE.TorusGeometry(0.4, 0.06, 6, 14), 0xb8c8d8, cx, ht*0.7, cz, PI/2);
-    P(b.parts, new THREE.SphereGeometry(0.92, 18, 8, 0, PI*2, 0, PI/2), cap, cx, ht - 0.08, cz, 0, h*6, 0, 1, 0.5, 1);
-    for(let k=0;k<8;k++){ const an = k*0.785 + h*6; P(b.parts, new THREE.SphereGeometry(0.07, 6, 4), 0xb8e8ff, cx + Math.cos(an)*0.56, ht + 0.26, cz + Math.sin(an)*0.56); }
-    P(b.parts, new THREE.CylinderGeometry(0.9, 0.98, 0.14, 12), 0x2a4a3a, cx, 0.07, cz);
-    for(let k=0;k<3;k++){
-      const an = h*9 + k*2.1, r = 0.72, sh = 0.3 + k*0.12;
-      P(b.parts, new THREE.CylinderGeometry(0.05, 0.07, sh, 6), 0x9ab0c4, cx + Math.cos(an)*r, sh/2, cz + Math.sin(an)*r);
-      P(b.parts, new THREE.SphereGeometry(0.17, 8, 4, 0, PI*2, 0, PI/2), cap, cx + Math.cos(an)*r, sh - 0.02, cz + Math.sin(an)*r, 0, 0, 0, 1, 0.6, 1);
-    }
+    // a giant glowcap, with a few lesser ones at its foot
+    const col = [0x4ab8e8, 0x3ad0c8, 0x6a8aff, 0x8ae0ff][Math.floor(h2*4)];
+    const c = glowcap(P, b.parts, b.lit, cx, cz, 1.6 + h3*0.4, 0.92, col, h);
+    for(let k=0;k<3;k++){ const an = h*9 + k*2.1, r = 0.75; glowcap(P, b.parts, b.lit, cx + Math.cos(an)*r, cz + Math.sin(an)*r, 0.3 + k*0.14, 0.17, col, h + k); }
+    P(b.parts, new THREE.CylinderGeometry(0.9, 1.0, 0.1, 14), 0x1e2420, cx, 0.05, cz);
     const gr = DG.Dungeon.roomAt(W.D, cx, cz);
-    if(gr) W.lights.push({ x:cx, y:ht + 0.4, z:cz, c:cap, i:1.1, room:gr.id, ph:h*6, small:true });
-    (W.capGlows = W.capGlows || []).push({ x:cx, y:ht - 0.08, z:cz, c:cap, area:+a, s:2.4 });
+    if(gr) W.lights.push({ x:c.x, y:c.y + 0.3, z:c.z, c:col, i:1.1, room:gr.id, ph:h*6, small:true });
+    (W.capGlows = W.capGlows || []).push({ x:c.x, y:c.y, z:c.z, c:col, area:+a, s:2.6 });
   } else if(gl >= 0.9){
-    // a great old stump, mossy on top, with shelf fungus up its side
-    const ht = 1.3 + h*0.5, bark = [0x3a2418, 0x2e1c14][Math.floor(h*2)];
-    P(b.parts, new THREE.CylinderGeometry(0.72, 0.88, ht, 12), bark, cx, ht/2, cz, 0, h*6, 0);
-    P(b.parts, new THREE.CylinderGeometry(0.73, 0.73, 0.1, 12), 0x8a6a4a, cx, ht, cz);
-    P(b.parts, new THREE.TorusGeometry(0.4, 0.03, 4, 16), 0x6a4a2a, cx, ht + 0.06, cz, PI/2);
-    P(b.parts, new THREE.CylinderGeometry(0.6, 0.66, 0.06, 12), 0x2a5a3a, cx, ht + 0.07, cz, 0, 0, 0, 1, 1, 0.8);
-    for(let k=0;k<6;k++){ const an = k*PI/3 + h*3; P(b.parts, new THREE.ConeGeometry(0.22, 0.85, 5), 0x2e1c14, cx + Math.cos(an)*0.82, 0.22, cz + Math.sin(an)*0.82, Math.sin(an)*1.15, 0, -Math.cos(an)*1.15); }
-    for(let k=0;k<3;k++){ const an = h*9 + k*2.2; P(b.parts, new THREE.CylinderGeometry(0.24, 0.14, 0.05, 10, 1, false, 0, PI), 0x1a78a8, cx + Math.cos(an)*0.72, 0.45 + k*0.32, cz + Math.sin(an)*0.72, 0, -an + PI/2, 0); }
-    P(b.parts, new THREE.SphereGeometry(0.16, 8, 4, 0, PI*2, 0, PI/2), 0x3ab8ff, cx + 0.25, ht + 0.08, cz - 0.2);
+    // a great dead tree, and the remains of someone the forest took
+    deadTree(P, b.parts, cx, cz, 2.0 + h2*0.4, 0.3, h);
+    const an = h*11, bx = cx + Math.cos(an)*0.62, bz = cz + Math.sin(an)*0.62;
+    skull(P, b.parts, bx, 0.02, bz, 0.1, an + PI/2, 0x9a9484);
+    for(let k=0;k<4;k++) P(b.parts, new THREE.CylinderGeometry(0.02, 0.02, 0.3, 5), 0x9a9484, bx + (k - 1.5)*0.1, 0.03, bz + 0.15, PI/2, 0, k*0.6);
+    for(let k=0;k<3;k++){ const a2 = h*5 + k*2.2; P(b.parts, new THREE.CylinderGeometry(0.17, 0.09, 0.04, 10, 1, false, 0, PI), 0x5a5048, cx + Math.cos(a2)*0.32, 0.6 + k*0.3, cz + Math.sin(a2)*0.32, 0, -a2 + PI/2, 0); }
+  } else if(th.decor === "crypt"){
+    // a sarcophagus with its knight carved on the lid, candles burnt low at its head
+    stone(b.wall, box(1.9, 0.14, 1.9, cx, 0.07, cz), cW, cTop, 0.75);
+    stone(b.wall, box(1.1, 0.7, 1.7, cx, 0.49, cz), cW, cTop, 1);
+    stone(b.wall, box(1.24, 0.12, 1.84, cx, 0.9, cz), cW, cTop, 1.1);
+    [-1, 1].forEach(s=> stone(b.wall, box(0.1, 0.5, 1.5, cx + s*0.56, 0.45, cz), cW, cTop, 0.8));
+    const ef = 0x6a6a72;
+    P(b.parts, K.slathe([[0, 0], [0.2, 0.05], [0.22, 0.4], [0.16, 0.75], [0.12, 0.95], [0, 1.0]], 10, 3), ef, cx, 1.05, cz + 0.55, -PI/2, 0, 0, 1.1, 1, 0.55);
+    P(b.parts, new THREE.SphereGeometry(0.13, 10, 8), ef, cx, 1.08, cz - 0.58);
+    P(b.parts, new THREE.BoxGeometry(0.06, 0.04, 0.9), 0x7a7a82, cx, 1.18, cz + 0.1);
+    P(b.parts, new THREE.BoxGeometry(0.26, 0.04, 0.05), 0x7a7a82, cx, 1.18, cz - 0.28);
+    // a crack, and the lid shoved a little askew
+    P(b.parts, new THREE.BoxGeometry(1.2, 0.02, 0.03), 0x101014, cx, 0.97, cz + 0.2, 0, 0.3, 0);
+    for(let k=0;k<3;k++){ const ch = 0.12 + k*0.06, px = cx - 0.42 + k*0.12, pz = cz - 0.78; P(b.parts, new THREE.CylinderGeometry(0.035, 0.04, ch, 7), 0xd8ccae, px, 0.96 + ch/2, pz); P(b.parts, new THREE.SphereGeometry(0.05, 6, 4), 0xcfc2a0, px, 0.97, pz, 0, 0, 0, 1.4, 0.3, 1.4); P(b.lit, new THREE.ConeGeometry(0.02, 0.06, 4), 0xffd890, px, 1.0 + ch, pz); (W.capGlows = W.capGlows || []).push({ x:px, y:1.02 + ch, z:pz, c:0xffa850, area:+a, s:0.45 }); }
+    const gr = DG.Dungeon.roomAt(W.D, cx, cz);
+    if(gr) W.lights.push({ x:cx - 0.3, y:1.5, z:cz - 0.6, c:0xffa040, i:0.6, room:gr.id, ph:h*6, small:true });
+  } else if(th.decor === "castle" && h2 < 0.6){
+    // a knight on a plinth, his sword planted; time has taken an arm or his head
+    stone(b.wall, box(1.9, 0.2, 1.9, cx, 0.1, cz), cW, cTop, 0.75);
+    stone(b.wall, box(1.5, 0.5, 1.5, cx, 0.45, cz), cW, cTop, 0.95);
+    stone(b.wall, box(1.64, 0.1, 1.64, cx, 0.75, cz), cW, cTop, 1);
+    const sc = 0x6e6a66, dk = 0x4e4a48, y0 = 0.8, P2 = (geo, c, ...r)=> P(b.parts, geo, c, ...r);
+    [-1, 1].forEach(s=>{ P2(new THREE.CylinderGeometry(0.1, 0.09, 0.5, 8), sc, cx + s*0.13, y0 + 0.25, cz); P2(new THREE.BoxGeometry(0.14, 0.08, 0.24), dk, cx + s*0.13, y0 + 0.04, cz + 0.04); });
+    P2(K.tatter(new THREE.CylinderGeometry(0.22, 0.32, 0.5, 14, 3, true), -0.05, 9, 0.12, h*7), dk, cx, y0 + 0.45, cz);
+    P2(K.slathe([[0.2, 0], [0.25, 0.12], [0.27, 0.32], [0.3, 0.45], [0.12, 0.55], [0, 0.56]], 10, 3), sc, cx, y0 + 0.48, cz, 0, 0, 0, 1, 1, 0.75);
+    [-1, 1].forEach(s=> P2(new THREE.SphereGeometry(0.13, 8, 6), sc, cx + s*0.3, y0 + 0.92, cz, 0, 0, 0, 1, 0.8, 1));
+    // the sword, point down, both hands on the pommel (one arm broken away)
+    P2(new THREE.BoxGeometry(0.07, 0.75, 0.025), 0x5a5a60, cx, y0 + 0.38, cz + 0.32);
+    P2(new THREE.BoxGeometry(0.34, 0.05, 0.06), dk, cx, y0 + 0.77, cz + 0.32);
+    P2(new THREE.SphereGeometry(0.05, 6, 4), dk, cx, y0 + 0.86, cz + 0.32);
+    P2(new THREE.CylinderGeometry(0.06, 0.05, 0.42, 7), sc, cx - 0.22, y0 + 0.76, cz + 0.16, 0.6, 0, -0.35);
+    if(h3 < 0.5) P2(new THREE.CylinderGeometry(0.06, 0.05, 0.42, 7), sc, cx + 0.22, y0 + 0.76, cz + 0.16, 0.6, 0, 0.35);
+    else P2(new THREE.CylinderGeometry(0.06, 0.05, 0.4, 7), sc, cx + 0.62, 0.84, cz + 0.4, PI/2, 0.7, 0);
+    if(h3 > 0.25){
+      // the great helm, slit for eyes
+      P2(K.slathe([[0.14, 0], [0.16, 0.12], [0.15, 0.26], [0.1, 0.33], [0, 0.35]], 10, 3), sc, cx, y0 + 1.0, cz);
+      P2(new THREE.BoxGeometry(0.22, 0.025, 0.04), 0x101012, cx, y0 + 1.18, cz + 0.14);
+    } else P2(K.slathe([[0.14, 0], [0.16, 0.12], [0.15, 0.26], [0.1, 0.33], [0, 0.35]], 10, 3), sc, cx + 0.55, 0.85, cz - 0.5, 1.2, 0, 0.4);
+    // the rubble of him, at his feet
+    for(let k=0;k<4;k++) stone(b.wall, box(0.12 + k*0.03, 0.08, 0.14, cx + Math.cos(h*9 + k*1.7)*0.6, 0.84, cz + Math.sin(h*9 + k*1.7)*0.6, 0, h*5 + k, 0.1), cW, cTop, 0.85);
   } else {
-    // a broad stone pillar on a plinth, with a capstone
-    const g = new THREE.BoxGeometry(1.72, 1.5, 1.72); g.translate(cx, 0.75, cz);
-    b.wall.push(K.paint(g, cW, (c, px, py)=>{ if(py > 1.45) c.copy(cTop); c.multiplyScalar(0.9 + h*0.2); }));
-    P(b.parts, new THREE.BoxGeometry(2, 0.18, 2), cTop.getHex(), cx, 0.09, cz);
-    P(b.parts, new THREE.BoxGeometry(1.88, 0.14, 1.88), cTop.getHex(), cx, 1.52, cz);
-    // carved bands down each corner
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v])=> P(b.parts, new THREE.BoxGeometry(0.16, 1.3, 0.16), cW.clone().multiplyScalar(0.8).getHex(), cx + u*0.84, 0.82, cz + v*0.84));
+    // a broad pier of stone, banded and cracked, with a plinth and capstone
+    stone(b.wall, box(1.96, 0.2, 1.96, cx, 0.1, cz), cW, cTop, 0.8);
+    stone(b.wall, box(1.76, 0.12, 1.76, cx, 0.26, cz), cW, cTop, 0.9);
+    stone(b.wall, box(1.6, 1.36, 1.6, cx, 0.32 + 0.68, cz), cW, cTop, 1);
+    stone(b.wall, box(1.78, 0.12, 1.78, cx, 1.74, cz), cW, cTop, 0.95);
+    stone(b.wall, box(1.9, 0.12, 1.9, cx, 1.86, cz), cW, cTop, 1);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v])=> stone(b.wall, box(0.18, 1.36, 0.18, cx + u*0.8, 1.0, cz + v*0.8), cW, cTop, 0.75));
+    if(th.decor === "castle"){
+      [0.62, 1.4].forEach(by=>{
+        P(b.parts, new THREE.BoxGeometry(1.66, 0.09, 1.66), 0x26262a, cx, by, cz);
+        for(let k=-2;k<=2;k++){ P(b.parts, new THREE.SphereGeometry(0.025, 4, 3), 0x4a4a50, cx + k*0.3, by, cz + 0.84); P(b.parts, new THREE.SphereGeometry(0.025, 4, 3), 0x4a4a50, cx + 0.84, by, cz + k*0.3); P(b.parts, new THREE.SphereGeometry(0.025, 4, 3), 0x4a4a50, cx - 0.84, by, cz + k*0.3); }
+      });
+      // shackles on a chain, empty
+      P(b.parts, K.tube([[cx - 0.3, 1.3, cz + 0.83], [cx - 0.15, 0.95, cz + 0.88], [cx, 1.3, cz + 0.83]], 0.018, 8, 4), 0x3a3a3e);
+      [-0.3, 0].forEach(o=> P(b.parts, new THREE.TorusGeometry(0.06, 0.016, 4, 10), 0x2e2e32, cx + o, 1.24, cz + 0.85));
+    } else if(th.decor === "undercroft"){
+      for(let k=0;k<5;k++){ const s = k % 4, u = (frac(h*(k + 2)*3.7) - 0.5)*1.4, r = 0.12 + frac(h*(k + 5)*2.3)*0.1; const px = s === 0 ? cx + u : s === 1 ? cx + 0.82 : s === 2 ? cx + u : cx - 0.82, pz = s === 0 ? cz + 0.82 : s === 1 ? cz + u : s === 2 ? cz - 0.82 : cz + u, ry = [0, PI/2, PI, -PI/2][s]; P(b.parts, new THREE.CylinderGeometry(r, r*0.45, 0.04, 10, 1, false, 0, PI), 0x6a5e48, px, 0.5 + k*0.2, pz, 0, ry - PI/2, 0); }
+      // a drain at its foot, weeping
+      P(b.parts, new THREE.CylinderGeometry(0.1, 0.1, 0.12, 10), 0x2a2a28, cx + 0.3, 0.34, cz + 0.82, PI/2);
+      P(b.parts, new THREE.BoxGeometry(0.08, 0.3, 0.02), 0x24302a, cx + 0.3, 0.17, cz + 0.84);
+    }
   }
 };
 
-/* one wall tile: full height, or low on a room's south side so it never hides Zippy */
+/* one wall tile: full height, or low on a room's south side so it never
+   hides Zippy. Every face that looks onto open ground gets a plinth, a
+   cornice (or a capping stone), and a stone or two that juts out. */
 proto.wallBlock = function(x, y, low){
-  const th = this.th, hh = low ? LOW : WH;
+  const W = this, D = W.D, th = W.th, hh = low ? LOW : WH, out = [];
   const cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
-  const h = (v=> v - Math.floor(v))(Math.sin(x*127.1 + y*311.7)*43758.5453);
-  const g = new THREE.BoxGeometry(1, hh, 1); g.translate(x + 0.5, hh/2, y + 0.5);
-  const uv = g.attributes.uv; for(let i=0;i<uv.count;i++) uv.setY(i, uv.getY(i)*hh/1.5);
-  return K.paint(g, cW, (c, px, py)=>{ if(py > hh - 0.01) c.copy(cTop).multiplyScalar(0.85 + h*0.25); else c.multiplyScalar((0.75 + h*0.35)*(0.5 + 0.5*py/WH)); });
+  const h = hash2(x, y), tone = 0.85 + h*0.25;
+  stone(out, box(1, hh, 1, x + 0.5, hh/2, y + 0.5), cW, cTop, tone);
+  DG.DIRS4.forEach(([dx, dy], f)=>{
+    if(!walkable(D.at(x + dx, y + dy))) return;
+    const fx = x + 0.5 + dx*0.5, fz = y + 0.5 + dy*0.5, alongX = dx === 0;
+    const B = (w, bh, o, u, py, k)=>{
+      const g = box(alongX ? w : o, bh, alongX ? o : w, fx + dx*o/2 + (alongX ? u : 0), py, fz + dy*o/2 + (alongX ? 0 : u));
+      stone(out, g, cW, cTop, k*tone);
+    };
+    B(1, low ? 0.14 : 0.2, 0.08, 0, low ? 0.07 : 0.1, 0.8);
+    if(!low){ B(1, 0.1, 0.1, 0, WH - 0.05, 1.05); B(1, 0.05, 0.05, 0, WH - 0.125, 0.85); }
+    else B(1, 0.07, 0.045, 0, LOW - 0.035, 1.05);
+    if(low) return;
+    // stones that have shifted out of true
+    const n = Math.floor(hash2(x*3.1 + f, y*5.7 - f)*3);
+    for(let k=0;k<n;k++){
+      const q = hash2(x*7.7 + k*3.3 + f, y*1.9 - k*5.1), row = 1 + Math.floor(q*4), u = (hash2(x + k*9.1, y*3.3 + f) - 0.5)*0.55;
+      B(0.22 + q*0.2, 0.2, 0.025 + frac(q*31)*0.03, u, 0.18 + row*0.25, 0.9 + frac(q*17)*0.2);
+    }
+  });
+  return out;
 };
 
 /* ---- ponds and pools: an animated surface ---- */
@@ -292,17 +582,16 @@ proto.buildDoors = function(){
 
 /* ---- illusionary walls ---- */
 /* an illusion is built exactly like the wall around it (same height, same
-   paint, same skirting stone), so only a sharp eye or a stray shot finds it */
+   paint, same plinth and cornice), so only a sharp eye or a stray shot finds it */
 proto.buildFakes = function(){
   const W = this, th = W.th, D = W.D;
   W.D.fakes.forEach(f=>{
     const parts = [], r = D.rooms[f.room];
     f.tiles.forEach(([x, y])=>{
       const low = y === r.y2 + 1 && x >= r.x1 && x <= r.x2;
-      parts.push(W.wallBlock(x, y, low));
-      if(y === r.y1 - 1){ const sk = new THREE.BoxGeometry(1, 0.18, 0.12); sk.translate(x + 0.5, 0.09, y + 1.03); parts.push(K.paint(sk, new THREE.Color(th.wall).multiplyScalar(1.2*0.7))); }
+      parts.push(...W.wallBlock(x, y, low));
     });
-    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:K.stoneTex, gloom:"wall" }));
+    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:stoneTex(), gloom:"wall" }));
     const a = W.area[f.tiles[0][1]*W.D.w + f.tiles[0][0]];
     W.areaGroup(a >= 0 ? a : f.room).add(m);
     W.fakes.push({ f, m, t:0 });
