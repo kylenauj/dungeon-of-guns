@@ -43,12 +43,17 @@ function finish(R, opts){
   R.mat = b.mat; R.out = b.out;
   return R;
 }
-/* eyes that look at you: white, a pupil, a glint */
-function eyes(parent, sep, y, z, r, pupil, look){
+/* eyes: sunken sockets, dark to the bottom, with a small cold pinprick of light
+   deep in each. Pass R and the pinprick glows (pupil: its colour); without R
+   it's only a dull bead. look: the pinpricks slide toward the middle */
+function eyes(parent, sep, y, z, r, pupil, look, R){
+  const c = pupil === undefined || pupil === 0x101018 ? 0xffb84a : pupil;
   [-1, 1].forEach(s=>{
-    P(parent, S(r, 10, 8), 0xf8f8f0, s*sep, y, z);
-    P(parent, S(r*0.55, 8, 6), pupil || 0x101018, s*sep + (look || 0)*s*0.2*r, y, z + r*0.75);
-    P(parent, S(r*0.18, 6, 4), 0xffffff, s*sep + r*0.2, y + r*0.3, z + r*0.95);
+    P(parent, S(r*1.25, 10, 8), 0x1c1416, s*sep, y + r*0.1, z - r*0.45, 0, 0, s*0.3, 1.15, 0.85, 0.5);
+    P(parent, S(r*0.9, 10, 8), 0x050304, s*sep, y, z - r*0.2, 0, 0, s*0.25, 1.1, 0.78, 0.5);
+    const x = s*sep - (look || 0)*s*0.2*r;
+    if(R){ glow(R, parent, r*0.26, c, x, y - r*0.08, z + r*0.12); halo(R, parent, c, r*5, x, y - r*0.08, z + r*0.2, 0.45); }
+    else P(parent, S(r*0.18, 6, 4), c, x, y - r*0.08, z + r*0.12);
   });
 }
 
@@ -117,14 +122,25 @@ Models.gun = function(base, element, R, els){
 /* ---- detail helpers: every character gets the same kinds of finish ---- */
 /* a belt round a body of radius r at height y, with a buckle at the front */
 function belt(parent, r, y, col, buckle, z){ P(parent, TO(r, 0.032), col, 0, y, z || 0, PI/2); P(parent, BX(0.1, 0.085, 0.04), buckle || GOLD, 0, y, (z || 0) + r + 0.012); }
-/* eyebrows: cross, worried or plain */
-function brows(parent, sep, y, z, col, mood, w){ [-1, 1].forEach(s=> P(parent, BX(w || 0.09, 0.026, 0.03), col, s*sep, y, z, 0, 0, s*(mood === "angry" ? 0.45 : mood === "sad" ? -0.4 : -0.1))); }
+/* a heavy brow: a ridge of bone and skin that throws the eyes into shadow (cross, worried or plain) */
+function brows(parent, sep, y, z, col, mood, w){ const W = w || 0.09, t = mood === "angry" ? 0.4 : mood === "sad" ? -0.35 : 0.08; [-1, 1].forEach(s=> P(parent, S(W*0.62, 10, 6), col, s*sep, y, z, 0.3, 0, s*t, 1.15, 0.42, 0.62)); }
 /* gills under a mushroom cap */
 function gills(parent, r, y, col, n){ for(let i=0;i<n;i++){ const a = i/n*PI*2; P(parent, BX(0.014, 0.03, r*0.75), col, Math.cos(a)*r*0.5, y, Math.sin(a)*r*0.5, 0, PI/2 - a); } }
-/* a mouth: a dark oval, open as much as you like */
-function mouth(parent, x, y, z, w, open, col){ P(parent, S(w, 10, 8), col || 0x2a0a10, x, y, z, 0, 0, 0, 1, open || 0.35, 0.4); }
-/* teeth along a mouth */
-function teeth(parent, y, z, w, n, col){ for(let i=0;i<n;i++) P(parent, CO(0.018, 0.05, 4), col || 0xf4f0d8, -w/2 + (i + 0.5)*w/n, y, z, PI); }
+/* a mouth: a ragged dark gash, open as much as you like, torn wider on one side, a raw lip sagging */
+function mouth(parent, x, y, z, w, open, col){
+  const o = open || 0.35, c = col || 0x0a0306;
+  P(parent, S(w, 12, 8), c, x, y, z, 0, 0, 0.06, 1, o, 0.4);
+  P(parent, S(w*0.6, 10, 6), c, x + w*0.42, y - w*o*0.2, z - w*0.02, 0, 0, -0.25, 1, o*0.75, 0.38);
+  P(parent, S(w*0.5, 8, 6), 0x3a1416, x - w*0.15, y - w*o*0.75, z - w*0.06, 0, 0, 0.1, 1.5, 0.4, 0.45);
+}
+/* teeth along a mouth: needles, yellowed and uneven, one or two lost */
+function teeth(parent, y, z, w, n, col){
+  for(let i=0;i<n;i++){
+    const h = Math.sin(i*12.9898 + n*3.17)*43758.5453, k = h - Math.floor(h);
+    if(n > 3 && k < 0.13) continue;
+    const sp = w/n; P(parent, CO(sp*(0.36 + k*0.16), sp*(1.8 + k*1.8), 5), col || 0xc8bc98, -w/2 + (i + 0.5)*sp, y - k*sp*0.4, z, PI + (k - 0.5)*0.35, 0, (k - 0.5)*0.45);
+  }
+}
 /* a chain of links between two points */
 function chain(parent, a, b, n, col){ for(let i=0;i<n;i++){ const t = i/(n - 1); P(parent, TO(0.045, 0.012), col || 0x5a5a64, a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t, a[2] + (b[2] - a[2])*t, 0, i % 2 ? PI/2 : 0, 0); } }
 /* spikes round a ring */
@@ -447,156 +463,338 @@ const FROG_OUTFIT = {
 };
 
 /* ================================================================== *
- *  Goblins
+ *  Goblins: gaunt, hunched, grey-green things that live off what the
+ *  dungeon leaves behind. Long torn ears, needle teeth, eyes like
+ *  embers at the bottom of a well; rags, rust and little fetishes.
  * ================================================================== */
-const GOB = { skin:0x5ab03a, dark:0x3e7a2a, eye:0xffe14a, cloth:0x7a5230, metal:0x9a9aa8, iron:0x4a4a54 };
+const GOB = { skin:0x5f6a4e, dark:0x3a4232, eye:0xffb83a, cloth:0x4a3e30, metal:0x6a6a70, iron:0x26262a, rib:0x6a755a, wrap:0x4e4636 };
+const BONEC = 0xc8bca0, RUSTC = 0x6a3a22, IRONC = 0x26262a, LEATH = 0x3a2a1e, BRASSC = 0x8a6a30, BLOODC = 0x4a1410, RAGC = 0x4a4234;
+/* a fresh sculpted sphere (sculpt never touches the shared cache) */
+function lumpS(r, w, h, amt, f, seed){ return K.sculpt(new THREE.SphereGeometry(r, SEG(w), SEG(h)), amt, f, seed); }
+/* paint blotches of a second colour over a geometry (bruises, rust, mould); it multiplies the part's colour */
+function blotch(g, c2, freq, cut, seed){
+  const C2 = new THREE.Color(c2), s = seed || 0;
+  return K.paint(g, 0xffffff, (c, x, y, z)=>{
+    const n = Math.sin(x*freq + s)*Math.sin(y*freq*1.3 + s*1.7)*Math.sin(z*freq*0.8 + 2.1) + 0.5*Math.sin(x*freq*2.7 + 1.3)*Math.sin(z*freq*2.3 + s);
+    if(n > cut) c.lerp(C2, Math.min(1, (n - cut)*3));
+  });
+}
+/* a long bone or limb between points, with its joints */
+function limb(parent, pts, r, col, jc){ P(parent, K.tube(pts, r, 6, 8), col); if(jc !== undefined) P(parent, S(r*1.3, 8, 6), jc, pts[pts.length - 1][0], pts[pts.length - 1][1], pts[pts.length - 1][2]); }
+/* a ring of rag wrapped round a limb */
+function wraps(parent, r, ys, col, x, z, tilt){
+  const y0 = Math.min(...ys) - 0.02, y1 = Math.max(...ys) + 0.02;
+  P(parent, CY(r*0.98, r*1.06, y1 - y0, 10), col, x || 0, (y0 + y1)/2, z || 0, tilt || 0);
+  [y0, y1].forEach((y, i)=> P(parent, TO(r*(1.02 + i*0.04), r*0.12), col, x || 0, y, z || 0, PI/2 + 0.3*(i ? -1 : 1), 0, 0));
+}
+/* small iron links in a line */
+function links(parent, a, b, n, r, col){ for(let i=0;i<n;i++){ const t = i/(n - 1); P(parent, TO(r, r*0.3), col || IRONC, a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t, a[2] + (b[2] - a[2])*t, 0, i % 2 ? PI/2 : 0, Math.atan2(b[0] - a[0], b[1] - a[1])); } }
+/* a little skull: cranium, black sockets (glowing if R and gc), a nose hole, a row of teeth */
+function skull(parent, r, x, y, z, col, R, gc){
+  const g = group(parent, x, y, z), c = col || BONEC;
+  P(g, S(r, 12, 10), c, 0, 0, -r*0.1, 0, 0, 0, 0.92, 0.95, 1.08);
+  P(g, S(r*0.62, 10, 8), c, 0, -r*0.5, r*0.36, 0, 0, 0, 1.05, 0.72, 0.9);
+  [-1, 1].forEach(s=>{ P(g, S(r*0.27, 8, 6), 0x0c0808, s*r*0.36, -r*0.08, r*0.76, 0, 0, s*0.3, 1, 0.85, 0.6); if(R && gc) glow(R, g, r*0.09, gc, s*r*0.36, -r*0.1, r*0.86); });
+  P(g, CO(r*0.12, r*0.22, 3), 0x0c0808, 0, -r*0.38, r*0.86, PI, 0, 0, 1, 1, 0.5);
+  for(let i=0;i<5;i++) P(g, BX(r*0.1, r*0.17, r*0.08), 0xb0a488, (i - 2)*r*0.12, -r*0.8, r*0.62 - Math.abs(i - 2)*r*0.06);
+  return g;
+}
+/* a string of bones and teeth hanging from a point */
+function fetish(parent, x, y, z, n, col){
+  P(parent, CY(0.004, 0.004, 0.055*n, 4), 0x2a2018, x, y - 0.0275*n, z);
+  for(let i=0;i<n;i++) P(parent, i % 2 ? CO(0.012, 0.045, 5) : CY(0.009, 0.009, 0.04, 6), col || BONEC, x + (i % 2 ? 0.006 : -0.006), y - 0.03 - i*0.05, z + 0.006, i % 2 ? PI : 0, 0, (i % 3 - 1)*0.3);
+}
+/* a hood: a sculpted shell open at the front, the face lost in it */
+function hoodGeo(r, open, len, seed){
+  const g = new THREE.SphereGeometry(r, 28, 18, PI/2 + open/2, PI*2 - open, 0, PI*len);
+  return K.sculpt(g, r*0.05, 2.2/r, seed);
+}
+/* a goblin's ear: a long torn leaf of gristle, notched where something bit it */
+function gobEar(s, len){
+  return geo("gear" + s + "," + len, ()=>{
+    const pts = [[0, 0.055], [0.1, 0.07], [0.17, 0.055], [0.19, 0.022], [0.215, 0.052], [0.31, 0.035], [0.36, 0.014], [0.385, 0.028], [0.42, 0], [0.34, -0.012], [0.27, -0.028], [0.245, -0.004], [0.215, -0.036], [0.1, -0.05], [0, -0.045]];
+    const sh = new THREE.Shape();
+    pts.forEach((p, i)=> i ? sh.lineTo(s*p[0]*len, p[1]) : sh.moveTo(s*p[0]*len, p[1]));
+    const g = new THREE.ExtrudeGeometry(sh, { depth:0.012, bevelEnabled:true, bevelThickness:0.006, bevelSize:0.006, bevelSegments:2, curveSegments:2 });
+    g.translate(0, 0, -0.006); g.rotateX(-0.9); g.computeVertexNormals();
+    return g;
+  });
+}
 function goblinBody(R, o){
-  const b = R.body, skin = o.skin || GOB.skin, dark = o.dark || GOB.dark, cloth = o.cloth || GOB.cloth;
+  const b = R.body, skin = o.skin || GOB.skin, dark = o.dark || GOB.dark, cloth = o.cloth || GOB.cloth, k = o.bulk || 1, seed = o.seed || 1, wrap = o.wrap || GOB.wrap;
+  const rib = o.rib || GOB.rib, hunch = o.hunch === undefined ? 0.42 : o.hunch;
+  // legs: thin and bent, long clawed feet, rags wound round the shins
   const legs = [];
   [-1, 1].forEach(s=>{
-    const l = group(b, s*0.13, 0.28, 0);
-    P(l, CY(0.06, 0.07, 0.24, 8), dark, 0, -0.12, 0);
-    P(l, TO(0.068, 0.02), 0xa08a6a, 0, -0.14, 0, PI/2);
-    P(l, S(0.09, 10, 6), o.boot || 0x4a3020, 0, -0.25, 0.05, 0, 0, 0, 1, 0.55, 1.5);
-    P(l, CO(0.025, 0.06, 4), 0xe8e0c8, 0, -0.25, 0.19, PI/2);
+    const l = group(b, s*0.09*k, 0.44, -0.02);
+    limb(l, [[0, 0, 0], [s*0.012, -0.1, 0.05], [0, -0.2, 0.08]], 0.042*k, dark, skin);
+    limb(l, [[0, -0.2, 0.08], [0, -0.31, 0.01], [0, -0.4, -0.03]], 0.031*k, skin);
+    wraps(l, 0.034*k, [-0.29, -0.35], wrap, 0, 0.0, 0.4);
+    P(l, S(0.05, 10, 6), dark, 0, -0.415, 0.035, 0, 0, 0, 0.85*k, 0.4, 1.7);
+    [-1, 0, 1].forEach(t=> P(l, CO(0.012, 0.07, 5), 0x1a1612, t*0.025*k, -0.425, 0.125, PI/2 + 0.25, t*0.25, 0));
     legs.push(l);
   });
   R.parts.legs = legs;
-  P(b, S(0.3, 16, 12), skin, 0, 0.5, 0, 0, 0, 0, 1.02, 0.92, 0.95);
-  P(b, S(0.13, 10, 8), 0x8ad05a, 0, 0.5, 0.2, 0, 0, 0, 1.1, 1, 0.5);
-  P(b, K.lathe([[0.28, 0], [0.31, 0.08], [0.29, 0.2], [0.22, 0.3]], 14), cloth, 0, 0.32, 0);
-  belt(b, 0.29, 0.52, 0x3a2414, 0xb8b8c0);
-  P(b, BX(0.16, 0.2, 0.03), cloth, 0, 0.36, 0.3, 0.12);
-  P(b, BX(0.16, 0.03, 0.035), 0x3a2414, 0, 0.27, 0.315, 0.12);
-  // head: ears out to here, a nose like a parsnip, teeth, warts
-  const head = group(b, 0, 0.88, 0.04); R.parts.head = head;
-  P(head, S(0.22, 16, 12), skin, 0, 0, 0, 0, 0, 0, 1.05, 0.92, 0.95);
+  // the torso, bent forward: ribs and spine through the skin, shoulder blades like wings
+  const tor = group(b, 0, 0.42, 0); tor.rotation.x = hunch; R.tor = tor;
+  const tp = [[0, 0], [0.12, 0.01], [0.13, 0.07], [0.108, 0.15], [0.122, 0.24], [0.15, 0.34], [0.16, 0.41], [0.12, 0.47], [0.05, 0.5], [0, 0.5]].map(p=> [p[0]*k, p[1]]);
+  P(tor, blotch(K.sculpt(K.slathe(tp, 16, 4), 0.01, 10, seed), 0x8a7a80, 11, 0.45, seed), skin, 0, 0, 0, 0, 0, 0, 1, 1, 0.78);
+  [[0.21, 0.12], [0.265, 0.133], [0.32, 0.147]].forEach(([y, r])=> P(tor, TO(r*k, 0.005, PI*0.6), rib, 0, y, 0.005, PI/2 + 0.3, 0, PI/2 - PI*0.3, 1, 0.8, 1));
+  for(let i=0;i<7;i++){ const y = 0.1 + i*0.055; P(tor, S(0.02, 6, 4), rib, 0, y, -k*0.78*(0.11 + 0.045*y/0.41)); }
+  [-1, 1].forEach(s=> P(tor, S(0.07, 10, 6), skin, s*0.08*k, 0.36, -0.1*k, 0, 0, s*0.2, 0.9, 1.1, 0.4));
+  // a loincloth torn to strips, a belt
+  P(b, K.tatter(K.lathe([[0.155*k, -0.15], [0.15*k, -0.05], [0.14*k, 0.04]], 14), -0.06, 9, 0.12, seed), cloth, 0, 0.5, 0.01, 0, 0, 0, 1, 1, 0.85);
+  P(b, TO(0.145*k, 0.017), LEATH, 0, 0.53, 0.01, PI/2, 0, 0, 1, 0.85, 1);
+  P(b, BX(0.05, 0.045, 0.02), RUSTC, 0, 0.53, 0.01 + 0.125*k);
+  const top = [0, 0.42 + 0.47*Math.cos(hunch), 0.47*Math.sin(hunch)];
+  limb(b, [[0, top[1] - 0.04, top[2] - 0.05], [0, top[1] + 0.03, top[2] + 0.03], [0, top[1] + 0.07, top[2] + 0.1]], 0.04*k, skin);
+  // the head: thrust forward on the neck, a long skull, the brow overhanging, a hooked nose, an underbite of needles
+  const head = group(b, 0, top[1] + 0.1, top[2] + 0.12); R.parts.head = head; head.rotation.x = -0.3;
+  P(head, blotch(lumpS(0.12, 14, 11, 0.008, 14, seed), 0x8a8070, 18, 0.55, seed), skin, 0, 0.02, -0.02, -0.25, 0, 0, 0.95, 0.88, 1.2);
+  P(head, S(0.085, 12, 8), skin, 0, -0.05, 0.055, 0.2, 0, 0, 1.0, 0.7, 1.12);
+  P(head, S(0.062, 10, 8), dark, 0, -0.095, 0.07, 0, 0, 0, 1.12, 0.5, 1.12);
+  [-1, 1].forEach(s=> P(head, S(0.034, 8, 6), skin, s*0.07, -0.025, 0.065, 0, 0, 0, 1, 0.7, 1));
+  brows(head, 0.048, 0.04, 0.095, skin, "angry", 0.075);
+  eyes(head, 0.047, 0.012, 0.093, 0.026, o.eye || GOB.eye, 0, R);
+  if(o.nose !== false){ limb(head, [[0, 0.02, 0.11], [0, 0.0, 0.17], [0, -0.035, 0.2]], 0.019, skin);
+  P(head, CO(0.017, 0.045, 6), skin, 0, -0.055, 0.2, PI, 0, 0); }
+  mouth(head, 0, -0.085, 0.135, 0.05, 0.3);
+  teeth(head, -0.076, 0.15, 0.085, 7);
+  [-1, 1].forEach(s=> P(head, CO(0.011, 0.05, 5), BONEC, s*0.036, -0.095, 0.14, -0.2, 0, -s*0.15));
+  [[0.06, 0.08, 0.06], [-0.07, 0.06, -0.06], [0.03, -0.02, -0.1]].forEach(([x, y, z])=> P(head, S(0.014, 6, 4), dark, x, y, z));
+  const ear = (o.ear || 1)*0.68;
   [-1, 1].forEach(s=>{
-    P(head, CO(0.1, 0.42, 8), skin, s*0.3, 0.06, -0.02, 0, s*0.3, -s*1.3, 1, 1, 0.45);
-    P(head, CO(0.06, 0.3, 6), 0xd88a8a, s*0.29, 0.06, 0.0, 0, s*0.3, -s*1.3, 1, 1, 0.3);
-    if(s > 0) P(head, TO(0.03, 0.008), GOLD, s*0.4, 0.02, 0.02, 0, PI/2);
+    P(head, gobEar(s, ear), skin, s*0.1, 0.02, -0.02, 0, s*0.5, s*0.32);
+    P(head, gobEar(s, ear*0.8), 0x4a3436, s*0.11, 0.03, -0.012, 0, s*0.5, s*0.32, 1, 0.55, 1);
   });
-  P(head, CO(0.06, 0.22, 8), skin, 0, -0.03, 0.26, PI/2 + 0.3);
-  [-1, 1].forEach(s=> P(head, S(0.012, 4, 3), 0x1a2a10, s*0.025, -0.07, 0.31));
-  P(head, S(0.025, 6, 4), dark, 0.12, 0.12, 0.15); P(head, S(0.02, 6, 4), dark, -0.15, -0.05, 0.14);
-  [-1, 1].forEach(s=>{
-    glow(R, head, 0.05, o.eye || GOB.eye, s*0.09, 0.05, 0.17);
-    P(head, S(0.022, 6, 4), 0x101010, s*0.09, 0.05, 0.215);
-    P(head, BX(0.1, 0.025, 0.03), dark, s*0.09, 0.12, 0.17, 0, 0, s*0.35);
-    P(head, CO(0.02, 0.06, 4), 0xf4f0d8, s*0.05, -0.12, 0.17, PI);
-  });
-  P(head, BX(0.14, 0.03, 0.03), 0x2a1010, 0, -0.1, 0.18);
+  P(head, TO(0.022, 0.006), BRASSC, 0.27*ear, 0.08, -0.17, 0.3, 0.5, 0);
+  // long arms that hang to the knee, bandaged, three black claws
   const arm = s=>{
-    const a = group(b, s*0.31, 0.62, 0.05);
-    P(a, CY(0.05, 0.055, 0.3, 8), skin, 0, -0.13, 0);
-    P(a, TO(0.055, 0.016), 0xa08a6a, 0, -0.22, 0, PI/2);
-    P(a, S(0.07, 8, 6), skin, 0, -0.29, 0.04);
-    [-0.03, 0, 0.03].forEach(x=> P(a, CO(0.012, 0.04, 4), 0xe8e0c8, x, -0.33, 0.08, PI*0.75));
+    const a = group(b, s*0.19*k, top[1] - 0.08, top[2] - 0.06);
+    P(a, S(0.05*k, 10, 8), skin, 0, 0, 0);
+    limb(a, [[0, 0, 0], [s*0.03, -0.11, -0.02], [s*0.03, -0.22, -0.01]], 0.034*k, skin, dark);
+    limb(a, [[s*0.03, -0.22, -0.01], [s*0.02, -0.33, 0.03], [0, -0.42, 0.06]], 0.027*k, skin);
+    wraps(a, 0.031*k, [-0.3, -0.34, -0.38], wrap, s*0.016, 0.035, -0.3);
+    P(a, S(0.036*k, 8, 6), skin, 0, -0.45, 0.07, 0, 0, 0, 1, 1.1, 0.75);
+    [-1, 0, 1].forEach(f=> P(a, CO(0.01*k, 0.09, 5), 0x1e1a14, f*0.022*k, -0.5, 0.085, PI*0.9, 0, f*0.18));
     return a;
   };
   R.parts.armR = arm(1); R.parts.armL = arm(-1);
-  R.hand = group(R.parts.armR, 0, -0.3, 0.06);
+  R.hand = group(R.parts.armR, 0, -0.46, 0.08);
   return head;
+}
+/* a ring of teeth on a cord round the neck */
+function toothCollar(R, n, col){
+  const tor = R.tor;
+  P(tor, TO(0.13, 0.006), 0x2a2018, 0, 0.44, 0.01, PI/2 + 0.2, 0, 0, 1, 0.8, 1);
+  for(let i=0;i<n;i++){ const a = -1.1 + i*2.2/(n - 1); P(tor, CO(0.011, 0.045, 5), col || BONEC, Math.sin(a)*0.13, 0.41 - Math.abs(a)*0.02, Math.cos(a)*0.105 + 0.01, PI + 0.2, 0, -a*0.2); }
 }
 const KITS = {
   grunt(R, head){
-    P(head, S(0.21, 12, 6), 0x8a7a6a, 0, 0.09, 0, 0, 0, 0, 1, 0.55, 1);
-    P(head, TO(0.2, 0.02), 0x6a5a4a, 0, 0.07, 0, PI/2);
-    P(head, CO(0.03, 0.1, 4), 0x6a5a4a, 0, 0.22, 0);
-    P(R.hand, BX(0.04, 0.12, 0.42), GOB.metal, 0, 0, 0.2); P(R.hand, BX(0.05, 0.05, 0.12), 0x4a3020, 0, 0, -0.03); P(R.hand, BX(0.16, 0.03, 0.04), GOB.iron, 0, 0, 0.02);
-    // a round wooden shield on the other arm
-    const sh = group(R.parts.armL, -0.04, -0.2, 0.1);
-    P(sh, CY(0.2, 0.2, 0.04, 14), 0x8a5a30, 0, 0, 0, PI/2);
-    P(sh, TO(0.2, 0.022), GOB.iron, 0, 0, 0.0);
-    P(sh, S(0.055, 8, 6), GOB.metal, 0, 0, 0.03);
-    P(sh, BX(0.38, 0.03, 0.03), 0x5a3a1a, 0, 0, 0.025, 0, 0, 0.5);
+    // a dented, rusted helm with a bent spike, a nose guard
+    P(head, blotch(K.sculpt(new THREE.SphereGeometry(0.138, 24, 12, 0, PI*2, 0, PI*0.52), 0.006, 12, 3), 0x8a5a3a, 16, 0.25, 2), 0x4a3c34, 0, 0.06, -0.03, -0.28, 0, 0, 1, 0.92, 1.22);
+    P(head, TO(0.137, 0.011), RUSTC, 0, 0.058, -0.02, PI/2 - 0.28, 0, 0, 1, 1.22, 1);
+    for(let i=0;i<9;i++){ const a = i/9*PI*2; P(head, S(0.009, 4, 3), BRASSC, Math.cos(a)*0.138, 0.04 + Math.sin(a)*0.05, Math.sin(a)*0.165 - 0.02); }
+    P(head, CO(0.02, 0.13, 6), RUSTC, 0.04, 0.17, -0.06, -0.4, 0, -0.45);
+    P(head, BX(0.022, 0.1, 0.014), IRONC, 0, 0.01, 0.125, -0.3);
+    // a notched, rusted cleaver-sword, blood dried on it
+    P(R.hand, BX(0.03, 0.032, 0.13), LEATH, 0, 0, -0.01);
+    P(R.hand, S(0.022, 8, 6), IRONC, 0, 0, -0.08);
+    P(R.hand, BX(0.15, 0.022, 0.024), IRONC, 0, 0, 0.06);
+    P(R.hand, blotch(new THREE.BoxGeometry(0.012, 0.08, 0.38, 1, 2, 8), 0x8a5a3a, 20, 0.1, 5), 0x5a5048, 0, 0.012, 0.26);
+    P(R.hand, CO(0.04, 0.09, 4), 0x5a5048, 0, 0.012, 0.48, PI/2, 0, 0, 0.3, 1, 1);
+    [0.16, 0.27, 0.36].forEach(z=> P(R.hand, BX(0.016, 0.018, 0.02), 0x0c0808, 0, 0.052, z));
+    P(R.hand, BX(0.014, 0.05, 0.12), BLOODC, 0, -0.008, 0.36);
+    // a shield of three boards, an iron band, a skull nailed to it
+    const sh = group(R.parts.armL, -0.02, -0.3, 0.1); sh.rotation.y = -0.35;
+    [-0.075, 0, 0.075].forEach((x, i)=> P(sh, BX(0.072, [0.28, 0.33, 0.25][i], 0.025), [0x3a2c22, 0x45342a, 0x33271e][i], x, (i - 1)*0.012, 0, 0, 0, (i - 1)*0.05));
+    [-0.08, 0.08].forEach(y=> P(sh, BX(0.24, 0.024, 0.012), IRONC, 0, y, 0.016));
+    [-0.09, 0.09].forEach(x=> [-0.08, 0.08].forEach(y=> P(sh, S(0.009, 4, 3), BRASSC, x, y, 0.024)));
+    skull(sh, 0.045, 0, 0.01, 0.04, 0xb0a488);
+    // a scrap pauldron on the shield shoulder
+    P(R.parts.armL, blotch(K.sculpt(new THREE.SphereGeometry(0.075, 16, 8, 0, PI*2, 0, PI*0.5), 0.005, 18, 4), 0x8a5a3a, 22, 0.2, 6), 0x4a3c34, 0, 0.02, 0, 0, 0, 0.35, 1.1, 0.8, 1.05);
+    toothCollar(R, 7);
   },
   slinger(R, head){
-    P(head, CO(0.26, 0.3, 10), 0x6a5a3a, 0, 0.15, -0.03);
-    P(head, CO(0.04, 0.16, 4), 0xe8e0c8, 0.08, 0.25, -0.08, 0, 0, -0.6);
-    P(R.hand, TO(0.1, 0.012, PI), 0x8a6a4a, 0, -0.08, 0.05, 0, PI/2);
-    P(R.hand, S(0.06, 8, 6), 0x9a9a9a, 0, -0.18, 0.05);
-    P(R.body, BX(0.18, 0.18, 0.09), 0x6a4a2a, -0.2, 0.42, -0.25);
-    [-0.25, -0.15].forEach(x=> P(R.body, S(0.04, 6, 4), 0x9a9a9a, x, 0.53, -0.25));
-    P(R.body, TO(0.33, 0.022), 0x4a3020, 0, 0.6, 0, PI/2, 0.7, 0);
+    // a ragged hood with crow feathers, a scarf over the mouth
+    P(head, K.tatter(hoodGeo(0.15, 1.3, 0.68, 4), -0.03, 9, 0.06, 4), 0x3a3428, 0, 0.03, -0.01, -0.2, 0, 0, 1, 1, 1.15);
+    for(let i=0;i<4;i++) P(head, CO(0.02, 0.14, 5), 0x16141a, -0.05 + i*0.025, 0.13, -0.1 - i*0.01, -1.1 - i*0.1, 0, -0.5 + i*0.25, 1, 1, 0.35);
+    P(head, S(0.075, 10, 6), 0x2e2a22, 0, -0.08, 0.07, 0, 0, 0, 1.15, 0.55, 1.15);
+    // the sling: a cord looped from the fist, a stone in the pouch
+    P(R.hand, TO(0.08, 0.005, PI*1.2), 0x6a5a40, 0, -0.08, 0.02, 0, PI/2, PI*0.9);
+    P(R.hand, S(0.032, 8, 6), LEATH, 0, -0.16, 0.03, 0, 0, 0, 1.2, 0.7, 1);
+    P(R.hand, lumpS(0.026, 8, 6, 0.006, 40, 2), 0x6a6a64, 0, -0.145, 0.03);
+    // a bag of stones on the hip, a bone fetish on the belt
+    P(R.body, blotch(lumpS(0.08, 12, 9, 0.008, 18, 5), 0x6a5a48, 20, 0.3, 1), LEATH, -0.16, 0.42, -0.04, 0, 0, 0, 1, 1.15, 0.85);
+    [[-0.17, 0.5, -0.04], [-0.14, 0.51, -0.01]].forEach(([x, y, z])=> P(R.body, lumpS(0.025, 6, 5, 0.006, 40, x), 0x6a6a64, x, y, z));
+    fetish(R.body, 0.12, 0.52, 0.09, 4);
+    toothCollar(R, 5, 0xa89a80);
   },
   bomber(R, head){
-    P(R.hand, S(0.13, 12, 8), 0x1a1a22, 0, 0, 0.08);
-    P(R.hand, CY(0.02, 0.02, 0.08, 6), 0x8a6a4a, 0, 0.13, 0.08);
-    glow(R, R.hand, 0.035, 0xffa040, 0, 0.18, 0.08);
-    P(R.body, TO(0.31, 0.045), 0x4a3020, 0, 0.55, 0, PI/2, 0.6);
-    for(let i=0;i<5;i++){ const a = -0.9 + i*0.45; P(R.body, S(0.055, 8, 6), 0x1a1a22, Math.sin(a)*0.33, 0.55 + Math.sin(a)*0.18, Math.cos(a)*0.33); }
-    [-1, 1].forEach(s=>{ P(head, CY(0.065, 0.065, 0.05, 12), 0x88d8ff, s*0.09, 0.07, 0.19, PI/2); P(head, TO(0.065, 0.015), 0x6a4a2a, s*0.09, 0.07, 0.215); });
-    P(head, TO(0.2, 0.02), 0x3a2a1a, 0, 0.07, 0.02, 0, 0, 0, 1, 1, 0.9);
-    P(head, S(0.16, 10, 6), 0x7a5a3a, 0, 0.12, -0.04, 0, 0, 0, 1, 0.6, 1);
+    // a soot-black leather cap, goggles with smoked lenses, a burn scar
+    P(head, new THREE.SphereGeometry(0.13, 20, 10, 0, PI*2, 0, PI*0.5), 0x2a201a, 0, 0.03, -0.02, -0.28, 0, 0, 1, 0.92, 1.2);
+    P(head, TO(0.13, 0.012), LEATH, 0, 0.025, -0.01, PI/2 - 0.12, 0, 0, 1, 1.2, 1);
+    [-1, 1].forEach(s=>{
+      P(head, CY(0.03, 0.033, 0.03, 14), BRASSC, s*0.048, 0.022, 0.1, PI/2 - 0.15);
+      P(head, CY(0.024, 0.024, 0.034, 14), 0x140c08, s*0.048, 0.022, 0.104, PI/2 - 0.15);
+      glow(R, head, 0.007, 0xff7a2a, s*0.044, 0.026, 0.123);
+    });
+    P(head, S(0.03, 8, 6), 0x5a3028, 0.07, -0.04, 0.07, 0, 0, 0, 1, 0.7, 0.6);
+    // the keg: staves and iron hoops, a daubed skull, the fuse already lit
+    const keg = group(R.hand, 0, 0.03, 0.08);
+    P(keg, blotch(K.slathe([[0, -0.115], [0.08, -0.115], [0.1, 0], [0.08, 0.115], [0, 0.115]], 16), 0x6a5a48, 30, 0.2, 3), 0x3a2a1c);
+    [-0.085, -0.03, 0.03, 0.085].forEach(y=> P(keg, TO(0.1 - Math.abs(y)*0.22, 0.007), IRONC, 0, y, 0, PI/2));
+    P(keg, BX(0.05, 0.012, 0.01), 0xa89a80, 0, 0.0, 0.1, 0, 0, 0.7); P(keg, BX(0.05, 0.012, 0.01), 0xa89a80, 0, 0.0, 0.1, 0, 0, -0.7);
+    P(keg, K.tube([[0, 0.11, 0], [0.03, 0.16, 0.02], [0.01, 0.2, 0.05]], 0.007, 6, 6), 0x8a7a5a);
+    glow(R, keg, 0.018, 0xffc060, 0.01, 0.205, 0.05);
+    halo(R, keg, 0xff6a1a, 0.35, 0.01, 0.21, 0.05, 0.75);
+    // a bandolier of black-powder pots across the chest
+    const sash = group(R.tor, 0, 0.3, 0); sash.rotation.z = 0.65;
+    P(sash, TO(0.17, 0.016), LEATH, 0, 0, 0, PI/2, 0, 0, 1, 0.82, 1);
+    [0.5, 1.0, 1.5, 2.0].forEach(a=>{ const x = Math.cos(a)*0.18, z = Math.sin(a)*0.15; P(sash, S(0.034, 10, 8), 0x1a1a1c, x, 0, z); P(sash, CY(0.005, 0.005, 0.04, 4), 0x8a7a5a, x, 0.04, z); });
   },
   shaman(R, head){
-    P(R.hand, CY(0.025, 0.025, 1.15, 6), 0x5a3a20, 0, 0.32, 0.05);
-    P(R.hand, S(0.1, 10, 8), 0xece4cc, 0, 0.92, 0.05);
-    [-1, 1].forEach(s=> P(R.hand, S(0.025, 6, 4), 0x101010, s*0.035, 0.94, 0.13));
-    [0.6, 0.7].forEach(y=> P(R.hand, CO(0.02, 0.12, 4), 0xff4fd8, 0.04, y, 0.05, 0, 0, -2.6));
-    R.parts.gem = glow(R, R.hand, 0.055, 0x9cff3a, 0, 1.03, 0.05);
-    halo(R, R.hand, 0x9cff3a, 0.6, 0, 1.03, 0.05, 0.5);
-    for(let i=0;i<5;i++) P(head, CO(0.04, 0.32, 4), [0xff4a4a, 0xffd23d, 0x46e4ff, 0xff4fd8, 0x9cff3a][i], (i - 2)*0.08, 0.28, -0.08, 0, 0, (i - 2)*0.25);
-    P(head, CY(0.16, 0.18, 0.14, 10), 0xd8c8a0, 0, 0.02, 0.15, PI/2);
-    [-1, 1].forEach(s=>{ P(head, S(0.04, 6, 4), 0x101010, s*0.07, 0.04, 0.23); P(head, BX(0.02, 0.1, 0.01), 0xc83a3a, s*0.07, -0.05, 0.225); });
-    // a necklace of teeth
-    for(let i=0;i<7;i++){ const a = -1.1 + i*0.37; P(R.body, CO(0.022, 0.07, 4), 0xf4f0d8, Math.sin(a)*0.25, 0.7, Math.cos(a)*0.25, PI); }
+    // a beast's skull worn as a hat, antlers branching off it, feathers
+    const sk = group(head, 0, 0.1, 0.0); sk.rotation.x = -0.3;
+    P(sk, blotch(lumpS(0.1, 14, 10, 0.006, 16, 7), 0x8a7a60, 16, 0.4, 2), BONEC, 0, 0, -0.02, 0, 0, 0, 1.05, 0.72, 1.2);
+    P(sk, S(0.052, 10, 8), BONEC, 0, -0.025, 0.11, 0, 0, 0, 0.75, 0.6, 1.5);
+    [-1, 1].forEach(s=>{
+      P(sk, S(0.026, 8, 6), 0x0c0808, s*0.048, 0.01, 0.075);
+      limb(sk, [[s*0.05, 0.04, -0.03], [s*0.13, 0.12, -0.07], [s*0.19, 0.24, -0.05], [s*0.21, 0.36, 0.01]], 0.013, 0x8a7a60);
+      limb(sk, [[s*0.15, 0.16, -0.06], [s*0.17, 0.24, 0.02], [s*0.16, 0.29, 0.06]], 0.009, 0x8a7a60);
+      limb(sk, [[s*0.19, 0.25, -0.05], [s*0.27, 0.31, -0.08], [s*0.31, 0.36, -0.06]], 0.008, 0x8a7a60);
+    });
+    for(let i=0;i<5;i++) P(head, CO(0.018, 0.16, 5), [0x1a1a1e, 0x3a1a14, 0x1a1a1e, 0x2a2a20, 0x1a1a1e][i], (i - 2)*0.035, 0.0, -0.13, -2.2, 0, (i - 2)*0.2, 1, 1, 0.35);
+    // a robe to the ankles in mouldy strips, a mantle of feathers and fur
+    P(R.body, K.tatter(K.slathe([[0.21, -0.4], [0.19, -0.2], [0.16, 0], [0.15, 0.04]], 16), -0.12, 13, 0.14, 3), 0x3a3428, 0, 0.5, 0.01, 0, 0, 0, 1, 1, 0.9);
+    for(let i=0;i<12;i++){ const a = -PI*0.85 + i/11*PI*1.7; P(R.tor, CO(0.035, 0.14, 5), [0x1e1c1a, 0x2e2620, 0x26201c][i % 3], Math.sin(a)*0.16, 0.42, Math.cos(a)*0.12, PI + Math.cos(a)*0.5, 0, Math.sin(a)*0.5, 1, 1, 0.5); }
+    // the staff, crooked at the top, and from the crook a censer on a chain, smoking green
+    limb(R.hand, [[0, -0.42, 0], [0.02, 0, 0.01], [-0.01, 0.42, 0], [0.03, 0.74, 0.02], [0.13, 0.84, 0.03]], 0.016, 0x3a2c1e);
+    links(R.hand, [0.13, 0.82, 0.03], [0.13, 0.7, 0.03], 5, 0.012);
+    const cs = group(R.hand, 0.13, 0.64, 0.03);
+    P(cs, K.lathe([[0, -0.06], [0.045, -0.04], [0.055, 0.0], [0.04, 0.03], [0.012, 0.06], [0, 0.07]], 12), BRASSC);
+    [0, 2.1, 4.2].forEach(a=> P(cs, S(0.013, 6, 4), 0x0c0808, Math.cos(a)*0.05, 0.0, Math.sin(a)*0.05));
+    R.parts.gem = glow(R, cs, 0.03, 0x9cff3a, 0, 0.0, 0.0);
+    halo(R, cs, 0x9cff3a, 0.6, 0, 0.0, 0, 0.55);
+    halo(R, cs, 0x5a8a4a, 0.5, 0.02, 0.14, 0, 0.25);
+    halo(R, cs, 0x4a6a40, 0.7, -0.03, 0.3, 0, 0.15);
+    fetish(R.hand, 0.04, 0.72, 0.02, 4);
+    fetish(R.hand, -0.02, 0.6, 0.0, 3, 0x8a6a4a);
+    toothCollar(R, 9);
   },
   brute(R, head){
-    P(R.hand, CY(0.12, 0.05, 0.8, 8), 0x6a4a2a, 0, 0, 0.3, PI/2);
-    P(R.hand, TO(0.11, 0.02), GOB.iron, 0, 0, 0.5);
-    for(let i=0;i<5;i++) P(R.hand, CO(0.03, 0.09, 4), GOB.metal, Math.cos(i*1.3)*0.11, Math.sin(i*1.3)*0.11, 0.6);
-    // iron pauldrons with spikes, a chain round the belly
-    [-1, 1].forEach(s=>{
-      P(R.body, new THREE.SphereGeometry(0.16, 12, 8, 0, PI*2, 0, PI/2), GOB.iron, s*0.3, 0.72, 0, 0, 0, -s*0.4);
-      P(R.body, CO(0.035, 0.14, 5), GOB.metal, s*0.36, 0.86, 0, 0, 0, -s*0.5);
-      P(head, CO(0.05, 0.22, 6), 0xe8e0c8, s*0.16, 0.18, 0, 0, 0, -s*0.6);
+    // a sack over its head, sagging, two eyeholes hacked through it (one bigger), sewn round and tied on top
+    P(head, blotch(lumpS(0.135, 16, 12, 0.016, 12, 5), 0x6a5a4a, 9, 0.35, 4), 0x564834, 0.005, 0.0, 0.02, 0.15, 0, 0.12, 1.02, 1.0, 1.1);
+    P(head, lumpS(0.07, 10, 8, 0.012, 20, 9), 0x564834, -0.01, 0.12, -0.02, 0.3, 0, 0.4, 0.8, 1.1, 0.8);
+    P(head, TO(0.04, 0.011), 0x6a5a3a, -0.015, 0.1, -0.01, PI/2 + 0.3, 0, 0.4);
+    [[-1, 0.03, 0.024], [1, 0.022, 0.032]].forEach(([s, y, r])=>{
+      const x = s*0.055;
+      P(head, S(r, 10, 8), 0x050304, x, y, 0.13, 0, 0, 0, 1.2, 0.9, 0.5);
+      glow(R, head, r*0.22, 0xff3a1a, x, y - r*0.1, 0.142);
+      for(let i=0;i<6;i++){ const a = i/6*PI*2; P(head, BX(0.004, 0.02, 0.004), 0x1a1410, x + Math.cos(a)*r*1.3, y + Math.sin(a)*r*1.1, 0.137, 0, 0, a); }
     });
-    P(head, S(0.22, 12, 6), 0x5a5a64, 0, 0.08, 0, 0, 0, 0, 1, 0.5, 1);
-    P(head, BX(0.03, 0.12, 0.2), GOB.iron, 0, 0.0, 0.18);
-    for(let i=0;i<10;i++){ const a = i/10*PI*2; P(R.body, TO(0.035, 0.01), GOB.iron, Math.cos(a)*0.31, 0.45, Math.sin(a)*0.31, 0, -a, i % 2 ? PI/2 : 0); }
-    P(R.body, BX(0.02, 0.16, 0.02), 0xc86a6a, 0.08, 0.6, 0.29, 0, 0, 0.6);
+    for(let i=0;i<5;i++) P(head, BX(0.026, 0.005, 0.005), 0x1a1410, 0.004, 0.11 - i*0.04, 0.148 - Math.abs(i - 2)*0.012);
+    // an iron jaw bolted on below it, teeth filed into the rim
+    P(head, blotch(K.sculpt(new THREE.TorusGeometry(0.085, 0.028, 10, 28, PI*1.1), 0.004, 20, 3), 0x8a5a3a, 22, 0.2, 3), 0x3a3230, 0, -0.105, 0.04, PI/2 + 0.25, 0, PI*0.95, 1, 1.2, 0.8);
+    for(let i=0;i<7;i++){ const a = -0.9 + i*0.3; P(head, CO(0.008, 0.035, 5), 0x8a8070, Math.sin(a)*0.085, -0.08, 0.04 + Math.cos(a)*0.1, -0.15, 0, -a*0.3); }
+    [-1, 1].forEach(s=> P(head, CY(0.012, 0.012, 0.012, 8), BRASSC, s*0.09, -0.1, 0.06, 0, 0, PI/2));
+    // a noose for a collar, the cut rope hanging down the back
+    P(R.tor, TO(0.12, 0.018), 0x6a5a3a, 0, 0.44, 0.0, PI/2 + 0.2, 0, 0, 1, 0.85, 1);
+    limb(R.tor, [[0, 0.44, -0.11], [0.02, 0.36, -0.16], [-0.01, 0.26, -0.17]], 0.016, 0x6a5a3a);
+    // stitched scars, a filthy bandage round the gut, an iron pauldron with spikes
+    [[0.05, 0.3, 0.6], [-0.06, 0.18, -0.4]].forEach(([x, y, a])=>{ const g = group(R.tor, x, y, 0.15); g.rotation.z = a; P(g, BX(0.14, 0.008, 0.01), 0x3a1a18); for(let i=0;i<5;i++) P(g, BX(0.005, 0.03, 0.012), 0x1a1410, -0.05 + i*0.025, 0, 0.003); });
+    P(R.tor, TO(0.19, 0.018), 0x6a604c, 0, 0.1, 0, PI/2 + 0.1, 0, 0, 1, 0.8, 1);
+    P(R.tor, TO(0.185, 0.016), 0x5a5240, 0, 0.14, 0, PI/2 - 0.12, 0, 0, 1, 0.8, 1);
+    P(R.tor, BX(0.05, 0.04, 0.02), BLOODC, 0.08, 0.12, 0.15, 0, 0.5, 0);
+    P(R.parts.armL, blotch(K.sculpt(new THREE.SphereGeometry(0.1, 18, 8, 0, PI*2, 0, PI*0.5), 0.006, 14, 6), 0x8a5a3a, 18, 0.15, 6), 0x3a3230, 0, 0.03, 0, 0, 0, 0.4, 1.1, 0.8, 1.05);
+    [-0.4, 0, 0.4].forEach(a=> P(R.parts.armL, CO(0.016, 0.09, 6), 0x5a4a40, -Math.sin(0.6 + a*0.3)*0.07, 0.09, a*0.12, 0, 0, 0.6));
+    // a butcher's cleaver, rusted, its haft chained to the wrist
+    P(R.hand, BX(0.034, 0.04, 0.16), LEATH, 0, 0, 0.0);
+    P(R.hand, blotch(new THREE.BoxGeometry(0.018, 0.2, 0.34, 1, 4, 8), 0x8a5a3a, 14, 0.0, 7), 0x4a4440, 0, -0.06, 0.26);
+    P(R.hand, BX(0.02, 0.016, 0.34), 0x8a8680, 0, -0.165, 0.26);
+    P(R.hand, CY(0.02, 0.02, 0.022, 10), 0x0a0808, 0, 0.0, 0.38, 0, 0, PI/2);
+    P(R.hand, BX(0.022, 0.07, 0.09), BLOODC, 0, -0.12, 0.33);
+    links(R.hand, [0, 0, -0.09], [0, 0.12, -0.04], 6, 0.016);
+    links(R.parts.armR, [0, -0.36, 0.05], [0.02, -0.3, 0.06], 3, 0.02);
   },
   sneak(R, head){
-    P(head, CO(0.29, 0.52, 10), 0x22222c, 0, 0.13, -0.04);
-    P(head, CY(0.2, 0.22, 0.12, 12), 0x2a2a38, 0, -0.08, 0.03);
-    P(R.hand, BX(0.03, 0.05, 0.3), 0xb8c0d0, 0, 0, 0.13); P(R.hand, BX(0.1, 0.02, 0.03), 0x3a3a48, 0, 0, -0.02);
-    P(R.body, K.lathe([[0.36, 0], [0.32, 0.3], [0.22, 0.55]], 14), 0x22222c, 0, 0.25, -0.06, 0, 0, 0, 1, 1, 0.85);
-    P(R.body, BX(0.06, 0.25, 0.03), 0x3a3a48, 0.18, 0.45, -0.28, 0, 0, 0.5);
+    // a deep hood, the face lost in it but for two red pricks; a cloth over the mouth
+    P(head, K.tatter(hoodGeo(0.155, 1.1, 0.7, 6), -0.03, 9, 0.07, 6), 0x1c1a20, 0, 0.03, 0.0, -0.3, 0, 0, 1, 1, 1.22);
+    P(head, S(0.078, 10, 6), 0x16141a, 0, -0.075, 0.075, 0, 0, 0, 1.15, 0.6, 1.15);
+    // a cloak torn to ribbons, open at the front
+    const cl = new THREE.LatheGeometry([[0.25, 0], [0.22, 0.2], [0.18, 0.4], [0.12, 0.5]].map(p=> new THREE.Vector2(p[0], p[1])), 24, PI/2 + 0.7, PI*2 - 1.4);
+    P(R.tor, K.sculpt(K.tatter(cl, 0.12, 12, 0.16, 7), 0.008, 12, 7), 0x1e1c22, 0, -0.02, -0.02, 0, 0, 0, 1, 1, 0.85);
+    // a long knife forward, another strapped across the back, a row of throwing blades on a strap
+    P(R.hand, BX(0.026, 0.03, 0.1), LEATH, 0, 0, 0.0);
+    P(R.hand, BX(0.06, 0.012, 0.016), IRONC, 0, 0, 0.055);
+    P(R.hand, BX(0.008, 0.028, 0.24), 0x5e5e64, 0, 0, 0.18);
+    P(R.hand, CO(0.014, 0.05, 4), 0x5e5e64, 0, 0, 0.32, PI/2, 0, 0, 0.6, 1, 1);
+    P(R.tor, BX(0.02, 0.3, 0.012), 0x2a2620, 0.0, 0.3, -0.15, 0, 0, 0.6);
+    const strap = group(R.tor, 0, 0.3, 0); strap.rotation.z = -0.6;
+    P(strap, TO(0.165, 0.012), LEATH, 0, 0, 0, PI/2, 0, 0, 1, 0.82, 1);
+    [0.9, 1.2, 1.5, 1.8].forEach(a=> P(strap, BX(0.012, 0.07, 0.006), 0x6a6a70, Math.cos(a)*0.17, 0.02, Math.sin(a)*0.14 + 0.005, 0, -a + PI/2, 0));
   },
   merchant(R, head){
-    P(head, CY(0.17, 0.2, 0.3, 12), 0x2a2a3a, 0, 0.3, 0);
-    P(head, CY(0.3, 0.3, 0.03, 16), 0x2a2a3a, 0, 0.16, 0);
-    P(head, CY(0.18, 0.18, 0.06, 12), 0xa02a2a, 0, 0.2, 0);
-    P(head, BX(0.04, 0.12, 0.02), 0xffd23d, 0.12, 0.3, 0.14, 0, 0, -0.3);
-    P(R.body, BX(0.42, 0.52, 0.26), 0x6a4a2a, 0, 0.6, -0.3);
-    P(R.body, BX(0.44, 0.06, 0.28), 0x4a3020, 0, 0.62, -0.3);
-    [[-0.26, 0.5], [0.26, 0.45]].forEach(([x, y])=>{ P(R.body, CY(0.07, 0.06, 0.12, 8), 0xb8683a, x, y, -0.3); P(R.body, TO(0.04, 0.01), 0x4a3020, x, y + 0.08, -0.3); });
-    P(R.body, CY(0.04, 0.04, 0.5, 8), 0xf0e6c8, 0, 0.92, -0.32, 0, 0, PI/2);
-    P(head, TO(0.05, 0.01), GOLD, 0.09, 0.05, 0.21);
+    // a deep hood, the grin too wide inside it
+    P(head, K.tatter(hoodGeo(0.16, 1.2, 0.72, 8), -0.04, 10, 0.07, 8), 0x2e241c, 0, 0.03, -0.0, -0.25, 0, 0, 1, 1, 1.2);
+    teeth(head, -0.066, 0.152, 0.11, 9, 0xd8cca8);
+    // a long robe, a moth-eaten mantle
+    P(R.body, K.tatter(K.slathe([[0.22, -0.42], [0.19, -0.2], [0.16, 0], [0.15, 0.06]], 16), -0.14, 12, 0.12, 5), 0x3a2e24, 0, 0.5, 0.0, 0, 0, 0, 1, 1, 0.9);
+    const ml = new THREE.LatheGeometry([[0.22, 0], [0.2, 0.12], [0.14, 0.22], [0.08, 0.26]].map(p=> new THREE.Vector2(p[0], p[1])), 24);
+    P(R.tor, K.sculpt(K.tatter(ml, 0.06, 14, 0.07, 9), 0.008, 12, 9), 0x2e241c, 0, 0.26, 0, 0, 0, 0, 1, 1, 0.85);
+    // the pack of everything he's ever picked up: a sack, pots, a pan, a caged skull, a rolled rug, candles, antlers
+    const pk = group(R.tor, 0, 0.32, -0.24); pk.rotation.x = -0.3;
+    P(pk, blotch(lumpS(0.22, 16, 12, 0.018, 7, 3), 0x7a6a50, 9, 0.3, 2), 0x4a3e2c, 0, 0.0, 0, 0, 0, 0, 1, 1.2, 0.75);
+    [-1, 1].forEach(s=> P(R.tor, TO(0.17, 0.012, PI*0.9), LEATH, s*0.1, 0.32, -0.05, 0, PI/2, PI*0.55, 1, 1, 1));
+    P(pk, CY(0.06, 0.06, 0.44, 12), 0x5a2a20, 0, 0.24, -0.02, 0, 0, PI/2);
+    P(pk, TO(0.06, 0.008), 0x3a2a1a, 0.12, 0.24, -0.02, 0, PI/2, 0); P(pk, TO(0.06, 0.008), 0x3a2a1a, -0.12, 0.24, -0.02, 0, PI/2, 0);
+    P(pk, K.lathe([[0, 0], [0.06, 0.01], [0.07, 0.06], [0.04, 0.1], [0.045, 0.12]], 12), 0x6a4030, 0.2, -0.12, 0.02, 0, 0, -0.4);
+    P(pk, K.lathe([[0, 0], [0.04, 0.01], [0.05, 0.05], [0.025, 0.08]], 12), 0x4a4a3a, -0.21, -0.02, 0.04, 0, 0, 0.5);
+    P(pk, CY(0.075, 0.07, 0.015, 16), IRONC, -0.15, 0.06, -0.14, PI/2 - 0.3, 0, 0.3); P(pk, BX(0.02, 0.012, 0.14), 0x2a2018, -0.15, 0.13, -0.2, -0.9);
+    const cage = group(pk, 0.16, 0.15, -0.08);
+    P(cage, CY(0.05, 0.05, 0.012, 12), IRONC, 0, -0.05, 0); P(cage, new THREE.SphereGeometry(0.05, 12, 6, 0, PI*2, 0, PI*0.5), IRONC, 0, 0.04, 0, 0, 0, 0, 1, 0.5, 1);
+    for(let i=0;i<7;i++){ const a = i/7*PI*2; P(cage, CY(0.003, 0.003, 0.09, 4), IRONC, Math.cos(a)*0.05, 0, Math.sin(a)*0.05); }
+    skull(cage, 0.026, 0, -0.02, 0, BONEC);
+    [[-0.05, 0.27], [0.05, 0.25]].forEach(([x, y], i)=>{ P(pk, CY(0.014, 0.016, 0.07 + i*0.02, 8), 0xc8bc98, x, y + 0.02, 0.0); glow(R, pk, 0.012, 0xffb050, x, y + 0.07 + i*0.01, 0.0); });
+    [-1, 1].forEach(s=> limb(pk, [[s*0.05, 0.12, -0.12], [s*0.12, 0.26, -0.18], [s*0.16, 0.36, -0.14]], 0.011, 0x8a7a60));
+    fetish(pk, -0.18, -0.08, 0.1, 4); fetish(pk, 0.1, -0.12, 0.14, 3, 0x8a6a4a);
+    // a crooked pole in his fist, a lantern hung from it, burning low
+    limb(R.hand, [[0, -0.3, 0], [0.01, 0.05, 0.02], [0.03, 0.35, 0.06], [0.1, 0.45, 0.12], [0.15, 0.44, 0.15]], 0.013, 0x3a2c1e);
+    links(R.hand, [0.15, 0.43, 0.15], [0.15, 0.35, 0.15], 3, 0.011);
+    const lt = group(R.hand, 0.15, 0.27, 0.15);
+    P(lt, CY(0.04, 0.045, 0.014, 6), IRONC, 0, -0.05, 0); P(lt, CO(0.05, 0.05, 6), IRONC, 0, 0.065, 0);
+    for(let i=0;i<6;i++){ const a = i/6*PI*2 + PI/6; P(lt, BX(0.008, 0.1, 0.008), IRONC, Math.cos(a)*0.04, 0, Math.sin(a)*0.04); }
+    P(lt, CY(0.03, 0.035, 0.09, 6), 0x5a4a30, 0, 0, 0);
+    R.parts.gem = glow(R, lt, 0.026, 0xffb050, 0, 0, 0);
+    halo(R, lt, 0xff9a3a, 1.0, 0, 0, 0, 0.6);
   },
   king(R, head){
-    const crown = group(head, 0, 0.2, 0); R.parts.crown = crown;
-    P(crown, CY(0.17, 0.19, 0.12, 12), GOLD);
-    for(let i=0;i<6;i++){ const a = i/6*PI*2; P(crown, CO(0.035, 0.12, 4), GOLD, Math.cos(a)*0.17, 0.11, Math.sin(a)*0.17); P(crown, S(0.022, 6, 4), [0xff3a6a, 0x46e4ff][i % 2], Math.cos(a)*0.18, 0.02, Math.sin(a)*0.18); }
-    glow(R, crown, 0.035, 0xff3a6a, 0, 0.02, 0.19);
-    P(R.body, K.lathe([[0.42, 0], [0.4, 0.4], [0.3, 0.72]], 16), 0xa02a2a, 0, 0.2, -0.05, 0, 0, 0, 1, 1, 0.8);
-    // a fur collar, spotted like ermine
-    for(let i=0;i<12;i++){ const a = i/12*PI*2; P(R.body, S(0.09, 8, 6), 0xf4f0e8, Math.cos(a)*0.3, 0.84, Math.sin(a)*0.28 - 0.02); if(i % 3 === 0) P(R.body, S(0.025, 4, 3), 0x101010, Math.cos(a)*0.37, 0.86, Math.sin(a)*0.35 - 0.02); }
-    P(R.hand, CY(0.03, 0.03, 0.85, 6), GOLD, 0, 0.2, 0.1);
-    P(R.hand, TO(0.08, 0.02), GOLD, 0, 0.6, 0.1, PI/2);
-    glow(R, R.hand, 0.07, 0xff3a6a, 0, 0.64, 0.1);
-    P(R.body, S(0.36, 14, 10), GOB.skin, 0, 0.52, 0.06, 0, 0, 0, 1.2, 1, 1.15);
-    P(R.body, S(0.03, 6, 4), GOB.dark, 0, 0.45, 0.47);
-    [-1, 1].forEach(s=> P(head, TO(0.04, 0.012), GOLD, s*0.36, -0.02, 0.0, 0, PI/2));
+    const crown = group(head, 0, 0.12, 0); R.parts.crown = crown;
+    P(crown, CY(0.12, 0.13, 0.09, 12), BRASSC);
+    for(let i=0;i<6;i++){ const a = i/6*PI*2; P(crown, CO(0.026, 0.1, 4), BRASSC, Math.cos(a)*0.12, 0.09, Math.sin(a)*0.12); P(crown, S(0.016, 6, 4), [0x8a1a2a, 0x2a4a6a][i % 2], Math.cos(a)*0.125, 0.01, Math.sin(a)*0.125); }
+    glow(R, crown, 0.025, 0xff3a2a, 0, 0.01, 0.13);
+    P(R.body, K.tatter(K.slathe([[0.32, -0.38], [0.28, 0], [0.22, 0.3]], 16), -0.2, 12, 0.12, 2), 0x4a1410, 0, 0.5, -0.05, 0, 0, 0, 1, 1, 0.85);
+    for(let i=0;i<12;i++){ const a = i/12*PI*2; P(R.tor, S(0.06, 8, 6), 0x8a8070, Math.cos(a)*0.18, 0.46, Math.sin(a)*0.15); }
+    P(R.hand, CY(0.02, 0.02, 0.85, 6), BRASSC, 0, 0.2, 0.1);
+    P(R.hand, TO(0.06, 0.015), BRASSC, 0, 0.6, 0.1, PI/2);
+    glow(R, R.hand, 0.05, 0xff3a2a, 0, 0.64, 0.1);
+    P(R.tor, S(0.24, 14, 10), GOB.skin, 0, 0.18, 0.06, 0, 0, 0, 1.1, 1, 1);
   }
 };
 Models.goblin = function(kind){
   const R = rig(kind);
   const size = { grunt:1, slinger:0.92, bomber:1, shaman:1, brute:1.75, sneak:0.95, merchant:1, king:2.5 }[kind] || 1;
-  const skin = kind === "brute" ? 0x4a8a30 : kind === "king" ? 0x6ab040 : kind === "sneak" ? 0x3e6a3a : GOB.skin;
-  const head = goblinBody(R, { skin, cloth:kind === "shaman" ? 0x4a2a6a : kind === "king" ? 0xa02a2a : kind === "sneak" ? 0x2a2a38 : GOB.cloth, eye:kind === "shaman" ? 0x9cff3a : kind === "sneak" ? 0xff4a3a : GOB.eye });
+  const o = {
+    grunt:{ seed:1 },
+    slinger:{ seed:2, skin:0x5a6450, ear:1.1 },
+    bomber:{ seed:3, skin:0x585e4a, dark:0x2e3228, eye:0xff8a2a, wrap:0x4a4030 },
+    shaman:{ seed:4, skin:0x5a6252, cloth:0x3a3428, eye:0x9cff3a, hunch:0.65 },
+    brute:{ seed:5, nose:false, skin:0x55604a, dark:0x343c2e, bulk:1.45, hunch:0.6, eye:0xff3a1a, ear:0.8, cloth:0x3a3028 },
+    sneak:{ seed:6, skin:0x4a5444, dark:0x2a3028, cloth:0x1e1c22, eye:0xff2a1a, wrap:0x2a2620, hunch:0.6 },
+    merchant:{ seed:7, skin:0x6a6a58, eye:0xc8ff6a, cloth:0x3a2e24, hunch:0.6 },
+    king:{ seed:8, skin:0x5f6a4e, cloth:0x4a1410, bulk:1.3, eye:0xff3a1a }
+  }[kind] || {};
+  const head = goblinBody(R, o);
   (KITS[kind] || KITS.grunt)(R, head);
   R.body.scale.setScalar(size);
   R.h = 1.25*size; R.size = size;
