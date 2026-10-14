@@ -123,6 +123,12 @@ Items from a set you've started roll 2.5x more often per item you own from it, s
 
 Costumes also move: the cape flares as he runs; halos, ghosts and gremlins bob; the disco ball and orbit rings spin; flames flicker. The gun grows a little gem for every element its shots carry. Gribbus wears each trick he learns: goggles, a lily-pad hat, a doom hood, a bubble pipe, a pet fly. Zippy holds each new item up over his head, Isaac-style.
 
+**Readability.**
+- **Camera:** it sits a little lower and closer (pitch 0.93 rad, distance 19), so figures read as standing rather than squashed.
+- **Characters:** they're drawn 16% taller to undo what foreshortening is left, and Zippy and Gribbus are drawn larger than life.
+- **Pixels:** chunky pixel mode keeps more detail (h/500).
+- **Portrait:** a window in the bottom-right corner shows Zippy and Gribbus up close, slowly turning so things on their backs come into view. It's labelled with any transformation.
+
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 

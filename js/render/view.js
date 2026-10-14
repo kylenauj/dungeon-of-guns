@@ -43,11 +43,19 @@ const proto = View.prototype;
 proto.dressPlayer = function(look){
   const V = this, old = V.player, R = M.zippy(look);
   if(old){ S.scene.remove(old.root); R.root.position.copy(old.root.position); R.root.rotation.copy(old.root.rotation); }
+  R.root.scale.set(HERO, HERO*STRETCH, HERO);
   R.ring = new THREE.Mesh(K.glowPlane, K.glowMat(0xb36bff, 0.35)); R.ring.scale.set(2.2, 1, 2.2); R.ring.position.y = 0.04;
   R.root.add(R.ring); R.root.add(shadowBlob(0.35));
   S.scene.add(R.root);
   V.player = R; V.lookKey = look.key;
+  // and the close-up in the corner
+  const P = S.portrait;
+  if(V.pzZippy) P.root.remove(V.pzZippy.root);
+  V.pzZippy = M.zippy(look); V.pzZippy.gunKey = null; V.pzZippy.root.position.x = -0.38; P.root.add(V.pzZippy.root);
 };
+/* the camera looks down at an angle, which squashes anything standing up:
+   characters are drawn a little taller to make up for it */
+const STRETCH = 1.16, HERO = 1.2;
 const W0els = G=> [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
 const W0gunKey = G=> G.gun().uid + ":" + W0els(G).join(",");
 const AURA = {
@@ -93,6 +101,7 @@ proto.dispose = function(){
   if(V.portal) S.scene.remove(V.portal);
   V.frogs.forEach(f=> S.scene.remove(f.root));
   S.scene.remove(V.player.root); S.scene.remove(V.lily);
+  S.portrait.root.clear(); V.pzZippy = V.pzFrog = null;
   FX.clear();
 };
 
@@ -386,7 +395,7 @@ proto.update = function(dt, t){
     V.hold.t -= dt;
     const k = V.hold.t, up = Math.min(1, (1.4 - k)*6, k*5);
     W.parts.armL.rotation.x = -1.0 - 1.9*up; W.parts.armL.rotation.z = -0.3 + 0.25*up;
-    V.hold.g.position.set(p.x, 2.55 + 0.25*up + Math.sin(t*4)*0.05, p.y); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
+    V.hold.g.position.set(p.x, 2.95 + 0.25*up + Math.sin(t*4)*0.05, p.y); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
     if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
@@ -413,6 +422,7 @@ proto.update = function(dt, t){
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
 
   V.updateFrogs(dt, t);
+  V.updatePortrait(dt, t);
   // the lily shield
   const g0 = G.gribbus;
   V.lily.visible = !!(g0 && g0.g.lily);
@@ -433,18 +443,43 @@ proto.update = function(dt, t){
   FX.update(dt, G);
 };
 
+/* the close-up: Zippy and Gribbus idling and slowly turning, so whatever
+   they wear (back included) comes round into view */
+proto.updatePortrait = function(dt, t){
+  const V = this, G = V.G, Z = V.pzZippy, F = V.pzFrog;
+  if(Z){
+    if(Z.gunKey !== W0gunKey(G)) M.setGun(Z, G.gun(), W0els(G));
+    M.idle(Z, t, 0); M.animate(Z, t, 0);
+    Z.root.rotation.y = Math.sin(t*0.45)*1.1;
+    Z.parts.armR.rotation.x = -1.1; Z.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
+    if(Z.parts.head) Z.parts.head.rotation.y = Math.sin(t*0.9)*0.25;
+  }
+  if(F){
+    M.animate(F, t, 0);
+    F.root.rotation.y = -0.5 + Math.sin(t*0.5 + 1)*0.8;
+    F.body.scale.set(1 + Math.sin(t*3)*0.03, 1 - Math.sin(t*3)*0.03, 1);
+    if(F.parts.crown) F.parts.crown.visible = G.gribbus.buffs.indexOf("crown") >= 0;
+  }
+  const P = S.portrait.root.children; if(Z && P.indexOf(Z.root) < 0) S.portrait.root.add(Z.root);
+};
+
 proto.updateFrogs = function(dt, t){
   const V = this, G = V.G;
   // Gribbus wears his tricks: rebuild the frogs whenever he learns one
   const fk = G.gribbus.buffs.join(",");
-  if(fk !== V.frogKey){ V.frogKey = fk; V.frogs.forEach(R=> S.scene.remove(R.root)); V.frogs = []; }
+  if(fk !== V.frogKey){
+    V.frogKey = fk; V.frogs.forEach(R=> S.scene.remove(R.root)); V.frogs = [];
+    const P = S.portrait;
+    if(V.pzFrog) P.root.remove(V.pzFrog.root);
+    V.pzFrog = M.frog(false, G.gribbus.buffs); V.pzFrog.root.position.set(0.72, 0, 0.7); V.pzFrog.root.scale.setScalar(1.15); P.root.add(V.pzFrog.root);
+  }
   while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
   G.frogs.forEach((f, i)=>{
     const R = V.frogs[i], g = G.gribbus.g;
     R.root.position.set(f.x, f.hop || 0, f.y);
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
     const sz = (1 + 0.5*(g.size || 0))*(f.twin ? 0.9 : 1);
-    R.root.scale.setScalar(sz);
+    R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
     // squash on landing, stretch in the air
     const air = (f.hop || 0) > 0.05;
     R.body.scale.set(air ? 0.9 : 1 + Math.sin(t*3 + i)*0.03, air ? 1.15 : 1 - Math.sin(t*3 + i)*0.03, air ? 1.1 : 1);
@@ -454,7 +489,7 @@ proto.updateFrogs = function(dt, t){
     const tg = R.parts.tongue;
     if(R.lick > 0){
       R.lick -= dt;
-      const d = Math.max(0.3, DG.dist(f.x, f.y, R.lickX, R.lickY)/sz - 0.2);
+      const d = Math.max(0.3, DG.dist(f.x, f.y, R.lickX, R.lickY)/(sz*1.3) - 0.2);
       tg.visible = true; tg.scale.set(1, 1, d*Math.sin(Math.max(0, R.lick)/0.18*PI));
       tg.parent.updateMatrixWorld();
     } else tg.visible = false;
@@ -473,14 +508,14 @@ proto.updateEnemies = function(dt, t){
       R = V.rigs[e.id] = M.enemy(e.def.model || e.type);
       if(e.affix){
         const a = DG.AFFIXES[e.affix], sz = a.size || 1;
-        R.root.scale.setScalar(sz);
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
       }
       R.shadow = shadowBlob(e.r); R.root.add(R.shadow);
       S.scene.add(R.root);
     }
     R.root.position.set(e.x, 0, e.y);
-    R.root.scale.setScalar((e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1));
+    const es = (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1);
+    R.root.scale.set(es, es*STRETCH, es);
     if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
     const want = PI/2 - e.face;
     R.root.rotation.y += DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? 14 : 4)));

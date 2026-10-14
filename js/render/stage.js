@@ -46,7 +46,10 @@ S.init = function(){
 
   try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
   S.initPost();
-  S.rig = { x:0, z:0, tx:0, tz:0, dist:21, pitch:1.05, shake:0, lead:0.22 };
+  // closer and a little lower than a straight top-down: characters read as
+  // standing figures, not squashed lids
+  S.rig = { x:0, z:0, tx:0, tz:0, dist:19, pitch:0.93, shake:0, lead:0.22 };
+  S.initPortrait();
   S.clock = new THREE.Clock();
   S.updaters = [];
   S.resize();
@@ -56,7 +59,7 @@ S.init = function(){
 
 S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
-  const k = S.pixel ? Math.max(1, h/380) : Math.min(window.devicePixelRatio || 1, 2)**-1;
+  const k = S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 2)**-1;
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){ const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh); }
@@ -112,6 +115,30 @@ S.initPost = function(){
   const scene = new THREE.Scene(); scene.add(quad);
   S.post = { rt, mat, scene, cam:new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 };
+/* the portrait: a close-up of Zippy and Gribbus in a corner of the screen,
+   drawn from its own little scene after the main picture (the view fills
+   it, the HUD frames it) */
+S.initPortrait = function(){
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1422);
+  scene.add(new THREE.HemisphereLight(0xfff0e0, 0x3a2e48, 1.05));
+  const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(1.5, 3, 4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xb36bff, 0.5); rim.position.set(-2, 1.5, -3); scene.add(rim);
+  const cam = new THREE.PerspectiveCamera(31, 1, 0.1, 50);
+  cam.position.set(0.15, 1.55, 4.25); cam.lookAt(0.15, 1.08, 0);
+  const root = new THREE.Group(); scene.add(root);
+  S.portrait = { scene, cam, root, rect:null, on:false };
+};
+S.renderPortrait = function(){
+  const P = S.portrait, r = P && P.rect;
+  if(!P || !P.on || !r || !P.root.children.length) return;
+  const R = S.renderer, k = S.scale, H = R.domElement.height;
+  const x = Math.round(r.x/k), y = Math.round(H - (r.y + r.h)/k), w = Math.max(8, Math.round(r.w/k)), h = Math.max(8, Math.round(r.h/k));
+  P.cam.aspect = w/h; P.cam.updateProjectionMatrix();
+  R.setScissorTest(true); R.setScissor(x, y, w, h); R.setViewport(x, y, w, h);
+  R.render(P.scene, P.cam);
+  R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height);
+};
 S.togglePixel = function(){
   S.pixel = !S.pixel;
   try{ localStorage.setItem("dungeonofguns.pixel", S.pixel ? "1" : "0"); }catch(e){}
@@ -165,6 +192,7 @@ S.loop = function(){
     S.renderer.setRenderTarget(S.post.rt); S.renderer.render(S.scene, S.camera);
     S.renderer.setRenderTarget(null); S.renderer.render(S.post.scene, S.post.cam);
   } else S.renderer.render(S.scene, S.camera);
+  S.renderPortrait();
 };
 S.onFrame = f=>{ S.updaters.push(f); return ()=>{ S.updaters = S.updaters.filter(g=> g !== f); }; };
 

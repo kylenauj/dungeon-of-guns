@@ -107,6 +107,7 @@ H.draw = function(G, dt, opts){
   const g = H.g, d = H.dpr, W = innerWidth, Hh = innerHeight, p = G.player;
   g.setTransform(d, 0, 0, d, 0, 0);
   g.clearRect(0, 0, W, Hh);
+  if(S.portrait) S.portrait.on = !opts.hidden;
   if(opts.hidden) return;
   const small = W < 700, k = small ? 0.8 : 1;
 
@@ -250,6 +251,19 @@ H.draw = function(G, dt, opts){
       g.fillStyle = "#ff4a5a"; g.fill(); g.lineWidth = 3; g.strokeStyle = INK; g.stroke();
       g.restore(); g.globalAlpha = 1;
     });
+  }
+
+  // ---- bottom right: the close-up of Zippy and Gribbus (drawn by the stage; framed here) ----
+  if(S.portrait){
+    const ps = Math.round((small ? 130 : 200)*Math.min(1.15, Math.max(0.8, Hh/800))), px = W - 22 - ps, py = Hh - 22 - ps;
+    S.portrait.rect = { x:px, y:py, w:ps, h:ps };
+    g.lineWidth = 4; g.strokeStyle = INK; g.strokeRect(px - 2 + 4, py - 2 + 4, ps + 4, ps + 4);
+    g.lineWidth = 3; g.strokeStyle = SIGNAL; g.strokeRect(px - 1.5, py - 1.5, ps + 3, ps + 3);
+    const forms = (G.mods.sets || []).map(id=> (DG.SETS.find(x=> x.id === id) || {}).name).filter(Boolean);
+    const label = forms.length ? forms.join(" + ").toUpperCase() : "ZIPPY & GRIBBUS";
+    g.font = F("900", 12*k); const lw = g.measureText(label).width + 20;
+    plate(g, px + ps - lw - 4, py - 12*k, lw, 20*k, forms.length ? "#5a1a48" : "rgba(18,14,22,.95)", 4);
+    text(g, label, px + ps - lw/2 - 4, py - 2*k + 1, 12*k, forms.length ? "#ff9ae8" : SIGNAL, "center", "900");
   }
 
   // ---- bottom left: the guns ----
