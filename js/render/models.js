@@ -1659,10 +1659,10 @@ const coinGeo = ()=> bsPrefab("coin", g=>{
 const vialProf = [[0, -0.17], [0.09, -0.165], [0.135, -0.1], [0.14, -0.02], [0.11, 0.06], [0.05, 0.11], [0.038, 0.14], [0.038, 0.22], [0.048, 0.235], [0.0, 0.24]];
 function bloodVial(g, k, R){
   const s = new THREE.Group(); s.scale.setScalar(k); g.add(s);
-  const liquid = new THREE.Mesh(geo("vial-blood", ()=> K.lathe([[0, -0.155], [0.08, -0.15], [0.122, -0.09], [0.127, -0.02], [0.1, 0.04], [0.0, 0.045]], 16)), K.basic(0xb0101a));
+  const liquid = new THREE.Mesh(geo("vial-blood", ()=> K.lathe([[0, -0.155], [0.08, -0.15], [0.122, -0.09], [0.127, -0.02], [0.1, 0.04], [0.0, 0.045]], 16)), K.basic(0x9a0c14));
   s.add(liquid);
-  const surf = new THREE.Mesh(geo("vial-surf", ()=> new THREE.CircleGeometry(0.1, 20).rotateX(-PI/2)), K.basic(0xff3a2a)); surf.position.y = 0.045; s.add(surf);
-  const glass = new THREE.Mesh(geo("vial-glass", ()=> K.lathe(vialProf, 18)), lootGlass(0xc8b8b0, 0.22)); s.add(glass);
+  const surf = new THREE.Mesh(geo("vial-surf", ()=> new THREE.CircleGeometry(0.1, 20).rotateX(-PI/2)), K.basic(0xe0281c)); surf.position.y = 0.045; s.add(surf);
+  const glass = new THREE.Mesh(geo("vial-glass", ()=> K.lathe(vialProf, 18)), lootGlass(0xa89890, 0.12)); s.add(glass);
   const fit = new THREE.Mesh(bsPrefab("vial-fit", q=>{
     P(q, CY(0.034, 0.03, 0.07, 12), 0x5a3a22, 0, 0.255, 0);
     P(q, CY(0.05, 0.05, 0.02, 14), 0x5a4420, 0, 0.215, 0);
@@ -1743,7 +1743,7 @@ Models.pickup = function(pk){
   } else if(pk.kind === "mana"){
     soulWisp(g); g.userData.spin = 2; g.userData.hover = 0.45;
   } else if(pk.kind === "ward"){
-    runeStone(g); g.userData.spin = 3; g.userData.hover = 0.5;
+    runeStone(g, null, 1.35); g.userData.spin = 3; g.userData.hover = 0.5;
   } else if(pk.kind === "fly"){
     g.add(new THREE.Mesh(flyGeo(), lootMat(0x3a2606)));
     [-1, 1].forEach(s=>{ const w = new THREE.Mesh(wingGeo, new THREE.MeshBasicMaterial({ map:wingTex(), color:0xe8d8a0, transparent:true, opacity:0.75, side:THREE.DoubleSide, depthWrite:false })); w.position.set(s*0.03, 0.05, -0.02); w.rotation.set(-1.1, s*0.5, -s*0.9); g.add(w); });
@@ -1773,7 +1773,7 @@ Models.beam = beam;
 /* a powerup's token: its look comes from what kind of thing it is. Each one
    hangs in a little reliquary frame, a ring of tarnished gilt with thorns */
 const ELC = el=> DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
-const RELIC = 0x7a5e2a, RELIC2 = 0x3a2a14;
+const RELIC = 0xa8803a, RELIC2 = 0x5a4220;
 function reliquary(root, tierHex){
   // a little monstrance stand under the token: a crown of thorns on a gilt stem
   P(root, geo("relic-ring", ()=> new THREE.TorusGeometry(0.17, 0.016, 5, 36)), RELIC, 0, -0.27, 0, PI/2);
@@ -1799,7 +1799,7 @@ Models.powerup = function(id){
     halo(R, root, liq, 0.9, 0, -0.08, 0, 0.45);
   } else if(cat === "shot"){
     // a cartridge: tarnished brass, a lead nose, the tier's colour in its band
-    P(root, CY(0.085, 0.085, 0.24, 16), 0x8a6a30, 0, -0.06, 0);
+    P(root, CY(0.085, 0.085, 0.24, 16), 0xb08a40, 0, -0.06, 0);
     P(root, CY(0.095, 0.095, 0.03, 16), 0x6a5024, 0, -0.18, 0);
     P(root, K.lathe([[0.085, 0], [0.08, 0.06], [0.055, 0.14], [0.02, 0.19], [0, 0.2]], 14), 0x6a6a72, 0, 0.06, 0);
     P(root, CY(0.088, 0.088, 0.035, 16), tierCol.getHex(), 0, -0.1, 0);
