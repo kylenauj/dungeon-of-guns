@@ -267,6 +267,11 @@ proto.handle = function(ev){
     case "disco": FX.ring(ev.x, ev.y, ev.big ? 5 : 1.4, [0xff4a6a, 0x46e4ff, 0x9cff3a, 0xffd23d, 0xb36bff][Math.floor(Math.random()*5)], ev.big ? 0.8 : 0.3); if(ev.big) play("disco"); break;
     case "hiccup": FX.burst(ev.x, 1.6, ev.y, 0xb8f0ff, 6, 1.5, 0.3, 0.4, { up:1 }); play("hiccup"); break;
     case "bonkFriend": FX.burst(ev.x, 1, ev.y, 0xffd23d, 6, 2.5, 0.22, 0.3); play("bonk"); break;
+    case "toll": S.shake(ev.big ? 0.5 : 0.3); FX.ring(ev.x, ev.y, ev.big ? 12 : 9, 0xc8b88a, 1.1); FX.ring(ev.x, ev.y, 5, 0x8a7a5a, 0.8); play("toll", { big:ev.big }); break;
+    case "darksign": S.shake(0.8); FX.soul(ev.x, ev.y, 4, 2.2, 0x3a2a5a); FX.ring(ev.x, ev.y, 4, 0x6a4aa8, 0.9); FX.ash(ev.x, ev.y, 0.8, 1.6, 30); play("darksign"); break;
+    case "darksignLit": FX.rise(ev.x, ev.y, 0xff8a3a, 10, 0.6); play("darksignLit"); break;
+    case "execute": FX.blood(ev.x, 0.7, ev.y, 0x3a0606, 14, 3, 0.12, 0.7); S.shake(0.15); play("execute", { x:ev.x, y:ev.y }); break;
+    case "spear": play("spear"); break;
     case "whistle": FX.ring(ev.x, ev.y, 6, 0xffd23d, 0.6); FX.ring(ev.x, ev.y, 9, 0xff6ad8, 0.8); play("whistle"); break;
     case "frogCannon": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x9cff6a, 0.3); FX.burst(ev.x2, 0.5, ev.y2, 0x9cff6a, 16, 4, 0.3, 0.5); play("frog"); break;
     case "dice": FX.burst(G.player.x, 2.2, G.player.y, ev.mul >= 1.2 ? 0xffd23d : ev.mul < 1 ? 0x8a8aa8 : 0xffffff, 10, 2, 0.25, 0.5, { up:1 }); play("dice"); break;
