@@ -130,7 +130,7 @@ K.textTex = function(lines, w, h, opts){
    outline in the floor's ink colour. Glowing parts stay unlit. */
 K.INK = {
   uSteps:{ value:5 }, uInk:{ value:new THREE.Color(0x0a0612) }, uRim:{ value:new THREE.Color(0x8a7aff) },
-  uHatch:{ value:0.45 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.3 },
+  uHatch:{ value:0.45 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.45 },
   // the grim look: light falls off smoothly (uSoft blends the bands away),
   // and characters wear grime: mottled, darker in the creases and lower down
   uSoft:{ value:0.72 }, uGrime:{ value:0.55 }
@@ -152,7 +152,7 @@ const INK_MAIN = [
   "float inkA = max(dot(inkAlb, vec3(0.299, 0.587, 0.114)), 0.02);",
   "float inkL = dot(outgoingLight - totalEmissiveRadiance, vec3(0.299, 0.587, 0.114))/inkA;",
   "float inkB = inkBayer(gl_FragCoord.xy);",
-  "float inkQ = max(mix(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, clamp(inkL*inkL*1.05, 0.0, 1.15), uSoft), uLift);",
+  "float inkQ = max(mix(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, clamp(inkL*(0.35 + 0.75*inkL), 0.0, 1.15), uSoft), uLift);",
   "vec3 inkLit = (outgoingLight - totalEmissiveRadiance)*(inkQ/max(inkL, 0.0001)) + totalEmissiveRadiance;",
   // the darkest band: diagonal lines of ink
   "float inkHatch = (1.0 - step(0.99, mod(gl_FragCoord.x + gl_FragCoord.y, 4.0)))*step(inkQ, uHatchAt)*uHatch;",

@@ -1,6 +1,6 @@
 # Dungeon of Guns
 
-A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, a wizard who casts spells **through guns**, with **Gribbus** the frog hopping along beside you. The dungeon is dug fresh every run, and it gets spookier and weirder the deeper you go.
+A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, a hooded hexhunter who casts spells **through guns**, with **Gribbus**, a warty old toad, hopping along beside you. The dungeon is dug fresh every run: a forsaken castle that rots a little more each floor until it is a mushroom forest.
 
 - **No slots, just powerups.** 127 passive items stack on everything. Some are godly, and some are just weird: Rubber Chicken, Portal Pockets, Loaded Dice, a Haunted Gun, bees. Ricochet + Frost Rounds + Crystal Growth + Wispcraft makes every bounce grow an icicle that releases an ice wisp. Items fire triggers (on hit, on kill, on bounce, on hurt...) into payloads that can trigger further, three deep. There are 12 **duos**, 5 gun **ascensions** and 15 **active items** (F).
 - **Transformations.** Three items from a set turn Zippy into a Pyromancer, Ice Lich, Storm Lord, Plague Doctor, Gardener, Goldfinger, Frog Prince or Goofball.
@@ -11,7 +11,7 @@ A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, 
 - **From castle to Gloom Forest:** the Castle Keep, the Undercroft, the Rotting Crypt, the Gloomwood Edge and the Gloom Forest. The Gloom (from *Gloom Shooter*) eats more of the castle every floor, until by floor 5 it's a spooky mushroom forest. Each floor has its own enemies (goblins, shroom folk, ghosts, skeletons, watchers, blobs, tentacles, and the Gloom's rotlings, mould spitters, bloaters and blight husks), its own decor and its own boss: Grubnok the Goblin King, the Morel Matriarch, the Weeping Bride, the Eye Below and the Gloom Heart.
 - **Rooms:** jumbo rooms, shops, treasure rooms, frog ponds, cursed altars, secret rooms behind **illusionary walls**, and five kinds of **goofy puzzle** (painted doors, braziers, push-blocks, the mushroom chorus, turning statues).
 
-The look is "lantern ink": dithered, banded light with ink hatching in the shadows, ink outlines on everything, and a colour grade per floor. The deeper floors make the picture itself swim. All art and sound are generated in code, built on the asset kit from *Pine Hollow Rally* and *Gloom Shooter*. See the [design doc](docs/DESIGN.md) for the game loop, the difficulty and loot curves, and the roadmap.
+The look is grimdark, Dark Souls style: drained colour and crushed blacks, warm candle and lantern light in cold dark rooms, grimy, gaunt, detailed models, corpses and candles everywhere, Souls-style area cards and YOU DIED. The deeper floors make the picture itself swim. All art and sound are generated in code, built on the asset kit from *Pine Hollow Rally* and *Gloom Shooter*. See the [design doc](docs/DESIGN.md) for the game loop, the difficulty and loot curves, and the roadmap.
 
 ## Run it
 
@@ -42,7 +42,7 @@ URL shortcuts for testing: `?play` (skip the title), `?seed=WORD`, `?floor=3`, `
 | `Tab` | Satchel: guns, powerups, boons, Gribbus |
 | `1`–`3` on level-up | Pick a boon |
 | `Esc` | Pause |
-| `M` / `P` / `V` | Sound / chunky pixels / ink look on or off |
+| `M` / `P` / `V` | Sound / chunky pixels / post-processed look on or off |
 
 Gamepad: left stick moves, right stick aims, RT shoots, LT casts, A blinks, X uses, B fires the active item, Y swaps, RB opens the satchel.
 

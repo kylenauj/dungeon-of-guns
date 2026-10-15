@@ -168,17 +168,17 @@ S.theme = function(th, curses){
   S.scene.background = new THREE.Color(th.fog);
   S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);
-  S.hemi.intensity = 0.62*(th.light || 1)*(dark ? 0.55 : 1);
-  S.fill.intensity = 0.5*(th.light || 1)*(dark ? 0.5 : 1);
-  S.playerLight.distance = dark ? 7.5 : 10;
-  S.playerLight.intensity = dark ? 1.8 : 1.5;
+  S.hemi.intensity = 1.0*(th.light || 1)*(dark ? 0.55 : 1);
+  S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1);
+  S.playerLight.distance = dark ? 9 : 13;
+  S.playerLight.intensity = dark ? 2.4 : 2.2;
   // the ink: line colour, rim colour, grade, and how weird the picture gets
   K.INK.uInk.value.setHex(th.ink || 0x0a0612);
   K.INK.uRim.value.setHex(th.rim || 0x8a7aff);
   K.INK.uLift.value = dark ? 0.018 : 0.028;
   const u = S.post.mat.uniforms;
   u.uShade.value.setHex(th.shade || 0x2a1838); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
-  u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 1 : 0.85;
+  u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 0.95 : 0.72;
   // the Gloom: how far it has taken the floors and walls
   const lum = c=>{ const k = new THREE.Color(c); return (k.r + k.g + k.b)/3; };
   K.GLOOM.uGloom.value = th.gloom || 0;

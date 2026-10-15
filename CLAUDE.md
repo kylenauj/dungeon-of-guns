@@ -1,6 +1,6 @@
 # Dungeon of Guns
 
-A real-time top-down roguelike (Zippy the wizard and Gribbus the frog, with spell-guns, in an Isaac-style dungeon) in plain JavaScript and three.js r128. There's no build step. It shares its asset kit and conventions with the user's other games, *Pine Hollow Rally* and *Gloom Shooter* (github.com/kylenauj/gloom-shooter).
+A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with spell-guns, in an Isaac-style dungeon, in a grimdark Dark Souls style) in plain JavaScript and three.js r128. There's no build step. It shares its asset kit and conventions with the user's other games, *Pine Hollow Rally* and *Gloom Shooter* (github.com/kylenauj/gloom-shooter).
 
 ## Commands
 
@@ -25,7 +25,7 @@ A real-time top-down roguelike (Zippy the wizard and Gribbus the frog, with spel
   - `ai.js`: every enemy and boss.
 - `tools/bot.js` is a pathfinding bot used by the tests, `npm run balance` and the title-screen attract mode.
 - `js/render/` is three.js.
-  - Everything solid uses one ink material (`K.ink` in `kit.js`), and `stage.js` runs one post pass. Keep new materials on `K.ink` / `K.toon` so the look stays consistent.
+  - Everything solid uses one ink material (`K.ink` in `kit.js`), and `stage.js` runs one post pass. Keep new materials on `K.ink` / `K.toon` so the look stays consistent. The look is grimdark: no chibi proportions or cartoon eyes, muted earthy colours with light as the accent, and budgets of about 25k triangles per enemy, 35k for Zippy and 70k per boss (see docs/DESIGN.md §10).
   - Models are parts baked per rig (`models.js`). `decor.js` builds the map dressing, and `vanity.js` adds view-only decals, mist, light shafts, critters and splats.
   - `?gallery` lines up every model.
   - `view.js` reads the game state and its event list; it never writes to the game.

@@ -1,6 +1,6 @@
 # Dungeon of Guns: Design (v2)
 
-**Zippy** is a small wizard who casts spells through guns. With him is **Gribbus**, a frog who attacks on his own. They go down into a dungeon that gets spookier and weirder the deeper they go. The run is built from a pile of powerups that stack and combine in ways nobody planned, least of all Zippy.
+**Zippy** is a hooded hexhunter who casts spells through guns. With him is **Gribbus**, a frog who attacks on his own. They go down into a dungeon that gets spookier and weirder the deeper they go. The run is built from a pile of powerups that stack and combine in ways nobody planned, least of all Zippy.
 
 This document has three parts:
 
@@ -149,7 +149,7 @@ A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (f
 
 ## 5. Gribbus the frog
 
-Gribbus follows Zippy, hops into fights, and attacks whatever is closest: a **tongue lash** up close, a **spit** at range. He can't die. If he's hit he's knocked out for a few seconds and croaks about it.
+Gribbus, a warty old toad, follows Zippy and picks his own fights: in a fight he goes after the nearest goblin anywhere in the room, finding his way round furniture, with a **tongue lash** up close and a **spit** at range. He can't die. He only poofs back to Zippy's side when he's shut outside a room that locked, lost far away out of a fight, or properly stuck.
 
 **Frog ponds** are side rooms with a pond and three lily pads. Each pad holds a **Gribbus buff**. Pick one and the other two sink. The buffs include Long Tongue, Toxic Spit, Frost Croak, Hop Lightning, Tadpole Brood, Lily Shield (blocks shots near Zippy), Bullet Gulp (eats enemy shots and spits them back), Royal Crown, Big Boy, Fly Hunter, Mirror Skin (copies Zippy's elements), Bubble Blower, Croak of Doom and Twin Frog. The godly one, **Frogsona**, makes Gribbus fire Zippy's shots.
 
@@ -167,10 +167,10 @@ The dungeon starts as a castle, and the **Gloom** (Gloom Shooter's rot, mould an
 
 | Floor | Name | Gloom | Feel | Enemies | Boss |
 |---|---|---|---|---|---|
-| 1 | **The Castle Keep** | 0 | Grey ashlar, battlements, banners, tapestries, suits of armour, red carpets | Goblins | **Grubnok the Goblin King** |
-| 2 | **The Undercroft** | 0.28 | Damp castle cellars, the first moss and rot in the cracks | Goblins, shroom folk, the first rotlings | **The Morel Matriarch** |
-| 3 | **The Rotting Crypt** | 0.5 | Cold blue crypt, roots splitting the walls, rot patches | Ghosts, skeletons, rotlings, mould spitters | **The Weeping Bride** |
-| 4 | **The Gloomwood Edge** | 0.78 | Walls half bark, mossy floors, glowcap stalks, firs beyond | Watchers, blobs, tentacles, the Gloom | **The Eye Below** |
+| 1 | **The Forsaken Keep** | 0 | A dead castle: worn flagstones, slumped corpses, gibbets, candle clusters, braziers, toppled knights | Goblins | **Grubnok the Goblin King** |
+| 2 | **The Weeping Undercroft** | 0.28 | Dripping, flooded cellars, sewer culverts, rats, corpses going to fungus | Goblins, shroom folk, the first rotlings | **The Morel Matriarch** |
+| 3 | **The Rotting Crypt** | 0.5 | Ossuary walls, sarcophagi, open graves, soul-candles, roots splitting the stone | Ghosts, skeletons, rotlings, mould spitters | **The Weeping Bride** |
+| 4 | **The Gloomwood** | 0.78 | Walls half bark, mossy floors, glowcap stalks, firs beyond | Watchers, blobs, tentacles, the Gloom | **The Eye Below** |
 | 5 | **The Gloom Forest** | 1 | No stone: stumps, glowcaps, rot, bramble gates, glowbugs | **The Gloom:** rotlings, mould spitters, bloaters, blight husks, plus shrooms | **The Gloom Heart:** a rot-flesh knot with eyes and cordyceps; beats in rings, three phases |
 
 The Gloom creatures come from Gloom Shooter:
@@ -220,32 +220,23 @@ Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are ho
 
 ---
 
-## 10. The look: "lantern ink"
+## 10. The look: grimdark
 
-One look across everything, so no model or room looks pasted in from somewhere else.
+Dark Souls, Bloodborne, Blasphemous and Darkest Dungeon, in one look across everything, so no model or room looks pasted in from somewhere else.
 
-- **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`). The light reaching a pixel is cut into four bands, with an ordered Bayer dither between them. Lantern pools fall off in stepped, stippled rings, like an engraving printed in colour. The darkest band gets diagonal ink hatching.
-- **Characters** add a rim light in the floor's colour and a contact shadow near the floor, plus an inverted-hull outline in the floor's ink colour.
+- **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`), but light now falls off smoothly (`uSoft` blends the old toon bands away), with a faint ordered dither for grit and ink hatching only in the deepest shadow.
+- **Characters** wear grime in their own space (mottled stains, fine grain, dirt rising from the feet, colours pulled toward grey), get a faint cold rim light and a contact shadow, and a thin contour instead of a cartoon outline (`K.OUTLINE`).
+- **Full resolution** by default; **P** brings back the chunky pixels.
 - **One post pass** (`stage.js`):
-  - ink lines wherever depth jumps, so walls, decor and props are outlined like the characters
-  - a per-floor split-tone grade
-  - a vignette into the floor's fog colour, and film grain
-  - on deeper floors, edges that swim and split their colours (`weird`: 0 in the cellars, 1 in the Heart)
+  - soft ink where depth jumps
+  - bloom on what burns bright: candles, eyes, spells
+  - a grade that drains colour, crushes the blacks and leans shadows to the floor's shade colour
+  - a heavy vignette, film grain, and on deeper floors edges that swim and split
   - **V** toggles the plain picture.
-- **Per floor** (`data.js` FLOORS): ink, rim, shade/highlight grade, light-shaft colour, mist density, weirdness.
-- **The detail standard for every model:**
-  - a silhouette with secondary shapes
-  - a face with highlights (eyes, brows, a mouth or teeth)
-  - an accent material (gold, iron or a glow)
-  - one or two props that tell you who it is (the grunt's shield, the bomber's bandolier, the ghost's ball and chain, the Bride's wilted bouquet)
-  - `?gallery` lines every model up side by side to check it.
-- **Vanity** (`vanity.js`, view only, seeded from the dungeon so a seed always dresses the same):
-  - floor decals from one painted atlas
-  - dithered ankle mist that thickens with depth
-  - light shafts, and arches over north doors
-  - dressing on every wall face and on the wall tops
-  - rats, bats and fireflies
-  - splats and scorch marks that stay for the floor
+- **Light:** a cold low moon from one side, a warm guttering lantern on Zippy, and torches, braziers and candles in small warm pools.
+- **The detail standard for every model:** no chibi proportions or cartoon eyes; gaunt, hunched, worn silhouettes; sunken sockets with small glowing pinpricks; layered cloth, rust, bone, straps, scars and tatters (`K.slathe` smooth profiles, `K.tatter` ragged hems, `K.sculpt` sculpted flesh and bark). Budgets: about 25k triangles for an enemy, 35k for Zippy, 70k for a boss. `?gallery` lines every model up side by side to check it.
+- **Vanity** (`vanity.js`, view only, seeded from the dungeon so a seed always dresses the same): drag marks and blood pools, ankle mist, light shafts, corpses and candles in corners, chains and skulls on the arches, lean red-eyed rats, splats that stay for the floor.
+- **UI:** engraved serif (Cinzel, EB Garamond), bone on near-black with thin gold rules; Souls-style area cards, a long thin boss bar, and YOU DIED.
 
 ---
 
