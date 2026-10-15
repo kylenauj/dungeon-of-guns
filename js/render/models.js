@@ -1286,72 +1286,126 @@ let _rotSeed = 1;
 function fleshGeo(r, det, amt, c1, c2){
   return K.paint(K.lump(r, det, amt, _rotSeed++*1.7), c1, (c, x, y, z)=>{ const k = Math.sin(x*9/r*0.3 + z*7/r*0.3)*Math.sin(y*11/r*0.3); if(k > 0.3) c.lerp(new THREE.Color(c2), 0.6); });
 }
+/* rot flesh, smooth this time: a sculpted sphere, mottled, with raw creases */
+function rotFlesh(r, amt, seed, c1, c2, c3){
+  const g = sculptW(new THREE.SphereGeometry(r, 30, 22), amt, 2.2/r, seed), C2 = new THREE.Color(c2), C3 = new THREE.Color(c3 || 0x1a0a14);
+  return K.paint(g, c1, (c, x, y, z)=>{
+    const k = Math.sin(x*9/r*0.3 + z*7/r*0.3 + seed)*Math.sin(y*11/r*0.3 + seed*0.7);
+    if(k > 0.25) c.lerp(C2, Math.min(1, (k - 0.25)*3));
+    const cr = Math.sin(x*14/r*0.3 + Math.sin(z*9/r*0.3)*2)*Math.sin(y*12/r*0.3 + Math.sin(x*6/r*0.3));
+    if(Math.abs(cr) < 0.05) c.lerp(C3, 0.8);
+  });
+}
+/* glowing pustules, each sat in a dark swollen ring */
 function pustules(R, parent, n, r, y, sx, sy, sz, col){
   for(let i=0;i<n;i++){
     const a = i*2.39996, e = Math.asin(((i + 0.5)/n)*1.6 - 0.8);
-    const x = Math.cos(a)*Math.cos(e)*r*sx, yy = y + Math.sin(e)*r*sy, z = Math.sin(a)*Math.cos(e)*r*sz;
-    glow(R, parent, 0.035 + (i % 3)*0.015, col || ROT.bile, x, yy, z);
+    const x = Math.cos(a)*Math.cos(e)*r*sx, yy = y + Math.sin(e)*r*sy, z = Math.sin(a)*Math.cos(e)*r*sz, pr = 0.035 + (i % 3)*0.015;
+    P(parent, S(pr*1.3, 10, 8), 0x2a1424, x*0.95, y + (yy - y)*0.95, z*0.95);
+    glow(R, parent, pr, col || ROT.bile, x, yy, z);
   }
 }
 function rotEyes(R, parent, n, y, z, r, col){
-  for(let i=0;i<n;i++){ const x = (i - (n - 1)/2)*r*2.3, yy = y + (i % 2)*r*0.8; P(parent, S(r, 8, 6), 0x1a0a1a, x, yy, z); glow(R, parent, r*0.6, col || ROT.eye, x, yy, z + r*0.5); }
+  for(let i=0;i<n;i++){
+    const x = (i - (n - 1)/2)*r*2.3, yy = y + (i % 2)*r*0.8;
+    P(parent, S(r*1.25, 10, 8), 0x2a1424, x, yy, z - r*0.2, 0, 0, 0, 1, 1, 0.6);
+    P(parent, S(r, 10, 8), 0x0a0408, x, yy, z);
+    glow(R, parent, r*0.45, col || ROT.eye, x, yy, z + r*0.6);
+  }
 }
+/* jointed legs like a crab's, black-tipped, too many of them */
 function rotLegs(R, parent, n, r, y, len){
   const legs = [];
   for(let i=0;i<n;i++){
     const a = (i/n)*PI*2 + PI/n, g = group(parent, Math.cos(a)*r, y, Math.sin(a)*r); g.rotation.y = -a;
-    P(g, CY(0.035, 0.05, len, 6), 0x2a1430, len*0.35, -len*0.3, 0, 0, 0, -1.0);
-    P(g, CO(0.035, len*0.6, 5), 0x1a0a20, len*0.75, -len*0.75, 0, 0, 0, -0.3 + PI);
+    limb(g, [[0, 0, 0], [len*0.3, len*0.25, 0], [len*0.55, len*0.15, 0]], 0.03, 0x2a1430, 0x3a1a3a);
+    limb(g, [[len*0.55, len*0.15, 0], [len*0.75, -len*0.3, 0], [len*0.8, -y + 0.02, 0]], 0.022, 0x221028);
+    P(g, CO(0.02, 0.08, 6), 0x0e060e, len*0.8, -y + 0.03, 0, 0, 0, 0.1 + PI);
     legs.push(g);
   }
   R.parts.legs = legs;
 }
+/* cordyceps: orange stalks, bent, knobbed, glowing at the tips */
+function cordyceps(R, parent, n, x, y, z, h, spread, seed){
+  for(let i=0;i<n;i++){
+    const a = i*2.39996 + (seed || 0), l = h*(0.6 + 0.4*Math.abs(Math.sin(i*3.3 + (seed || 0)))), dx = Math.cos(a)*spread, dz = Math.sin(a)*spread;
+    const tip = [x + dx*2.2 + Math.sin(i)*0.03, y + l, z + dz*2.2];
+    P(parent, K.tube([[x + dx*0.3, y - 0.02, z + dz*0.3], [x + dx*1.2, y + l*0.45, z + dz*1.2], [x + dx*1.9, y + l*0.8, z + dz*1.9], tip], 0.011 + (i % 2)*0.005, 8, 6), 0xa84a1a);
+    P(parent, S(0.018, 8, 6), 0x6a2a10, tip[0], tip[1], tip[2], 0, 0, 0, 1, 1.6, 1);
+    glow(R, parent, 0.014, ROT.cord, tip[0], tip[1] + 0.02, tip[2]);
+  }
+}
 Models.rotling = function(){
   const R = rig("rotling"), b = R.body;
-  P(b, fleshGeo(0.36, 1, 0.38, ROT.flesh, ROT.flesh2), 0xffffff, 0, 0.36, 0, 0, 0, 0, 1, 0.72, 1.12);
+  P(b, rotFlesh(0.34, 0.05, 2, ROT.flesh, ROT.flesh2), 0xffffff, 0, 0.36, 0, 0, 0, 0, 1, 0.72, 1.12);
+  // ribs it grew on the outside, a spine ridge, cordyceps out of its back
+  for(let i=0;i<4;i++) [-1, 1].forEach(s=> limb(b, [[s*0.03, 0.6, -0.12 + i*0.08], [s*0.2, 0.55, -0.12 + i*0.08], [s*0.3, 0.42, -0.1 + i*0.08]], 0.011, 0x8a7a6a));
+  for(let i=0;i<5;i++) P(b, CO(0.02, 0.06, 6), 0x8a7a6a, 0, 0.6 - Math.abs(i - 2)*0.008, -0.2 + i*0.08, -0.3);
+  cordyceps(R, b, 4, -0.05, 0.56, -0.15, 0.22, 0.05, 1);
   pustules(R, b, 6, 0.34, 0.42, 1, 0.7, 1.1);
-  rotEyes(R, b, 4, 0.46, 0.34, 0.06);
+  rotEyes(R, b, 4, 0.48, 0.34, 0.05);
   rotLegs(R, b, 6, 0.26, 0.3, 0.45);
-  [-1, 1].forEach(s=> P(b, CO(0.04, 0.4, 4), 0x2a1430, s*0.17, 0.3, 0.42, 1.9));
-  teeth(b, 0.28, 0.4, 0.2, 5, 0xe8f0c8);
+  // a maw under the eyes, needles round it, mandibles either side
+  mouth(b, 0, 0.3, 0.37, 0.11, 0.45);
+  teeth(b, 0.33, 0.4, 0.18, 8, 0xc8c0a0);
+  [-1, 1].forEach(s=> limb(b, [[s*0.12, 0.3, 0.3], [s*0.16, 0.25, 0.45], [s*0.08, 0.22, 0.55]], 0.016, 0x1a0a20));
   R.h = 0.9; return finish(R);
 };
 Models.spitter = function(){
   const R = rig("spitter"), b = R.body;
-  P(b, fleshGeo(0.45, 1, 0.3, 0x3b4a2a, 0x5a6a3a), 0xffffff, 0, 0.55, 0, 0, 0, 0, 1, 1.15, 1);
-  // mould hairs all over, and a spout on top
-  for(let i=0;i<22;i++){ const a = i*2.4, e = (i % 7)/7*1.3 - 0.2; P(b, CO(0.02, 0.14, 3), 0xb8d8a0, Math.cos(a)*Math.cos(e)*0.46, 0.55 + Math.sin(e)*0.5, Math.sin(a)*Math.cos(e)*0.46, Math.sin(a)*0.8, 0, -Math.cos(a)*0.8); }
+  P(b, rotFlesh(0.45, 0.05, 3, 0x3b4a2a, 0x5a6a3a, 0x1a2010), 0xffffff, 0, 0.55, 0, 0, 0, 0, 1, 1.15, 1);
+  // mould: a pelt of fine pale hairs, grey fluff in the creases, and shelf fungus
+  for(let i=0;i<46;i++){ const a = i*2.39996, e = (i % 9)/9*1.5 - 0.3; P(b, CO(0.012, 0.1 + (i % 4)*0.03, 4), [0xb8d8a0, 0x8a9a7a, 0xd8e8c0][i % 3], Math.cos(a)*Math.cos(e)*0.46, 0.55 + Math.sin(e)*0.52, Math.sin(a)*Math.cos(e)*0.46, Math.sin(a)*Math.cos(e)*1.2, 0, -Math.cos(a)*Math.cos(e)*1.2 + (e > 0.6 ? 0 : 0)); }
+  [[0.3, 0.75, 0.2], [-0.32, 0.6, 0.15], [0.05, 0.9, -0.3]].forEach(([x, y, z], i)=> P(b, lumpS(0.08, 10, 8, 0.03, 30, i), 0x9aa08a, x, y, z, 0, 0, 0, 1, 0.6, 1));
+  bracket(b, 0.11, 0.38, 0.45, -0.15, PI/2 + 0.6, 0x5a5a40);
+  bracket(b, 0.08, -0.35, 0.38, -0.2, -PI/2 - 0.5, 0x5a5a40);
+  // the spout: a puckered fleshy throat, glowing bile in it, drool hanging
   const sp = group(b, 0, 0.98, 0.18); sp.rotation.x = 0.7; R.parts.head = sp;
-  P(sp, CY(0.09, 0.16, 0.36, 10), 0x2a361e, 0, 0.14, 0);
-  glow(R, sp, 0.08, ROT.bile, 0, 0.33, 0);
-  rotEyes(R, b, 2, 0.72, 0.42, 0.13, 0xffe14a);
-  pustules(R, b, 4, 0.45, 0.6, 1, 1.1, 1);
+  P(sp, sculptW(K.slathe([[0.0, -0.05], [0.16, 0.0], [0.13, 0.12], [0.1, 0.26], [0.12, 0.32], [0.05, 0.34]], 14, 4), 0.012, 14, 3), 0x2a361e, 0, 0, 0);
+  P(sp, sculptW(new THREE.TorusGeometry(0.1, 0.035, 10, 20), 0.01, 20, 2), 0x4a2a2a, 0, 0.32, 0, PI/2);
+  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(sp, CO(0.012, 0.05, 5), 0xc8c0a0, Math.cos(a)*0.08, 0.33, Math.sin(a)*0.08, Math.sin(a)*1.0, 0, -Math.cos(a)*1.0); }
+  glow(R, sp, 0.075, ROT.bile, 0, 0.32, 0);
+  halo(R, sp, ROT.bile, 0.8, 0, 0.36, 0, 0.4);
+  limb(b, [[0.06, 0.95, 0.4], [0.07, 0.8, 0.46], [0.06, 0.65, 0.47]], 0.012, 0x7a9a3a);
+  rotEyes(R, b, 3, 0.74, 0.42, 0.06, 0xffe14a);
+  rotEyes(R, b, 2, 0.58, 0.45, 0.04, 0xffe14a);
+  pustules(R, b, 5, 0.45, 0.6, 1, 1.1, 1);
   rotLegs(R, b, 3, 0.28, 0.25, 0.38);
-  halo(R, sp, ROT.bile, 0.8, 0, 0.33, 0, 0.4);
   R.h = 1.4; return finish(R);
 };
 Models.bloater = function(){
   const R = rig("bloater"), b = R.body;
   const belly = group(b, 0, 0.82, 0); R.parts.head = belly;
-  P(belly, fleshGeo(0.75, 2, 0.12, 0x5b4a5e, 0x7a6a3a), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  P(belly, rotFlesh(0.75, 0.04, 4, 0x5b4a5e, 0x7a6a3a, 0x2a1020), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  // stretched so far the skin has split and been stitched, veins standing up all over it
+  for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.7 + j*0.35, aa = a + Math.sin(j*1.7 + i)*0.2; pts.push([Math.cos(aa)*Math.cos(e)*0.74, Math.sin(e)*0.665, Math.sin(aa)*Math.cos(e)*0.74]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x3a1a3a); }
+  const seam = group(belly, 0, 0, 0); seam.rotation.set(0.3, 0.4, 0.2);
+  for(let i=0;i<9;i++){ const e = -0.7 + i*0.17; P(seam, BX(0.012, 0.01, 0.09), 0x1a0a10, 0, Math.sin(e)*0.68, Math.cos(e)*0.745, -e); }
+  P(seam, sculptW(new THREE.TorusGeometry(0.73, 0.012, 6, 40, 1.45), 0.003, 30, 1), 0x7a2a2a, 0, 0, 0, 0, -PI/2, -0.7);
   pustules(R, belly, 14, 0.74, 0.05, 1, 0.9, 1);
-  rotEyes(R, belly, 2, 0.25, 0.66, 0.18, 0xffe14a);
-  P(belly, S(0.2, 10, 8), 0x1a0a1a, 0, -0.1, 0.68, 0, 0, 0, 1.4, 0.6, 0.4);
-  for(let i=0;i<3;i++) P(belly, CY(0.04, 0.09, 0.25, 6), 0x3a2a3e, (i - 1)*0.25, 0.68, -0.1, 0, 0, (i - 1)*0.3);
+  // a small head sunk into the top of it, jaw hanging, and two useless arms
+  const hd = group(belly, 0, 0.55, 0.45);
+  P(hd, rotFlesh(0.14, 0.012, 7, 0x6a5a6a, 0x4a3a4a), 0xffffff, 0, 0, 0, 0, 0, 0, 0.9, 1, 1);
+  eyes(hd, 0.05, 0.02, 0.11, 0.03, 0xffe14a, 0, R);
+  mouth(hd, 0, -0.08, 0.11, 0.05, 1.2);
+  teeth(hd, -0.04, 0.12, 0.07, 6);
+  [-1, 1].forEach(s=>{ limb(belly, [[s*0.5, 0.25, 0.45], [s*0.62, 0.12, 0.55], [s*0.6, -0.02, 0.62]], 0.03, 0x5b4a5e); [-1, 0, 1].forEach(f=> P(belly, CO(0.008, 0.05, 5), 0x1a0a14, s*0.6 + f*0.015, -0.06, 0.63, PI*0.9, 0, f*0.2)); });
+  for(let i=0;i<3;i++) P(belly, CY(0.04, 0.09, 0.25, 8), 0x3a2a3e, (i - 1)*0.25, 0.68, -0.25, -0.3, 0, (i - 1)*0.3);
+  for(let i=0;i<3;i++) glow(R, belly, 0.04, ROT.bile, (i - 1)*0.25*1.5, 0.82, -0.3);
+  cordyceps(R, belly, 3, -0.3, 0.55, -0.35, 0.25, 0.05, 2);
   rotLegs(R, b, 4, 0.5, 0.35, 0.45);
-  halo(R, belly, ROT.bile, 2.2, 0, 0, 0, 0.25);
+  halo(R, belly, ROT.bile, 2.2, 0, 0, 0, 0.2);
   R.h = 1.9; return finish(R);
 };
 Models.husk = function(){
   // a mushroom-folk the Gloom took: grey stem, a dead cap, cordyceps bursting out
   const R = rig("husk");
-  shroomPerson(R, 1.25, 0x5a5660, 0x8a8690);
+  shroomPerson(R, 1.25, 0x5a5660, 0x7a7680);
   const cap = R.parts.head;
-  for(let i=0;i<7;i++){ const a = i/7*PI*2, rr = 0.18, h = 0.3 + (i % 3)*0.12;
-    P(cap, CO(0.03, h, 5), ROT.cord, Math.cos(a)*rr, 0.26 + h/2, Math.sin(a)*rr, Math.sin(a)*0.5, 0, -Math.cos(a)*0.5);
-    glow(R, cap, 0.04, ROT.vein, Math.cos(a)*(rr + h*0.25), 0.26 + h, Math.sin(a)*(rr + h*0.25)); }
+  cordyceps(R, cap, 8, 0, 0.32, -0.02, 0.4, 0.06, 3);
   // a fist of dead cap for a maul
-  P(R.parts.armR, fleshGeo(0.16, 1, 0.3, 0x3a2c3a, 0x5a3a4a), 0xffffff, 0, -0.32, 0.08);
+  P(R.parts.armR, rotFlesh(0.15, 0.03, 9, 0x3a2c3a, 0x5a3a4a), 0xffffff, 0, -0.38, 0.06);
+  pustules(R, R.parts.armR, 4, 0.15, -0.38, 1, 1, 1, ROT.cord);
   pustules(R, R.body, 5, 0.25, 0.45, 1, 1, 1, ROT.cord);
   return finish(R);
 };
