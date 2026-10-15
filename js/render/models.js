@@ -259,6 +259,20 @@ function zCurve(prof, n){
 }
 /* a fresh lathe (its own geometry, safe to bend); phi 0 is his front */
 function zLathe(prof, seg, phi0, phiLen, n){ return new THREE.LatheGeometry(zCurve(prof, n), seg, phi0 || 0, phiLen === undefined ? PI*2 : phiLen); }
+/* the same lathe, only the band of it between heights y0 and y1 (so a coat can
+   be cut at the belt and its skirt swing on its own); cuts of one profile meet */
+function zLatheCut(prof, seg, phi0, phiLen, n, y0, y1){
+  const c = zCurve(prof, n), pts = [];
+  const at = (a, b, y)=>{ const t = (y - a.y)/(b.y - a.y); return new THREE.Vector2(a.x + (b.x - a.x)*t, y); };
+  for(let i=0;i<c.length;i++){
+    const p = c[i], q = c[i + 1];
+    if(p.y >= y0 && p.y <= y1) pts.push(p);
+    if(q && ((p.y < y0) !== (q.y < y0))) pts.push(at(p, q, y0));
+    if(q && ((p.y < y1) !== (q.y < y1))) pts.push(at(p, q, y1));
+  }
+  pts.sort((a, b)=> a.y - b.y);
+  return new THREE.LatheGeometry(pts, seg, phi0 || 0, phiLen === undefined ? PI*2 : phiLen);
+}
 /* normals averaged across seams, so bent lathes stay smooth */
 function zSmooth(g){
   g.computeVertexNormals();
@@ -325,7 +339,7 @@ function zChain(parent, a, b, n, col, r){
   for(let i=0;i<n;i++){ const t = i/(n - 1); P(parent, zto(r || 0.018, (r || 0.018)*0.3), col || ZC.iron2, a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t, a[2] + (b[2] - a[2])*t, 0, i % 2 ? PI/2 : 0, 0); }
 }
 /* the long coat, outside (the costume pieces sit on it) */
-const ZCOAT = [[0.4, 0.2], [0.37, 0.35], [0.33, 0.52], [0.285, 0.7], [0.262, 0.82], [0.27, 0.98], [0.285, 1.1], [0.27, 1.2], [0.19, 1.3], [0.12, 1.37]];
+const ZCOAT = [[0.35, 0.2], [0.33, 0.35], [0.305, 0.52], [0.275, 0.7], [0.262, 0.82], [0.27, 0.98], [0.285, 1.1], [0.27, 1.2], [0.19, 1.3], [0.12, 1.37]];
 const ZMANT = [[0.37, 0.98], [0.355, 1.08], [0.31, 1.19], [0.2, 1.29], [0.12, 1.36]];
 function zInterp(p, y){
   if(y <= p[0][1]) return p[0][0];
@@ -360,27 +374,38 @@ Models.zippy = function(look){
   const D = DYE[look.robe] || DYE.arcane, C = DYE[look.cape] || DYE.arcane;
   const R = rig("zippy"), b = R.body;
   R.look = look; R.anim = [];
+  // below the belt his coat is its own piece (R.parts.skirt, hung from the
+  // waist), so the view can swing the hem and trail it behind him
+  const skirtP = group(b, 0, 0.82, 0), sk = group(skirtP, 0, -0.82, 0); R.parts.skirt = skirtP;
+  const CUT = 0.82;
   // the under-robe, seen where the coat hangs open
-  const robe = zLathe([[0.34, 0.12], [0.31, 0.3], [0.25, 0.6], [0.235, 0.8], [0.245, 1.0], [0.25, 1.14], [0.18, 1.28], [0.1, 1.37], [0.001, 1.4]], 30, PI, PI*2, 3);
-  zFolds(robe, 11, 0.06, 0.6, 1.1); K.tatter(robe, 0.24, 16, 0.1, 2.7);
-  P(b, zHunch(robe), D.dark);
+  const ROBE = [[0.3, 0.12], [0.285, 0.3], [0.245, 0.6], [0.235, 0.8], [0.245, 1.0], [0.25, 1.14], [0.18, 1.28], [0.1, 1.37], [0.001, 1.4]];
+  [[sk, -1, CUT + 0.012], [b, CUT - 0.012, 2]].forEach(([g, y0, y1])=>{
+    const robe = zLatheCut(ROBE, 30, PI, PI*2, 3, y0, y1);
+    zFolds(robe, 11, 0.06, 0.6, 1.1); K.tatter(robe, 0.24, 16, 0.1, 2.7);
+    P(g, zHunch(robe), D.dark);
+  });
   // the long coat, open at the front, torn at the hem, lined darker
-  const GAP = 0.75, coat = zLathe(ZCOAT, 32, GAP/2, PI*2 - GAP, 3);
-  zFolds(coat, 9, 0.07, 0.75, 0.4); K.tatter(coat, 0.36, 22, 0.17, 5.1);
-  zHunch(coat);
-  P(b, coat, D.robe); P(b, zInside(coat), zDim(D.robe, 0.45));
+  const GAP = 0.75;
+  [[sk, -1, CUT + 0.012], [b, CUT - 0.012, 2]].forEach(([g, y0, y1])=>{
+    const coat = zLatheCut(ZCOAT, 32, GAP/2, PI*2 - GAP, 3, y0, y1);
+    zFolds(coat, 9, 0.07, 0.75, 0.4); K.tatter(coat, 0.36, 22, 0.17, 5.1);
+    zHunch(coat);
+    P(g, coat, D.robe); P(g, zInside(coat), zDim(D.robe, 0.45));
+  });
   // its front edges, turned back, and clasps across the chest
   [-1, 1].forEach(s=>{
     const pts = []; for(let i=0;i<=10;i++){ const y = 0.24 + i*0.105; pts.push(zSurf(s*(GAP/2 + 0.04), y, 0.008)); }
-    P(b, zTaper(pts, 0.022, 0.018, 24, 6), zDim(D.robe, 0.7));
+    P(sk, zTaper(pts.slice(0, 7), 0.022, 0.02, 16, 6), zDim(D.robe, 0.7));
+    P(b, zTaper(pts.slice(6), 0.02, 0.018, 10, 6), zDim(D.robe, 0.7));
   });
   [0.9, 1.0, 1.1].forEach((y, i)=>{ const l = zSurf(-0.42, y, 0.02), r = zSurf(0.42, y, 0.02); zChain(b, l, r, 4, ZC.brass, 0.014); P(b, zs(0.018), ZC.brass, l[0], y, l[2]); P(b, zs(0.018), ZC.brass, r[0], y, r[2]); });
   // runes stitched round the hem in the dye's thread
   for(let i=0;i<14;i++){
     const a = GAP/2 + 0.2 + i*(PI*2 - GAP - 0.4)/13, y = 0.46 + (i % 3)*0.025;
     const p = zSurf(a, y, 0.006);
-    zFace(b, BX(0.012, 0.07, 0.006), D.stars, p, a, 0.1, (i % 2 ? 0.3 : -0.2));
-    zFace(b, BX(0.04, 0.01, 0.006), D.stars, zSurf(a + 0.03, y + (i % 2 ? 0.02 : -0.015), 0.008), a, 0.1, (i % 3)*0.5);
+    zFace(sk, BX(0.012, 0.07, 0.006), D.stars, p, a, 0.1, (i % 2 ? 0.3 : -0.2));
+    zFace(sk, BX(0.04, 0.01, 0.006), D.stars, zSurf(a + 0.03, y + (i % 2 ? 0.02 : -0.015), 0.008), a, 0.1, (i % 3)*0.5);
   }
   // a ragged mantle over the shoulders (the cloak's dye)
   const mant = zLathe(ZMANT, 28, PI, PI*2, 3);
@@ -388,39 +413,39 @@ Models.zippy = function(look){
   zHunch(mant); P(b, mant, C.cape);
   // the cloak down his back (the view keeps it moving)
   const capeG = group(b, 0, 1.31, 0.05); R.parts.cape = capeG;
-  const cloak = zLathe([[0.18, 0.02], [0.27, -0.1], [0.33, -0.3], [0.37, -0.6], [0.41, -0.9], [0.45, -1.2]], 22, PI/2 + 0.3, PI - 0.6, 3);
+  const cloak = zLathe([[0.17, 0.02], [0.25, -0.1], [0.3, -0.3], [0.33, -0.6], [0.36, -0.9], [0.39, -1.2]], 22, PI/2 + 0.3, PI - 0.6, 3);
   zFolds(cloak, 8, 0.09, -0.15, 0.9); K.tatter(cloak, -0.9, 11, 0.2, 7.7); zSmooth(cloak);
   P(capeG, cloak, C.cape); P(capeG, zInside(cloak), zDim(C.cape, 0.35));
   // belts: a broad one at the waist, a slung one at the hip, a strap across the chest
   P(b, CY(0.275, 0.272, 0.07, 30), ZC.leather, 0, 0.82, 0.004);
   P(b, BX(0.09, 0.08, 0.03), ZC.brass, 0.0, 0.82, 0.29); P(b, BX(0.05, 0.04, 0.032), ZC.iron, 0.0, 0.82, 0.295);
-  P(b, CY(0.305, 0.3, 0.045, 30), ZC.leather2, 0, 0.7, 0.01, 0, 0, 0.12);
-  for(let i=0;i<8;i++){ const a = -1.2 + i*0.35; const p = zSurf(a, 0.7 + Math.sin(a)*0.035, 0.02); P(b, zs(0.012), ZC.iron2, p[0], p[1], p[2]); }
+  P(sk, CY(0.3, 0.295, 0.045, 30), ZC.leather2, 0, 0.7, 0.01, 0, 0, 0.12);
+  for(let i=0;i<8;i++){ const a = -1.2 + i*0.35; const p = zSurf(a, 0.7 + Math.sin(a)*0.035, 0.02); P(sk, zs(0.012), ZC.iron2, p[0], p[1], p[2]); }
   { const pts = [zSurf(-0.95, 1.2, 0.02), zSurf(-0.5, 1.12, 0.03), zSurf(0, 1.0, 0.035), zSurf(0.5, 0.88, 0.03), zSurf(1.0, 0.8, 0.025), zSurf(1.5, 0.76, 0.02)];
     P(b, zTaper(pts, 0.02, 0.02, 30, 6), ZC.leather);
     // little vials on it, one still glowing
     [[-0.25, 1.06], [0.25, 0.94]].forEach(([a, y], i)=>{ const p = zSurf(a, y, 0.06); P(b, CY(0.02, 0.022, 0.07, 10), 0x6a7a78, p[0], p[1], p[2]); P(b, CY(0.012, 0.012, 0.02, 8), ZC.wood, p[0], p[1] + 0.045, p[2]); if(i) glow(R, b, 0.017, D.light, p[0], p[1] - 0.01, p[2]); });
   }
   // the chained tome at his left hip
-  { const g = group(b, -0.31, 0.62, 0.06); g.rotation.set(0.1, -1.2, 0.08); R.anim.push({ o:g, sway:0.06, speed:2.1 });
+  { const g = group(sk, -0.29, 0.62, 0.06); g.rotation.set(0.1, -1.2, 0.08); R.anim.push({ o:g, sway:0.06, speed:2.1 });
     P(g, BX(0.17, 0.22, 0.065), ZC.leather2);
     P(g, BX(0.155, 0.205, 0.055), ZC.parch, 0.012, 0, 0);
     [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([x, y])=> P(g, BX(0.03, 0.03, 0.07), ZC.brass, x*0.075, y*0.1, 0));
     P(g, BX(0.03, 0.06, 0.075), ZC.iron2, 0.085, 0, 0); P(g, zto(0.025, 0.007), ZC.iron2, 0.1, 0, 0, 0, PI/2);
     P(g, OC(0.03), D.stars, 0, 0.0, 0.034, 0, 0, PI/4, 1, 1.4, 0.3);
-    zChain(b, [-0.28, 0.79, 0.08], [-0.31, 0.73, 0.07], 3, ZC.iron2, 0.016);
+    zChain(sk, [-0.27, 0.79, 0.08], [-0.29, 0.73, 0.07], 3, ZC.iron2, 0.016);
   }
   // prayer beads at the front, ending in a little bone skull
-  { const pts = []; for(let i=0;i<=16;i++){ const t = i/16, a = 0.35 + t*0.5; const p = zSurf(a, 0.79 - Math.sin(t*PI)*0.2, 0.03); pts.push(p); P(b, S(i % 4 ? 0.016 : 0.021, 8, 6), i % 4 ? 0x3a2a20 : ZC.bone, p[0], p[1], p[2]); }
-    const top = pts[8]; for(let i=1;i<5;i++) P(b, zs(0.015), 0x3a2a20, top[0], top[1] - i*0.03, top[2] + 0.005);
-    const sk = [top[0], top[1] - 0.17, top[2] + 0.01];
-    P(b, zs(0.03), ZC.bone, sk[0], sk[1], sk[2], 0, 0, 0, 1, 1.05, 0.95);
-    P(b, BX(0.035, 0.018, 0.03), ZC.bone, sk[0], sk[1] - 0.027, sk[2] + 0.004);
-    [-1, 1].forEach(s=> P(b, zs(0.009), ZC.hole, sk[0] + s*0.012, sk[1] + 0.003, sk[2] + 0.026));
+  { const pts = []; for(let i=0;i<=16;i++){ const t = i/16, a = 0.35 + t*0.5; const p = zSurf(a, 0.79 - Math.sin(t*PI)*0.2, 0.03); pts.push(p); P(sk, S(i % 4 ? 0.016 : 0.021, 8, 6), i % 4 ? 0x3a2a20 : ZC.bone, p[0], p[1], p[2]); }
+    const top = pts[8]; for(let i=1;i<5;i++) P(sk, zs(0.015), 0x3a2a20, top[0], top[1] - i*0.03, top[2] + 0.005);
+    const skp = [top[0], top[1] - 0.17, top[2] + 0.01];
+    P(sk, zs(0.03), ZC.bone, skp[0], skp[1], skp[2], 0, 0, 0, 1, 1.05, 0.95);
+    P(sk, BX(0.035, 0.018, 0.03), ZC.bone, skp[0], skp[1] - 0.027, skp[2] + 0.004);
+    [-1, 1].forEach(s=> P(sk, zs(0.009), ZC.hole, skp[0] + s*0.012, skp[1] + 0.003, skp[2] + 0.026));
   }
   // paper talismans hung from the belt, sealed in old blood
   [[-1.6, 0.0], [-2.1, 0.3], [2.3, -0.2]].forEach(([a, r], i)=>{
-    const p = zSurf(a, 0.66, 0.035), g = group(b, p[0], p[1], p[2]); g.rotation.set(0, a, r*0.3); R.anim.push({ o:g, sway:0.08, speed:2.6 + i*0.4 });
+    const p = zSurf(a, 0.66, 0.035), g = group(sk, p[0], p[1], p[2]); g.rotation.set(0, a, r*0.3); R.anim.push({ o:g, sway:0.08, speed:2.6 + i*0.4 });
     P(g, BX(0.05, 0.17, 0.004), ZC.parch, 0, -0.08, 0);
     P(g, CY(0.016, 0.016, 0.006, 12), 0x6a1a14, 0, -0.04, 0.003, PI/2);
     [-0.09, -0.115, -0.14].forEach(y=> P(g, BX(0.03, 0.006, 0.006), 0x1a1410, 0, y, 0.003));
@@ -552,6 +577,13 @@ Models.zippy = function(look){
   // the costume pieces (R.anim: the bits the view keeps moving)
   const ctx = { R, b, head, hat, tip, beard, cape:capeG, armL:R.parts.armL, armR:R.parts.armR, D, C, face, surf:zSurf, HY };
   look.parts.forEach(p=>{ if(OUTFIT[p]) OUTFIT[p](ctx); });
+  // whatever a costume hung below the belt (pouches, jars, charms) swings with the skirt
+  b.children.slice().forEach(o=>{ if(o !== skirtP && o.position.y > 0.17 && o.position.y < 0.8){ b.remove(o); sk.add(o); } });
+  // gaunt: the whole figure drawn narrower than it was built; the hood and the
+  // gun keep (nearly) their own proportions
+  b.scale.set(0.86, 1, 0.92);
+  head.scale.set(0.95/0.86, 1, 0.97/0.92);
+  gunHolder.scale.set(1/0.86, 1, 1/0.92);
   R.h = 2.1;
   finish(R);
   return R;
@@ -2754,8 +2786,84 @@ Models.enemy = function(model){
 
 /* ================================================================== *
  *  Animation helpers
+ *  Everything here moves group transforms only (no geometry is rebuilt).
+ *  Springs keep their state on the rig (R.mo), and work out their own dt
+ *  from t when the caller (the gallery, the portrait) doesn't pass one.
  * ================================================================== */
+const clamp01 = x=> x < 0 ? 0 : x > 1 ? 1 : x;
+const smooth = (a, b, x)=>{ const k = clamp01((x - a)/(b - a)); return k*k*(3 - 2*k); };
+/* a damped spring toward a target: s = { x, v }; k stiffness, c damping */
+function spring(s, target, k, c, dt){ s.v += ((target - s.x)*k - s.v*c)*dt; s.x += s.v*dt; return s.x; }
+Models.spring = spring;
+function stepDt(m, t, dt){
+  if(dt === undefined){ dt = m.lastT === undefined ? 1/60 : t - m.lastT; }
+  m.lastT = t;
+  return Math.max(0, Math.min(0.05, dt));
+}
+
+/* Zippy's stalk. A tired hunter, not a bouncing wizard: a steady lean into
+   the walk that deepens with speed, a dip at every footfall and nothing side
+   to side; the coat's skirt and the cloak hang plumb and trail behind with
+   their own weight; the free hand swings a little, the gun hand stays on aim.
+   o: { speed, fwd, side (his own frame), max, crouch (blink, 0/1), recoil,
+   hurt (1 falling to 0), hurtSide, dead (0..1 collapse), reload }.
+   Sets m.stepped on the frame a foot comes down. */
+Models.stalk = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { ph:0, run:0, lean:{ x:0, v:0 }, roll:{ x:0, v:0 }, crouch:{ x:0, v:0 }, skx:{ x:0, v:0 }, skz:{ x:0, v:0 }, cpx:{ x:0, v:0 }, cpz:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const b = R.body, p = R.parts, max = o.max || 6;
+  const sp = o.speed || 0, run = Math.min(1, sp/max);
+  m.run += (run - m.run)*(1 - Math.exp(-dt*6));
+  const fwdN = o.fwd === undefined ? run : Math.max(-1, Math.min(1, o.fwd/max));
+  const sideN = o.side === undefined ? 0 : Math.max(-1, Math.min(1, o.side/max));
+  // strides: about 2.6 footfalls a second at full speed
+  const ph0 = m.ph;
+  if(sp > 0.4) m.ph += dt*(1.3 + 1.3*run)*PI;
+  m.stepped = sp > 0.8 && Math.floor(m.ph/PI) !== Math.floor(ph0/PI);
+  const fall = 1 - Math.abs(Math.sin(m.ph));        // 1 at a footfall, 0 mid-stride
+  // blink: drop into a crouch, then snap up out of it (an underdamped spring)
+  const cr = spring(m.crouch, o.crouch ? 1 : 0, o.crouch ? 900 : 520, o.crouch ? 60 : 17, dt);
+  // the lean: into the walk (a little back when he backs off), and into a strafe
+  const lean = spring(m.lean, 0.05 + 0.24*Math.max(0, fwdN) - 0.06*Math.max(0, -fwdN) + 0.06*Math.abs(sideN), 40, 12, dt);
+  const roll = spring(m.roll, -0.07*sideN, 40, 12, dt);
+  const rec = o.recoil || 0, h = o.hurt || 0, d = o.dead || 0;
+  // a stagger: thrown back hard, then catching himself
+  const lurch = h > 0 ? Math.sin(Math.min(1, (1 - h)*4)*PI/2)*h : 0;
+  // death: a stumble, the knees go, then he folds forward and stays there
+  const kneel = smooth(0.12, 0.5, d), slump = smooth(0.4, 1, d), stum = d > 0 ? Math.sin(Math.min(1, d/0.15)*PI)*(1 - kneel) : 0;
+  const breathe = Math.sin(t*1.7);
+  let pitch = lean + 0.035*fall*m.run + cr*0.38 - rec*0.11 - lurch*0.34 - stum*0.14 + slump*0.5;
+  let y = -0.045*fall*m.run + breathe*0.006*(1 - m.run) - cr*0.17 - kneel*0.46 + (kneel > 0.98 ? 0 : Math.sin(kneel*PI)*0.03);
+  b.position.set(0, y, -rec*0.07 - lurch*0.09);
+  b.rotation.set(pitch, 0, roll + lurch*0.12*(o.hurtSide || 1));
+  // the skirt and the cloak hang plumb, trail behind, and swing on with their own weight
+  if(p.skirt){
+    const sx = spring(m.skx, -pitch*0.75 + 0.2*fwdN + 0.25*cr + 0.03*Math.abs(Math.cos(m.ph))*m.run, 70, 8, dt);
+    const sz = spring(m.skz, -roll*0.9 - 0.14*sideN + 0.03*Math.sin(m.ph)*m.run, 70, 8, dt);
+    p.skirt.rotation.set(sx, 0, sz);
+    p.skirt.scale.set(1 + 0.12*kneel, 1 - 0.42*kneel, 1 + 0.12*kneel);
+  }
+  if(p.cape){
+    const flut = Math.sin(t*6.3)*0.025*(0.2 + m.run) + Math.sin(t*1.3)*0.012;
+    if(o.whip){ m.cpx.v += o.whip; }
+    const cx = spring(m.cpx, -pitch*0.85 + 0.12 + 0.42*Math.max(0, fwdN) + 0.5*cr + flut - 0.1*slump, 38, 5, dt);
+    const cz = spring(m.cpz, -roll - 0.3*sideN + Math.sin(t*1.7)*0.02, 38, 5, dt);
+    p.cape.rotation.set(Math.max(-0.1, cx), 0, cz);
+  }
+  // the gun hand holds the aim against all of it; the free hand swings and hangs
+  if(p.armR) p.armR.rotation.x = -1.1 - pitch*(1 - slump) - rec*0.45 + (o.reload ? 0.7 + Math.sin(t*20)*0.1 : 0) + slump*0.95 + lurch*0.25;
+  if(p.armL && !o.holding){
+    p.armL.rotation.x = -1.0 + 0.5*m.run - pitch*0.6 + Math.sin(m.ph)*0.16*m.run + breathe*0.03 + lurch*-0.5 + slump*1.0 + cr*0.5;
+    p.armL.rotation.z = -0.3 - 0.06*m.run - lurch*0.3;
+  }
+  if(p.head) p.head.rotation.x = -pitch*0.55 + 0.04*fall*m.run - rec*0.08 - lurch*0.3 + kneel*0.15 + slump*0.5;
+  if(p.beard) p.beard.rotation.x = -pitch*0.7 - 0.05*m.run + Math.sin(t*2.1)*0.02 - lurch*0.2;
+  if(p.tip) p.tip.rotation.set(-0.15*m.run - 0.1*cr, 0, -0.5 + Math.sin(t*1.3)*0.06 + m.skz.x*0.6);
+  return m;
+};
+
 Models.idle = function(R, t, speed){
+  if(R.kind === "zippy"){ Models.stalk(R, { speed }, t); return; }
   const s = Math.min(1, speed/3), ph = t*(6 + speed*1.5);
   R.body.position.y = Math.abs(Math.sin(ph))*0.06*s + Math.sin(t*2)*0.012;
   R.body.rotation.z = Math.sin(ph)*0.07*s;

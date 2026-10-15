@@ -56,7 +56,7 @@ proto.dressPlayer = function(look){
 };
 /* the camera looks down at an angle, which squashes anything standing up:
    characters are drawn a little taller to make up for it */
-const STRETCH = 1.16, HERO = 1.2;
+const STRETCH = 1.16, HERO = 0.92;
 const W0els = G=> [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
 const W0gunKey = G=> G.gun().uid + ":" + W0els(G).join(",");
 const AURA = {
@@ -106,6 +106,9 @@ proto.dispose = function(){
   FX.clear();
 };
 
+/* sounds from the per-frame side (footfalls, voices); quiet in the attract mode */
+proto.play = function(n, o){ const au = A(); if(au && !this.silent) au.play(n, o); };
+
 /* ---- events ---- */
 proto.handle = function(ev){
   const V = this, G = V.G, p = G.player, au = A();
@@ -117,7 +120,7 @@ proto.handle = function(ev){
         const m = V.player.muzzle, w = new THREE.Vector3(); m.getWorldPosition(w);
         FX.burst(w.x, w.y, w.z, ELC(ev.el), ev.base === "shotgun" ? 8 : 3, 3, 0.25, 0.15, { col2:0xffffff });
         S.flash.position.set(w.x, w.y + 0.3, w.z); S.flash.color.setHex(ELC(ev.el)); S.flash.intensity = ev.base === "shotgun" || ev.base === "launcher" ? 2.5 : 1.2;
-        V.recoil = ev.base === "shotgun" || ev.base === "rifle" || ev.base === "launcher" ? 1 : 0.4;
+        V.recoil = Math.min(1.3, (V.recoil || 0)*0.4 + (ev.base === "shotgun" || ev.base === "launcher" ? 1.2 : ev.base === "rifle" ? 1 : ev.base === "smg" ? 0.45 : 0.7));
         if(ev.base === "shotgun" || ev.base === "launcher") S.shake(0.12);
         play("shoot_" + ev.base, { el:ev.el });
       } else FX.burst(ev.x, 0.8, ev.y, ELC(ev.el), 2, 2, 0.2, 0.12);
@@ -142,13 +145,13 @@ proto.handle = function(ev){
       play(ev.boss ? "bossdie" : ev.fell ? "fall" : ev.decoy ? "poof" : "kill");
       break;
     }
-    case "hurt": S.shake(0.35); FX.burst(p.x, 0.9, p.y, 0xff3a4a, 10, 4, 0.25, 0.35); play("hurt"); break;
+    case "hurt": V.zHurt = 1; V.zHurtSide = Math.random() < 0.5 ? -1 : 1; S.shake(0.35); FX.burst(p.x, 0.9, p.y, 0xff3a4a, 10, 4, 0.25, 0.35); play("hurt"); break;
     case "wardBreak": S.shake(0.2); FX.ring(p.x, p.y, 1.6, 0x8ad8ff, 0.35); FX.burst(p.x, 0.9, p.y, 0x8ad8ff, 16, 4, 0.25, 0.4); play("ward"); break;
     case "ward": FX.rise(p.x, p.y, 0x8ad8ff, 10, 0.5); play("pickup"); break;
-    case "death": S.shake(0.8); FX.burst(p.x, 0.9, p.y, 0xb36bff, 40, 6, 0.35, 1.2, { grav:4 }); play("death"); break;
+    case "death": V.zDead = 0.001; S.shake(0.8); FX.burst(p.x, 0.9, p.y, 0xb36bff, 24, 4, 0.3, 1.0, { grav:4 }); play("death"); break;
     case "heal": FX.rise(ev.x, ev.y, 0x5aff8a, 12, 0.5); play("heal"); break;
-    case "blink": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 14, 3, 0.3, 0.35, { col2:0xffffff }); play("blink"); break;
-    case "blinkEnd": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 10, 2.5, 0.25, 0.3); break;
+    case "blink": V.zWhip = 9; FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 14, 3, 0.3, 0.35, { col2:0xffffff }); play("blink"); play("cloth"); break;
+    case "blinkEnd": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 10, 2.5, 0.25, 0.3); FX.smoke(ev.x, 0.1, ev.y, 0x2a2420, 3, 0.4, 0.6, { spread:0.5, rise:0.2 }); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
     case "reload": play("reload"); break;
     case "reloaded": play("reloaded"); break;
     case "swap": play("swap"); break;
@@ -401,16 +404,24 @@ proto.update = function(dt, t){
     if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
-  const speed = Math.hypot(p.vx, p.vy);
-  M.idle(W, t, p.blinkT > 0 ? 0 : speed);
+  const dead = G.state === "dead";
+  const speed = dead ? 0 : Math.hypot(p.vx, p.vy), ca = Math.cos(p.aim), sa = Math.sin(p.aim);
+  V.recoil = Math.max(0, (V.recoil || 0) - dt*6);
+  V.zHurt = Math.max(0, (V.zHurt || 0) - dt/0.55);
+  if(dead) V.zDead = Math.min(1, (V.zDead || 0) + dt/1.9);
   M.animate(W, t, speed);
-  // little puffs of dust where Zippy steps
-  V.stride = (V.stride || 0) + speed*dt;
-  if(V.stride > 0.75 && p.blinkT <= 0){ V.stride = 0; FX.burst(p.x + (Math.random() - 0.5)*0.3, 0.06, p.y + (Math.random() - 0.5)*0.3, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 }); }
-  V.recoil = Math.max(0, (V.recoil || 0) - dt*8);
-  W.parts.armR.rotation.x = -1.1 - V.recoil*0.25 + (p.reloadT > 0 ? 0.7 + Math.sin(t*20)*0.1 : 0);
-  if(!V.hold) W.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
-  if(W.parts.beard) W.parts.beard.rotation.x = Math.sin(t*3)*0.05 + speed*0.02;
+  const mo = M.stalk(W, { speed, fwd:p.vx*ca + p.vy*sa, side:p.vx*sa - p.vy*ca, max:DG.PLAYER.speed,
+    crouch:p.blinkT > 0 && !dead, whip:V.zWhip || 0, recoil:V.recoil, hurt:V.zHurt, hurtSide:V.zHurtSide, dead:V.zDead || 0,
+    reload:p.reloadT > 0 && !dead, holding:!!V.hold }, t, dt);
+  V.zWhip = 0;
+  // a footfall: a scuff of dust where it lands, and the sound of it
+  if(mo.stepped && p.blinkT <= 0 && !dead){
+    const side = (Math.floor(mo.ph/PI) % 2 ? 1 : -1)*0.12;
+    FX.burst(p.x + sa*side + ca*0.15, 0.06, p.y - ca*side + sa*0.15, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 });
+    V.play("step", { heavy:false, x:p.x, y:p.y });
+  }
+  if(dead && V.zDead > 0.3 && !V.zKnelt){ V.zKnelt = true; S.shake(0.25); FX.smoke(p.x, 0.1, p.y, 0x2a2420, 6, 0.5, 1.2, { spread:0.8, rise:0.3 }); V.play("step", { heavy:true, x:p.x, y:p.y }); }
+  if(dead && V.zDead > 0.5 && Math.random() < 0.35) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, p.y + (Math.random() - 0.5)*0.6, (Math.random() - 0.5)*0.2, 0.4 + Math.random()*0.5, (Math.random() - 0.5)*0.2, Math.random() < 0.6 ? 0xb36bff : 0xff8a3a, 0.12, 1.4, -0.1, 0.4);
   const flick = p.iframes > 0 && p.blinkT <= 0 ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
   if(p.blinkT > 0) FX.emit(p.x, 0.9, p.y, 0, 0, 0, 0xb36bff, 0.6, 0.25, 0, 0);
@@ -419,7 +430,6 @@ proto.update = function(dt, t){
   if(V.stars > 0){ V.stars -= dt; if(Math.random() < 0.4) FX.emit(p.x + Math.cos(t*9)*0.4, 2.3, p.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.25, 0.25, 0, 0); }
   // wards: little blue orbs circling
   if(p.wards > 0 && Math.random() < 0.3*p.wards){ const a = t*3 + Math.random(); FX.emit(p.x + Math.cos(a)*0.6, 1.1, p.y + Math.sin(a)*0.6, 0, 0.2, 0, 0x8ad8ff, 0.2, 0.3, 0, 1); }
-  W.root.visible = G.state !== "dead";
   S.playerLight.position.set(p.x, 2.2, p.y + 0.3);
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
 
