@@ -245,4 +245,76 @@ DG.DOOR_COLORS = [
   { id:"yellow", name:"yellow", hex:0xe8c43a }
 ];
 
+/* ================================================================== *
+ *  ROOMS: locked vaults, rare rooms, Brother Olm, secret-wall tells
+ *  (the generator places them in dungeon.js; game.js runs them)
+ * ================================================================== */
+/* how often each turns up, per floor (rolled on the dungeon's own seed) */
+DG.RARE_ROOMS = {
+  vault:  f=> f === 1 ? 0.45 : 0.6,           // a locked vault: a key buys the good stuff
+  olm:    f=> f === 1 ? 0.2 : 0.32,           // the Wizard's Quarters: Brother Olm rests here
+  weird:  f=> f === 1 ? 0.15 : 0.27,          // one weird room, good or bad, from the table below
+  golden: f=> f === 1 ? 0.2 : 0.35,           // a key-locked golden chest in some goblin room
+  joke:   0.18,                               // a soapstone joke scrawled in some goblin room
+  table: [ { type:"throne", w:1, min:2 }, { type:"cage", w:1.3, min:1 }, { type:"gamble", w:1.3, min:1 } ]
+};
+DG.ROOM_SIZES = { vault:[9, 7, 11, 9], olm:[11, 9, 13, 10], throne:[13, 11, 15, 13], cage:[15, 11, 17, 13], gamble:[11, 9, 13, 11] };
+
+/* the Red Throne's price: one of these, forever (shown before you take) */
+DG.PACTS = {
+  halved:    { name:"The Halving",  desc:"your max health is cut in half, forever" },
+  hunted:    { name:"Hunted",       desc:"from now on, half of every horde is elite" },
+  blind:     { name:"The Blinding", desc:"you will never see the map again" },
+  benighted: { name:"Benighted",    desc:"the dark and the fog follow you, floor after floor" }
+};
+
+/* Brother Olm, the Lantern Pilgrim: an old friend of Zippy's. Each "listen"
+   says the next thing he hasn't said yet; what matters on this floor first. */
+DG.OLM = {
+  name:"Brother Olm",
+  greet:   ["Hm? Ah. Zippy. And the frog. Sit, sit. The kettle's nearly honest.",
+            "You again. Good. I was starting to talk to the lantern.",
+            "Still breathing? Splendid. Me too. Mostly.",
+            "The wizard and his frog. Mind the books. Some of them bite."],
+  remembered:"Zippy. I dreamt you died down here. More than once. Well. Tea?",
+  talk: [
+    { id:"chair",     text:"I came down for the light at the bottom. Forty years ago. Haven't found it. Found this chair, though. Good chair." },
+    { id:"keys",      text:"Keys. Goblins hoard them like teeth. A door in chains wants one. What's behind is usually worth it. Usually." },
+    { id:"reliquary", text:"Up in the first halls there's a reliquary, sealed and locked. The First Flame sleeps inside. Keep a key for it, if you find it early.", floors:[1, 2], pri:2 },
+    { id:"walls",     text:"A room with one door is a liar. It means to have two. Watch for stone that breathes. Listen for the draught.", pri:1 },
+    { id:"shrine",    text:"Deeper, the Drowned Shrine. Bog-water and an old crown. Your frog would look well in a crown. Don't tell him I said so.", floors:[2, 3], pri:2 },
+    { id:"soapstone", text:"The dead scrawl on the floors in orange. 'Try wall.' Half of it is true. The other half is goblins." },
+    { id:"throne",    text:"There's a red throne somewhere below. If you find it... no. If you find it, think of me. Then think again." },
+    { id:"gamble",    text:"The gamblers' altars pay. Until they don't. I lost an arm to one. Won it back. Different arm." },
+    { id:"heart",     text:"The Heart at the bottom of all this beats. What beats can be stopped. Or eaten. Hm. Your frog is looking at me." },
+    { id:"bored",     text:"I'm not afraid of dying down here. I'm afraid of dying bored. You help with that." },
+    { id:"hollow",    text:"If I go hollow, Zippy... no. Never mind. Put the kettle on." }
+  ],
+  idle:    ["Hmm. Hmmm.", "The lantern has never once gone out. I find that suspicious.", "Go on. The dark won't clear itself. Well. It might. Unlikely.", "Mind the frog near the candles."],
+  bless:   ["Kneel. No, the other knee. There.", "May it hold longer than my knees did.", "The lantern remembers you now. Lucky you."],
+  trade:   ["Give it here. Hm. Take this instead. Don't ask where it's been.", "A fair swap. Fairer for you. I'm old, what do I need it for?"],
+  mend:    ["Sit by the fire. It's mostly fire.", "Drink. It's tea. It was tea. Drink anyway."],
+  key:     ["A key. Found it in a goblin. Don't ask which end.", "Here. It opens something. Most things, if you push."],
+  broke:   ["No coin? Neither have I. We're rich in other ways. Not useful ways."],
+  nothing: ["You've nothing I can turn. Come back heavier."],
+  done:    ["Once is a kindness. Twice is a habit. Come find me again."],
+  leave:   ["Go well, Zippy. Go well, frog.", "Mind the dark. It minds you."]
+};
+
+/* orange messages scrawled on the floor, by the dead, for the living */
+DG.SOAPSTONE = {
+  honest: ["Try wall", "Hidden path ahead", "Could this be a secret?", "Wall, therefore try", "Try wall... O wall!"],
+  joke:   ["Praise the frog!", "Be wary of frog", "Amazing chest ahead", "Liar ahead", "Time for crossbow", "Visions of key..."]
+};
+
+Object.assign(DG.LINES, {
+  vault:  ["Some dead miser's hoard. He won't be needing it.", "Locked away for a reason. The reason is now yours.", "Gold has a smell down here. It's this room."],
+  throne: ["Something on the throne is watching you. Possibly the throne.", "The air tastes of iron. A god left a gift here, and wants something back."],
+  cage:   ["A treasure in a cage. The cage isn't for the treasure.", "Too easy. Far too easy."],
+  gamble: ["The house is very old, and has never lost.", "Dice carved from knucklebones. Whose? Best not."],
+  sprung: ["IT'S A TRAP. Of course it's a trap.", "The cage was bait. You were the fish."],
+  olmRoom:["Warm light. A kettle. Snoring.", "Somebody lives here. Somebody with a lantern."],
+  sprungClear:["The cage is empty. So is the room. You win this one.", "Survived the bait. The prize is yours, fair and bloody."]
+});
+
 })(typeof window !== "undefined" ? window : globalThis);
