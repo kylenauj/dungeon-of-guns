@@ -39,6 +39,11 @@ proto.dmgBonus = function(){
   if(M.special.overflow && p.mana >= p.maxMana - 0.5) m *= 1.4;
   if(M.special.elementalist) m *= 1 + 0.15*(M.els.length + 1)*M.special.elementalist;
   if(M.special.dice) m *= p.diceMul || 1;
+  if(M.special.riposte && G.t < (p.riposteT || 0)) m *= 1.6;
+  if(M.special.briar && p.wards > 0) m *= 1.2;
+  if(M.special.vengeance && G.t < (p.vengeT || 0)) m *= 1.5;
+  if(M.special.hollowing) m *= 1 + 0.05*Math.min(12, p.hollow || 0);
+  if(G.t < (p.tollT || 0)) m *= 1.3;
   return m;
 };
 
@@ -313,6 +318,8 @@ proto.shotEnd = function(b, why, target){
 /* ================================================================== *
  *  Damage, statuses, reactions
  * ================================================================== */
+/* what Silver Bullets bite harder into */
+const HAUNTED = { ghost:1, banshee:1, skeleton:1, poltergeist:1, bride:1 };
 proto.damageEnemy = function(e, amt, src){
   const G = this, M = G.mods;
   if(e.dead || e.spawn > 0 || e.airborne || e.invuln) return null;
@@ -325,11 +332,22 @@ proto.damageEnemy = function(e, amt, src){
   if(e.st.rot > 0) m *= 1.5;
   if(els.indexOf("arcane") >= 0 && !src.dot) m *= DG.STATUS.arcane.mul;
   if(e.st.marked > 0 && !src.dot && els.indexOf("arcane") < 0) m *= 1.1;
+  if(M.special.silver && HAUNTED[e.type]) m *= 1.6;
+  if(M.special.bossbane && e.boss) m *= 1.25;
+  if(M.special.firsthit && !src.dot && !e.firstHit){ e.firstHit = true; m *= 3; }
   let crit = false;
   if(!src.dot && src.crit && G.chance(src.crit)){ m *= src.critMul || 2; crit = true; }
   const d = amt*m;
   e.hp -= d; e.flash = 0.1;
   G.stats.dmg += d;
+  // Lifedrinker: a little of every direct hit comes back as health, 4 a second at most
+  if(M.special.lifesteal && !src.dot && !src.overkilled){
+    const p = G.player;
+    p.leech = Math.min(4, (p.leech || 0) + d*0.02*M.special.lifesteal);
+    if(p.leech >= 1 && G.t >= (p.leechNext || 0) && p.hp < p.maxHp){ p.leech -= 1; p.leechNext = G.t + 0.25; G.heal(1); }
+  }
+  // the Executioner's Axe: the weak ones just die
+  if(M.special.execute && !e.boss && e.hp > 0 && e.hp < e.maxHp*(M.special.reaper ? 0.22 : 0.15)){ e.hp = 0; e.executed = true; G.emit("execute", { x:e.x, y:e.y, id:e.id }); }
   if(!src.dot) G.emit("hit", { x:e.x, y:e.y, amt:d, crit, el:els[0], id:e.id });
   if(e.decoy && !src.dot){ e.hp = Math.max(e.hp, 1); if(e.ai) e.ai.popped = true; }
   // statuses
@@ -462,6 +480,7 @@ proto.killEnemy = function(e, src, fell){
   e.dead = true; e.hp = 0;
   if(e.decoy){ G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, decoy:true }); return; }
   G.stats.kills++;
+  if(M.special.hollowing) p.hollow = Math.min(12, (p.hollow || 0) + (e.executed && M.special.reaper ? 2 : 1));
   G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, boss:!!e.boss, fell:!!fell, midas:!!M.special.midas });
   p.mana = Math.min(p.maxMana, p.mana + DG.PLAYER.manaOnKill + M.killMana);
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
@@ -614,6 +633,10 @@ proto.payload = function(pl, ctx){
       break;
     }
     case "candy": G.addPickup("flyheal", x, y, 1); break;
+    case "toll":
+      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, pl.t || 1.5); });
+      G.emit("toll", { x:p.x, y:p.y });
+      break;
     case "dice": {
       const roll = 1 + Math.floor(rng.next()*6);
       p.diceMul = [0.6, 0.8, 1, 1.2, 1.5, 1.8][roll - 1];

@@ -18,7 +18,7 @@ const app = DG.app = { G:null, V:null, mode:"boot", acc:0, demo:null };
 
 /* golden flies outlive runs: they unlock Gribbus' rarer tricks */
 const META_KEY = "dungeonofguns.meta";
-function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {} }; }catch(e){ return { flies:0, unlocked:{} }; } }
+function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [] }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[] }; } }
 function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
 
 function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.now()); }
@@ -45,7 +45,13 @@ app.newRun = function(word){
   HUD.handle({ type:"floor", floor:G.floor, name:G.D.theme.name }, G);
   document.body.classList.add("playing");
 };
+/* what a run carried turns up less in the next two (Items.remember) */
+function rememberRun(G){
+  if(!G || app.demo || G.remembered || !Object.keys(G.player.items).length) return;
+  G.remembered = true; DG.Items.remember(G); saveMeta(G.meta);
+}
 app.stopRun = function(){
+  rememberRun(app.G);
   if(app.V){ app.V.dispose(); app.V = null; }
   app.G = null; app.demo = null;
   document.body.classList.remove("playing");
@@ -58,6 +64,7 @@ app.choose = function(){ app.mode = "choose"; UI.choose(app.G); IN.clear(); docu
 app.pick = function(i){ if(app.mode !== "choose") return; app.G.choose(i); app.resume(); };
 app.end = function(won){
   app.mode = "end";
+  rememberRun(app.G);
   saveMeta(app.G.meta);
   UI.record(app.G);
   setTimeout(()=>{ if(app.mode === "end"){ UI.end(app.G, won); document.body.classList.remove("playing"); } }, won ? 400 : 1600);

@@ -162,6 +162,43 @@ DG.ITEMS = {
   haunted:    I({ name:"Haunted Gun",        tier:2, pools:"bx",   desc:"When you stop shooting, a ghost keeps pulling your trigger at goblins nearby (half damage, no ammo).", flavor:"It isn't you doing it.", special:"haunted" }),
   pinata:     I({ name:"Piñata Stick",       tier:1, pools:"ts",   desc:"+5% crit. Crits knock candy out of goblins; candy heals 2.", flavor:"Whack it till it rains.", stats:{ crit:0.05 }, on:{ crit:[{ do:"candy", chance:0.35 }] } }),
 
+  /* ---------------- the grim ones: blood, souls and bad bargains ---------------- */
+  bloodvial:  I({ name:"Blood Vial",         tier:0, pools:"ts",   desc:"+15 max health. 1 kill in 12 heals 4.", flavor:"Still warm.", stats:{ hp:15 }, on:{ kill:[{ do:"heal", n:4, chance:0.08 }] } }),
+  ashenring:  I({ name:"Ashen Ring",         tier:0, pools:"tsb",  desc:"+12% damage, +8% fire rate.", flavor:"The finger is long gone.", stats:{ dmg:0.12, rate:0.08 } }),
+  graveboots: I({ name:"Gravedigger's Boots",tier:0, pools:"ts",   desc:"+12% move speed. Blink recharges 15% faster.", flavor:"Caked in someone's soil.", stats:{ speed:0.12, blinkCd:0.15 } }),
+  candlestub: I({ name:"Candle Stub",        tier:0, pools:"ts",   desc:"+20% range. 1 hit in 10 spits a little burst of flame.", flavor:"It never quite goes out.", stats:{ range:0.2 }, on:{ hit:[{ do:"nova", r:1.2, dmg:0.35, el:"fire", chance:0.1 }] } }),
+  hexcoin:    I({ name:"Hexed Coin",         tier:0, pools:"tsx",  desc:"+3 luck. -15 max health.", flavor:"Both sides are tails.", stats:{ luck:3, hp:-15 } }),
+  rottenheart:I({ name:"Rotten Heart",       tier:0, pools:"tsb",  desc:"+35 max health, and heals it. -10% move speed.", flavor:"It beats. Mostly.", stats:{ hp:35, speed:-0.1 } }),
+  leadrounds: I({ name:"Lead Rounds",        tier:0, pools:"ts",   desc:"+30% damage. -15% shot speed, -5% move speed.", flavor:"Heavy as a grudge.", stats:{ dmg:0.3, shotSpeed:-0.15, speed:-0.05 } }),
+  crowfeather:I({ name:"Crow Feathers",      tier:1, pools:"ts",   desc:"+2 shots per volley, and shots curve toward goblins. -30% damage.", flavor:"The crows followed you down.", shot:{ extra:2, homing:0.4 }, stats:{ dmg:-0.3 } }),
+  greatbow:   I({ name:"Greatbow String",    tier:1, pools:"tsb",  desc:"+80% shot speed, +60% range, +25% damage. -20% fire rate.", flavor:"Pulled by giants, once.", stats:{ shotSpeed:0.8, range:0.6, dmg:0.25, rate:-0.2 } }),
+  witchfire:  I({ name:"Witchfire",          tier:1, pools:"tb",   desc:"Every shot carries fire and arcane. -10% damage.", flavor:"It burns green when no one is looking.", els:["fire", "arcane"], stats:{ dmg:-0.1 } }),
+  bloodpact:  I({ name:"Blood Pact",         tier:1, pools:"tbx",  desc:"+40% damage. -20 max health. Half your kills heal 1.", flavor:"Sign here. And here. And here.", stats:{ dmg:0.4, hp:-20 }, on:{ kill:[{ do:"heal", n:1, chance:0.5 }] } }),
+  sacknife:   I({ name:"Sacrificial Knife",  tier:1, pools:"tb",   desc:"Goblins burst into 8 shards of bone when they die. -10 max health.", flavor:"For the altar. Any altar.", stats:{ hp:-10 }, on:{ kill:[{ do:"shards", n:8, dmg:0.45 }] } }),
+  riposte:    I({ name:"Parrying Dagger",    tier:1, pools:"ts",   desc:"For a second after you blink, your shots hit 60% harder.", flavor:"Step in. Strike true.", special:"riposte" }),
+  briar:      I({ name:"Black Briar Armour", tier:1, pools:"tsb",  desc:"+2 wards now. While you have a ward, +20% damage.", flavor:"Thorns grow inward too.", stats:{ wards:2 }, special:"briar" }),
+  huntersmark:I({ name:"Hunter's Mark",      tier:1, pools:"tsb",  desc:"The first hit on each goblin deals triple damage.", flavor:"Pick your mark. Then pick another.", special:"firsthit" }),
+  silver:     I({ name:"Silver Bullets",     tier:1, pools:"tsb",  desc:"+60% damage to the dead and the haunted: ghosts, banshees, skeletons, poltergeists and the Bride.", flavor:"Blessed by a priest who's since gone missing.", special:"silver" }),
+  witchhair:  I({ name:"Witch's Locks",      tier:1, pools:"ts",   desc:"1 hit in 5 curses a goblin: arcane-marked for 4 seconds.", flavor:"Braided while she screamed.", on:{ hit:[{ do:"status", st:"marked", t:4, chance:0.2 }] } }),
+  belldread:  I({ name:"Bell of Dread",      tier:1, pools:"tb",   desc:"When a room locks, a toll stuns every goblin in it for 1.5 seconds.", flavor:"For whom does it toll? Them.", on:{ lock:[{ do:"toll", t:1.5 }] } }),
+  bonfire:    I({ name:"Bonfire Ember",      tier:1, pools:"ts",   desc:"Clearing a room heals 10 and fills your mana.", flavor:"Rest here a while.", on:{ clear:[{ do:"heal", n:10 }, { do:"mana", n:999 }] } }),
+  carrion:    I({ name:"Carrion Flies",      tier:1, pools:"ts",   desc:"1 hit in 12 lets loose a carrion fly that stings goblins with poison.", flavor:"They know what's coming.", on:{ hit:[{ do:"bee", n:1, chance:0.08 }] } }),
+  wraithstep: I({ name:"Wraithstep",         tier:1, pools:"ts",   desc:"Blink recharges 30% faster, and blinking throws 4 shards around you.", flavor:"You were never quite there.", stats:{ blinkCd:0.3 }, on:{ blink:[{ do:"shards", n:4, dmg:0.6, at:"player" }] } }),
+  blackpowder:I({ name:"Black Powder",       tier:1, pools:"ts",   desc:"Explosions are 35% bigger, and 3 in 10 shots that hit a wall go off.", flavor:"Keep away from candles. Ha.", stats:{ boom:0.35 }, on:{ wall:[{ do:"burst", r:1.2, dmg:0.6, chance:0.3 }] } }),
+  boneshield: I({ name:"Bone Shield",        tier:1, pools:"tb",   desc:"Every 15 seconds in a fight, gain a ward (up to 2).", flavor:"Somebody's ribs, lashed together.", on:{ tick:[{ do:"ward", n:1, max:2, every:15, at:"player" }] } }),
+  vengeance:  I({ name:"Vengeful Spirit",    tier:1, pools:"tb",   desc:"After you're hurt, +50% damage for 4 seconds.", flavor:"It remembers every wound.", special:"vengeance" }),
+  giantsfang: I({ name:"Giant's Fang",       tier:2, pools:"tbx",  desc:"Shots are twice the size, pierce a goblin and hit 40% harder. -30% fire rate.", flavor:"Pried from something that still wanted it.", stats:{ size:1, dmg:0.4, rate:-0.3 }, shot:{ pierce:1 } }),
+  moonlight:  I({ name:"Moonlight Shard",    tier:2, pools:"tbx",  desc:"Every shot carries arcane, pierces a goblin and bounces once.", flavor:"Cold light from a dead moon.", els:["arcane"], shot:{ pierce:1, bounces:1 } }),
+  hollowing:  I({ name:"Hollowing",          tier:2, pools:"tbx",  desc:"Every kill in a room makes you 5% stronger, up to +60%. It fades when the room is clear.", flavor:"The more you take, the less of you is left.", special:"hollowing" }),
+  executioner:I({ name:"Executioner's Axe",  tier:2, pools:"tbx",  desc:"Goblins below 15% health die at once (not bosses).", flavor:"No last words.", special:"execute" }),
+  lifedrinker:I({ name:"Lifedrinker",        tier:2, pools:"bxa",  desc:"Your hits drink blood: 2% of the damage you deal heals you (up to 4 a second).", flavor:"Thirsty work.", special:"lifesteal" }),
+  darksign:   I({ name:"Darksign",           tier:2, pools:"bxa",  desc:"Once a floor, when you would die, you rise again with 40% health in a burst of dark.", flavor:"Death is a door that keeps swinging back.", special:"darksign" }),
+  sunlight:   I({ name:"Sunlight Medal",     tier:2, pools:"tbx",  desc:"Every 5 seconds in a fight, a spear of light strikes a goblin for heavy damage.", flavor:"Praise it.", on:{ tick:[{ do:"chain", jumps:0, dmg:3.2, every:5, target:"random" }] } }),
+  soulmass:   I({ name:"Soul Mass",          tier:2, pools:"tbx",  desc:"Every 4 seconds in a fight, two soul wisps peel off you and hunt.", flavor:"Whose souls? Best not to ask.", on:{ tick:[{ do:"wisp", n:2, el:"arcane", every:4, at:"player" }] } }),
+  abyssring:  I({ name:"Ring of the Abyss",  tier:2, pools:"bxa",  desc:"1 kill in 6 tears open a small black hole.", flavor:"Don't look into it. It's looking already.", on:{ kill:[{ do:"blackhole", chance:0.16 }] } }),
+  lastrites:  I({ name:"Last Rites",         tier:2, pools:"bx",   desc:"Bosses take 25% more damage from everything.", flavor:"Read aloud over the not-yet-dead.", special:"bossbane" }),
+  bloodmoon:  I({ name:"Blood Moon",         tier:3, pools:"bxa",  desc:"+15% crit, crits hit 50% harder, and a third of crits heal 1.", flavor:"The hunt is on tonight.", stats:{ crit:0.15, critMul:0.5 }, on:{ crit:[{ do:"heal", n:1, chance:0.33 }] } }),
+
   /* ---------------- legendary ---------------- */
   hydra:      I({ name:"Hydra Wand",         tier:3, pools:"bxa",  desc:"Shots split into three on every bounce. +2 bounces.", shot:{ bounces:2, bounceSplit:1 } }),
   stormcaller:I({ name:"Stormcaller",        tier:3, pools:"bxa",  desc:"Every 2.5 seconds in a fight, lightning strikes and leaps 4 times.", on:{ tick:[{ do:"chain", jumps:4, dmg:1.6, every:2.5, target:"random" }] } }),
@@ -180,6 +217,7 @@ DG.ITEMS = {
   midas:      I({ name:"Midas Touch",        tier:4, pools:"xab",  desc:"Goblins die as gold statues that explode into coins and shards.", flavor:"Everything is gold. Everything.", special:"midas", on:{ kill:[{ do:"shards", n:10, dmg:0.8 }, { do:"gold", n:2 }] } }),
   reverse:    I({ name:"Reverse Bullet Hell",tier:4, pools:"xab",  desc:"Enemy shots that just miss you turn around and become yours.", flavor:"Thank you for your bullets.", special:"graze" }),
   infinity:   I({ name:"Infinite Ricochet",  tier:4, pools:"xab",  desc:"Shots bounce forever (well, for 4 seconds) and get stronger every bounce.", flavor:"Physics has left the chat.", shot:{ bounces:99, bounceDmg:0.12, lifeAdd:3 } }),
+  firekeeper: I({ name:"Fire Keeper's Soul",tier:4, pools:"xab",  desc:"Every 10 seconds in a fight a bonfire flares under you: it heals 15, fills your mana, and a great ring of fire bursts out.", flavor:"She tended the flame. Now you carry it.", on:{ tick:[{ do:"heal", n:15, every:10 }, { do:"mana", n:999, every:10 }, { do:"nova", r:4.5, dmg:3, el:"fire", every:10, at:"player" }] } }),
   godwand:    I({ name:"The Godwand",        tier:4, pools:"xab",  desc:"Double damage, +50% fire rate, +2 shots, homing.", flavor:"Simple. Effective. Smug.", stats:{ dmgMul:2, rate:0.5 }, shot:{ extra:2, homing:1 } })
 };
 
@@ -196,6 +234,12 @@ DG.DUOS = [
   { a:"chicken",     b:"accordion",   name:"Barnyard Band",  desc:"Every shove leaves goblins confused too.", special:"barnyard" },
   { a:"beehive",     b:"venomrounds", name:"Killer Bees",    desc:"Bees hit twice as hard and last twice as long.", special:"killerbees" },
   { a:"portal",      b:"pinball",     name:"Wormhole Wizard",desc:"Shots go through portals every time, and gain a bounce for each trip.", special:"wormhole" },
+  { a:"bloodpact",   b:"lifedrinker", name:"Crimson Covenant",desc:"+20 max health, and Lifedrinker drinks twice as fast.", stats:{ hp:20 }, special:"lifesteal" },
+  { a:"hollowing",   b:"executioner", name:"The Reaper",     desc:"Executions come below 22% health, and each one counts double for Hollowing.", special:"reaper" },
+  { a:"darksign",    b:"bonfire",     name:"Kindled",        desc:"Clearing a room re-lights the Darksign.", special:"kindled" },
+  { a:"silver",      b:"sunlight",    name:"Praise the Sun", desc:"Spears of light strike twice as often.", on:{ tick:[{ do:"chain", jumps:0, dmg:3.2, every:5, target:"random" }] } },
+  { a:"greatbow",    b:"crowfeather", name:"Hawkeye",        desc:"+1 pierce and +20% crit.", shot:{ pierce:1 }, stats:{ crit:0.2 } },
+  { a:"carrion",     b:"venomrounds", name:"Plague of Flies",desc:"Flies and bees hit twice as hard and last twice as long.", special:"killerbees" },
   { a:"comet",       b:"trailblazer", name:"Shooting Star",  desc:"Comet blinks leave your element all along the trail.", special:"shootingstar" }
 ];
 
@@ -227,6 +271,10 @@ DG.SETS = [
   { id:"frogprince", name:"Frog Prince",   need:3, items:["frogsona", "tadpact", "froglock", "twister", "swampfeet", "lantern"],
     desc:"Gribbus hits 50% harder and 30% faster, and tadpoles are twice as many.", stats:{ frogDmg:0.5, frogRate:0.3 }, special:"frogswarm",
     look:{ robe:"leaf", cape:"arcane", parts:["froghood", "lilycape"], aura:"bubbles" } },
+  { id:"bloodhunter",name:"Blood Hunter",  need:3, items:["bloodpact", "lifedrinker", "bloodvial", "bloodmoon", "sacknife", "hollowing", "vengeance", "leech"],
+    desc:"+20% damage, 1 kill in 5 heals 1, and getting hurt sprays 10 shards of blood.", stats:{ dmg:0.2 },
+    on:{ kill:[{ do:"heal", n:1, chance:0.2 }], hurt:[{ do:"shards", n:10, dmg:0.7, at:"player" }] },
+    look:{ robe:"shadow", cape:"fire", parts:["fangs", "spikepauldrons", "bandage"], aura:"embers" } },
   { id:"clown",      name:"Goofball",      need:3, items:["chicken", "hiccups", "spaghetti", "bubblegum", "dice", "accordion", "wiggle", "chaos"],
     desc:"+2 luck, and 6% of hits leave a goblin confused.", stats:{ luck:2 },
     on:{ hit:[{ do:"status", st:"confused", t:2.5, chance:0.06 }] },
@@ -258,7 +306,10 @@ DG.ACTIVES = {
   whistle: { name:"Goblin Whistle", charge:2, desc:"Every goblin in the room is confused for 5 seconds and clobbers its friends." },
   cannon:  { name:"Frog Cannon",    charge:2, desc:"Fire Gribbus at the cursor. He lands with a croak that stuns and blasts everything there." },
   discoball:{ name:"Disco Ball",    charge:3, desc:"For 8 seconds, every shot carries every element." },
-  pockethole:{ name:"Pocket Black Hole", charge:3, desc:"Throw a black hole that swallows goblins for 4 seconds." }
+  pockethole:{ name:"Pocket Black Hole", charge:3, desc:"Throw a black hole that swallows goblins for 4 seconds." },
+  estus:   { name:"Estus Flask",    charge:2, desc:"Heals 30 and gives a ward." },
+  dreadbell:{ name:"Toll of the Damned", charge:3, desc:"Stuns every goblin in the room for 2 seconds, and your shots hit 30% harder for 6." },
+  soulspear:{ name:"Soul Spear",    charge:2, desc:"Hurl a spear of soul-light that pierces everything in a line." }
 };
 
 /* ---- level-up boons: pick 1 of 3 ---- */
@@ -338,6 +389,12 @@ DG.COSTUME_PARTS = ["vines", "flowers", "goggles", "monocle", "wingboots", "stri
   "frogbrolly", "seashell", "snail", "goblet", "kaleido", "handmirror", "elementgems", "snowhat", "bandage"];
 DG.AURAS = ["embers", "snow", "sparks", "toxic", "glints", "smoke", "rainbow", "stars", "petals", "bubbles"];
 DG.COSTUMES = {
+  /* the grim ones */
+  bloodpact:{ cape:"fire", parts:["fangs"] }, lifedrinker:{ parts:["fangs"], aura:"embers" }, bloodmoon:{ robe:"fire", cape:"shadow", aura:"embers" },
+  darksign:{ cape:"shadow", parts:["cracks"], aura:"smoke" }, hollowing:{ cape:"shadow", parts:["lichmask"] }, briar:{ parts:["spikepauldrons"] },
+  silver:{ parts:["monocle"] }, sunlight:{ parts:["halo"] }, soulmass:{ parts:["souljar"], aura:"stars" }, abyssring:{ cape:"shadow", aura:"smoke" },
+  executioner:{ parts:["spikepauldrons"] }, bonfire:{ parts:["wisplantern"] }, rottenheart:{ parts:["heartjar"] }, sacknife:{ parts:["bandage"] },
+  witchfire:{ cape:"fire" }, moonlight:{ cape:"arcane", parts:["starcape"] }, boneshield:{ parts:["tombstone"] }, carrion:{ parts:["hive"] },
   /* elements dye the cape; their legendary forms dye the whole robe */
   emberrounds:{ cape:"fire" }, frostrounds:{ cape:"frost" }, venomrounds:{ cape:"poison" }, staticrounds:{ cape:"shock" }, arcanerounds:{ cape:"arcane" },
   wildfire:{ cape:"fire", aura:"embers" }, brittle:{ cape:"frost" }, conductor:{ cape:"shock" },
@@ -457,7 +514,7 @@ Items.roll = function(G, pool){
   for(let tries=0; tries<6; tries++){
     const tier = rng.weighted(tierW.map((x, i)=> ({ i, w:x }))).i;
     const cand = P.filter(id=> DG.ITEMS[id].tier === tier && !G.seenItems[id]);
-    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id) }))).id; Items.offer(G, id); return id; }
+    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id)*fresh(G, id) }))).id; Items.offer(G, id); return id; }
   }
   // the pool's run dry at those tiers: anything left, anywhere
   const any = Object.keys(DG.ITEMS).filter(id=> !G.seenItems[id] && DG.ITEMS[id].tier < 4);
@@ -465,6 +522,17 @@ Items.roll = function(G, pool){
   return "spinach";
 };
 Items.offer = function(G, id){ G.seenItems[id] = true; };
+/* what you carried in your last runs turns up less, so one run's build isn't
+   the next run's too (G.meta.recent: item ids from the last two runs) */
+const STALE = 0.3;
+function fresh(G, id){ const r = G.meta && G.meta.recent; return r && r.indexOf(id) >= 0 ? STALE : 1; }
+/* at the end of a run: remember what it carried (this run, then the one before) */
+Items.remember = function(G){
+  const now = Object.keys(G.player.items), before = (G.meta.recentRuns || [])[0] || [];
+  G.meta.recentRuns = [now, before];
+  G.meta.recent = now.concat(before.filter(id=> now.indexOf(id) < 0));
+  return G.meta.recent;
+};
 /* items from a set you've started turn up more often, so a transformation is
    something you can chase */
 const SET_PULL = 2.5;

@@ -783,3 +783,101 @@ test("blocks standing in a 2x2 square are drawn as one big obstacle", ()=>{
   }
   assert.ok(squares > 0, "big pillars do turn up");
 });
+
+/* ================================================================== *
+ *  The grim items, and builds that don't repeat
+ * ================================================================== */
+test("every item is well formed: real payloads, real tiers and pools, a description", ()=>{
+  const PAYLOADS = ["byproduct", "shards", "wisp", "burst", "chain", "nova", "ring", "tadpole", "heal", "mana", "ward", "gold", "blackhole",
+    "status", "shrink", "stickybomb", "gum", "bee", "ghoul", "hiccup", "shove", "candy", "dice", "toll"];
+  const check = (d, who)=>{ for(const k in d.on || {}) d.on[k].forEach(pl=> assert.ok(PAYLOADS.indexOf(pl.do) >= 0, who + ": unknown payload " + pl.do)); };
+  for(const id in DG.ITEMS){
+    const d = DG.ITEMS[id];
+    assert.ok(d.name && d.desc, id + " has a name and a description");
+    assert.ok(d.tier >= 0 && d.tier <= 4, id + " tier");
+    assert.ok(/^[tsbxa]+$/.test(d.pools), id + " pools");
+    check(d, id);
+  }
+  DG.DUOS.forEach(d=>{ assert.ok(DG.ITEMS[d.a] && DG.ITEMS[d.b], d.name + " pairs real items"); check(d, d.name); });
+  DG.SETS.forEach(s=> check(s, s.name));
+  assert.ok(Object.keys(DG.ITEMS).length >= 160, "a deep pool");
+});
+
+test("every active item goes off without a hitch", ()=>{
+  for(const id in DG.ACTIVES){
+    const G = game("ACT" + id), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+    G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+    addEnemy(G, r, spot.x + 2, spot.y);
+    G.player.active = { id, charge:9, max:1 };
+    G.useActive();
+    step(G, 1);
+  }
+});
+
+test("Hollowing grows with every kill in a room and fades when it's clear", ()=>{
+  const G = game("HOLLOW"), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+  G.giveItem("hollowing", true);
+  const base = G.dmgBonus();
+  for(let i=0;i<4;i++){ const e = addEnemy(G, r, spot.x + 2, spot.y); G.killEnemy(e, {}); }
+  assert.ok(Math.abs(G.dmgBonus()/base - 1.2) < 1e-9, "+5% a kill");
+  for(let i=0;i<20;i++){ const e = addEnemy(G, r, spot.x + 2, spot.y); G.killEnemy(e, {}); }
+  assert.ok(Math.abs(G.dmgBonus()/base - 1.6) < 1e-9, "capped at +60%");
+  G.clearRoom(r);
+  assert.equal(G.player.hollow, 0, "gone once the room is clear");
+});
+
+test("the Executioner's Axe finishes goblins below 15%, but never a boss", ()=>{
+  const G = game("AXE"), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+  G.giveItem("executioner", true);
+  const e = addEnemy(G, r, spot.x + 2, spot.y); e.hp = e.maxHp = 100;
+  G.damageEnemy(e, 80, {}); assert.ok(!e.dead, "20% left: still standing");
+  G.damageEnemy(e, 6, {}); assert.ok(e.dead, "14% left: executed");
+  const b = addEnemy(G, r, spot.x + 2, spot.y); b.boss = true; b.hp = b.maxHp = 100;
+  G.damageEnemy(b, 90, {}); assert.ok(!b.dead, "bosses are spared");
+});
+
+test("the Darksign brings you back once a floor", ()=>{
+  const G = game("DARKSIGN"); G.giveItem("darksign", true);
+  const p = G.player;
+  G.hurtPlayer(9999, "test", true);
+  assert.equal(G.state, "play", "you rise again");
+  assert.ok(p.hp >= Math.round(p.maxHp*0.4) - 1);
+  p.iframes = 0;
+  G.hurtPlayer(9999, "test", true);
+  assert.equal(G.state, "dead", "but only once");
+});
+
+test("Lifedrinker heals from hits, Hunter's Mark triples the first, Silver bites the dead", ()=>{
+  const G = game("BLOOD"), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true;
+  ["lifedrinker", "huntersmark", "silver"].forEach(id=> G.giveItem(id, true));
+  const p = G.player; p.hp = 50;
+  const e = addEnemy(G, r, spot.x + 2, spot.y); e.hp = e.maxHp = 1e6;
+  const first = G.damageEnemy(e, 100, {}).d, second = G.damageEnemy(e, 100, {}).d;
+  assert.ok(Math.abs(first/second - 3) < 1e-9, "the first hit is triple");
+  assert.ok(p.hp > 50, "it drank");
+  const sk = addEnemy(G, r, spot.x + 2, spot.y, "skeleton"); sk.hp = sk.maxHp = 1e6; sk.firstHit = true;
+  const gr = addEnemy(G, r, spot.x + 2, spot.y, "grunt"); gr.hp = gr.maxHp = 1e6; gr.firstHit = true;
+  assert.ok(Math.abs(G.damageEnemy(sk, 100, {}).d/G.damageEnemy(gr, 100, {}).d - 1.6) < 1e-9, "silver on the dead");
+});
+
+test("what you carried last run turns up less in the next", ()=>{
+  const recent = Object.keys(DG.ITEMS).filter(id=> DG.ITEMS[id].tier <= 1 && DG.ITEMS[id].pools.indexOf("t") >= 0).slice(0, 25);
+  const count = remembered=>{
+    let hits = 0;
+    for(let s=0; s<60; s++){
+      const G = new DG.Game({ seedWord:"FRESH" + s, meta:{ flies:0, unlocked:{}, recent:remembered } });
+      for(let k=0;k<8;k++){ const id = DG.Items.roll(G, "t"); if(recent.indexOf(id) >= 0) hits++; }
+    }
+    return hits;
+  };
+  const without = count([]), withRecent = count(recent);
+  assert.ok(withRecent < without*0.6, "recent items are offered much less: " + withRecent + " vs " + without);
+  // and remembering keeps this run's build and the one before
+  const G = game("REMEMBER"); G.giveItem("spinach", true); G.meta.recentRuns = [["coffee"]];
+  DG.Items.remember(G);
+  assert.deepEqual(G.meta.recentRuns, [["spinach"], ["coffee"]]);
+  assert.deepEqual(G.meta.recent.sort(), ["coffee", "spinach"]);
+});

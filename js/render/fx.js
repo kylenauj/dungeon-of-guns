@@ -306,6 +306,7 @@ FX.update = function(dt, G){
       if(b.kind === "coin"){ col = 0xffd23d; size = 0.5; if(Math.random() < 0.3) emit(b.x, y, b.y, 0, 0.4, 0, 0xfff8b0, 0.18, 0.25, 0, 1); }
       if(b.kind === "fireball"){ size = 0.8; if(Math.random() < 0.7) emit(b.x, y, b.y, (Math.random() - 0.5), Math.random(), (Math.random() - 0.5), 0xff7a1a, 0.5, 0.35, 0, 1); if(Math.random() < 0.35) dark(b.x, y + 0.2, b.y, 0, 0.6, 0, 0x1a1210, 0.35, 0.8, 0.4, 1.8, 0, 1); }
       if(b.kind === "missile"){ if(Math.random() < 0.6) emit(b.x, y, b.y, 0, 0.2, 0, 0xb36bff, 0.25, 0.3, 0, 1); if(Math.random() < 0.3) dark(b.x, y, b.y, 0, 0.3, 0, 0x16121a, 0.25, 0.7, 0.35, 1.6, 0, 1); }
+      if(b.kind === "spear"){ col = 0xbfe8ff; size = 0.75; if(Math.random() < 0.8) emit(b.x, y, b.y, (Math.random() - 0.5)*0.4, 0.3, (Math.random() - 0.5)*0.4, 0x8ad8ff, 0.35, 0.45, 0, 1); }
       if(b.kind === "grenade"){ size = 0.42; y = 0.6 + Math.sin(Math.min(1, b.t*1.5)*Math.PI)*0.6; }
       if(els.indexOf("poison") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, 0, -0.3, 0, 0x7dff3a, 0.15, 0.4, 0, 1);
       if(els.indexOf("fire") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, (Math.random() - 0.5)*0.4, 0.7, (Math.random() - 0.5)*0.4, 0xff7a1a, 0.14, 0.4, 0, 1);

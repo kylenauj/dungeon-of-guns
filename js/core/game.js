@@ -74,6 +74,7 @@ proto.enterFloor = function(n){
   G.scale = DG.FLOOR_SCALE(n);
   G.enemies = []; G.bullets = []; G.pickups = []; G.bombs = []; G.marks = []; G.hazards = []; G.allies = []; G.pending = []; G.beams = [];
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
+  if(p){ p.hollow = 0; p.darksignUsed = false; }
   G.curses = G.D.curses || [];
   G.traps = [];
   G.D.rooms.forEach(r=>{
@@ -277,6 +278,7 @@ proto.updatePlayer = function(dt, I){
       p.blinkT = DG.PLAYER.blink.time; p.blinkCd = DG.PLAYER.blink.cd*Math.max(0.3, 1 - M.blinkCd); p.iframes = Math.max(p.iframes, DG.PLAYER.blink.iframes);
       p.cometHit = [];
       G.emit("blink", { x:p.x, y:p.y, dx:p.bdx, dy:p.bdy, comet:!!M.special.comet });
+      if(M.special.riposte) p.riposteT = G.t + 1 + DG.PLAYER.blink.time;
       G.trigger("blink", { x:p.x, y:p.y, depth:0 });
     }
     if(my < -0.3 && p.bonkCd <= 0) G.checkBonk(p);
@@ -383,8 +385,16 @@ proto.hurtPlayer = function(amt, why, force){
   } else {
     p.hp -= amt;
     G.emit("hurt", { amt, why, x:p.x, y:p.y });
+    if(G.mods.special.vengeance) p.vengeT = G.t + 4;
   }
   G.trigger("hurt", { x:p.x, y:p.y, depth:0 });
+  // the Darksign: once a floor, death doesn't take
+  if(p.hp <= 0 && G.mods.special.darksign && !p.darksignUsed){
+    p.darksignUsed = true; p.hp = Math.max(1, Math.round(p.maxHp*0.4)); p.iframes = 2;
+    G.nova(p.x, p.y, 4, G.payloadPower()*3, ["arcane"], 1);
+    G.emit("darksign", { x:p.x, y:p.y });
+    G.say("The Darksign burns. You rise again.", 2.5);
+  }
   if(p.hp <= 0){ p.hp = 0; p.alive = false; G.state = "dead"; G.emit("death", { why }); }
 };
 
@@ -528,6 +538,18 @@ proto.useActive = function(I){
       break;
     }
     case "soup": G.heal(40); break;
+    case "estus": G.heal(30); G.addWards(1); break;
+    case "dreadbell":
+      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, 2); });
+      p.tollT = G.t + 6;
+      G.emit("toll", { x:p.x, y:p.y, big:true });
+      break;
+    case "soulspear": {
+      const s = G.gunStats();
+      G.addShot({ x:p.x, y:p.y, a:p.aim, speed:24, r:0.3, dmg:P*9, range:18, els:["arcane"], power:s.power, depth:1, pierce:99, kind:"spear", homing:0, knock:4 });
+      G.emit("spear", { x:p.x, y:p.y, a:p.aim });
+      break;
+    }
   }
 };
 
@@ -622,6 +644,8 @@ proto.clearRoom = function(r){
   G.emit("clear", { room:r.id });
   G.chargeActive(1);
   G.trigger("clear", { x:G.player.x, y:G.player.y, depth:0 });
+  G.player.hollow = 0;
+  if(G.mods.special.kindled && G.player.darksignUsed){ G.player.darksignUsed = false; G.emit("darksignLit", { x:G.player.x, y:G.player.y }); }
   G.allies.forEach(a=>{ if(a.kind === "tadpole" || a.kind === "wisp") a.life = Math.min(a.life, 1.5); });
   if(r.type === "boss") return;
   const rng = G.rng, c = G.freeSpot(r, r.cxw, r.cyw), x = c.x, y = c.y;
