@@ -457,6 +457,8 @@ Models.zippy = function(look){
     const pts = [[x0*0.8, 0.03, 0.0], [x0*1.2, -0.07, 0.12], [x0*1.5 + w, -0.17, 0.19], [x0*1.4 - w2, -0.3, 0.21], [x0*1.2 + w2, -len*0.78, 0.2 + w*0.5], [x0*1.0 - w, -len, 0.16 + w2]];
     P(beard, zTaper(pts, 0.015 - Math.abs(u)*0.004, 0.002, 18, 5), [0x5e5a54, 0x4a4742, 0x76726a][i % 3]);
   }
+  // a matted mass behind the loose strands
+  { const m = zTaper([[0, 0.02, 0.02], [0, -0.12, 0.15], [0, -0.28, 0.19], [0, -0.44, 0.17]], 0.055, 0.012, 16, 10); K.sculpt(m, 0.006, 40, 3); P(beard, m, 0x4e4a44, 0, 0, 0, 0, 0, 0, 1.25, 1, 0.7); }
   P(beard, zto(0.025, 0.009), ZC.brass, 0, -0.44, 0.235, PI/2 - 0.3);
   P(beard, zto(0.022, 0.008), ZC.iron2, 0.035, -0.32, 0.245, PI/2 - 0.2);
   // the peak of the hood, standing up and then giving up, the way the hat did
@@ -480,7 +482,7 @@ Models.zippy = function(look){
     P(hat, zTaper([[0, -0.08, 0], [0, 0.06, -0.01], [0, 0.18, 0]], 0.13, 0.1, 10, 16), D.robe);
     tip = group(hat, 0, 0.62, 0);
   } else {
-    P(hat, zTaper([[0, -0.08, 0.01], [0, 0.06, -0.005], [0.005, 0.18, -0.025], [0, 0.3, -0.02]], 0.135, 0.07, 18, 18), D.robe);
+    P(hat, zTaper([[0, -0.1, 0.015], [0, 0.04, -0.005], [0.005, 0.17, -0.025], [0, 0.3, -0.02]], 0.15, 0.068, 18, 18), D.robe);
     P(hat, zto(0.12, 0.016), D.dark, 0, 0.03, 0, PI/2 + 0.08);
     let up = group(hat, 0, 0.29, -0.02);
     if(has("tallhat")){
@@ -955,7 +957,7 @@ Models.setGun = function(R, gun, els){
  *  slit-eyed under heavy lids, a wide sour mouth, scarred from a long
  *  life of fights he says he won. A rag round his neck, a bone charm.
  * ================================================================== */
-const FC = { scar:0x8a7c66, rust:0x6a3a22, bone:0xc8bca0, iron:0x3a3a40, hole:0x0a0806, mouth:0x140e0a, brass:0x8a6a30 };
+const FC = { scar:0x5e5244, rust:0x6a3a22, bone:0xc8bca0, iron:0x3a3a40, hole:0x0a0806, mouth:0x140e0a, brass:0x8a6a30 };
 /* toad skin: a fresh sphere, sculpted lumpy, mottled dark and light, paler underneath */
 function fSkin(r, ws, hs, amt, freq, seed, c1, c2, belly){
   const g = new THREE.SphereGeometry(r, ws, hs); K.sculpt(g, amt, freq, seed);
@@ -977,14 +979,14 @@ Models.frog = function(twin, buffs){
   const R = rig("frog"), b = R.body;
   R.anim = [];
   // Gribbus: ditch-water olive and mud; Grobbus: the grey-green of an old pond
-  const G1 = twin ? 0x46524a : 0x5c5a30, G2 = twin ? 0x2a322c : 0x3a3420, BELLY = twin ? 0x8a9482 : 0xa8986a;
+  const G1 = twin ? 0x404a42 : 0x54522c, G2 = twin ? 0x262e28 : 0x34301c, BELLY = twin ? 0x8a9482 : 0xa8986a;
   const WART = twin ? 0x56625a : 0x6e6438, IRIS = twin ? 0x9ab890 : 0xc8902a;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
   // the body: heavy and squat, belly sagging
-  P(b, fSkin(0.32, 34, 26, 0.012, 11, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
+  P(b, fSkin(0.32, 34, 26, 0.02, 15, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
   // the head: wide and flat, a pale throat under it
-  P(b, fSkin(0.25, 36, 26, 0.008, 13, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.36, 0.16, 0, 0, 0, 1.18, 0.72, 0.98);
+  P(b, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
   P(b, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
   // poison glands behind the eyes, pitted
   [-1, 1].forEach(s=>{
@@ -1000,20 +1002,20 @@ Models.frog = function(twin, buffs){
   for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(b, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
   // the eyes: raised, slit-pupilled, glowing dully under heavy lids; the left one scarred half shut
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.088, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.465, 0.21);
-    P(b, S(0.064, 16, 12), 0x24160a, s*0.15, 0.49, 0.248);
-    glow(R, b, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.49, 0.272);
-    halo(R, b, IRIS, s < 0 ? 0.14 : 0.2, s*0.15, 0.5, 0.31, 0.55);
-    P(b, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.488, 0.326);
-    const lid = P(b, new THREE.SphereGeometry(0.072, 24, 10, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.49, 0.256);
-    lid.rotation.set(s < 0 ? 0.7 : 0.32, 0, s*0.3);
-    P(b, zto(0.058, 0.013, PI), G2, s*0.15, 0.485, 0.29, 0.2, 0, PI);
-    P(b, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.545, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
+    P(b, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
+    P(b, S(0.064, 16, 12), 0x24160a, s*0.15, 0.52, 0.248);
+    glow(R, b, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
+    halo(R, b, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
+    P(b, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
+    const lid = P(b, new THREE.SphereGeometry(0.072, 24, 10, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256);
+    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35);
+    P(b, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
+    P(b, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
   });
   // a scar down over the left eye, stitched; another across his back
-  { const c0 = [-0.15, 0.49, 0.256], pts = [[-0.7, 0.4, -0.6], [-0.35, 0.85, 0.1], [-0.05, 0.75, 0.66], [0.1, 0.2, 0.98]].map(d=>{ const m = Math.hypot(d[0], d[1], d[2]); return [c0[0] + d[0]/m*0.078, c0[1] + d[1]/m*0.078, c0[2] + d[2]/m*0.078]; });
+  { const c0 = [-0.15, 0.52, 0.256], pts = [[-0.7, 0.4, -0.6], [-0.35, 0.85, 0.1], [-0.05, 0.75, 0.66], [0.1, 0.2, 0.98]].map(d=>{ const m = Math.hypot(d[0], d[1], d[2]); return [c0[0] + d[0]/m*0.078, c0[1] + d[1]/m*0.078, c0[2] + d[2]/m*0.078]; });
     pts.push([-0.12, 0.37, 0.4]);
-    P(b, K.tube(pts, 0.006, 14, 5), FC.scar);
+    P(b, K.tube(pts, 0.005, 14, 5), FC.scar);
     [1, 2].forEach(i=> P(b, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
   { const pts = []; for(let i=0;i<=8;i++){ const u = PI*0.75 + i*0.08, v = 0.35 + i*0.06; pts.push([Math.sin(u)*Math.cos(v)*0.39, 0.26 + Math.sin(v)*0.25, -0.03 + Math.cos(u)*Math.cos(v)*0.355]); }
     P(b, K.tube(pts, 0.008, 16, 5), FC.scar);
@@ -1076,9 +1078,9 @@ const FROG_OUTFIT = {
   flyhunt(c){ const g = group(c.b, 0.15, 0.85, 0.1); c.R.anim.push({ o:g, bob:0.06, speed:11 }); P(g, zs(0.03), 0x1a1a1a, 0, 0, 0, 0, 0, 0, 1, 1, 1.5); glow(c.R, g, 0.012, 0x9cff3a, 0, 0.01, 0.04); [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), new THREE.MeshBasicMaterial({ color:0xb8b8a8, transparent:true, opacity:0.45, side:THREE.DoubleSide })); w.position.set(s*0.05, 0.02, 0); w.rotation.set(-0.5, 0, s*0.5); g.add(w); c.R.glows.push(w); }); },
   mirror(c){ [[-0.1, 0.45, 0.25], [0.15, 0.4, 0.1]].forEach(([x, y, z])=> glow(c.R, c.b, 0.015, 0xd8e0e8, x, y, z)); },
   bubble(c){ P(c.b, CY(0.012, 0.012, 0.15, 6), 0x2a1c12, 0.12, 0.3, 0.4, PI/2, 0, -0.3); P(c.b, CY(0.04, 0.03, 0.06, 10), 0x2a1c12, 0.18, 0.33, 0.47); const bub = new THREE.Mesh(S(0.08, 12, 8), new THREE.MeshPhongMaterial({ color:0x8aa0a8, transparent:true, opacity:0.4, shininess:90 })); bub.position.set(0.2, 0.46, 0.5); c.b.add(bub); c.R.glows.push(bub); c.R.anim.push({ o:bub, bob:0.04, speed:3 }); },
-  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.b, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.b, 0.022, 0xff2a1a, s*0.15, 0.49, 0.3)); },
+  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.b, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.b, 0.022, 0xff2a1a, s*0.15, 0.52, 0.3)); },
   twin(c){},
-  zoomies(c){ P(c.b, zto(0.2, 0.016), 0x3a2a1e, 0, 0.5, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.b, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.5, 0.29, PI/2 - 0.3); P(c.b, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.505, 0.293, PI/2 - 0.3); }); },
+  zoomies(c){ P(c.b, zto(0.2, 0.016), 0x3a2a1e, 0, 0.53, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.b, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.53, 0.29, PI/2 - 0.3); P(c.b, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.535, 0.293, PI/2 - 0.3); }); },
   sticky(c){ P(c.b, zs(0.03), 0x9a6a7a, -0.06, 0.26, 0.39, 0, 0, 0, 1, 1.8, 1); }
 };
 
