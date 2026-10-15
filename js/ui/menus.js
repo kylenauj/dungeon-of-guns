@@ -24,6 +24,7 @@ UI.hide = function(){ const s = el("screens"); s.className = "screens"; s.innerH
 UI.handlers = {};
 UI.act = function(a, b){ const f = UI.handlers[a]; if(f) f(b); };
 UI.on = function(map){ Object.assign(UI.handlers, map); };
+UI.on({ music: b=>{ const on = DG.Audio.toggleMusic(); if(b) b.querySelector("small").textContent = on ? "on" : "off"; } });
 
 /* keyboard through menus: up/down, enter */
 UI.key = function(e){
@@ -62,6 +63,7 @@ UI.title = function(){
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
         <button class="item" data-act="ink">LOOK <small>${DG.Stage.fancy ? "ink" : "plain"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
+        <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
       </div>
       ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest floor ${b.floor} · foes slain ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound. Something down there is listening.</p>`}
     </div>`, "title");
@@ -107,6 +109,7 @@ UI.pause = function(G){
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
         <button class="item" data-act="ink">LOOK <small>${DG.Stage.fancy ? "ink" : "plain"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
+        <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
         <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
       </div>
     </div>`, "pause");
