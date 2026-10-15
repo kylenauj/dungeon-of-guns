@@ -249,70 +249,9 @@ proto.buildAreas = function(){
   }
 };
 
-/* ---- the shapes things take ---- */
-/* a dead tree: a twisting trunk in three tapering lengths, roots flared
-   into the floor, a few bare branches clawing up, dead moss hanging */
-function deadTree(P, g, cx, cz, ht, rs, s){
-  const rr = DG.RNG(Math.floor(s*1e6) + 7).next, bark = [0x2a2420, 0x2e2622, 0x262022][Math.floor(rr()*3)];
-  const pts = []; let px = cx, pz = cz;
-  for(let k=0;k<=6;k++){ pts.push([px, k/6*ht, pz]); px += (rr() - 0.5)*rs*1.6; pz += (rr() - 0.5)*rs*1.6; }
-  [[0, 3, 1], [2, 5, 0.72], [4, 7, 0.48]].forEach(([a, b, k])=> P(g, K.tube(pts.slice(a, b), rs*k, 8, 7), bark));
-  P(g, K.slathe([[rs*1.9, 0], [rs*1.25, 0.12], [rs*1.02, 0.35], [rs*0.98, 0.5]], 9, 3), bark, cx, 0, cz);
-  for(let k=0;k<5;k++){
-    const a = k/5*PI*2 + rr()*0.8, l = rs*(2.6 + rr()*2.4);
-    P(g, K.tube([[cx + Math.cos(a)*rs*0.6, 0.35, cz + Math.sin(a)*rs*0.6], [cx + Math.cos(a)*l*0.5, 0.14, cz + Math.sin(a)*l*0.5], [cx + Math.cos(a)*l, 0.0, cz + Math.sin(a)*l]], rs*0.32, 6, 6), bark);
-  }
-  const tips = [];
-  for(let k=0;k<3;k++){
-    const i = 3 + Math.floor(rr()*3), o = pts[Math.min(6, i)], a = rr()*PI*2, l = ht*(0.3 + rr()*0.2);
-    const m1 = [o[0] + Math.cos(a)*l*0.45, o[1] + l*0.2, o[2] + Math.sin(a)*l*0.45], e = [o[0] + Math.cos(a + 0.6)*l, o[1] + l*0.55, o[2] + Math.sin(a + 0.6)*l];
-    P(g, K.tube([o, m1, e], rs*0.28, 6, 6), bark);
-    const tw = [e[0] + Math.cos(a - 0.9)*l*0.35, e[1] + l*0.3, e[2] + Math.sin(a - 0.9)*l*0.35];
-    P(g, K.tube([m1, [(m1[0] + tw[0])/2, m1[1] + l*0.2, (m1[2] + tw[2])/2], tw], rs*0.14, 4, 6), bark);
-    tips.push(m1, e);
-  }
-  // dead moss hanging off the branches
-  tips.forEach((t, i)=>{ if(rr() < 0.65) for(let k=0;k<3;k++){ const l = 0.3 + rr()*0.6; P(g, new THREE.ConeGeometry(0.035 + rr()*0.02, l, 4), [0x3a4034, 0x2e3428][k % 2], t[0] + (rr() - 0.5)*0.2, t[1] - l/2, t[2] + (rr() - 0.5)*0.2, PI); } });
-  return pts[6];
-}
-/* a giant glowcap: a pale fibrous stalk with a swollen foot and a torn ring,
-   a dark bell of a cap that is lumpy and sagging, glowing at the gills */
-function glowcap(P, g, lit, cx, cz, ht, R, col, s){
-  const rr = DG.RNG(Math.floor(s*1e6) + 3).next, lean = (rr() - 0.5)*0.25;
-  const tx = cx - Math.sin(lean)*ht, top = ht*Math.cos(lean);
-  P(g, K.sculpt(K.slathe([[R*0.5, 0], [R*0.4, R*0.12], [R*0.24, R*0.4], [R*0.19, ht*0.55], [R*0.22, ht + 0.02]], 10, 3), R*0.035, 6/R, s*9), 0x8e8a86, cx, 0, cz, 0, 0, lean);
-  P(g, K.tatter(new THREE.CylinderGeometry(R*0.26, R*0.42, R*0.3, 16, 3, true), -R*0.04, 11, R*0.22, s*5), 0xa4a098, cx - Math.sin(lean)*ht*0.72, ht*0.72, cz);
-  const cap = K.sculpt(K.slathe([[R, 0], [R*0.94, R*0.22], [R*0.74, R*0.56], [R*0.42, R*0.82], [R*0.12, R*0.94], [0, R*0.96]], 14, 3), R*0.07, 3.2/R, s*13);
-  const capCol = [0x2e2a34, 0x2a2e32, 0x332a30, 0x28302e][Math.floor(rr()*4)];
-  P(g, cap, capCol, tx, top - R*0.08, cz, 0, rr()*6, lean*0.6, 1, 0.9, 1);
-  // the gills glow: an unlit ring at the rim and a bright cone under the cap
-  P(lit, new THREE.TorusGeometry(R*0.97, R*0.03, 4, 28), col, tx, top - R*0.08, cz, PI/2, 0, lean*0.6);
-  P(lit, new THREE.CylinderGeometry(R*0.92, R*0.2, R*0.2, 20, 1, true), new THREE.Color(col).multiplyScalar(0.7).getHex(), tx, top - R*0.18, cz, 0, 0, lean*0.6);
-  // threads of mycelium hanging from the rim
-  for(let k=0;k<6;k++){ const a = rr()*PI*2, l = 0.15 + rr()*0.45; P(g, new THREE.CylinderGeometry(0.008, 0.003, l, 3), 0xb8c0c4, tx + Math.cos(a)*R*0.9, top - R*0.1 - l/2, cz + Math.sin(a)*R*0.9); }
-  return { x:tx, y:top - R*0.15, z:cz };
-}
-/* a crate gone soft with age: dark planks, iron at the corners */
-function crate(P, g, s, x, y, z, ry, wood){
-  const iron = 0x26262a, dk = new THREE.Color(wood).multiplyScalar(0.62).getHex();
-  P(g, new THREE.BoxGeometry(s, s*0.92, s), wood, x, y + s*0.46, z, 0, ry, 0);
-  const c = Math.cos(ry), sn = Math.sin(ry), at = (u, v)=> [x + u*c + v*sn, z - u*sn + v*c];
-  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v])=>{ const [px, pz] = at(u*s*0.48, v*s*0.48); P(g, new THREE.BoxGeometry(s*0.1, s*0.94, s*0.1), iron, px, y + s*0.46, pz, 0, ry, 0); });
-  [0.06, 0.86].forEach(k=>{ P(g, new THREE.BoxGeometry(s*1.02, s*0.08, s*1.02), dk, x, y + s*k, z, 0, ry, 0); });
-  // planks scored across the top, a brace across the front
-  for(let k=-1;k<=1;k++){ const [px, pz] = at(k*s*0.3, 0); P(g, new THREE.BoxGeometry(s*0.02, s*0.02, s*0.96), dk, px, y + s*0.925, pz, 0, ry, 0); }
-  const [bx, bz] = at(0, s*0.51); P(g, new THREE.BoxGeometry(s*1.1, s*0.08, s*0.03), dk, bx, y + s*0.46, bz, 0, ry, 0.72);
-}
-/* a skull, small enough to scatter (faces +z) */
-function skull(P, g, x, y, z, r, ry, col){
-  col = col || 0xb8ac90;
-  P(g, new THREE.SphereGeometry(r, 10, 8), col, x, y + r, z, 0, ry, 0, 1, 0.92, 1.12);
-  const c = Math.cos(ry), s = Math.sin(ry), at = (u, v)=> [x + u*c + v*s, z - u*s + v*c];
-  const [jx, jz] = at(0, r*0.62); P(g, new THREE.BoxGeometry(r*1.05, r*0.55, r*0.6), col, jx, y + r*0.42, jz, 0, ry, 0);
-  [-1, 1].forEach(k=>{ const [ex, ez] = at(k*r*0.38, r*0.86); P(g, new THREE.SphereGeometry(r*0.24, 6, 4), 0x0e0a08, ex, y + r*1.02, ez); });
-  const [nx, nz] = at(0, r*1.0); P(g, new THREE.ConeGeometry(r*0.12, r*0.2, 3), 0x0e0a08, nx, y + r*0.7, nz, PI, ry, 0);
-}
-World.deadTree = deadTree; World.glowcap = glowcap; World.crate = crate; World.skull = skull;
+/* ---- the shapes things take (shared with the decor: decor.js) ---- */
+const deadTree = (...a)=> DG.Decor.deadTree(...a), glowcap = (...a)=> DG.Decor.glowcap(...a), crate = (...a)=> DG.Decor.crate(...a);
+const skull = (P, g, x, y, z, r, ry, col)=> DG.Decor.skull(g, x, y, z, r, ry, 0, col);
 
 /* a lone block, in the room's style: a column (cracked, banded, broken, or
    ringed with skulls in the crypt), a stack of rotten crates, a leaning
@@ -702,7 +641,7 @@ proto.buildTraps = function(){
 /* (a list other than the dungeon's own comes from vanity.js: those can
    sit on any wall face (face + rotY) or on top of a wall (h)) */
 proto.buildDecor = function(list){
-  const W = this, D = W.D, perArea = {}, glows = {};
+  const W = this, D = W.D, perArea = {}, litArea = {}, glows = {};
   const tmp = new THREE.Matrix4();
   (list || D.decor).forEach(d=>{
     const o = DG.Decor.build(d.kind, W.rnd);
@@ -713,27 +652,29 @@ proto.buildDecor = function(list){
     holder.scale.setScalar(d.s || 1);
     holder.updateMatrix();
     if(o.loose){ o.group.position.copy(holder.position); o.group.rotation.copy(holder.rotation); o.group.scale.copy(holder.scale); W.areaGroup(a).add(o.group); return; }
-    const target = perArea[a] || (perArea[a] = new THREE.Group());
+    const target = perArea[a] || (perArea[a] = new THREE.Group()), litT = litArea[a] || (litArea[a] = new THREE.Group());
     o.group.children.slice().forEach(m=>{
       if(!m.userData.part){ return; }
       m.updateMatrix(); tmp.multiplyMatrices(holder.matrix, m.matrix);
       tmp.decompose(m.position, m.quaternion, m.scale);
-      target.add(m);
+      (m.userData.lit ? litT : target).add(m);
     });
     const wp = v=> new THREE.Vector3(v.x, v.y, v.z).applyMatrix4(holder.matrix);
     o.glows.forEach(gl=>{ const p = wp(gl); (glows[a] = glows[a] || []).push({ x:p.x, y:p.y, z:p.z, c:gl.c, s:gl.s*(d.s || 1) }); if(gl.cap){ const m = new THREE.Mesh(new THREE.SphereGeometry(gl.cap, 10, 6, 0, PI*2, 0, PI/2), new THREE.MeshBasicMaterial({ color:gl.c })); m.position.copy(p); W.areaGroup(a).add(m); } });
     o.lights.forEach(l=>{ const p = wp(l); W.lights.push({ x:p.x, y:p.y, z:p.z, c:l.c, i:l.i, room:d.room, ph:W.rnd()*6, small:true }); });
     o.eyes.forEach(e=>{
       const p = wp(e), g = new THREE.Group(); g.position.copy(p);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(e.r, 12, 10), K.lambert(0xf4ece4)); g.add(ball);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(e.r*0.55, 10, 8), K.basic(0xd84aff)); iris.position.z = e.r*0.62; iris.scale.z = 0.5;
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(e.r*0.28, 8, 6), K.basic(0x080808)); pupil.position.z = e.r*0.92; pupil.scale.z = 0.4;
+      // a sunken, bloodshot thing: yellowed, a burning slit for a pupil
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(e.r, 12, 10), K.lambert(0x6a5a3e)); g.add(ball);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(e.r*0.5, 10, 8), K.basic(0x8aa020)); iris.position.z = e.r*0.66; iris.scale.z = 0.45;
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(e.r*0.3, 8, 6), K.basic(0xd8ff4a)); pupil.position.z = e.r*0.92; pupil.scale.set(0.22, 1.1, 0.3);
       const look = new THREE.Group(); look.add(iris); look.add(pupil); g.add(look);
       W.areaGroup(a).add(g);
       W.eyes.push({ g, look, x:p.x, z:p.z, wall:!!e.wall, blink:W.rnd()*5 });
     });
   });
-  for(const a in perArea){ const g = perArea[a]; W.areaGroup(+a).add(g); K.bake(g, { w:0.018 }); }
+  for(const a in perArea){ const g = perArea[a]; if(g.children.length){ W.areaGroup(+a).add(g); K.bake(g, { w:0.018 }); } }
+  for(const a in litArea){ const g = litArea[a]; if(g.children.length){ W.areaGroup(+a).add(g); K.bake(g, { mat:W.mats.lit, outline:false }); } }
   // the glows of a room: one draw
   for(const a in glows){
     const list = glows[a], hp = [], hc = [], hs = [], c = new THREE.Color();
