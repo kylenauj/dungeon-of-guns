@@ -14,6 +14,9 @@ const L = DG.Loot = {};
 let uidN = 0;
 L.uid = ()=> "i" + (++uidN);
 
+L.MASTERY_K = 0.06; L.MASTERY_MAX = 5;
+/* kills a gun needs for its next rank of mastery */
+L.masteryNeed = rank=> 40 + 30*rank;
 L.power = (level, rarity)=> (1 + 0.3*(level - 1))*DG.RARITY[rarity].mul;
 
 L.rollRarity = function(rng, level, boost, min){
@@ -77,7 +80,8 @@ L.price = function(item, floor){
 /* the numbers a gun fires with, once everything Zippy owns (M) is counted */
 L.stats = function(gun, M){
   M = M || DG.Items.blank();
-  const B = DG.GUNS[gun.base], power = L.power(gun.level, gun.rarity);
+  // mastery: a gun you keep killing with grows with you (+6% a rank, 5 ranks)
+  const B = DG.GUNS[gun.base], power = L.power(gun.level, gun.rarity)*(1 + L.MASTERY_K*(gun.mastery || 0));
   const cl = (v, lo)=> Math.max(lo, v);
   return {
     power,

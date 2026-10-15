@@ -170,8 +170,10 @@ function tryGenerate(rng, floor, seed){
   rooms.forEach(r=>{
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
     if(r.type === "treasure"){
-      if(floor >= 3){ r.props.push({ kind:"pedestal", x:cx - 2, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx + 2, y:cy, group:1 }); r.props.push({ kind:"sign", x:cx, y:r.y1, text:"CHOOSE ONE. The other one sinks. Rules are rules." }); }
-      else r.props.push({ kind:"pedestal", x:cx, y:cy });
+      // always a choice: an item, or a weapon to build around (from floor 3, a second item too)
+      if(floor >= 3){ r.props.push({ kind:"pedestal", x:cx - 3, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx + 3, y:cy, group:1, sell:"gift" }); }
+      else { r.props.push({ kind:"pedestal", x:cx - 2, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx + 2, y:cy, group:1, sell:"gift" }); }
+      r.props.push({ kind:"sign", x:cx, y:r.y1, text:"CHOOSE ONE. The rest crumble. Rules are rules." });
     }
     if(r.type === "secret"){ r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"x" }); }
     if(r.type === "altar"){
@@ -180,8 +182,10 @@ function tryGenerate(rng, floor, seed){
     }
     if(r.type === "shop"){
       r.props.push({ kind:"merchant", x:cx, y:r.y1 + 1 });
-      const sells = ["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal"];
-      sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - 4 + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
+      // each shop stocks 3 to 5 wares (at least one item); the Membership Card adds two
+      const n = rng.int(3, 5);
+      const sells = ["item"].concat(rng.shuffle(["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal"]).slice(0, n - 1));
+      sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - (n - 1) + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
     }
     if(r.type === "pond") makePond(D, rng, r);
     if(r.type === "boss") r.boss = { x:r.cxw, y:r.y1 + 3.5 };

@@ -324,13 +324,31 @@ test("the shop takes your gold", ()=>{
   assert.ok(G.player.hp > 10);
 });
 
-test("choosing one treasure pedestal sinks the other", ()=>{
-  const G = game("TREASURE", 3);
-  const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
-  assert.equal(peds.length, 2);
-  G.player.x = peds[0].x + 0.5; G.player.y = peds[0].y + 1.2; G.room = r;
-  G.interact();
-  assert.ok(peds[0].taken && peds[1].sunk);
+test("a treasure room is a choice, item or weapon: take one and the rest crumble", ()=>{
+  [[1, 2], [3, 3]].forEach(([floor, n])=>{
+    const G = game("TREASURE", floor);
+    const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
+    assert.equal(peds.length, n, "floor " + floor);
+    assert.ok(peds.some(p=> p.offer.kind === "gun" && !p.offer.price), "a free weapon among them");
+    assert.ok(peds.some(p=> p.offer.kind === "item"), "and an item");
+    const gun = peds.find(p=> p.offer.kind === "gun");
+    G.player.x = gun.x + 0.5; G.player.y = gun.y + 1.2; G.room = r;
+    G.interact();
+    assert.ok(gun.taken && peds.filter(p=> p !== gun).every(p=> p.sunk));
+  });
+});
+
+test("a gun grows with the kills you make with it", ()=>{
+  const G = game("MASTERY"), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+  const g = G.gun(), dmg0 = G.gunStats().dmg;
+  let ev = [];
+  for(let i=0; i<DG.Loot.masteryNeed(0); i++){ const e = addEnemy(G, r, spot.x + 2, spot.y); G.killEnemy(e, {}); ev = ev.concat(G.drain()); }
+  assert.equal(g.mastery, 1, "rank I");
+  assert.ok(ev.some(e=> e.type === "mastery"));
+  assert.ok(Math.abs(G.gunStats().dmg/dmg0 - (1 + DG.Loot.MASTERY_K)) < 1e-6, "+6% damage");
+  for(let k=0; k<700; k++){ const e = addEnemy(G, r, spot.x + 2, spot.y); G.killEnemy(e, {}); }
+  assert.equal(g.mastery, DG.Loot.MASTERY_MAX, "it stops at the cap");
 });
 
 /* ================================================================== *
@@ -941,4 +959,29 @@ test("a false door is worth a knock: the first bonk can shake loose a stash", ()
     assert.ok(!G.drain().some(e=> e.type === "stash"), "only the first knock");
   }
   assert.ok(doors > 10 && stashes > 0 && stashes < doors, stashes + " stashes behind " + doors + " doors");
+});
+
+test("shops vary in size, and the Membership Card adds wares and takes 20% off", ()=>{
+  const sizes = new Set();
+  for(let s=1; s<30; s++){
+    const G = game("SHOP" + s), r = G.D.rooms.find(x=> x.type === "shop"); if(!r) continue;
+    const peds = r.props.filter(p=> p.kind === "pedestal");
+    sizes.add(peds.length);
+    assert.ok(peds.length >= 3 && peds.length <= 5);
+    assert.ok(peds.some(p=> p.offer.kind === "item"), "always at least one item");
+  }
+  assert.ok(sizes.size >= 2, "not every shop is the same size");
+  for(let s=1; s<30; s++){
+    const G = game("MEMBER" + s), r = G.D.rooms.find(x=> x.type === "shop"); if(!r) continue;
+    G.giveItem("membercard", true); G.god = true;
+    const before = r.props.filter(p=> p.kind === "pedestal"), prices = before.map(p=> p.offer.price);
+    const spot = G.freeSpot(r, r.cxw, r.cyw - 1); G.player.x = spot.x; G.player.y = spot.y;
+    step(G, 0.1);
+    const after = r.props.filter(p=> p.kind === "pedestal");
+    if(after.length === before.length) continue;     // no room either side: try another shop
+    assert.ok(after.length > before.length, "more wares");
+    before.forEach((p, i)=> assert.equal(p.offer.price, Math.round(prices[i]*0.8), "20% off"));
+    return;
+  }
+  assert.fail("no shop had room for more wares");
 });

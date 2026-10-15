@@ -113,6 +113,7 @@ proto.makeOffer = function(r, pr){
   const G = this, f = G.floor;
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
+  if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
   if(pr.sell === "ward") return { kind:"ward", n:2, price:L.price({ kind:"ward" }, f), currency:"gold", name:"Two Wards" };
   if(pr.sell === "active"){ const id = G.rng.pick(Object.keys(DG.ACTIVES)); return { kind:"active", id, price:L.price({ kind:"active" }, f), currency:"gold", name:DG.ACTIVES[id].name }; }
@@ -581,7 +582,7 @@ proto.updateRooms = function(dt){
       if(!inside.visited){ inside.visited = true; G.emit("visit", { room:inside.id }); }
       G.emit("enter", { room:inside.id, type:inside.type });
       if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss")) G.activate(inside);
-      if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); }
+      if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); if(G.mods.special.member) G.memberShop(inside); }
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
       if(inside.type === "secret" && !inside.found){ inside.found = true; G.emit("secretRoom", { room:inside.id }); }
@@ -709,6 +710,18 @@ proto.dropGold = function(x, y, amount){
   while(amount > 0){ const v = amount >= 10 ? 5 : 1; this.addPickup("gold", x, y, v); amount -= v; }
 };
 proto.dropItem = function(x, y, item){ return this.addPickup("item", x, y, 0, item); };
+/* Snibbit's Membership Card: two more wares in the shop, and 20% off the lot */
+proto.memberShop = function(r){
+  const G = this; if(r.memberDone) return; r.memberDone = true;
+  const peds = r.props.filter(p=> p.kind === "pedestal");
+  const y = peds.length ? peds[0].y : Math.floor(r.cyw) + 1, xs = peds.map(p=> p.x);
+  [Math.min(...xs) - 2, Math.max(...xs) + 2].forEach((x, i)=>{
+    if(x <= r.x1 || x >= r.x2 || G.blocked(x, y, "player")) return;
+    G.addProp(r, { kind:"pedestal", x, y, sell:i ? null : (G.rng.chance(0.5) ? "active" : null), pool:"s" });
+  });
+  r.props.forEach(p=>{ if(p.kind === "pedestal" && p.offer && p.offer.currency === "gold") p.offer.price = Math.round(p.offer.price*0.8); });
+  G.say("Ah, a member! Do browse the back room.", 2.5);
+};
 proto.addProp = function(r, pr){ this.initProp(r, pr); r.props.push(pr); this.emit("prop", { prop:pr }); return pr; };
 
 proto.updatePickups = function(dt){

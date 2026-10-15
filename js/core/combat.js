@@ -484,6 +484,16 @@ proto.killEnemy = function(e, src, fell){
   G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, boss:!!e.boss, fell:!!fell, midas:!!M.special.midas });
   p.mana = Math.min(p.maxMana, p.mana + DG.PLAYER.manaOnKill + M.killMana);
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
+  // the gun in your hand learns from every kill
+  const gun = G.gun();
+  if(gun && !e.decoy && (gun.mastery || 0) < DG.Loot.MASTERY_MAX){
+    gun.kills = (gun.kills || 0) + (e.boss ? 10 : 1);
+    if(gun.kills >= DG.Loot.masteryNeed(gun.mastery || 0)){
+      gun.kills = 0; gun.mastery = (gun.mastery || 0) + 1; G.recalc();
+      G.emit("mastery", { name:gun.name, rank:gun.mastery, x:p.x, y:p.y });
+      G.say(gun.name + " grows stronger. Mastery " + ["", "I", "II", "III", "IV", "V"][gun.mastery] + ".", 2.5);
+    }
+  }
   G.chargeActive(0.08);
   const [g0, g1] = e.def.gold || [1, 2];
   // deeper floors have more goblins already, so each one only pays a little more
