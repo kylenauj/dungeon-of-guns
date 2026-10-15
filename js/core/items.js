@@ -30,7 +30,7 @@ DG.TIERS = [
 ];
 /* how likely each tier is, per pool (floor nudges these up) */
 DG.POOL_TIERS = {
-  t:[52, 32, 13, 2.6, 0.4],
+  t:[34, 40, 20, 5,   1],
   s:[50, 36, 13, 1,   0],
   b:[18, 38, 32, 10,  2],
   x:[8,  28, 40, 19,  5],
