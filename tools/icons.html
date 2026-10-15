@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Icon Sheet</title>
+<!-- every icon DG.Icons draws, at 64px, 32px and 24px, to check they read.
+     Serve the repo root and open /tools/icons.html -->
+<style>
+  body{margin:0;padding:16px;background:#0b0908;color:#d8ccb0;font:13px Georgia,serif;}
+  h2{font-weight:400;letter-spacing:.2em;color:#c8a45a;margin:18px 0 8px;font-size:15px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:6px;}
+  .c{background:#141110;border:1px solid #2a2420;padding:6px 4px 5px;text-align:center;}
+  .c div{display:flex;align-items:center;justify-content:center;gap:5px;height:66px;}
+  .c small{display:block;margin-top:3px;font-size:11px;line-height:1.15;color:#a89c84;word-break:break-word;}
+  .c i{display:block;font-style:normal;font-size:9px;color:#6a6050;}
+</style>
+</head>
+<body>
+<script src="../js/core/core.js"></script>
+<script src="../js/core/data.js"></script>
+<script src="../js/core/items.js"></script>
+<script src="../js/ui/icons.js"></script>
+<script>
+(function(){
+  const I = DG.Icons, groups = {};
+  Object.keys(I.GLYPHS).forEach(g=> (groups.glyph = groups.glyph || []).push("glyph:" + g));
+  I.keys().forEach(k=>{ const ns = k.indexOf(":") > 0 ? k.split(":")[0] : "item"; (groups[ns] = groups[ns] || []).push(k); });
+  const name = k=>{
+    const [ns, id] = k.indexOf(":") > 0 ? [k.split(":")[0], k.split(":")[1]] : ["item", k];
+    const T = { item:DG.ITEMS, active:DG.ACTIVES, frog:DG.FROG_BUFFS }[ns];
+    return T && T[id] ? T[id].name : id;
+  };
+  Object.keys(groups).forEach(ns=>{
+    const h = document.createElement("h2"); h.textContent = ns.toUpperCase() + " (" + groups[ns].length + ")"; document.body.appendChild(h);
+    const grid = document.createElement("div"); grid.className = "grid"; document.body.appendChild(grid);
+    groups[ns].forEach(k=>{
+      const c = document.createElement("div"); c.className = "c";
+      const row = document.createElement("div");
+      [64, 32, 24].forEach(s=>{ const cv = I.canvas(k, s*2); cv.style.width = cv.style.height = s + "px"; row.appendChild(cv); });
+      c.appendChild(row);
+      const sp = I.spec(k);
+      c.insertAdjacentHTML("beforeend", "<small>" + name(k) + "</small><i>" + (ns === "item" ? I.ITEMS[k] : sp.g) + "</i>");
+      grid.appendChild(c);
+    });
+  });
+  document.title = "Icon Sheet";
+  window.ICONS_DONE = true;
+})();
+</script>
+</body>
+</html>

@@ -881,3 +881,37 @@ test("what you carried last run turns up less in the next", ()=>{
   assert.deepEqual(G.meta.recentRuns, [["spinach"], ["coffee"]]);
   assert.deepEqual(G.meta.recent.sort(), ["coffee", "spinach"]);
 });
+
+/* ================================================================== *
+ *  Icons: every powerup, active and frog trick has a glyph that exists
+ * ================================================================== */
+test("every item, active, frog trick, gun and set has an icon whose glyphs exist", ()=>{
+  require("../js/ui/icons.js");
+  const I = DG.Icons;
+  const check = (table, ids, what)=> ids.forEach(id=>{
+    const s = I.parse(table[id]);
+    assert.ok(s, what + " " + id + " has an icon spec (" + table[id] + ")");
+    assert.equal(typeof I.GLYPHS[s.g], "function", what + " " + id + ": glyph " + s.g + " exists");
+    if(s.badge) assert.equal(typeof I.GLYPHS[s.badge], "function", what + " " + id + ": badge " + s.badge + " exists");
+    s.els.forEach(el=> assert.ok(DG.ELEMENTS[el], what + " " + id + ": element " + el + " exists"));
+  });
+  check(I.ITEMS, Object.keys(DG.ITEMS), "item");
+  check(I.ACTIVES, Object.keys(DG.ACTIVES), "active");
+  check(I.FROG, Object.keys(DG.FROG_BUFFS), "frog trick");
+  check(I.GUNS, DG.GUN_ORDER, "gun");
+  check(I.SETS, DG.SETS.map(s=> s.id), "set");
+  // nothing in the tables that the game doesn't have
+  Object.keys(I.ITEMS).forEach(id=> assert.ok(DG.ITEMS[id], "icon for a real item: " + id));
+  // no two powerups look the same: glyph, copies, crack, badge and elements together
+  const seen = {};
+  Object.keys(DG.ITEMS).forEach(id=>{
+    const s = I.spec(id), sig = [s.g, s.n, s.crack, s.badge, s.els.join(","), s.rot].join("|");
+    assert.ok(!seen[sig], id + " looks just like " + seen[sig] + " (" + sig + ")");
+    seen[sig] = id;
+  });
+  // namespaced keys resolve to their own tables (item "dice" and active "dice" differ)
+  assert.equal(I.spec("active:dice").shape, "shield");
+  assert.equal(I.spec("frog:mirror").g, "mirror");
+  assert.equal(I.spec("gun:rifle:shock:3").els[0], "shock");
+  assert.equal(I.spec("prismheart").els.length, DG.ELEMENT_ORDER.length);
+});
