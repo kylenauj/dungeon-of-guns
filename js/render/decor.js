@@ -89,7 +89,7 @@ function candle(o, g, x, z, h, r, col, flame, y0){
   if(flame !== false){ L(g, CO(r*0.5, r*1.7 + 0.03, 5), flame || 0xffd890, x, y0 + h + 0.05, z); o.glows.push({ x, y:y0 + h + 0.07, z, c:flame ? flame : 0xffa850, s:0.32 }); }
 }
 /* a pool of old wax spread over the floor */
-function waxpool(g, r, seed, col){ P(g, K.sculpt(new THREE.SphereGeometry(r, 14, 6, 0, PI*2, 0, PI/2), r*0.18, 5/r, seed*7), col || WAX2, 0, 0, 0, 0, 0, 0, 1, 0.12, 1); }
+function waxpool(g, r, seed, col){ r *= 0.62; P(g, K.sculpt(new THREE.SphereGeometry(r, 14, 6, 0, PI*2, 0, PI/2), r*0.22, 5/r, seed*7), col || 0xa89a78, 0, 0, 0, 0, 0, 0, 1, 0.1, 1); }
 /* a crate gone soft with age: dark planks, iron at the corners */
 function crate(Pp, g, s, x, y, z, ry, wood){
   const dk = new THREE.Color(wood).multiplyScalar(0.62).getHex();
@@ -121,7 +121,7 @@ function deadTree(Pp, g, cx, cz, ht, rs, s){
     P(g, K.tube([m1, [(m1[0] + tw[0])/2, m1[1] + l*0.2, (m1[2] + tw[2])/2], tw], rs*0.14, 4, 6), bark);
     tips.push(m1, e);
   }
-  tips.forEach(t=>{ if(rr() < 0.65) for(let k=0;k<3;k++){ const l = 0.3 + rr()*0.6; P(g, CO(0.035 + rr()*0.02, l, 4), [0x3a4034, 0x2e3428][k % 2], t[0] + (rr() - 0.5)*0.2, t[1] - l/2, t[2] + (rr() - 0.5)*0.2, PI); } });
+  tips.forEach(t=>{ if(rr() < 0.6) for(let k=0;k<4;k++){ const l = 0.2 + rr()*0.45; P(g, CO(0.012 + rr()*0.01, l, 3), [0x22261e, 0x2a2c22][k % 2], t[0] + (rr() - 0.5)*0.16, t[1] - l/2, t[2] + (rr() - 0.5)*0.16, PI); } });
   return pts[6];
 }
 /* a giant glowcap: a pale fibrous stalk with a swollen foot and a torn ring,
@@ -381,10 +381,10 @@ const B = {
       const t = glowcap(P, o.group, o.group, Math.cos(a)*d, Math.sin(a)*d, R*3 + rnd()*0.3, R, c, rnd()); o.glows.push({ x:t.x, y:t.y, z:t.z, c, s:R*5 }); }
     o.lights.push({ x:0, y:0.8, z:0, c, i:0.8 });
   },
-  fern(o, rnd){ for(let i=0;i<7;i++){ const a = i/7*PI*2 + rnd()*0.4, l = 0.3 + rnd()*0.2; P(o.group, K.tube([[0, 0.02, 0], [Math.cos(a)*l*0.4, 0.2, Math.sin(a)*l*0.4], [Math.cos(a)*l, 0.03, Math.sin(a)*l]], 0.008, 6, 3), 0x3a3424); for(let k=1;k<4;k++){ const f = k/4; P(o.group, BX(0.1*(1 - f*0.5), 0.006, 0.025), [0x2e3424, 0x3a3428][k % 2], Math.cos(a)*l*f, 0.03 + Math.sin(f*PI)*0.17, Math.sin(a)*l*f, 0, -a, 0.3); } } },
+  fern(o, rnd){ for(let i=0;i<14;i++){ const a = rnd()*PI*2, l = 0.15 + rnd()*0.25, lean = 0.3 + rnd()*0.6; P(o.group, CO(0.012, l, 3), [0x3a3424, 0x4a4030, 0x2e2a1e][i % 3], Math.cos(a)*0.06 + Math.cos(a)*Math.sin(lean)*l/2, Math.cos(lean)*l/2, Math.sin(a)*0.06 + Math.sin(a)*Math.sin(lean)*l/2, Math.sin(a)*lean, 0, -Math.cos(a)*lean); } },
   log(o, rnd){
     P(o.group, K.sculpt(CY(0.2, 0.23, 1.3, 12), 0.03, 6, rnd()*9), 0x2e2420, 0, 0.2, 0, 0, 0, PI/2); P(o.group, CY(0.17, 0.17, 0.02, 12), 0x5a4a3a, 0.66, 0.2, 0, 0, 0, PI/2); P(o.group, CY(0.1, 0.1, 0.03, 10), 0x0e0a08, 0.665, 0.2, 0, 0, 0, PI/2);
-    for(let i=0;i<4;i++){ const x = -0.4 + i*0.25, r = 0.07 + rnd()*0.05; P(o.group, K.lump(r, 1, 0.3, rnd()*9), 0x4a4238, x, 0.36, 0.14, 0, 0, 0, 1.2, 0.35, 1); L(o.group, TO(r*1.05, 0.008, PI*2, 3, 12), 0x3ab8e8, x, 0.355, 0.14, PI/2); }
+    for(let i=0;i<3;i++){ const x = -0.45 + i*0.3 + (rnd() - 0.5)*0.12, r = 0.05 + rnd()*0.06, y = 0.28 + rnd()*0.12; P(o.group, K.lump(r, 1, 0.4, rnd()*9), 0x4a4238, x, y, 0.17, 0.3, 0, 0, 1.4, 0.3, 0.9); L(o.group, TO(r*1.1, 0.007, PI, 3, 10), 0x3ab8e8, x, y - 0.01, 0.17, PI/2 + 0.3, 0, PI); }
     o.glows.push({ x:-0.05, y:0.38, z:0.15, c:0x3ab8ff, s:0.5 });
     P(o.group, K.sculpt(new THREE.SphereGeometry(0.25, 10, 5, 0, PI*2, 0, PI/2), 0.04, 8, rnd()*9), 0x2a3428, 0.2, 0.36, 0, 0, 0, 0, 1, 0.25, 0.8);
   },
@@ -403,9 +403,9 @@ const B = {
   frogstatue(o){
     // a toad idol, squat and pitted, sunk in moss; its crown has gone green
     P(o.group, BX(0.9, 0.3, 0.9), 0x46443e, 0, 0.15, 0);
-    P(o.group, K.sculpt(new THREE.SphereGeometry(0.36, 16, 10), 0.03, 9, 4), 0x5a5e52, 0, 0.55, 0, 0, 0, 0, 1.2, 0.72, 1);
+    P(o.group, K.lump(0.36, 3, 0.18, 4), 0x50544a, 0, 0.55, 0, 0, 0, 0, 1.2, 0.7, 1);
     P(o.group, BX(0.42, 0.02, 0.06), 0x14140f, 0, 0.5, 0.33, 0, 0, 0);
-    [-1, 1].forEach(s=>{ P(o.group, S(0.09, 8, 6), 0x5a5e52, s*0.17, 0.76, 0.2); P(o.group, S(0.035, 6, 4), 0x0a0a08, s*0.17, 0.78, 0.28); P(o.group, S(0.1, 8, 6), 0x5a5e52, s*0.33, 0.28, 0.24, 0, 0, 0, 1, 0.5, 1.3); });
+    [-1, 1].forEach(s=>{ P(o.group, S(0.07, 8, 6), 0x50544a, s*0.17, 0.72, 0.22, 0, 0, 0, 1, 0.6, 1); P(o.group, BX(0.08, 0.012, 0.03), 0x0a0a08, s*0.17, 0.75, 0.28, 0, 0, s*0.3); P(o.group, S(0.1, 8, 6), 0x50544a, s*0.33, 0.28, 0.24, 0, 0, 0, 1, 0.5, 1.3); for(let k=0;k<3;k++) P(o.group, CO(0.012, 0.06, 3), 0x3a3a34, s*(0.28 + k*0.04), 0.26, 0.4, PI/2, 0, 0); });
     P(o.group, CY(0.12, 0.14, 0.09, 8), 0x4a5a3a, 0, 0.93, 0.03); for(let k=0;k<6;k++){ const a = k/6*PI*2; P(o.group, CO(0.025, 0.07, 4), 0x4a5a3a, Math.cos(a)*0.11, 1.0, 0.03 + Math.sin(a)*0.11); }
     P(o.group, K.sculpt(new THREE.SphereGeometry(0.5, 12, 5, 0, PI*2, 0, PI/2), 0.05, 7, 3), 0x2a3428, 0, 0.3, 0, 0, 0, 0, 1, 0.12, 1);
   },
@@ -439,7 +439,7 @@ const B = {
   },
   shelf(o, rnd){ P(o.group, BX(0.7, 0.05, 0.22), WOOD, 0, 1.1, 0.11, 0, 0, 0.08); P(o.group, BX(0.04, 0.2, 0.04), IRON, -0.3, 1.0, 0.03); for(let i=0;i<3;i++) P(o.group, K.slathe([[0, 0], [0.05, 0], [0.06, 0.08], [0.03, 0.15], [0.035, 0.18], [0, 0.18]], 8, 2), [0x3a3a30, 0x4a3a2a, 0x2a3434][i], (i - 1)*0.2, 1.13 + (i - 1)*0.016, 0.11); skull(o.group, 0.32, 1.16, 0.1, 0.06, -0.3, 0); },
   chains(o, rnd){ for(let k=0;k<3;k++){ const x = (k - 1)*0.25, n = 6 + Math.floor(rnd()*6); for(let i=0;i<n;i++) P(o.group, TO(0.035, 0.01, PI*2, 3, 8), [IRON2, RUST][i % 3 === 2 ? 1 : 0], x, 1.62 - i*0.07, 0.06, 0, i % 2 ? PI/2 : 0); P(o.group, TO(0.06, 0.016, PI*2, 4, 10), IRON, x, 1.62 - n*0.07 - 0.04, 0.06); P(o.group, BX(0.08, 0.06, 0.04), IRON, x, 1.66, 0.02); } },
-  wallshroom(o, rnd){ for(let i=0;i<5;i++){ const r = 0.08 + rnd()*0.1, x = (rnd() - 0.5)*0.5, y = 0.35 + rnd()*0.9; P(o.group, K.sculpt(new THREE.SphereGeometry(r, 12, 5, 0, PI*2, 0, PI/2), r*0.15, 6/r, rnd()*9), [0x5a4e3a, 0x6a5a40, 0x4a4234][i % 3], x, y, 0, 0, 0, 0, 1, 0.3, 0.8); P(o.group, TO(r*0.95, 0.008, PI, 3, 10), 0x2a2218, x, y, 0, PI/2, 0, PI); } P(o.group, BX(0.5, 0.6, 0.01), MOULD, 0, 0.55, 0.005); },
+  wallshroom(o, rnd){ P(o.group, K.sculpt(new THREE.SphereGeometry(0.4, 12, 8), 0.06, 7, rnd()*9), MOULD, 0, 0.6, 0, 0, 0, 0, 0.9, 1.1, 0.06); for(let i=0;i<7;i++){ const r = 0.05 + rnd()*0.08, x = (rnd() - 0.5)*0.55, y = 0.3 + rnd()*0.9; P(o.group, K.lump(r, 1, 0.45, rnd()*9), [0x5a4e3a, 0x6a5a40, 0x4a4234][i % 3], x, y, r*0.3, 0.3, 0, 0, 1.3, 0.4, 0.9); } },
   vines(o, rnd){ B.hangingmoss(o, rnd); },
   hangingmoss(o, rnd){ for(let i=0;i<9;i++){ const x = (rnd() - 0.5)*0.8, l = 0.4 + rnd()*0.9; P(o.group, CO(0.04 + rnd()*0.03, l, 4), [0x3a4034, 0x2e3428, 0x46483a][i % 3], x, 1.72 - l/2, 0.04 + rnd()*0.04, PI); } P(o.group, BX(0.9, 0.06, 0.1), 0x2e3428, 0, 1.7, 0.05); },
   glowmoss(o, rnd){ P(o.group, K.sculpt(new THREE.SphereGeometry(0.32, 12, 6), 0.05, 8, rnd()*9), 0x2a3428, 0, 0.95, 0, 0, 0, 0, 1, 1.3, 0.12); for(let k=0;k<7;k++){ const x = (rnd() - 0.5)*0.4, y = 0.65 + rnd()*0.6; L(o.group, S(0.018, 5, 4), 0x9cff6a, x, y, 0.04); } o.glows.push({ x:0, y:0.95, z:0.08, c:0x8adc5a, s:0.9 }); o.lights.push({ x:0, y:1.0, z:0.4, c:0x8adc5a, i:0.45 }); },

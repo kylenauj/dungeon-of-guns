@@ -74,15 +74,15 @@ const decalMat = ()=> K.ink({ map:atlas(), transparent:true, depthWrite:false, a
 /* ---- what each floor scatters about ---- */
 const THEMES = {
   castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["tiles", 1.2, 0x1e1a1c], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
-    walls:["banner", "tapestry", "shieldwall", "cornerweb", "window", "chains", "bloodsmear", "cornerweb"], tops:["toprubble", "topcandle", "topskull", "topspikes"], critters:{ rats:1.6 }, motes:{ c:0xffd0a0, n:4, sp:0.2 } },
+    walls:["banner", "tapestry", "shieldwall", "cornerweb", "window", "chains", "bloodsmear", "cornerweb", "slumped", "gibbet"], tops:["toprubble", "topcandle", "topskull", "topspikes"], corners:["candlecluster", "skullpile", "bones", "candlecluster"], critters:{ rats:1.6 }, motes:{ c:0xffd0a0, n:4, sp:0.2 } },
   undercroft:{ decals:[["crack", 4, 0x100e0c], ["stain", 3, 0x14120c], ["moss", 2.5, 0x1e2e1e], ["puddle", 1.6, 0x0a1414], ["grate", 0.6, 0x4a4a48], ["drag", 0.4, 0x2a0c08], ["blood", 0.4, 0x2a0c08], ["prints", 0.4, 0x141008]], rug:[0, 0],
-    walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster", "chains", "wallshroom"], tops:["toprubble", "topgrass", "topcandle", "topbones"], critters:{ rats:2.6 }, motes:{ c:0xb8d870, n:8, sp:0.4 } },
+    walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster", "chains", "wallshroom", "slumped"], tops:["toprubble", "topgrass", "topcandle", "topbones"], corners:["bones", "mushrooms", "ratnest", "candlecluster"], critters:{ rats:2.6 }, motes:{ c:0xb8d870, n:8, sp:0.4 } },
   crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["tiles", 1, 0x14141c], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
-    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "ossuary", "candleshelf", "cornerweb"], tops:["topcandle", "topskull", "topbones", "topcandle"], critters:{ rats:1, bats:2 }, motes:{ c:0x8ac8ff, n:10, sp:0.3 } },
+    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "ossuary", "candleshelf", "cornerweb", "slumped"], tops:["topcandle", "topskull", "topbones", "topcandle"], corners:["candlecluster", "soulcandles", "skullpile", "soulcandles"], critters:{ rats:1, bats:2 }, motes:{ c:0x8ac8ff, n:10, sp:0.3 } },
   gloomwood:{ decals:[["moss", 5, 0x142a24], ["leaves", 3, 0x1e2a22], ["splat", 2, 0x2a1024], ["puddle", 1.5, 0x10061a], ["rune", 0.3, 0x5ab8e8], ["crack", 1.5, 0x08080c], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
-    walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
+    walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], corners:["glowcap", "myceliumcorpse", "roots", "fern"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
   forest:{ decals:[["moss", 5, 0x142a24], ["leaves", 5, 0x1e2a22], ["splat", 2.5, 0x2a1024], ["puddle", 1.5, 0x1a0624], ["prints", 0.4, 0x080e0a], ["drag", 0.3, 0x2a0a10]], rug:[0, 0],
-    walls:["roots", "glowworms", "hangingmoss", "roots", "wallroots"], tops:["topgrass", "topgrass", "topgrass", "topbones"], critters:{ bats:1 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
+    walls:["roots", "glowworms", "hangingmoss", "roots", "wallroots"], tops:["topgrass", "topgrass", "topgrass", "topbones"], corners:["glowcap", "cordyceps", "glowcap", "fern"], critters:{ bats:1 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
 };
 const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v = rnd()*tot; for(const e of list){ v -= e[1]; if(v <= 0) return e; } return list[0]; };
 
@@ -143,6 +143,13 @@ proto.buildVanity = function(){
       const a = W.area[y*D.w + x]; if(a !== r.id) continue;
       extra.push({ kind:T0.tops[Math.floor(rnd()*T0.tops.length)], x:x + 0.5, y:y + 0.5, h:WH, rot:rnd()*6, area:a, room:r.id, s:0.9 + rnd()*0.4 });
     }
+    // the corners: where candles were left burning for the dead, and the dead were left
+    const corner = T0.corners;
+    if(corner) [[r.x1 + 0.6, r.y1 + 0.55], [r.x2 + 0.4, r.y1 + 0.55], [r.x1 + 0.6, r.y2 + 0.4], [r.x2 + 0.4, r.y2 + 0.4]].forEach(([x, y], k)=>{
+      if(rnd() > 0.55 || !floorAt(x, y) || DG.Dungeon.nearDoor(D, r, Math.floor(x), Math.floor(y), 2)) return;
+      if(r.props.some(p=> Math.abs(p.x + 0.5 - x) < 1.5 && Math.abs(p.y + 0.5 - y) < 1.5)) return;
+      extra.push({ kind:corner[Math.floor(rnd()*corner.length)], x, y, rot:rnd()*6.28, area:r.id, room:r.id, s:0.85 + rnd()*0.3 });
+    });
     // light falling through a crack in the ceiling
     const nShafts = area > 260 ? 2 : rnd() < 0.55 ? 1 : 0;
     for(let i=0;i<nShafts;i++){
