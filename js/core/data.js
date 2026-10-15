@@ -188,31 +188,32 @@ DG.FLOOR_SCALE = f=>({
 });
 DG.FINAL_FLOOR = 5;
 
-/* ---- floors: a castle that the Gloom (rot, mould, cordyceps, from Gloom
-   Shooter) eats a little more of every floor, until floor 5 is no castle at
-   all but a spooky mushroom forest. `gloom` (0..1) drives the look: moss and
+/* ---- floors: a dead castle that the Gloom (rot, mould, cordyceps, from
+   Gloom Shooter) eats a little more of every floor, until floor 5 is no
+   castle at all but a mushroom forest grown out of the dead. Cold, dark
+   stone; the only warmth is in small pools of candle and torch light. `gloom` (0..1) drives the look: moss and
    rot on the floors, roots and bark over the walls, glowcaps for torches,
    brambles for gates, a forest beyond the walls. ---- */
 DG.FLOORS = [
-  { name:"The Castle Keep",       boss:"king",      gloom:0,    floor:0x4a4650, floor2:0x3e3a44, wall:0x6a6672, top:0x827e8a, torch:0xffa04a, fog:0x0b0a10, water:0x2a6a8a,
-    ambient:0xa8a0b0, light:1.0, decor:"castle", motes:"dust",
-    ink:0x100a10, rim:0xffb070, shaft:0xffe2a8, mist:0.12, shade:0x241838, high:0xffe2b0, weird:0,
+  { name:"The Forsaken Keep",     boss:"king",      gloom:0,    floor:0x3c3834, floor2:0x34302d, wall:0x5a544c, top:0x46413b, torch:0xff8a34, fog:0x060508, water:0x1a3440,
+    ambient:0x8088a0, light:0.9, decor:"castle", motes:"dust",
+    ink:0x0a0608, rim:0xff9a5a, shaft:0xa8b8d8, mist:0.2, shade:0x1a1220, high:0xffcf96, weird:0,
     enemies:{ grunt:3, slinger:2.2, bomber:0.8, sneak:0.3 } },
-  { name:"The Undercroft",        boss:"matriarch", gloom:0.28, floor:0x3e3a3a, floor2:0x343030, wall:0x5a5452, top:0x6e6866, torch:0xffa04a, fog:0x080a08, water:0x2a6a5a,
-    ambient:0x9a9a8a, light:0.9, decor:"undercroft", motes:"spores",
-    ink:0x0a0c08, rim:0xc8ff8a, shaft:0xd8f0b0, mist:0.24, shade:0x1a1a30, high:0xf0f0c0, weird:0.1,
+  { name:"The Weeping Undercroft", boss:"matriarch", gloom:0.28, floor:0x33342d, floor2:0x2b2c26, wall:0x4a4a3f, top:0x3b3b33, torch:0xff9440, fog:0x040604, water:0x16302a,
+    ambient:0x6e8070, light:0.85, decor:"undercroft", motes:"spores",
+    ink:0x060806, rim:0xa8d878, shaft:0x9aae90, mist:0.34, shade:0x121a18, high:0xf0e0b0, weird:0.1,
     enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2, toadstool:1.2, shroomkin:1.4, rotling:0.8 } },
-  { name:"The Rotting Crypt",     boss:"bride",     gloom:0.5,  floor:0x2e2e3e, floor2:0x262634, wall:0x464a62, top:0x5a5e7a, torch:0x6ad8ff, fog:0x05060c, water:0x2a4a8a,
-    ambient:0x7a7ab0, light:0.78, decor:"crypt", motes:"ghostfog",
-    ink:0x08061a, rim:0x9ad8ff, shaft:0xb8d0ff, mist:0.36, shade:0x200e40, high:0xe0f0ff, weird:0.3,
+  { name:"The Rotting Crypt",     boss:"bride",     gloom:0.5,  floor:0x2a2a30, floor2:0x232328, wall:0x3c3e4a, top:0x2f303a, torch:0x5ac0ff, fog:0x030409, water:0x18284a,
+    ambient:0x56648e, light:0.8, decor:"crypt", motes:"ghostfog",
+    ink:0x05040e, rim:0x8ad8ff, shaft:0x8aa8d8, mist:0.44, shade:0x140a2a, high:0xd8ecff, weird:0.3,
     enemies:{ ghost:2.2, banshee:1, skeleton:2, poltergeist:1, sneak:0.6, brute:0.6, rotling:1.2, spitter:0.8 } },
-  { name:"The Gloomwood Edge",    boss:"eye",       gloom:0.78, floor:0x26302e, floor2:0x1e2826, wall:0x3a3440, top:0x4a4252, torch:0x5ab8ff, fog:0x03060a, water:0x3a2a6a,
-    ambient:0x6a8ab0, light:0.66, decor:"gloomwood", motes:"glowbugs",
-    ink:0x0a0414, rim:0x7ad8ff, shaft:0x9ad0ff, mist:0.4, shade:0x1a0a38, high:0xd8f8ff, weird:0.62,
+  { name:"The Gloomwood",         boss:"eye",       gloom:0.78, floor:0x222824, floor2:0x1c221e, wall:0x322c34, top:0x2a2430, torch:0x4aa8f0, fog:0x020306, water:0x24183e,
+    ambient:0x46607e, light:0.72, decor:"gloomwood", motes:"glowbugs",
+    ink:0x06020c, rim:0x6ac8f0, shaft:0x7a9ac8, mist:0.5, shade:0x100620, high:0xc8ecff, weird:0.62,
     enemies:{ watcher:1.2, blob:1.2, tentacle:1.4, rotling:1.6, spitter:1.4, bloater:1.2, shroomkin:0.8, puffling:0.8, ghost:0.6 } },
-  { name:"The Gloom Forest",      boss:"heart",     gloom:1,    floor:0x1e2a2c, floor2:0x182224, wall:0x2a2030, top:0x3a2a40, torch:0x3ab8ff, fog:0x02050a, water:0x4a1a5a,
-    ambient:0x5a7ab8, light:0.6, decor:"forest", motes:"glowbugs",
-    ink:0x0c0414, rim:0xff6ad8, shaft:0x8ab8ff, mist:0.46, shade:0x200a3a, high:0xc8f0ff, weird:1,
+  { name:"The Gloom Forest",      boss:"heart",     gloom:1,    floor:0x1c2220, floor2:0x171c1a, wall:0x281e28, top:0x221a24, torch:0x3aa0e8, fog:0x010205, water:0x2e1236,
+    ambient:0x40567e, light:0.66, decor:"forest", motes:"glowbugs",
+    ink:0x08020c, rim:0xd85ab8, shaft:0x6a90c8, mist:0.56, shade:0x14061f, high:0xb8e4ff, weird:1,
     enemies:{ rotling:2, spitter:1.6, bloater:1.4, husk:1.6, shroomkin:1, toadstool:1, puffling:1, tentacle:1, banshee:0.6, watcher:0.6 } }
 ];
 

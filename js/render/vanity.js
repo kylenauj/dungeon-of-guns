@@ -4,7 +4,7 @@
  *  seeded by the dungeon, so a seed always dresses the same way.
  *
  *  - floor decals from one painted atlas: cracks, stains, moss, rugs,
- *    rune circles, puddles, straw, grates, chalk doodles, coins
+ *    rune circles, puddles, straw, grates, drag marks, pools of old blood
  *  - a dithered ground mist that thickens the deeper you go
  *  - shafts of light falling from cracks in the ceiling
  *  - stone arches over the doorways
@@ -21,7 +21,7 @@ const proto = DG.World.prototype;
 const WH = K.WALL_H;
 
 /* ---- the decal atlas: 4×4 cells, painted once, white on clear so vertex colours tint them ---- */
-const CELL = { crack:0, stain:1, moss:2, rune:3, rug:4, splat:5, scorch:6, leaves:7, straw:8, grate:9, puddle:10, doodle:11, coins:12, tiles:13, prints:14, drips:15 };
+const CELL = { crack:0, stain:1, moss:2, rune:3, rug:4, splat:5, scorch:6, leaves:7, straw:8, grate:9, puddle:10, drag:11, blood:12, tiles:13, prints:14, drips:15 };
 let _atlas = null;
 function atlas(){
   if(_atlas) return _atlas;
@@ -38,16 +38,20 @@ function atlas(){
     for(let k=0;k<12;k++){ const a = k/12*PI*2; g.save(); g.translate(64 + Math.cos(a)*50, 64 + Math.sin(a)*50); g.rotate(a); g.fillRect(-1, -4, 2, 8); if(k % 2) g.fillRect(-4, -1, 8, 2); g.restore(); } });
   cell(CELL.rug, ()=>{ g.fillStyle = "rgba(255,255,255,0.95)"; g.fillRect(4, 4, 120, 120); g.fillStyle = "rgba(150,150,150,1)"; g.fillRect(12, 12, 104, 104); g.fillStyle = "rgba(225,225,225,1)"; g.fillRect(18, 18, 92, 92);
     g.fillStyle = "rgba(120,120,120,1)"; for(let y=26;y<110;y+=20) for(let x=26;x<110;x+=20){ g.beginPath(); g.moveTo(x + 8, y); g.lineTo(x + 16, y + 8); g.lineTo(x + 8, y + 16); g.lineTo(x, y + 8); g.fill(); }
-    g.fillStyle = "rgba(255,255,255,0.9)"; for(let x=6;x<124;x+=6){ g.fillRect(x, 0, 2, 5); g.fillRect(x, 123, 2, 5); } });
+    g.fillStyle = "rgba(255,255,255,0.9)"; for(let x=6;x<124;x+=6){ g.fillRect(x, 0, 2, 3 + r()*4); g.fillRect(x, 121 + r()*3, 2, 5); }
+    // worn through, burnt, torn away at a corner
+    g.globalCompositeOperation = "destination-out"; for(let k=0;k<9;k++){ const x = r()*128, y = r()*128, rr = 4 + r()*16; const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(0,0,0,0.9)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr*2, rr*2); }
+    g.fillStyle = "#000"; g.beginPath(); g.moveTo(128, 70); for(let k=0;k<8;k++) g.lineTo(128 - 20 - r()*30, 70 + k*8); g.lineTo(128, 128); g.fill(); g.globalCompositeOperation = "source-over"; });
   cell(CELL.splat, ()=>{ blob(64, 64, 30, 1); blob(64, 64, 36, 0.8); for(let k=0;k<14;k++){ const a = r()*6.28, d = 30 + r()*28, rr = 2 + r()*7; g.beginPath(); g.arc(64 + Math.cos(a)*d, 64 + Math.sin(a)*d, rr, 0, 7); g.fill(); g.lineWidth = rr*0.8; g.beginPath(); g.moveTo(64 + Math.cos(a)*20, 64 + Math.sin(a)*20); g.lineTo(64 + Math.cos(a)*d, 64 + Math.sin(a)*d); g.stroke(); } });
   cell(CELL.scorch, ()=>{ blob(64, 64, 58, 0.9); blob(64, 64, 34, 1); g.lineWidth = 3; for(let k=0;k<16;k++){ const a = r()*6.28; g.globalAlpha = 0.6; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + Math.cos(a)*(40 + r()*22), 64 + Math.sin(a)*(40 + r()*22)); g.stroke(); } g.globalAlpha = 1; });
   cell(CELL.leaves, ()=>{ for(let k=0;k<16;k++){ g.save(); g.translate(14 + r()*100, 14 + r()*100); g.rotate(r()*6.28); const v = 160 + (r()*95|0); g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.beginPath(); g.ellipse(0, 0, 9, 4, 0, 0, 7); g.fill(); g.restore(); } });
   cell(CELL.straw, ()=>{ g.lineWidth = 1.6; for(let k=0;k<55;k++){ const x = 20 + r()*88, y = 20 + r()*88, a = r()*6.28, l = 8 + r()*16; const v = 190 + (r()*65|0); g.strokeStyle = "rgb(" + v + "," + v + "," + v + ")"; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a)*l, y + Math.sin(a)*l); g.stroke(); } });
   cell(CELL.grate, ()=>{ g.fillStyle = "rgba(200,200,200,1)"; g.fillRect(24, 24, 80, 80); g.fillStyle = "rgba(10,10,10,1)"; for(let x=34;x<100;x+=14) g.fillRect(x, 32, 7, 64); g.fillStyle = "rgba(255,255,255,1)"; g.fillRect(24, 24, 80, 5); g.fillRect(24, 24, 5, 80); });
   cell(CELL.puddle, ()=>{ g.save(); g.scale(1, 0.7); blob(64, 91, 54, 0.8); blob(64, 91, 40, 0.9); g.restore(); g.strokeStyle = "rgba(255,255,255,0.9)"; g.lineWidth = 3; g.beginPath(); g.ellipse(52, 56, 18, 8, -0.2, 3.6, 5.2); g.stroke(); });
-  cell(CELL.doodle, ()=>{ g.lineWidth = 2.5; g.beginPath(); g.arc(48, 54, 22, 0, 7); g.stroke(); g.beginPath(); g.moveTo(26, 50); g.lineTo(10, 38); g.lineTo(28, 42); g.moveTo(70, 50); g.lineTo(86, 38); g.lineTo(68, 42); g.stroke();
-    g.beginPath(); g.arc(40, 50, 3, 0, 7); g.arc(56, 50, 3, 0, 7); g.fill(); g.beginPath(); g.arc(48, 62, 8, 0.2, PI - 0.2); g.stroke(); for(let k=0;k<4;k++){ g.beginPath(); g.moveTo(84 + k*7, 86); g.lineTo(84 + k*7, 108); g.stroke(); } g.beginPath(); g.moveTo(80, 104); g.lineTo(112, 90); g.stroke(); });
-  cell(CELL.coins, ()=>{ for(let k=0;k<9;k++){ const x = 30 + r()*68, y = 30 + r()*68; g.fillStyle = "rgba(255,255,255,1)"; g.beginPath(); g.ellipse(x, y, 8, 6, 0, 0, 7); g.fill(); g.fillStyle = "rgba(170,170,170,1)"; g.beginPath(); g.ellipse(x, y, 5, 3.5, 0, 0, 7); g.fill(); } });
+  // something dragged away: two smeared tracks, clawed fingermarks at the start
+  cell(CELL.drag, ()=>{ g.lineCap = "round"; for(let t=0;t<2;t++){ const x0 = 50 + t*26; for(let k=0;k<5;k++){ g.globalAlpha = 0.25 + r()*0.35; g.lineWidth = 3 + r()*7; g.beginPath(); g.moveTo(x0 + (r() - 0.5)*10, 122); g.bezierCurveTo(x0 + (r() - 0.5)*24, 90, x0 + (r() - 0.5)*30, 40, x0 - 6 + (r() - 0.5)*16, 6 + r()*16); g.stroke(); } } g.globalAlpha = 0.9; for(let k=0;k<4;k++){ g.lineWidth = 2.2; g.beginPath(); g.moveTo(44 + k*8, 120); g.lineTo(42 + k*8 + (r() - 0.5)*4, 100 - r()*8); g.stroke(); } g.globalAlpha = 1; });
+  // a pool gone dark at the edges, with spatter thrown out of it
+  cell(CELL.blood, ()=>{ for(let k=0;k<5;k++) blob(52 + r()*24, 52 + r()*24, 20 + r()*18, 0.8); g.globalAlpha = 0.9; for(let k=0;k<22;k++){ const a = r()*6.28, d = 34 + r()*26, rr = 1 + r()*3.5; g.beginPath(); g.ellipse(64 + Math.cos(a)*d, 64 + Math.sin(a)*d, rr*1.8, rr, a, 0, 7); g.fill(); } g.globalAlpha = 1; });
   cell(CELL.tiles, ()=>{ for(let k=0;k<4;k++){ const x = 8 + (r()*3|0)*40, y = 8 + (r()*3|0)*40; g.fillStyle = "rgba(255,255,255,1)"; g.fillRect(x, y, 34, 34); g.fillStyle = "rgba(120,120,120,1)"; g.fillRect(x + 4, y + 4, 30, 30); } });
   cell(CELL.prints, ()=>{ for(let k=0;k<6;k++){ const x = 30 + k*12 + (k % 2)*10, y = 110 - k*18; g.beginPath(); g.ellipse(x, y, 4, 6, 0.3, 0, 7); g.fill(); for(let q=-1;q<=1;q++){ g.beginPath(); g.arc(x + q*4, y - 9, 1.8, 0, 7); g.fill(); } } });
   cell(CELL.drips, ()=>{ for(let k=0;k<7;k++){ const x = 8 + r()*112, l = 30 + r()*90; g.lineWidth = 3 + r()*4; g.globalAlpha = 0.5 + r()*0.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, l); g.stroke(); g.beginPath(); g.arc(x, l, g.lineWidth*0.8, 0, 7); g.fill(); } g.globalAlpha = 1; });
@@ -69,16 +73,16 @@ const decalMat = ()=> K.ink({ map:atlas(), transparent:true, depthWrite:false, a
 
 /* ---- what each floor scatters about ---- */
 const THEMES = {
-  castle:{ decals:[["crack", 2, 0x1a1418], ["stain", 1.5, 0x1a1418], ["tiles", 1.2, 0x2a2630], ["straw", 0.6, 0xc8a860], ["coins", 0.3, 0xffd23d], ["prints", 0.3, 0x1a1418], ["doodle", 0.25, 0xf0f0e0]], rug:[0.7, 0xa83a2a],
-    walls:["banner", "tapestry", "shieldwall", "cornerweb", "window"], tops:["toprubble", "topcandle"], critters:{ rats:1.4 }, motes:{ c:0xfff0c0, n:0, sp:0.2 } },
-  undercroft:{ decals:[["crack", 4, 0x141210], ["stain", 3, 0x18140e], ["moss", 2.5, 0x2a5a3a], ["puddle", 1, 0x10202a], ["grate", 0.4, 0x6a6a70], ["prints", 0.4, 0x1a1410], ["splat", 0.5, 0x3a1a3e]], rug:[0.3, 0x7a2a2a],
-    walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster"], tops:["toprubble", "topgrass", "topcandle"], critters:{ rats:2 }, motes:{ c:0xd8ff6a, n:6, sp:0.5 } },
-  crypt:{ decals:[["crack", 5, 0x0a0a14], ["stain", 3, 0x1a1a30], ["rune", 0.5, 0x8ad8ff], ["tiles", 1, 0x1a1a24], ["moss", 2, 0x1a4a3a], ["splat", 1, 0x3a1a3e]], rug:[0.3, 0x6a1a2a],
-    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "roots", "glowworms"], tops:["topcandle", "topskull", "topgrass"], critters:{ rats:1, bats:2 }, motes:{ c:0x9ad8ff, n:8, sp:0.3 } },
-  gloomwood:{ decals:[["moss", 5, 0x1a4a3a], ["leaves", 3, 0x2a4a3a], ["splat", 2, 0x3a1a3e], ["puddle", 1.5, 0x1a0a2a], ["rune", 0.4, 0x6ad8ff], ["crack", 1.5, 0x0a0a10]], rug:[0, 0],
-    walls:["roots", "glowworms", "stalactites", "vines", "drips"], tops:["topgrass", "topgrass", "toprubble"], critters:{ bats:1.2 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
-  forest:{ decals:[["moss", 5, 0x1a4a3a], ["leaves", 5, 0x2a4a3a], ["splat", 2.5, 0x3a1a3e], ["puddle", 1.5, 0x2a0a3a], ["prints", 0.4, 0x0a1a10]], rug:[0, 0],
-    walls:["roots", "glowworms", "vines", "roots"], tops:["topgrass", "topgrass", "topgrass"], critters:{ bats:0.8 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
+  castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["tiles", 1.2, 0x1e1a1c], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
+    walls:["banner", "tapestry", "shieldwall", "cornerweb", "window", "chains", "bloodsmear", "cornerweb", "slumped", "gibbet"], tops:["toprubble", "topcandle", "topskull", "topspikes"], corners:["candlecluster", "skullpile", "bones", "candlecluster"], critters:{ rats:1.6 }, motes:{ c:0xffd0a0, n:4, sp:0.2 } },
+  undercroft:{ decals:[["crack", 4, 0x100e0c], ["stain", 3, 0x14120c], ["moss", 2.5, 0x1e2e1e], ["puddle", 1.6, 0x0a1414], ["grate", 0.6, 0x4a4a48], ["drag", 0.4, 0x2a0c08], ["blood", 0.4, 0x2a0c08], ["prints", 0.4, 0x141008]], rug:[0, 0],
+    walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster", "chains", "wallshroom", "slumped"], tops:["toprubble", "topgrass", "topcandle", "topbones"], corners:["bones", "mushrooms", "ratnest", "candlecluster"], critters:{ rats:2.6 }, motes:{ c:0xb8d870, n:8, sp:0.4 } },
+  crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["tiles", 1, 0x14141c], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
+    walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "ossuary", "candleshelf", "cornerweb", "slumped"], tops:["topcandle", "topskull", "topbones", "topcandle"], corners:["candlecluster", "soulcandles", "skullpile", "soulcandles"], critters:{ rats:1, bats:2 }, motes:{ c:0x8ac8ff, n:10, sp:0.3 } },
+  gloomwood:{ decals:[["moss", 5, 0x142a24], ["leaves", 3, 0x1e2a22], ["splat", 2, 0x2a1024], ["puddle", 1.5, 0x10061a], ["rune", 0.3, 0x5ab8e8], ["crack", 1.5, 0x08080c], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
+    walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], corners:["glowcap", "myceliumcorpse", "roots", "fern"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
+  forest:{ decals:[["moss", 5, 0x142a24], ["leaves", 5, 0x1e2a22], ["splat", 2.5, 0x2a1024], ["puddle", 1.5, 0x1a0624], ["prints", 0.4, 0x080e0a], ["drag", 0.3, 0x2a0a10]], rug:[0, 0],
+    walls:["roots", "glowworms", "hangingmoss", "roots", "wallroots"], tops:["topgrass", "topgrass", "topgrass", "topbones"], corners:["glowcap", "cordyceps", "glowcap", "fern"], critters:{ bats:1 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
 };
 const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v = rnd()*tot; for(const e of list){ v -= e[1]; if(v <= 0) return e; } return list[0]; };
 
@@ -139,6 +143,13 @@ proto.buildVanity = function(){
       const a = W.area[y*D.w + x]; if(a !== r.id) continue;
       extra.push({ kind:T0.tops[Math.floor(rnd()*T0.tops.length)], x:x + 0.5, y:y + 0.5, h:WH, rot:rnd()*6, area:a, room:r.id, s:0.9 + rnd()*0.4 });
     }
+    // the corners: where candles were left burning for the dead, and the dead were left
+    const corner = T0.corners;
+    if(corner) [[r.x1 + 0.6, r.y1 + 0.55], [r.x2 + 0.4, r.y1 + 0.55], [r.x1 + 0.6, r.y2 + 0.4], [r.x2 + 0.4, r.y2 + 0.4]].forEach(([x, y], k)=>{
+      if(rnd() > 0.55 || !floorAt(x, y) || DG.Dungeon.nearDoor(D, r, Math.floor(x), Math.floor(y), 2)) return;
+      if(r.props.some(p=> Math.abs(p.x + 0.5 - x) < 1.5 && Math.abs(p.y + 0.5 - y) < 1.5)) return;
+      extra.push({ kind:corner[Math.floor(rnd()*corner.length)], x, y, rot:rnd()*6.28, area:r.id, room:r.id, s:0.85 + rnd()*0.3 });
+    });
     // light falling through a crack in the ceiling
     const nShafts = area > 260 ? 2 : rnd() < 0.55 ? 1 : 0;
     for(let i=0;i<nShafts;i++){
@@ -176,7 +187,7 @@ proto.buildArches = function(){
   const W = this, D = W.D, th = W.th;
   const walk = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
   const stone = new THREE.Color(th.top).multiplyScalar(1.35).getHex(), dark = new THREE.Color(th.wall).multiplyScalar(0.9).getHex();
-  const key = { castle:0xc8a040, undercroft:0xa8a070, crypt:0xe8e2cc, gloomwood:0x3ab8ff, forest:0x9cff3a }[th.decor] || 0xc8a040;
+  const key = { castle:0x5a5650, undercroft:0x4a4a40, crypt:0x8a8270, gloomwood:0x3a3440, forest:0x2e2632 }[th.decor] || 0x5a5650;
   const byArea = {};
   D.doors.forEach(d=>{
     const tx = Math.floor(d.x), ty = Math.floor(d.y), h = d.axis !== "v";
@@ -199,6 +210,10 @@ proto.buildArches = function(){
       K.part(g, new THREE.BoxGeometry(h ? span : 1.1, 0.36, h ? 1.1 : span), stone, x, WH + 0.62, z);
       K.part(g, new THREE.BoxGeometry(h ? span + 0.1 : 1.2, 0.1, h ? 1.2 : span + 0.1), dark, x, WH + 0.85, z);
       K.part(g, new THREE.BoxGeometry(0.42, 0.5, 1.2), key, x, WH + 0.62, z, 0, h ? 0 : PI/2, 0);
+      // a skull carved in the keystone, staring down at whoever comes through
+      if(h) DG.Decor.skull(g, x, WH + 0.5, z + 0.6, 0.12, 0, 0.3, key === 0x8a8270 ? 0xa89c84 : new THREE.Color(key).multiplyScalar(1.25).getHex());
+      // and chains hanging from the arch
+      [-1, 1].forEach(s=>{ for(let k=0;k<6;k++) K.part(g, new THREE.TorusGeometry(0.035, 0.01, 3, 8), 0x3a3a3e, x + s*(h ? 1.6 : 0), WH + 0.4 - k*0.07, z + (h ? 0.58 : s*1.6), 0, k % 2 ? PI/2 : 0, 0); });
     }
   });
   for(const a in byArea){ W.areaGroup(+a).add(byArea[a]); K.bake(byArea[a], { w:0.022 }); }
@@ -272,10 +287,10 @@ proto.buildShafts = function(){
   }
 };
 
-/* ---- beyond the walls: as the Gloom takes over, a dark forest of firs and
+/* ---- beyond the walls: as the Gloom takes over, a dead forest of bare trees and
    giant glowcaps grows in the void around the rooms (never south of anything
    Zippy stands on, so it never hides him) ---- */
-proto.buildBackdrop = function(){
+proto.buildBackdrop = function(){ /* dead trees and dark glowcaps beyond the walls */
   const W = this, D = W.D, g = W.th.gloom || 0;
   if(g < 0.5) return;
   const walk = t=> t !== T.SOLID && t !== T.FAKE;
@@ -287,33 +302,34 @@ proto.buildBackdrop = function(){
     if(rnd() > dens || near(x, y, 3) || hidesSomething(x, y)) continue;
     const wx = x + rnd()*2, wz = y + rnd()*2;
     if(rnd() < 0.3){
-      const h = 2.5 + rnd()*4, cr = 0.8 + h*0.2 + rnd()*0.5, c = [0x1a5ab8, 0x1a78a8, 0x3a3ab0, 0x1a8888, 0x6a3ab0][Math.floor(rnd()*5)];
-      const st = new THREE.CylinderGeometry(cr*0.1, cr*0.16, h, 8); st.translate(wx, h/2, wz); stems.push(K.paint(st, 0xcfe4ff));
-      const cp = new THREE.SphereGeometry(cr, 14, 7, 0, Math.PI*2, 0, Math.PI/2); cp.scale(1, 0.55, 1); cp.translate(wx, h - 0.05, wz);
+      const h = 2.5 + rnd()*4, cr = 0.8 + h*0.2 + rnd()*0.5, c = [0x2a6a98, 0x1e7a7a, 0x3a4a9a, 0x24606a][Math.floor(rnd()*4)];
+      const st = new THREE.CylinderGeometry(cr*0.1, cr*0.16, h, 8); st.translate(wx, h/2, wz); stems.push(K.paint(st, 0x6a6e70));
+      const cp = K.slathe([[cr, 0], [cr*0.9, cr*0.3], [cr*0.55, cr*0.62], [0, cr*0.8]], 12, 2); cp.translate(wx, h - 0.05, wz);
       (caps[c] = caps[c] || []).push(K.paint(cp, c));
       halos.push({ x:wx, y:h + 0.1, z:wz, c, s:cr*3 });
     } else {
-      const h = 3 + rnd()*4, col = new THREE.Color().setHSL(0.48 + rnd()*0.06, 0.35, 0.06 + rnd()*0.04);
-      const tr = new THREE.CylinderGeometry(0.15, 0.28, h*0.3, 5); tr.translate(wx, h*0.15, wz); trees.push(K.paint(tr, 0x1a1410));
-      for(let k=0;k<4;k++){ const f = k/4, r = (1 - f)*h*0.26 + 0.5; const cn = new THREE.ConeGeometry(r, h*0.42, 7); cn.translate(wx, h*0.25 + f*h*0.62, wz); trees.push(K.paint(cn, col)); }
+      // a dead tree: a leaning trunk and a few bare limbs, as cones (cheap: there are many)
+      const h = 3 + rnd()*4, lean = (rnd() - 0.5)*0.3, bark = new THREE.Color(0x1e1a18).multiplyScalar(0.8 + rnd()*0.4);
+      const tr = new THREE.ConeGeometry(0.28, h, 6); tr.translate(0, h/2, 0); tr.rotateZ(lean); tr.translate(wx, 0, wz); trees.push(K.paint(tr, bark));
+      for(let k=0;k<4;k++){ const a = rnd()*PI*2, y = h*(0.4 + rnd()*0.45), l = 0.8 + rnd()*1.4, br = new THREE.ConeGeometry(0.08, l, 4); br.translate(0, l/2, 0); br.rotateZ(-0.9 - rnd()*0.4); br.rotateY(a); br.translate(wx - Math.sin(lean)*y, y, wz); trees.push(K.paint(br, bark)); }
     }
   }
   const grp = new THREE.Group();
   if(trees.length) grp.add(new THREE.Mesh(K.merge(trees), K.ink()));
-  if(stems.length) grp.add(new THREE.Mesh(K.merge(stems), K.ink({ emissive:0x1d3a66 })));
-  for(const c in caps) grp.add(new THREE.Mesh(K.merge(caps[c]), K.ink({ emissive:new THREE.Color(+c).multiplyScalar(0.25) })));
+  if(stems.length) grp.add(new THREE.Mesh(K.merge(stems), K.ink({ emissive:0x0a1420 })));
+  for(const c in caps) grp.add(new THREE.Mesh(K.merge(caps[c]), K.ink({ emissive:new THREE.Color(+c).multiplyScalar(0.18) })));
   halos.forEach(h=>{ const sp = K.sprite(h.c, h.s, 0.22); sp.position.set(h.x, h.y, h.z); grp.add(sp); const pool = new THREE.Mesh(K.glowPlane, K.glowMat(h.c, 0.3)); pool.scale.set(h.s, 1, h.s); pool.position.set(h.x, 0.05, h.z); grp.add(pool); });
   W.group.add(grp);
 };
 
 /* ---- little lives ---- */
 function ratMesh(){
+  // lean and mangy: a long body, a pointed snout, small red eyes, a long naked tail
   const g = new THREE.Group(), P = K.part;
-  P(g, new THREE.SphereGeometry(0.11, 10, 8), 0x6a5a52, 0, 0.09, 0, 0, 0, 0, 0.9, 0.75, 1.5);
-  P(g, new THREE.ConeGeometry(0.07, 0.16, 8), 0x7a6a62, 0, 0.09, 0.2, PI/2);
-  [-1, 1].forEach(s=>{ P(g, new THREE.SphereGeometry(0.04, 6, 4), 0xd8a0a0, s*0.05, 0.17, 0.13, 0, 0, 0, 1, 1, 0.4); P(g, new THREE.SphereGeometry(0.015, 4, 3), 0x101010, s*0.035, 0.12, 0.22); });
-  P(g, new THREE.SphereGeometry(0.018, 4, 3), 0xf0a0a0, 0, 0.09, 0.28);
-  P(g, K.tube([[0, 0.08, -0.15], [0.05, 0.04, -0.3], [-0.03, 0.03, -0.45]], 0.012, 8, 4), 0xd8a0a0);
+  P(g, K.sculpt(new THREE.SphereGeometry(0.1, 12, 8), 0.012, 30, 3), 0x2e2622, 0, 0.085, 0, 0, 0, 0, 0.85, 0.7, 1.7);
+  P(g, new THREE.ConeGeometry(0.06, 0.19, 8), 0x3a302a, 0, 0.08, 0.22, PI/2 - 0.15);
+  [-1, 1].forEach(s=>{ P(g, new THREE.ConeGeometry(0.025, 0.05, 4), 0x4a3a34, s*0.04, 0.14, 0.15, -0.3, 0, s*0.4); P(g, new THREE.SphereGeometry(0.011, 4, 3), 0xc81a0e, s*0.03, 0.11, 0.24); for(let k=0;k<2;k++) P(g, new THREE.CylinderGeometry(0.008, 0.006, 0.08, 4), 0x2a2220, s*0.05, 0.03, 0.1 - k*0.18, 0.4, 0, s*0.4); });
+  P(g, K.tube([[0, 0.07, -0.16], [0.06, 0.03, -0.32], [-0.04, 0.02, -0.5], [0.03, 0.02, -0.62]], 0.008, 10, 4), 0x6a4a44);
   K.bake(g, { w:0.01 });
   return g;
 }

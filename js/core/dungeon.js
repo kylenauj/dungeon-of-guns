@@ -458,15 +458,15 @@ Dungeon.paintDoor = paintDoor;
 function dress(D, rng){
   const theme = D.theme.decor;
   const floorKinds = {
-    castle:["armour", "candelabra", "weaponrack", "barrelstack", "rubble", "sack"],
-    undercroft:["barrelstack", "rubble", "mushrooms", "rotpod", "bones", "cobweb", "sack"],
-    crypt:["candle", "bones", "skull", "gravestone", "candles", "mushrooms", "rotpod", "roots"],
-    gloomwood:["glowcap", "fallenpillar", "roots", "rotpod", "fern", "cordyceps", "mushrooms", "rubble"],
-    forest:["glowcap", "glowcap", "fern", "log", "rotpod", "cordyceps", "firsapling", "toadstools", "roots"]
+    castle:["bones", "candlecluster", "brazier", "deadknight", "skullpile", "brokenstatue", "spikes", "cage", "candelabra", "weaponrack", "rubble", "barrelstack"],
+    undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack"],
+    crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots"],
+    gloomwood:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "roots", "rotpod", "fallenpillar", "toadstools", "bones", "fern"],
+    forest:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "log", "ribcage", "roots", "rotpod", "toadstools", "fern", "glowcap"]
   }[theme] || ["bones"];
   const wallKinds = {
-    castle:["banner", "shieldwall", "tapestry", "banner"], undercroft:["banner", "shelf", "chains", "wallshroom"], crypt:["chains", "skullniche", "candleshelf", "wallroots"],
-    gloomwood:["wallroots", "wallshroom", "glowmoss", "walleye"], forest:["wallroots", "wallcaps", "glowmoss", "cordycepswall"]
+    castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains"],
+    gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"]
   }[theme] || ["banner"];
   D.rooms.forEach(r=>{
     const area = (r.x2 - r.x1 + 1)*(r.y2 - r.y1 + 1);
