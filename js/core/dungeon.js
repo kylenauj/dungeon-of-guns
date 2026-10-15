@@ -115,16 +115,17 @@ function tryGenerate(rng, floor, seed){
   for(let cy=0; cy<GH; cy++) for(let cx=0; cx<GW; cx++){
     if(roomAt(cx, cy)) continue;
     const ns = DG.DIRS4.map(([dx, dy])=> ({ r:roomAt(cx + dx, cy + dy), c:[cx + dx, cy + dy] })).filter(o=> o.r && (o.r.type === "combat" || o.r.type === "start" || o.r.type === "treasure"));
-    if(ns.length) cand.push({ cx, cy, ns, w:ns.length*ns.length });
+    if(ns.length) cand.push({ cx, cy, ns, w:ns.length*ns.length*(ns.some(o=> isDeadEnd(o.r)) ? 3 : 1) });
   }
   if(cand.length){
     const c = rng.weighted(cand);
     const sec = addRoom(c.cx, c.cy); sec.type = "secret"; sec.hidden = true;
     sec.c0x = sec.c1x = c.cx; sec.c0y = sec.c1y = c.cy;
-    const host = rng.pick(c.ns);
+    const deadHosts = c.ns.filter(o=> isDeadEnd(o.r)), host = rng.pick(deadHosts.length ? deadHosts : c.ns);
     link(host.r, sec, host.c, [c.cx, c.cy], "secret");
     sec.dist = host.r.dist + 1;
   }
+  specialRooms(D, rng, floor, { roomAt, addRoom, link });   // ROOMS: vaults and the rare rooms
 
   /* ---- 3. rectangles ---- */
   rooms.forEach(r=>{
@@ -136,7 +137,7 @@ function tryGenerate(rng, floor, seed){
       const size = {
         start:[13, 11, 13, 11], boss:[21, 15, 22, 16], treasure:[11, 9, 13, 11], shop:[15, 11, 15, 11], pond:[15, 11, 17, 13],
         altar:[11, 9, 13, 11], puzzle:[15, 11, 17, 12], secret:[9, 7, 11, 9], combat:[11, 9, 22, 16]
-      }[r.type];
+      }[r.type] || DG.ROOM_SIZES[r.type];
       const w = rng.int(size[0], size[2]), h = rng.int(size[1], size[3]);
       const top = r.type === "puzzle" ? 6 : M;
       r.x1 = ox + rng.int(M, CW - M - w); r.x2 = r.x1 + w - 1;
@@ -157,6 +158,7 @@ function tryGenerate(rng, floor, seed){
   });
   D.doorMap = new Int16Array(W*H).fill(-1);
   D.doors.forEach(d=> d.tiles.forEach(([x, y])=> D.doorMap[y*W + x] = d.id));
+  lockRooms(D);
 
   /* ---- 4. contents ---- */
   rooms.forEach(r=>{
@@ -190,9 +192,11 @@ function tryGenerate(rng, floor, seed){
     if(r.type === "pond") makePond(D, rng, r);
     if(r.type === "boss") r.boss = { x:r.cxw, y:r.y1 + 3.5 };
     if(r.type === "puzzle") DG.Puzzles.generate(D, rng, r, floor);
+    if(SPECIAL[r.type]) SPECIAL[r.type](D, rng, r, floor);
   });
 
   rooms.forEach(r=>{ if((r.type === "combat" || r.type === "start") && rng.chance(r.type === "start" ? 1 : 0.22)) paintDoor(D, rng, r); });
+  specialExtras(D, rng, floor);
   dress(D, rng);
 
   // curses, more likely deeper down
@@ -442,7 +446,23 @@ function makePond(D, rng, r){
   r.fly = { x:x0 - 2, y:cy };
   D.decor.push({ kind:"frogstatue", x:x0 + pw + 1.5, y:y0 + 0.5, room:r.id });
   D.decor.push({ kind:"reeds", x:x0 - 0.3, y:y0 + 1, room:r.id }, { kind:"reeds", x:x0 + pw + 0.3, y:y0 + ph - 1, room:r.id });
+  junglePond(D, rng, r, x0, y0, pw, ph);
 }
+/* ROOMS: the pond is an oasis in the rot: ferns, vines, lotus flowers, a mossy
+   log, a little waterfall down the north wall, a second frog idol */
+function junglePond(D, rng, r, x0, y0, pw, ph){
+  r.jungle = true;
+  const cx = Math.floor(r.cxw);
+  const ferns = [[r.x1 + 0.8, r.y1 + 0.8], [r.x2 + 0.2, r.y1 + 0.8], [r.x1 + 0.8, r.y2 + 0.2], [r.x2 + 0.2, r.y2 + 0.2], [r.x1 + 0.6, (r.y1 + r.y2)/2 + 0.5], [r.x2 + 0.4, (r.y1 + r.y2)/2 + 0.5], [x0 - 1, y0 - 0.5], [x0 + pw + 0.6, y0 + ph + 0.3]];
+  ferns.forEach(([x, y])=> D.decor.push({ kind:"bigfern", x, y, room:r.id, rot:rng.next()*6.28, s:0.9 + rng.next()*0.5 }));
+  for(let k=0;k<5;k++){ const x = x0 + 0.6 + rng.next()*(pw - 1.2), y = y0 + 0.4 + rng.next()*(ph - 1.8); D.decor.push({ kind:"lotus", x, y, room:r.id, rot:rng.next()*6.28, s:0.8 + rng.next()*0.5 }); }
+  D.decor.push({ kind:"mossylog", x:r.x1 + 2.2, y:r.y2 - 0.2, room:r.id, rot:0.3, s:1 });
+  D.decor.push({ kind:"frogstatue", x:x0 - 1.5, y:y0 + ph - 0.5, room:r.id, rot:0.5, s:0.7 });
+  D.decor.push({ kind:"reeds", x:x0 + 1, y:y0 - 0.2, room:r.id, s:1.2 }, { kind:"reeds", x:x0 + pw - 1, y:y0 + ph + 0.1, room:r.id, s:1.1 });
+  D.decor.push({ kind:"waterfall", x:cx + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:1 });
+  for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(Math.abs(x - cx) > 1) D.decor.push({ kind:"junglevines", x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
+}
+const JUNGLE = { floor:["bigfern", "fern", "toadstools", "lotusbud", "mossylog", "fern"], wall:["junglevines", "glowmoss", "junglevines"] };
 
 /* a painted door on the north wall: walk into it and... BONK */
 function paintDoor(D, rng, r){
@@ -482,14 +502,140 @@ function dress(D, rng){
       // corners and edges get cobwebs and clutter; the middle stays clear to fight in
       const nearEdge = x - r.x1 < 2 || r.x2 + 1 - x < 2 || y - r.y1 < 2 || r.y2 + 1 - y < 2;
       if(!nearEdge && rng.chance(0.7)) continue;
-      D.decor.push({ kind:rng.pick(floorKinds), x, y, room:r.id, rot:rng.next()*6.28, s:0.8 + rng.next()*0.5 });
+      D.decor.push({ kind:rng.pick(r.jungle ? JUNGLE.floor : floorKinds), x, y, room:r.id, rot:rng.next()*6.28, s:0.8 + rng.next()*0.5 });
     }
     // on the north wall
     for(let x=r.x1 + 1; x<r.x2; x+=rng.int(3, 6)){
       if(D.at(x, r.y1 - 1) !== T.SOLID || D.painted.some(p=> p.x === x && p.y === r.y1 - 1)) continue;
+      if(r.jungle) continue;
       if(rng.chance(0.45)) D.decor.push({ kind:rng.pick(wallKinds), x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
     }
   });
+}
+
+/* ================================================================== *
+ *  ROOMS: locked vaults and the rare rooms
+ *  New rooms grow off plain goblin rooms into empty cells, one door
+ *  each: a vault behind a locked door, the Wizard's Quarters where
+ *  Brother Olm rests, and now and then something weirder (the Red
+ *  Throne, a caged treasure, a gambler's altar). A room marked
+ *  lockedIn gets the door at the far end of its corridor locked once
+ *  the doors exist; a key opens it (G.unlockDoor).
+ *  Also here: key-locked golden chests, and the orange messages the
+ *  dead scrawl on the floor (most of them by secret walls).
+ * ================================================================== */
+const isDeadEnd = r=> r.type === "combat" && r.links.length === 1;
+function specialRooms(D, rng, floor, C){
+  const R = DG.RARE_ROOMS, want = [];
+  if(rng.chance(R.vault(floor))) want.push("vault");
+  if(rng.chance(R.weird(floor))) want.push(rng.weighted(R.table.filter(o=> floor >= o.min)).type);
+  if(rng.chance(R.olm(floor))) want.push("olm");
+  want.forEach(type=>{
+    const cand = [];
+    for(let cy=0; cy<GH; cy++) for(let cx=0; cx<GW; cx++){
+      if(C.roomAt(cx, cy)) continue;
+      const ns = DG.DIRS4.map(([dx, dy])=> ({ r:C.roomAt(cx + dx, cy + dy), c:[cx + dx, cy + dy] })).filter(o=> o.r && o.r.type === "combat" && o.r.dist >= 1);
+      // a cell that touches only its host keeps the new room a clean dead end; the weird ones like to be far away
+      const others = DG.DIRS4.filter(([dx, dy])=> C.roomAt(cx + dx, cy + dy)).length - ns.length;
+      if(ns.length) cand.push({ cx, cy, ns, w:(others ? 0.3 : 1)*(type === "vault" || type === "olm" ? 1 : 1 + Math.max(...ns.map(o=> o.r.dist))) });
+    }
+    if(!cand.length) return;
+    const c = rng.weighted(cand), host = rng.pick(c.ns);
+    const r = C.addRoom(c.cx, c.cy); r.type = type;
+    r.c0x = r.c1x = c.cx; r.c0y = r.c1y = c.cy; r.dist = host.r.dist + 1;
+    C.link(host.r, r, host.c, [c.cx, c.cy]);
+    if(type === "vault") r.lockedIn = true;
+  });
+}
+/* the door into a lockedIn room (on its host's side) starts shut and locked */
+function lockRooms(D){
+  D.rooms.forEach(r=>{
+    if(!r.lockedIn) return;
+    D.corridors.forEach(c=>{
+      if(c.a !== r.id && c.b !== r.id) return;
+      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; } });
+    });
+  });
+}
+Dungeon.lockRooms = lockRooms;
+/* is room r behind a locked door (or was it, before a key opened it)? */
+Dungeon.behindLock = function(D, r){ return D.doors.some(d=> d.into === r.id || (d.locked && d.room !== r.id && D.corridors[d.corridor] && (D.corridors[d.corridor].a === r.id || D.corridors[d.corridor].b === r.id))); };
+
+const deco = (D, r, kind, x, y, o)=> D.decor.push(Object.assign({ kind, x, y, room:r.id }, o || {}));
+const wallDeco = (D, r, kind, x, o)=> deco(D, r, kind, x + 0.5, r.y1 - 0.02, Object.assign({ wall:true }, o || {}));
+const SPECIAL = {
+  /* a locked vault: two pedestals both yours, or one from the secret pool, or a golden chest and an item */
+  vault(D, rng, r, floor){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.vault = rng.weighted([{ v:"twin", w:1 }, { v:"relic", w:1 }, { v:"hoard", w:1 }]).v;
+    if(r.vault === "twin"){ r.props.push({ kind:"pedestal", x:cx - 2, y:cy, pool:"t" }, { kind:"pedestal", x:cx + 2, y:cy, pool:"t" }); }
+    else if(r.vault === "relic"){ r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"x" }); }
+    else { r.props.push({ kind:"chest", x:cx - 2, y:cy, tier:3, golden:true }, { kind:"pedestal", x:cx + 2, y:cy, pool:"t" }); }
+    [[r.x1 + 0.7, r.y1 + 0.7], [r.x2 + 0.3, r.y1 + 0.7], [r.x1 + 0.7, r.y2 + 0.3], [r.x2 + 0.3, r.y2 + 0.3]].forEach(([x, y])=> deco(D, r, rng.chance(0.5) ? "goldpile" : "coinchest", x, y, { rot:rng.next()*6.28, s:0.9 + rng.next()*0.3 }));
+    for(let x=r.x1 + 1; x<r.x2; x+=3) wallDeco(D, r, rng.chance(0.5) ? "vaultbars" : "candleshelf", x, { s:1 });
+  },
+  /* the Red Throne: a godly thing on a throne of bone, and the god's price */
+  throne(D, rng, r){
+    const cx = Math.floor(r.cxw);
+    r.props.push({ kind:"pedestal", x:cx, y:r.y1 + 1, throne:true });
+    r.props.push({ kind:"sign", x:cx - 4, y:r.y2, text:"THE RED THRONE. TAKE THE GIFT. THE GOD TAKES ITS DUE." });
+    for(let y=r.y1 + 2; y<r.y2; y+=3) [r.x1 + 1.5, r.x2 - 0.5].forEach(x=> deco(D, r, "bonepillar", x, y + 0.5, { rot:0, s:1 }));
+    deco(D, r, "bloodpool", cx + 0.5, r.y1 + 4, { rot:0, s:1 });
+    [[cx - 2.2, r.y1 + 1.6], [cx + 3.2, r.y1 + 1.6], [cx - 1.4, r.y1 + 3.2], [cx + 2.4, r.y1 + 3.2]].forEach(([x, y])=> deco(D, r, "redcandles", x, y, { rot:rng.next()*6, s:1 }));
+    for(let x=r.x1 + 1; x<r.x2; x+=3) if(Math.abs(x - cx) > 2) wallDeco(D, r, "redbanner", x, { s:1 });
+  },
+  /* a caged treasure: take it, and the room takes you */
+  cage(D, rng, r){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"a", cage:true });
+    r.props.push({ kind:"sign", x:cx, y:r.y1, text:"A CAGED TREASURE. TAKE IT. GO ON. NOTHING BAD HAS EVER HAPPENED IN HERE." });
+    for(let k=0;k<5;k++) deco(D, r, rng.pick(["bones", "skullpile", "deadknight"]), r.x1 + 1 + rng.next()*(r.x2 - r.x1 - 1), rng.chance(0.5) ? r.y1 + 1 : r.y2, { rot:rng.next()*6, s:1 });
+  },
+  /* a gambler's altar: double or nothing for your gold; your blood to raise the stakes on an item */
+  gamble(D, rng, r){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.props.push({ kind:"dice", x:cx - 3, y:cy });
+    r.props.push({ kind:"pedestal", x:cx + 3, y:cy - 1, pool:"t", wager:true });
+    r.props.push({ kind:"bloodbowl", x:cx + 3, y:cy + 1, tx:cx + 3, ty:cy - 1 });
+    r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE GAMBLER'S ALTAR. DOUBLE OR NOTHING. THE HOUSE IS VERY OLD, AND HAS NEVER LOST." });
+    deco(D, r, "candlecluster", cx - 4.2, cy - 1, { rot:1, s:1 }); deco(D, r, "candlecluster", cx + 4.4, cy + 2, { rot:2, s:1 });
+  },
+  /* the Wizard's Quarters: a cot, a hearth, a kettle, too many books, and Brother Olm */
+  olm(D, rng, r){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.props.push({ kind:"olm", x:cx, y:cy - 1 });
+    wallDeco(D, r, "hearth", cx, { s:1 });
+    [r.x1 + 1, r.x1 + 3, r.x2 - 3, r.x2 - 1].forEach(x=>{ if(Math.abs(x - cx) > 1) wallDeco(D, r, "bookshelf", x, { s:1 }); });
+    deco(D, r, "cot", r.x1 + 1.6, r.y2 - 0.4, { rot:0, s:1 });
+    deco(D, r, "desk", r.x2 - 0.9, cy + 0.5, { rot:-Math.PI/2, s:1 });
+    deco(D, r, "bookpile", r.x1 + 0.8, cy, { rot:rng.next()*6, s:1 });
+    deco(D, r, "bookpile", r.x2 - 0.6, r.y2 - 0.2, { rot:rng.next()*6, s:1 });
+    deco(D, r, "kettle", cx + 1.4, r.y1 + 0.7, { rot:0, s:1 });
+    deco(D, r, "stool", cx - 1.2, cy - 0.2, { rot:0.4, s:1 });
+  }
+};
+Dungeon.SPECIAL = SPECIAL;
+
+function specialExtras(D, rng, floor){
+  const R = DG.RARE_ROOMS, combat = D.rooms.filter(r=> r.type === "combat" && r.dist >= 1);
+  // a golden chest, locked: it wants a key of its own
+  if(combat.length && rng.chance(R.golden(floor))){
+    const r = rng.pick(combat);
+    const t = freeTiles(D, r, { door:4 }).filter(([x, y])=> x === r.x1 + 1 || x === r.x2 - 1 || y === r.y1 + 1 || y === r.y2 - 1);
+    if(t.length){ const [x, y] = rng.pick(t); r.props.push({ kind:"chest", x, y, tier:floor >= 3 ? 3 : 2, golden:true, keyLock:true }); }
+  }
+  // orange messages: by most secret walls, a true one; now and then a joke
+  D.fakes.forEach(f=>{
+    if(f.puzzle || !rng.chance(0.55)) return;
+    const r = D.rooms[f.room], [fx, fy] = f.tiles[1];
+    const into = fy === r.y1 - 1 ? [fx, r.y1 + 1] : fy === r.y2 + 1 ? [fx, r.y2 - 1] : fx === r.x1 - 1 ? [r.x1 + 1, fy] : [r.x2 - 1, fy];
+    if(D.at(into[0], into[1]) !== T.FLOOR || r.props.some(p=> p.x === into[0] && p.y === into[1])) return;
+    r.props.push({ kind:"message", x:into[0], y:into[1], text:rng.pick(DG.SOAPSTONE.honest), honest:true });
+  });
+  if(combat.length && rng.chance(R.joke)){
+    const r = rng.pick(combat), t = freeTiles(D, r, { door:3 });
+    if(t.length){ const [x, y] = rng.pick(t); r.props.push({ kind:"message", x, y, text:rng.pick(DG.SOAPSTONE.joke) }); }
+  }
 }
 
 /* every room reachable from the start over floor, doors and illusions */

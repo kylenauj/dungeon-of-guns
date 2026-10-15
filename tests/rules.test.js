@@ -264,8 +264,11 @@ test("goblin bombs hurt goblins too", ()=>{
 
 test("an Event Horizon shot that runs out becomes a black hole", ()=>{
   const G = game("HOLE", 1, ["horizon"]); park(G);
+  // somewhere with three tiles of open floor ahead (the room's middle may be a pillar)
   const r = combatRoom(G);
-  G.addShot({ x:r.cxw, y:r.cyw, a:0, speed:4, r:0.15, dmg:5, range:1, els:["arcane"], power:1, depth:0 });
+  let c = null;
+  for(let y=r.y1; y<=r.y2 && !c; y++) for(let x=r.x1; x<=r.x2 - 3 && !c; x++) if([0, 1, 2, 3].every(i=> G.D.at(x + i, y) === T.FLOOR)) c = { x:x + 0.5, y:y + 0.5 };
+  G.addShot({ x:c.x, y:c.y, a:0, speed:4, r:0.15, dmg:5, range:1, els:["arcane"], power:1, depth:0 });
   step(G, 0.5);
   assert.ok(G.hazards.some(h=> h.kind === "blackhole"));
 });
@@ -736,10 +739,13 @@ test("every boss fights for 25 seconds, stays in its room, and can be killed", (
 /* ---- regression: enemies escaping through walls (rooms stayed locked forever) ---- */
 test("a big body shoved into a wall can back out but never goes through it", ()=>{
   const G = game("WALLS");
-  const r = combatRoom(G);
-  let wy = r.y1 + 2;
-  while(wy < r.y2 - 1 && [-2, -1, 0, 1, 2].some(k=> G.D.at(r.x1 - 1, wy + k) !== T.SOLID)) wy++;
-  assert.ok(wy < r.y2 - 1, "found solid wall");
+  // any goblin room with five tiles of plain west wall in a row (not every layout has one in its first room)
+  let r = null, wy = 0;
+  for(const room of G.D.rooms.filter(x=> x.type === "combat")){
+    for(let y=room.y1 + 2; y<room.y2 - 1 && !r; y++) if([-2, -1, 0, 1, 2].every(k=> G.D.at(room.x1 - 1, y + k) === T.SOLID) && [-1, 0, 1].every(k=> [0, 1, 2, 3].every(i=> G.D.at(room.x1 + i, y + k) === T.FLOOR))){ r = room; wy = y; }
+    if(r) break;
+  }
+  assert.ok(r, "found solid wall");
   const e = { x:r.x1 + 0.3, y:wy + 0.5, r:0.6 };
   for(let i=0;i<200;i++) G.move(e, -0.15, (i % 3 - 1)*0.01, "enemy");
   assert.ok(e.x >= r.x1 + 0.3 - 1e-6);
