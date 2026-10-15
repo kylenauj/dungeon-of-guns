@@ -486,7 +486,8 @@ proto.killEnemy = function(e, src, fell){
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
   G.chargeActive(0.08);
   const [g0, g1] = e.def.gold || [1, 2];
-  const gold = Math.round(G.rng.int(g0, g1)*(1 + 0.25*(G.floor - 1))*(e.affix ? 2 : 1));
+  // deeper floors have more goblins already, so each one only pays a little more
+  const gold = Math.round(G.rng.int(g0, g1)*(1 + 0.08*(G.floor - 1))*(e.affix ? 1.5 : 1));
   if(!fell && gold > 0) G.dropGold(e.x, e.y, gold);
   if(src.from === "gribbus" && G.gribbus.g.flies) G.addPickup("flyheal", e.x, e.y, 1);
   G.trigger("kill", { x:e.x, y:e.y, els:src.els && src.els.length ? src.els : G.shotEls(G.gun()), depth:src.depth || 0, enemy:e });

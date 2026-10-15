@@ -62,10 +62,10 @@ L.rollGun = function(rng, level, opts){
 
 L.starterGun = ()=> L.makeGun("pistol", "arcane", 0, 1, [], { unique:"Old Faithful", flavour:"Zippy's first wand-pistol. It has never once been cleaned." });
 
-L.itemPrice = function(id, floor){ const t = DG.ITEMS[id].tier; return Math.round((18 + 16*t + t*t*6)*(1 + 0.15*(floor - 1))); };
+L.itemPrice = function(id, floor){ const t = DG.ITEMS[id].tier; return Math.round((18 + 16*t + t*t*6)*(1 + 0.3*(floor - 1))); };
 L.price = function(item, floor){
   switch(item.kind){
-    case "gun":   return Math.round((22 + 10*item.level)*(1 + item.rarity*0.55));
+    case "gun":   return Math.round((22 + 12*item.level)*(1 + item.rarity*0.6));
     case "item":  return L.itemPrice(item.id, floor);
     case "heal":  return 12 + 4*floor;
     case "ward":  return 14 + 4*floor;
