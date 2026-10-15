@@ -1142,7 +1142,8 @@ function setDepth(d, t){
 A.tick = function(){
   const c = A.ctx;
   if(!c || c.state !== "running" || A.offline) return;
-  A.schedule(c.currentTime + 0.3);
+  // a hidden tab only ticks about once a second, so look further ahead there
+  A.schedule(c.currentTime + (typeof document !== "undefined" && document.hidden ? 1.6 : 0.3));
 };
 /* schedules the score up to a time (the tick looks 0.3 s ahead; tests render it offline) */
 A.schedule = function(until){
