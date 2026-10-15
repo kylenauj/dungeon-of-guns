@@ -32,6 +32,7 @@ A.start = function(){
 /* builds everything on a context; tests hand it an OfflineAudioContext */
 A.init = function(c, offline){
   A.ctx = c; A.offline = !!offline; LIVE.clear();
+  for(const k in last) delete last[k]; for(const k in voices) delete voices[k];
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 3.5; comp.attack.value = 0.006; comp.release.value = 0.25;
   const lim = c.createDynamicsCompressor();
@@ -274,13 +275,11 @@ const LIM_DEF = { min:0.03, cap:3, wet:0.35, jit:0.04 };
 function lim(names, o){ names.split(" ").forEach(n=> LIM[n] = Object.assign({}, LIM_DEF, o)); }
 const last = {}, voices = {};
 const SND = {};
-let legacy = null;
 
 function playSafe(name, o){
   const c = A.ctx;
   if(!c || A.muted || typeof name !== "string") return;
   let fn = SND[name];
-  if(!fn && legacy && legacy.has(name)) fn = o2=> legacy.play(name, o2);
   if(!fn){
     if(name.indexOf("shoot_") === 0) fn = SND.shoot_pistol;
     else if(name.indexOf("spell_") === 0) fn = SND.spell_missiles;
@@ -318,7 +317,7 @@ A.play = function(name, o){
   try{ playSafe(name, o); }
   catch(e){ P = null; if(!A.warned){ A.warned = true; if(window.console) console.warn("audio: " + name, e); } }
 };
-A.has = name=> !!SND[name] || !!(legacy && legacy.has(name));
+A.has = name=> !!SND[name];
 
 /* ================================================================== *
  *  Bodies and footfalls (hooks the view calls as things move)
@@ -355,7 +354,9 @@ SND.stomp = ()=>{
   noise(0.22, "bandpass", 1100, 0.1, { at:0.02, buf:"c", q:1 });
 };
 lim("moan", { min:1.4, cap:2, wet:0.7, jit:0.08, g:o=> "moan_" + (o.kind || "ghost"), also:["moan", 0.45] });
+const MOAN_TRIM = { ghost:0.4, shroom:5, boss:0.8 }, DIE_TRIM = { haunt:0.45, shroom:2.5, goblin:1.5 };
 SND.moan = o=>{
+  P.vol = MOAN_TRIM[o.kind] || 1;
   switch(o.kind){
     case "banshee": { const f = rnd(420, 540); voice(f, 1.9, 0.05, "i", { att:0.5, pc:[[0.4, 1.22], [1, 0.8]], morph:"e", rasp:0.15 }); voice(f*1.012, 1.9, 0.03, "i", { att:0.6, pc:[[0.4, 1.2], [1, 0.82]] }); break; }
     case "flesh": { const f = rnd(70, 92); voice(f, 1.5, 0.09, "o", { att:0.25, pc:[[0.5, 0.92], [1, 0.72]], rasp:0.5, morph:"u" }); noise(0.9, "bandpass", 380, 0.08, { at:0.3, q:4, buf:"c", att:0.2 }); break; }
@@ -367,6 +368,7 @@ SND.moan = o=>{
 };
 lim("die", { min:0.05, cap:3, wet:0.55, jit:0.08 });
 SND.die = o=>{
+  P.vol = DIE_TRIM[o.family] || 1;
   switch(o.family){
     case "shroom": noise(0.4, "lowpass", 1000, 0.25, { to:140, q:1.5 }); creak(0.7, 0.05, 28, 700, { at:0.08, pc:[[1, 0.55]] }); breath(0.6, 0.06, { f:1200, to:500, at:0.05, att:0.05 }); break;
     case "haunt": { const f = rnd(300, 380); voice(f, 1.6, 0.06, "u", { att:0.06, pc:[[0.2, 1.3], [1, 0.45]], rasp:0.2, morph:"o" }); breath(0.9, 0.08, { f:2600, to:500, att:0.05, q:1 }); chime(rnd(1100, 1500), 1.2, 0.012, { at:0.1 }); break; }
@@ -387,7 +389,629 @@ SND.cloth = ()=>{
   noise(0.12, "bandpass", 1300, 0.05, { buf:"c", q:1, at:0.01 });
 };
 
-/* ---- the old sounds, until they are restyled ---- */
+/* a choir chord in the effects: formant voices, a little detuned against each other */
+function choir(notes, dur, vol, o){
+  o = o || NO;
+  notes.forEach((m, i)=>{
+    const at = (o.at || 0) + (o.stag || 0)*i, att = o.att || dur*0.4;
+    voice(mtof(m), dur, vol, o.vowel || "a", { at, att, morph:o.morph, det:rnd(-8, 8), pc:o.pc, e:o.e, rasp:o.rasp });
+    if(o.thick) voice(mtof(m), dur, vol*0.6, o.vowel || "a", { at:at + 0.03, att, morph:o.morph, det:(Math.random() < 0.5 ? -1 : 1)*rnd(10, 18), pc:o.pc });
+  });
+}
+const ELNOTE = [69, 72, 74, 76, 81, 84];
+
+/* ================================================================== *
+ *  The interface
+ * ================================================================== */
+lim("click", { min:0.03, cap:2, wet:0.1, jit:0.03 });
+SND.click = ()=>{ noise(0.04, "bandpass", 1700, 0.07, { q:2, v:false }); osc("sine", 210, 0.07, 0.035, { v:false }); };
+lim("select", { min:0.05, cap:2, wet:0.45, jit:0.02 });
+SND.select = ()=>{ thump(150, 70, 0.1, 0.14, { v:false }); chime(mtof(69), 1, 0.026); };
+lim("error", { min:0.15, cap:1, wet:0.3, jit:0.03 });
+SND.error = ()=>{
+  osc("sawtooth", mtof(38), 0.3, 0.06, { lp:420 }); osc("sawtooth", mtof(39), 0.3, 0.05, { lp:420 });
+  noise(0.12, "lowpass", 300, 0.16, { buf:"b" });
+};
+
+/* ================================================================== *
+ *  Guns: a deep thump, a crack, a stone-room tail, and the element on top
+ * ================================================================== */
+function elementTail(el, k){
+  if(el === "fire"){ noise(0.3, "bandpass", 900, 0.1*k, { buf:"c", q:0.9, at:0.01, to:350, att:0.02 }); noise(0.22, "lowpass", 600, 0.06*k, { at:0.01, att:0.04 }); }
+  else if(el === "frost"){ chime(rnd(1700, 2300), 0.5, 0.016*k, { at:0.015 }); noise(0.12, "highpass", 5000, 0.04*k, { buf:"c", at:0.01 }); }
+  else if(el === "poison") noise(0.3, "bandpass", 520, 0.12*k, { q:4, to:200, at:0.01, buf:"c" });
+  else if(el === "shock"){ noise(0.12, "highpass", 3400, 0.09*k, { buf:"c", at:0.004 }); osc("sawtooth", 58, 0.14, 0.03*k, { lp:900, at:0.004 }); }
+  else { const f = rnd(290, 330); osc("sine", f, 0.45, 0.022*k, { at:0.01, att:0.02 }); osc("sine", f*1.06, 0.45, 0.016*k, { at:0.01, att:0.02 }); }
+}
+lim("shoot_pistol", { min:0.04, cap:4, wet:0.5, jit:0.05 });
+SND.shoot_pistol = o=>{
+  thump(170, 48, 0.17, 0.42, { v:false });
+  noise(0.05, "bandpass", 2000, 0.28, { q:0.8 });
+  noise(0.26, "lowpass", 1200, 0.2, { to:280 });
+  noise(0.12, "bandpass", 3000, 0.05, { buf:"c", at:0.01 });
+  elementTail(o.el, 1);
+};
+lim("shoot_smg", { min:0.05, cap:4, wet:0.32, jit:0.07 });
+SND.shoot_smg = o=>{
+  thump(150, 60, 0.1, 0.26, { v:false });
+  noise(0.035, "bandpass", 2400, 0.18, { q:0.8 });
+  noise(0.14, "lowpass", 900, 0.12, { to:300 });
+  if(Math.random() < 0.35) elementTail(o.el, 0.6);
+};
+lim("shoot_shotgun", { min:0.08, cap:3, wet:0.6, jit:0.04 });
+SND.shoot_shotgun = o=>{
+  thump(120, 34, 0.42, 0.7, { v:false });
+  noise(0.07, "bandpass", 1200, 0.3, { q:0.6 });
+  noise(0.5, "lowpass", 2400, 0.45, { to:200, q:0.7, e:true });
+  noise(0.32, "bandpass", 1600, 0.12, { buf:"c", q:0.7, at:0.005 });
+  elementTail(o.el, 1.3);
+};
+lim("shoot_rifle", { min:0.08, cap:3, wet:0.7, jit:0.04 });
+SND.shoot_rifle = o=>{
+  noise(0.04, "highpass", 2200, 0.32);
+  thump(190, 44, 0.26, 0.5, { v:false });
+  noise(0.7, "lowpass", 1600, 0.2, { to:180, e:true });
+  metal(rnd(520, 580), 0.14, 0.018, { at:0.2, v:false });   // the bolt
+  elementTail(o.el, 1.2);
+};
+lim("shoot_launcher", { min:0.1, cap:3, wet:0.55, jit:0.04 });
+SND.shoot_launcher = o=>{
+  thump(95, 36, 0.42, 0.6, { v:false });
+  noise(0.36, "bandpass", 420, 0.3, { q:1.4, to:200 });
+  metal(150, 0.5, 0.03);
+  breath(0.42, 0.07, { f:700, to:1500, att:0.02 });
+  elementTail(o.el, 1);
+};
+
+/* ---- spells ---- */
+lim("spell_missiles spell_fireball spell_nova spell_plague spell_chain", { min:0.1, cap:2, wet:0.75, jit:0.03 });
+SND.spell_missiles = ()=>{
+  for(let i=0;i<5;i++) breath(0.32, 0.05, { f:600, to:2400, at:i*0.05, att:0.05, q:2 });
+  osc("sine", mtof(62), 1.2, 0.03, { att:0.03 }); osc("sine", mtof(63), 1.2, 0.022, { att:0.05 });
+  voice(mtof(38), 1, 0.04, "o", { att:0.05, rasp:0.2 });
+};
+SND.spell_fireball = ()=>{
+  noise(0.9, "lowpass", 300, 0.42, { att:0.06, to:1600, glide:0.3 });
+  noise(1.1, "bandpass", 1200, 0.12, { buf:"c", att:0.1 });
+  thump(90, 38, 0.45, 0.4, { v:false });
+};
+SND.spell_nova = ()=>{
+  noise(0.6, "highpass", 2500, 0.22, { to:7000 });
+  for(let i=0;i<6;i++) clink(rnd(2500, 5200), 0.022, Math.random()*0.25);
+  bell(mtof(74), 2.4, 0.035, { n:6, str:1 });
+  thump(140, 50, 0.3, 0.3, { v:false });
+};
+SND.spell_plague = ()=>{
+  noise(1.3, "bandpass", 350, 0.28, { q:3, to:700, att:0.2 });
+  noise(1.2, "bandpass", 520, 0.14, { buf:"c", q:5 });
+  voice(mtof(38), 1.4, 0.05, "u", { att:0.4, rasp:0.5 });
+};
+SND.spell_chain = ()=>{
+  for(let i=0;i<5;i++) noise(0.08, "highpass", 3000, 0.22, { buf:"c", at:i*0.045 });
+  noise(1.3, "lowpass", 300, 0.34, { buf:"b", at:0.05, att:0.05, e:true });
+  osc("sawtooth", 55, 0.32, 0.06, { lp:1200 });
+};
+
+/* ================================================================== *
+ *  Blows, wounds and deaths
+ * ================================================================== */
+lim("hit", { min:0.035, cap:5, wet:0.25, jit:0.1 });
+SND.hit = ()=>{
+  thump(rnd(150, 190), 60, 0.09, 0.3, { v:false });
+  noise(0.08, "lowpass", 1100, 0.24, { to:400 });
+  noise(0.05, "bandpass", 500, 0.12, { q:2, buf:"c" });
+};
+lim("crit", { min:0.05, cap:3, wet:0.45, jit:0.06 });
+SND.crit = ()=>{
+  thump(130, 45, 0.15, 0.5, { v:false });
+  noise(0.13, "lowpass", 1800, 0.32, { to:300 });
+  metal(rnd(420, 520), 0.5, 0.04);
+  noise(0.1, "bandpass", 2200, 0.12, { buf:"c", q:1 });
+};
+lim("bounce", { min:0.06, cap:2, wet:0.4, jit:0.12 });
+SND.bounce = ()=>{
+  const f = rnd(1400, 1900);
+  osc("sine", f, 0.2, 0.025, { to:f*0.85 });
+  noise(0.04, "bandpass", 2500, 0.07, { q:2 });
+  noise(0.06, "lowpass", 800, 0.09);
+};
+lim("kill", { min:0.04, cap:4, wet:0.45, jit:0.08 });
+SND.kill = ()=>{
+  thump(100, 38, 0.3, 0.42, { v:false });
+  noise(0.32, "lowpass", 700, 0.28, { to:120, q:1.5 });
+  noise(0.12, "bandpass", 1800, 0.12, { buf:"c", q:1, at:0.02 });
+  thump(80, 40, 0.16, 0.2, { at:0.22, v:false });          // and the body hits the floor
+  noise(0.16, "lowpass", 400, 0.2, { at:0.22, buf:"b" });
+};
+lim("bossdie", { min:0.5, cap:1, wet:0.9, jit:0, pri:true });
+SND.bossdie = ()=>{
+  bell(mtof(38), 9, 0.22, { e:true });
+  thump(70, 25, 1.6, 0.8, { v:false });
+  noise(4, "lowpass", 200, 0.5, { buf:"b", att:0.05 });
+  noise(2.5, "bandpass", 900, 0.12, { buf:"c", att:0.1 });
+  choir([38, 45, 50, 53], 5, 0.03, { at:0.6, att:1.5, vowel:"o", morph:"u", pc:[[1, 0.94]] });
+};
+lim("hurt", { min:0.12, cap:2, wet:0.4, jit:0.06, pri:true });
+SND.hurt = ()=>{
+  voice(rnd(105, 130), 0.34, 0.16, "uh", { att:0.01, pc:[[0.2, 1.1], [1, 0.75]], rasp:0.5 });
+  thump(120, 45, 0.2, 0.5, { v:false });
+  noise(0.16, "lowpass", 900, 0.3, { to:250 });
+};
+lim("death", { min:1, cap:1, wet:1, jit:0, pri:true });
+SND.death = ()=>{
+  bell(mtof(38), 10, 0.24, { e:true });
+  bell(mtof(50), 6, 0.06, { at:0.02 });
+  thump(60, 22, 2, 0.9, { v:false });
+  noise(3, "lowpass", 180, 0.45, { buf:"b", att:0.02 });
+  choir([38, 45, 50, 53], 5.5, 0.03, { at:0.5, att:2, vowel:"u", morph:"o", pc:[[1, 0.96]], thick:true });
+};
+lim("graze", { min:0.1, cap:2, wet:0.2, jit:0.1 });
+SND.graze = ()=>{ noise(0.15, "bandpass", 2200, 0.08, { att:0.03, to:900, q:2 }); };
+
+/* ================================================================== *
+ *  Zippy
+ * ================================================================== */
+lim("heal", { min:0.3, cap:2, wet:0.8, jit:0.02 });
+SND.heal = ()=>{
+  chime(mtof(69), 1.6, 0.04); chime(mtof(76), 1.6, 0.03, { at:0.08 });
+  choir([57, 64], 1.5, 0.03, { att:0.4, morph:"o" });
+  breath(0.8, 0.035, { f:1500, att:0.3 });
+};
+lim("blink", { min:0.1, cap:2, wet:0.5, jit:0.06 });
+SND.blink = ()=>{
+  breath(0.34, 0.14, { f:500, to:3000, att:0.26, glide:0.3, q:1 });
+  osc("sine", 300, 0.4, 0.07, { to:80 });
+  noise(0.12, "bandpass", 1600, 0.06, { buf:"c", at:0.26 });
+};
+lim("reload", { min:0.1, cap:2, wet:0.3, jit:0.05 });
+SND.reload = ()=>{ metal(rnd(700, 800), 0.12, 0.035); noise(0.06, "bandpass", 2000, 0.1, { q:3 }); noise(0.1, "bandpass", 900, 0.06, { buf:"c", at:0.05 }); };
+lim("reloaded", { min:0.1, cap:2, wet:0.35, jit:0.04 });
+SND.reloaded = ()=>{
+  noise(0.1, "bandpass", 1500, 0.11, { q:2, to:2500 });
+  metal(rnd(500, 560), 0.22, 0.045, { at:0.08 });
+  thump(200, 80, 0.06, 0.05, { at:0.08, v:false });
+};
+lim("swap", { min:0.08, cap:2, wet:0.3, jit:0.05 });
+SND.swap = ()=>{ noise(0.18, "bandpass", 900, 0.1, { att:0.05, to:1800, q:1 }); metal(rnd(420, 480), 0.2, 0.028, { at:0.12 }); };
+
+/* ================================================================== *
+ *  Doors, rooms, puzzles, the descent
+ * ================================================================== */
+lim("doorShut", { min:0.3, cap:1, wet:0.8, jit:0.03, pri:true });
+SND.doorShut = ()=>{
+  grind(0.55, 0.3, { f:260 });
+  chains(7, 0.5, 0.025);
+  thump(85, 30, 0.6, 0.8, { at:0.5, v:false });
+  noise(0.6, "lowpass", 500, 0.45, { at:0.5, to:90, e:true });
+  metal(110, 1.2, 0.06, { at:0.52, e:true });
+};
+lim("doorOpen", { min:0.3, cap:1, wet:0.8, jit:0.03, pri:true });
+SND.doorOpen = ()=>{
+  grind(1, 0.22, { f:300 });
+  chains(10, 0.8, 0.022, 0.05);
+  metal(130, 1, 0.045, { at:0.95 });
+  thump(70, 35, 0.4, 0.4, { at:0.95, v:false });
+};
+lim("clear", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.clear = ()=>{ bell(mtof(50), 6, 0.08, { e:true }); choir([50, 57], 3, 0.022, { at:0.2, att:1, vowel:"a", morph:"o" }); };
+lim("descend", { min:1, cap:1, wet:1, jit:0, pri:true });
+SND.descend = ()=>{
+  thump(55, 25, 2.5, 0.6, { v:false });
+  noise(3.5, "lowpass", 180, 0.4, { buf:"b", att:0.4 });
+  bell(mtof(43), 8, 0.1, { at:0.6, e:true });
+  bell(mtof(38), 9, 0.08, { at:2.2, e:true });
+  choir([50, 53, 57], 5, 0.025, { att:1.5, vowel:"u", morph:"o", pc:[[1, 0.89]] });
+};
+lim("portal", { min:0.5, cap:1, wet:1, jit:0.02 });
+SND.portal = ()=>{
+  noise(3, "bandpass", 300, 0.22, { q:3, to:1200, att:1, glide:2.5 });
+  osc("sawtooth", 55, 3.5, 0.05, { lp:400, att:1 }); osc("sawtooth", 55.6, 3.5, 0.04, { lp:400, att:1.2 });
+  choir([50, 57, 62, 63], 3.5, 0.02, { att:1.4, vowel:"o", morph:"a", pc:[[1, 1.06]] });
+  whisper(2.5, 0.025, { at:0.5 });
+};
+lim("secret", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.secret = ()=>{
+  grind(1.2, 0.16);
+  choir([50, 57, 62, 65], 3.2, 0.025, { att:0.8 });
+  chime(mtof(74), 2.5, 0.035, { at:0.6 }); chime(mtof(81), 2.5, 0.025, { at:0.9 });
+};
+lim("solved", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.solved = ()=>{
+  metal(160, 0.8, 0.045); thump(90, 40, 0.3, 0.4, { v:false });
+  bell(mtof(55), 5, 0.08, { at:0.25, e:true });
+  choir([55, 62, 67], 2.5, 0.022, { at:0.3, att:0.8 });
+};
+lim("brazier", { min:0.1, cap:2, wet:0.6, jit:0.05 });
+SND.brazier = ()=>{ noise(0.5, "lowpass", 250, 0.33, { to:1500, glide:0.15, att:0.03 }); noise(1.2, "bandpass", 1500, 0.1, { buf:"c", att:0.1, at:0.05 }); };
+lim("stone", { min:0.15, cap:2, wet:0.6, jit:0.05 });
+SND.stone = ()=>{ grind(0.6, 0.32, { f:220 }); thump(80, 35, 0.3, 0.4, { at:0.55, v:false }); };
+lim("push", { min:0.15, cap:2, wet:0.5, jit:0.05 });
+SND.push = ()=>{ grind(0.38, 0.28, { f:260 }); };
+lim("reset", { min:0.3, cap:1, wet:0.6, jit:0.03 });
+SND.reset = ()=>{ grind(0.8, 0.22, { f:200 }); osc("sine", 110, 1.2, 0.055, { to:70, att:0.1 }); };
+/* the singing fungi: pitches stay true, so the tune can be learnt */
+const SING = [62, 65, 67, 69, 72, 74];
+const singNote = o=> SING[(o.n !== undefined ? o.n : o.i) | 0] || SING[0];
+lim("note", { min:0.08, cap:3, wet:0.8, jit:0, fixed:true });
+SND.note = o=>{ const f = mtof(singNote(o)); voice(f, 1.3, 0.09, "a", { att:0.08, morph:"o", rasp:0.05 }); voice(f/2, 1.3, 0.04, "o", { att:0.1 }); };
+lim("wrongnote", { min:0.08, cap:2, wet:0.6, jit:0, fixed:true });
+SND.wrongnote = o=>{
+  const f = mtof(singNote(o));
+  voice(f, 0.9, 0.07, "uh", { att:0.05, pc:[[1, 0.92]], rasp:0.2 }); voice(f*1.06, 0.9, 0.06, "uh", { att:0.05, pc:[[1, 0.9]] });
+  thump(90, 40, 0.25, 0.25, { v:false });
+};
+
+/* ================================================================== *
+ *  What enemies do
+ * ================================================================== */
+lim("tell", { min:0.08, cap:2, wet:0.3, jit:0.1 });
+SND.tell = ()=>{ noise(0.24, "bandpass", 1200, 0.06, { att:0.13, q:3, to:2200 }); };
+lim("tellBig", { min:0.15, cap:2, wet:0.6, jit:0.05 });
+SND.tellBig = ()=>{
+  osc("sawtooth", 55, 0.85, 0.08, { lp:500, att:0.4, to:82 });
+  voice(rnd(70, 85), 0.85, 0.07, "o", { att:0.3, rasp:0.6, pc:[[1, 1.2]] });
+  noise(0.85, "lowpass", 250, 0.2, { buf:"b", att:0.5 });
+};
+lim("sling", { min:0.06, cap:3, wet:0.3, jit:0.1 });
+SND.sling = ()=>{ noise(0.2, "bandpass", 700, 0.12, { q:2, att:0.04, to:1600 }); };
+lim("hex", { min:0.08, cap:2, wet:0.6, jit:0.06 });
+SND.hex = ()=>{
+  const f = rnd(140, 160);
+  osc("sawtooth", f, 0.5, 0.035, { lp:900, att:0.05, pc:[[1, 0.7]] }); osc("sawtooth", f*1.06, 0.5, 0.03, { lp:900, att:0.05, pc:[[1, 0.72]] });
+  whisper(0.4, 0.018);
+};
+lim("ering", { min:0.08, cap:2, wet:0.5, jit:0.06 });
+SND.ering = ()=>{ noise(0.42, "bandpass", 400, 0.17, { q:2, to:1400, att:0.08 }); osc("sine", 90, 0.42, 0.13, { to:140, att:0.05 }); };
+lim("arrow", { min:0.06, cap:3, wet:0.3, jit:0.08 });
+SND.arrow = ()=>{ const f = rnd(180, 220); osc("triangle", f, 0.15, 0.06, { to:f*0.75, att:0.002 }); noise(0.15, "bandpass", 2500, 0.07, { q:1.5, to:1200 }); };
+lim("steam", { min:0.06, cap:3, wet:0.4, jit:0.06 });
+SND.steam = ()=>{ noise(0.65, "highpass", 3000, 0.1, { att:0.02, to:1500 }); noise(0.42, "lowpass", 400, 0.15, { buf:"b" }); };
+lim("throw", { min:0.06, cap:3, wet:0.3, jit:0.08 });
+SND.throw = ()=>{ noise(0.32, "bandpass", 500, 0.13, { att:0.08, to:1200, q:1.4 }); };
+lim("boom", { min:0.06, cap:3, wet:0.7, jit:0.05 });
+SND.boom = ()=>{
+  thump(70, 25, 1, 0.85, { v:false });
+  noise(1.4, "lowpass", 1200, 0.55, { to:80, e:true });
+  noise(1.6, "bandpass", 1400, 0.11, { buf:"c", at:0.05, att:0.05 });
+  noise(2.5, "lowpass", 150, 0.32, { buf:"b", att:0.1 });
+};
+lim("zap", { min:0.05, cap:3, wet:0.4, jit:0.1 });
+SND.zap = ()=>{ noise(0.13, "highpass", 3200, 0.17, { buf:"c" }); osc("sawtooth", 50, 0.2, 0.055, { lp:1500, to:40 }); noise(0.05, "bandpass", 5000, 0.08); };
+lim("spit", { min:0.06, cap:3, wet:0.3, jit:0.1 });
+SND.spit = ()=>{ noise(0.2, "bandpass", 900, 0.14, { q:2, to:400, buf:"c" }); thump(160, 90, 0.08, 0.06); };
+lim("inhale", { min:0.3, cap:1, wet:0.7, jit:0.04 });
+SND.inhale = SND.heartbeat = ()=>{
+  noise(1.05, "bandpass", 400, 0.24, { att:0.85, to:1600, glide:1, q:2 });
+  voice(rnd(60, 70), 1, 0.05, "u", { att:0.8, rasp:0.8 });
+};
+lim("laserTell", { min:0.2, cap:2, wet:0.5, jit:0.04 });
+SND.laserTell = ()=>{
+  osc("sawtooth", 80, 0.95, 0.055, { lp:700, att:0.5, to:160 });
+  osc("sine", 160, 0.95, 0.045, { att:0.5, to:320 });
+  noise(0.95, "highpass", 4000, 0.025, { att:0.6 });
+};
+lim("beat", { min:0.2, cap:2, wet:0.4, jit:0.02 });
+SND.beat = ()=>{
+  thump(60, 30, 0.32, 0.7, { v:false }); noise(0.2, "lowpass", 200, 0.38, { buf:"b" });
+  thump(52, 28, 0.36, 0.55, { at:0.2, v:false }); noise(0.2, "lowpass", 180, 0.3, { buf:"b", at:0.2 });
+};
+lim("ghost", { min:0.2, cap:2, wet:0.85, jit:0.06 });
+SND.ghost = ()=>{
+  voice(rnd(200, 260), 1.6, 0.06, "u", { att:0.4, pc:[[1, 0.75]], morph:"o", rasp:0.15 });
+  breath(1, 0.07, { f:2500, to:600, att:0.2 });
+  whisper(1, 0.02, { at:0.2 });
+};
+lim("ghostShot", { min:0.06, cap:3, wet:0.6, jit:0.08 });
+SND.ghostShot = ()=>{ breath(0.4, 0.07, { f:1600, to:500, att:0.06, q:2 }); voice(rnd(400, 480), 0.4, 0.02, "u", { att:0.1, pc:[[1, 0.8]] }); };
+lim("bones", { min:0.08, cap:2, wet:0.45, jit:0.08 });
+SND.bones = ()=>{
+  for(let i=0;i<7;i++) noise(0.035, "bandpass", rnd(1100, 2800), 0.13, { q:6, at:Math.random()*0.38 });
+  thump(220, 120, 0.06, 0.06, { v:false });
+};
+lim("bark", { min:0.4, cap:1, wet:0.35, jit:0.08 });
+SND.bark = ()=>{
+  let t = 0; const n = 2 + Math.floor(Math.random()*2);
+  for(let i=0;i<n;i++){ const d = rnd(0.1, 0.18); voice(rnd(110, 170), d, 0.07, pick(["a", "uh", "o", "e"]), { at:t, rasp:0.6, pc:[[1, rnd(0.75, 1.2)]], att:0.01 }); t += d*0.85; }
+};
+lim("gremlin", { min:0.3, cap:1, wet:0.5, jit:0.05 });
+SND.gremlin = ()=>{
+  for(let i=0;i<4;i++) voice(rnd(240, 300)*(1 - i*0.08), 0.11, 0.05, "a", { at:i*0.11, rasp:0.7, att:0.005, pc:[[1, 0.85]] });
+  whisper(0.6, 0.02);
+};
+
+/* ================================================================== *
+ *  Elements, statuses, gore
+ * ================================================================== */
+lim("react", { min:0.08, cap:3, wet:0.6, jit:0.06 });
+SND.react = ()=>{
+  thump(110, 40, 0.3, 0.42, { v:false });
+  noise(0.36, "bandpass", 1800, 0.14, { buf:"c", to:600 });
+  bell(mtof(60 + Math.floor(rnd(0, 6))), 1.6, 0.03, { n:5, str:2 });
+};
+lim("nova", { min:0.1, cap:2, wet:0.6, jit:0.05 });
+SND.nova = ()=>{
+  noise(0.6, "highpass", 2000, 0.18, { to:6000 });
+  for(let i=0;i<4;i++) clink(rnd(2500, 5000), 0.02, Math.random()*0.2);
+  thump(120, 40, 0.3, 0.3, { v:false });
+};
+lim("freeze", { min:0.06, cap:3, wet:0.5, jit:0.08 });
+SND.freeze = ()=>{ noise(0.3, "highpass", 4000, 0.11, { buf:"c" }); osc("sine", rnd(90, 110), 0.5, 0.05, { to:60 }); chime(rnd(2400, 3000), 0.5, 0.01); };
+lim("cloud", { min:0.15, cap:2, wet:0.5, jit:0.06 });
+SND.cloud = ()=>{ noise(0.8, "bandpass", 400, 0.17, { q:2.5, att:0.15, to:250 }); noise(0.6, "bandpass", 600, 0.08, { buf:"c", q:4, att:0.1 }); };
+lim("shatter", { min:0.06, cap:3, wet:0.55, jit:0.08 });
+SND.shatter = ()=>{
+  noise(0.26, "highpass", 3500, 0.22, { buf:"c" });
+  for(let i=0;i<6;i++) clink(rnd(2500, 6000), 0.025, Math.random()*0.15);
+  thump(200, 80, 0.08, 0.15, { v:false });
+};
+lim("splat", { min:0.05, cap:3, wet:0.35, jit:0.1 });
+SND.splat = ()=>{
+  noise(0.26, "lowpass", 700, 0.33, { to:120, q:2 });
+  noise(0.15, "bandpass", 400, 0.12, { buf:"c", q:2 });
+  thump(90, 40, 0.15, 0.25, { v:false });
+};
+lim("splash", { min:0.1, cap:2, wet:0.6, jit:0.06 });
+SND.splash = ()=>{
+  noise(0.6, "lowpass", 1600, 0.28, { to:250, att:0.01 });
+  noise(0.8, "bandpass", 2500, 0.06, { buf:"c", at:0.1, att:0.05 });
+  thump(120, 60, 0.2, 0.2, { v:false });
+};
+/* a pot, an urn, a crate, an egg sac: a crack, shards, a dull drop */
+lim("break", { min:0.05, cap:3, wet:0.45, jit:0.08 });
+SND["break"] = ()=>{
+  noise(0.05, "bandpass", 1800, 0.28, { q:1 });
+  for(let i=0;i<5;i++) noise(0.04, "bandpass", rnd(1500, 3500), 0.09, { q:4, at:0.03 + Math.random()*0.25 });
+  noise(0.3, "lowpass", 900, 0.24, { to:200 });
+  thump(120, 50, 0.15, 0.24, { v:false });
+};
+lim("puff", { min:0.06, cap:3, wet:0.35, jit:0.1 });
+SND.puff = ()=>{ noise(0.36, "bandpass", 500, 0.14, { q:1.5, to:250, att:0.03 }); };
+lim("poof", { min:0.06, cap:3, wet:0.45, jit:0.08 });
+SND.poof = ()=>{ noise(0.45, "lowpass", 900, 0.24, { to:150, att:0.01 }); breath(0.4, 0.055, { f:1200, to:400, att:0.02 }); };
+lim("byproduct", { min:0.12, cap:2, wet:0.3, jit:0.15 });
+SND.byproduct = ()=>{ noise(0.05, "bandpass", rnd(1500, 2500), 0.25, { q:2 }); noise(0.12, "bandpass", 1800, 0.3, { buf:"c", q:1 }); };
+lim("bubble", { min:0.08, cap:2, wet:0.4, jit:0.1 });
+SND.bubble = ()=>{ noise(0.36, "bandpass", 450, 0.15, { buf:"c", q:6, to:250 }); osc("sine", 180, 0.26, 0.055, { to:90 }); };
+lim("stick", { min:0.06, cap:3, wet:0.3, jit:0.1 });
+SND.stick = ()=>{ thump(160, 70, 0.11, 0.24, { v:false }); noise(0.12, "bandpass", 700, 0.12, { q:2, buf:"c" }); };
+/* confusion: the world swims and the ears ring */
+lim("squeak", { min:0.25, cap:2, wet:0.6, jit:0.05 });
+SND.squeak = ()=>{
+  const f = rnd(600, 700), w = [[0.25, 1.05], [0.5, 0.97], [0.75, 1.04], [1, 0.95]];
+  osc("sine", f, 1.2, 0.025, { pc:w, att:0.1 }); osc("sine", f*1.012, 1.2, 0.02, { pc:w, att:0.15 });
+  osc("sine", rnd(3000, 3300), 1, 0.005, { att:0.2 });
+};
+lim("hiccup", { min:0.15, cap:2, wet:0.35, jit:0.08 });
+SND.hiccup = ()=>{ voice(rnd(140, 170), 0.1, 0.1, "uh", { att:0.003, rasp:0.6, pc:[[1, 1.3]] }); noise(0.04, "bandpass", 1200, 0.06); };
+lim("illusion", { min:0.2, cap:2, wet:0.85, jit:0.04 });
+SND.illusion = ()=>{
+  breath(0.8, 0.08, { f:3000, to:800, att:0.5, q:1 });
+  chime(mtof(81), 1.5, 0.022); chime(mtof(82), 1.5, 0.018, { at:0.05 });
+  whisper(0.9, 0.022, { at:0.1 });
+};
+lim("mirror", { min:0.2, cap:2, wet:0.85, jit:0.03 });
+SND.mirror = ()=>{
+  osc("sine", mtof(86), 2, 0.025, { att:0.01 }); osc("sine", mtof(86)*1.007, 2, 0.02, { att:0.01 });
+  breath(0.5, 0.045, { f:2500, to:5000, att:0.3 });
+};
+lim("ward", { min:0.15, cap:2, wet:0.7, jit:0.03 });
+SND.ward = ()=>{ noise(0.2, "highpass", 2500, 0.14, { buf:"c" }); bell(mtof(62), 2.5, 0.045, { n:6, str:1 }); };
+
+/* ================================================================== *
+ *  Loot: soft chimes and a breath, never a blip
+ * ================================================================== */
+lim("lootDrop", { min:0.1, cap:2, wet:0.8, jit:0 });
+SND.lootDrop = o=>{
+  const r = clamp((o.rarity | 0), 0, 5), f = mtof(ELNOTE[r]);
+  chime(f, 1.8, 0.035); chime(f*1.5, 1.8, 0.022, { at:0.09 });
+  breath(0.6, 0.03, { f:2000, att:0.25 });
+  if(r >= 3) bell(mtof(50), 4, 0.04 + r*0.006, { at:0.05, e:true });
+};
+lim("coin", { min:0.04, cap:4, wet:0.3, jit:0.05 });
+SND.coin = ()=>{ clink(rnd(2200, 2800), 0.028, 0); clink(rnd(2600, 3400), 0.018, rnd(0.03, 0.06)); };
+lim("pickup", { min:0.05, cap:3, wet:0.6, jit:0.01 });
+SND.pickup = ()=>{ chime(mtof(pick([76, 81])), 1.2, 0.032); breath(0.36, 0.028, { f:1800, att:0.15, q:1 }); };
+lim("pickupBig", { min:0.1, cap:2, wet:0.8, jit:0 });
+SND.pickupBig = ()=>{
+  chime(mtof(69), 2, 0.042); chime(mtof(76), 2, 0.032, { at:0.1 });
+  breath(0.6, 0.035, { f:1500, att:0.3 });
+  osc("sine", mtof(45), 1.6, 0.045, { att:0.2 });
+};
+lim("pickupLegend", { min:0.3, cap:1, wet:1, jit:0, pri:true });
+SND.pickupLegend = ()=>{
+  bell(mtof(57), 5, 0.08, { e:true });
+  choir([57, 64, 69, 72], 3, 0.025, { att:0.6, thick:true });
+  breath(1.2, 0.045, { f:1800, att:0.6 });
+};
+lim("chest", { min:0.2, cap:2, wet:0.6, jit:0.03 });
+SND.chest = ()=>{
+  creak(0.5, 0.06, rnd(30, 40), 900, { pc:[[1, 1.4]] });
+  metal(rnd(260, 300), 0.3, 0.035);
+  thump(110, 50, 0.15, 0.25, { v:false });
+  chime(mtof(74), 1.8, 0.032, { at:0.35 }); chime(mtof(81), 1.8, 0.022, { at:0.45 });
+};
+lim("buy", { min:0.15, cap:2, wet:0.45, jit:0.02 });
+SND.buy = ()=>{
+  for(let i=0;i<4;i++) clink(rnd(2000, 3200), 0.022, i*0.05 + Math.random()*0.02);
+  noise(0.08, "lowpass", 600, 0.1, { at:0.2 });
+  osc("sine", mtof(57), 0.8, 0.035, { at:0.1 });
+};
+lim("jackpot", { min:0.3, cap:1, wet:0.7, jit:0.02 });
+SND.jackpot = ()=>{ for(let i=0;i<14;i++) clink(rnd(1800, 3400), 0.022*rnd(0.5, 1), Math.random()*0.9); bell(mtof(62), 4, 0.065, { e:true }); };
+lim("reroll", { min:0.2, cap:1, wet:0.45, jit:0.04 });
+SND.reroll = ()=>{
+  for(let i=0;i<6;i++) noise(0.03, "bandpass", rnd(1200, 2400), 0.12, { q:6, at:i*0.05 + Math.random()*0.02 });
+  breath(0.4, 0.055, { f:800, to:2000, att:0.2 });
+};
+lim("dice", { min:0.2, cap:1, wet:0.45, jit:0.04 });
+SND.dice = ()=>{
+  let t = 0;
+  for(let i=0;i<6;i++){ noise(0.035, "bandpass", rnd(1500, 2600), 0.14*(1 - i*0.12), { q:5, at:t }); t += 0.05*(1 + i*0.45); }
+  thump(160, 90, 0.08, 0.1, { at:t, v:false });
+};
+lim("charged", { min:0.2, cap:1, wet:0.8, jit:0 });
+SND.charged = ()=>{ chime(mtof(69), 1.5, 0.038); osc("sine", mtof(57), 1.2, 0.028, { att:0.2 }); };
+lim("active", { min:0.15, cap:2, wet:0.7, jit:0.03 });
+SND.active = ()=>{
+  thump(100, 40, 0.3, 0.38, { v:false });
+  breath(0.5, 0.09, { f:400, to:2500, att:0.05 });
+  choir([45, 52], 1, 0.04, { att:0.05, morph:"o" });
+  bell(mtof(69), 2, 0.026, { n:5 });
+};
+lim("altar", { min:0.4, cap:1, wet:0.9, jit:0.02, pri:true });
+SND.altar = ()=>{
+  thump(55, 28, 0.8, 0.6, { v:false });
+  choir([38, 44, 50, 51], 2.6, 0.032, { att:0.3, vowel:"u", morph:"o", rasp:0.2 });
+  metal(140, 1.4, 0.035, { e:true });
+  thump(60, 30, 0.3, 0.45, { at:0.6, v:false });
+};
+lim("fly", { min:0.2, cap:1, wet:0.7, jit:0.03 });
+SND.fly = ()=>{
+  osc("sawtooth", rnd(180, 220), 0.55, 0.025, { bp:900, q:3, pc:[[0.3, 1.1], [0.6, 0.95], [1, 1.2]], att:0.05 });
+  chime(mtof(81), 1.4, 0.03, { at:0.4 });
+};
+
+/* ---- the big moments: a bell, a choir, never a fanfare ---- */
+lim("levelup", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.levelup = ()=>{
+  bell(mtof(50), 5, 0.07, { e:true });
+  choir([50, 57, 62, 65, 69], 2.6, 0.022, { att:0.5, morph:"o", stag:0.04 });
+  breath(1, 0.03, { f:2200, att:0.5 });
+};
+lim("duo", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.duo = ()=>{
+  bell(mtof(55), 5, 0.065); bell(mtof(58), 5, 0.055, { at:0.25, e:true });
+  choir([43, 55, 58, 62], 2.6, 0.022, { att:0.5, at:0.1 });
+};
+lim("godly", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.godly = ()=>{
+  thump(55, 25, 1.5, 0.5, { v:false });
+  bell(mtof(38), 9, 0.12, { e:true }); bell(mtof(50), 7, 0.06, { at:0.4 });
+  choir([50, 57, 62, 65, 69, 74], 4, 0.02, { att:1, stag:0.12, thick:true });
+  breath(2.5, 0.05, { f:2500, att:1.5 });
+};
+lim("transform", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.transform = ()=>{
+  choir([38, 44, 50, 56, 63], 3.5, 0.024, { att:0.8, vowel:"o", morph:"u", rasp:0.2 });
+  thump(60, 25, 1, 0.5, { v:false });
+  noise(1.4, "bandpass", 400, 0.16, { q:1.5, to:2500, att:0.6 });
+  bell(mtof(44), 5, 0.06, { str:3, at:0.8, e:true });
+};
+
+/* ================================================================== *
+ *  Traps and pratfalls, made grim
+ * ================================================================== */
+lim("spikes", { min:0.1, cap:3, wet:0.45, jit:0.06 });
+SND.spikes = ()=>{ noise(0.15, "bandpass", 3500, 0.13, { q:3, to:5000 }); metal(rnd(500, 600), 0.3, 0.035); thump(150, 60, 0.08, 0.15, { v:false }); };
+lim("dart", { min:0.08, cap:3, wet:0.35, jit:0.08 });
+SND.dart = ()=>{ noise(0.1, "bandpass", 2800, 0.08, { q:2, to:1500 }); thump(220, 120, 0.05, 0.08, { at:0.08, v:false }); };
+lim("slip", { min:0.3, cap:1, wet:0.45, jit:0.05 });
+SND.slip = ()=>{
+  noise(0.3, "bandpass", 1500, 0.1, { q:1, to:600, att:0.05 });
+  thump(95, 38, 0.3, 0.45, { at:0.32, v:false }); noise(0.25, "lowpass", 500, 0.28, { at:0.32 });
+  voice(rnd(110, 130), 0.25, 0.1, "uh", { at:0.3, att:0.01, rasp:0.5, pc:[[1, 0.8]] });
+};
+lim("fall", { min:0.1, cap:2, wet:0.7, jit:0.06 });
+SND.fall = ()=>{
+  voice(rnd(140, 170), 1.4, 0.05, "a", { pc:[[1, 0.5]], att:0.02, rasp:0.3 });
+  breath(1.2, 0.07, { f:1500, to:300, att:0.1 });
+  thump(70, 30, 0.4, 0.2, { at:1.3, v:false }); noise(0.3, "lowpass", 300, 0.12, { at:1.3 });
+};
+lim("thud", { min:0.06, cap:3, wet:0.5, jit:0.06 });
+SND.thud = ()=>{
+  thump(65, 28, 0.45, 0.65, { v:false });
+  noise(0.35, "lowpass", 350, 0.42, { buf:"b" });
+  noise(0.3, "bandpass", 900, 0.08, { buf:"c", at:0.02 });
+};
+/* a blow to the skull: a crack and a ringing in the ears */
+lim("bonk", { min:0.1, cap:2, wet:0.45, jit:0.05 });
+SND.bonk = ()=>{
+  thump(140, 50, 0.2, 0.5, { v:false });
+  noise(0.1, "bandpass", 1600, 0.18, { q:1.5, buf:"c" });
+  const f = rnd(2900, 3300); osc("sine", f, 1.6, 0.01, { att:0.05 }); osc("sine", f*1.004, 1.6, 0.008, { att:0.08 });
+};
+
+/* ================================================================== *
+ *  Gribbus
+ * ================================================================== */
+lim("croak", { min:0.2, cap:2, wet:0.6, jit:0.05 });
+SND.croak = ()=>{
+  creak(0.5, 0.16, rnd(28, 34), 420, { q:3, att:0.03, pc:[[1, 0.85]] });
+  voice(rnd(75, 85), 0.5, 0.06, "o", { att:0.03, rasp:0.4 });
+  thump(90, 45, 0.25, 0.2, { v:false });
+};
+lim("frog", { min:0.15, cap:2, wet:0.45, jit:0.05 });
+SND.frog = ()=>{ creak(0.28, 0.11, 36, 500, { q:3 }); breath(0.3, 0.075, { f:600, to:1400, att:0.05 }); };
+lim("lick", { min:0.05, cap:2, wet:0.3, jit:0.08 });
+SND.lick = ()=>{
+  noise(0.08, "bandpass", 1500, 0.12, { q:1.5, to:600 });
+  noise(0.1, "lowpass", 600, 0.12, { at:0.05, buf:"c" });
+  thump(180, 90, 0.06, 0.08, { at:0.06, v:false });
+};
+lim("gulp", { min:0.15, cap:2, wet:0.35, jit:0.05 });
+SND.gulp = ()=>{
+  osc("sine", 220, 0.3, 0.14, { to:55, glide:0.2, att:0.01 });
+  noise(0.15, "bandpass", 500, 0.1, { q:4, buf:"c", at:0.05 });
+  voice(90, 0.2, 0.05, "u", { att:0.01 });
+};
+/* the shove: a wheezing harmonium */
+lim("accordion", { min:0.2, cap:2, wet:0.6, jit:0.03 });
+SND.accordion = ()=>{
+  [50, 51, 57].forEach(m=> osc("sawtooth", mtof(m), 0.7, 0.028, { bp:900, q:1.2, att:0.08, pc:[[1, 0.97]] }));
+  breath(0.6, 0.07, { f:700, att:0.1, to:400 });
+  thump(90, 40, 0.25, 0.32, { v:false });
+};
+/* the dance trick: a cursed music box, winding down */
+lim("disco", { min:0.5, cap:1, wet:0.8, jit:0 });
+SND.disco = ()=>{
+  let t = 0;
+  [74, 77, 81, 80, 77, 74, 73].forEach((m, i)=>{ chime(mtof(m)*rnd(0.992, 1.008), 1.2, 0.028, { at:t }); t += 0.12 + i*0.03; });
+};
+/* the whistle: a hollow bone horn, two falling notes */
+lim("whistle", { min:0.5, cap:1, wet:1, jit:0 });
+SND.whistle = ()=>{
+  [[57, 0, 1.1], [52, 0.95, 1.5]].forEach(([m, at, d])=>{
+    const f = mtof(m);
+    osc("sine", f, d, 0.07, { at, att:0.15, pc:[[0.8, 1], [1, 0.95]], e:true });
+    osc("triangle", f*2, d, 0.012, { at, att:0.15 });
+    noise(d, "bandpass", f*2, 0.05, { at, q:8, att:0.15 });
+  });
+};
+lim("portalShot", { min:0.05, cap:3, wet:0.5, jit:0.06 });
+SND.portalShot = ()=>{ osc("sine", 250, 0.3, 0.045, { to:900, att:0.02 }); breath(0.25, 0.055, { f:600, to:2500, att:0.05 }); };
+
+/* ================================================================== *
+ *  Bosses
+ * ================================================================== */
+lim("boss", { min:1, cap:1, wet:1, jit:0, pri:true });
+SND.boss = ()=>{
+  bell(mtof(38), 10, 0.15, { e:true });
+  thump(45, 22, 2.5, 0.7, { v:false });
+  noise(4, "lowpass", 160, 0.42, { buf:"b", att:0.5 });
+  choir([38, 45, 50, 51, 57], 5, 0.028, { att:1.5, vowel:"o", morph:"a", rasp:0.15, thick:true });
+};
+lim("jump", { min:0.2, cap:1, wet:0.5, jit:0.04 });
+SND.jump = ()=>{
+  voice(rnd(60, 75), 0.6, 0.1, "a", { att:0.02, rasp:0.6, pc:[[1, 1.15]] });
+  noise(0.6, "bandpass", 300, 0.17, { att:0.3, to:1200, q:1.2 });
+};
+SND.socket = SND.reloaded;
+
+/* ---- the mix: trims measured from offline renders (loudest 50 ms, dBFS), so that
+ *      footfalls and clicks sit near -36, shots and blows near -30 to -20, and only
+ *      the boss, the death toll and the doors reach about -12 ---- */
+const TRIM = {
+  altar:0.5, beat:0.4, boss:0.6, bossdie:0.65, death:0.6, descend:0.6, doorOpen:0.6, doorShut:0.45, slip:0.4, stone:0.45,
+  thud:0.7, transform:0.85, kill:0.55, fall:0.55, godly:0.7, shoot_launcher:0.75, shoot_pistol:1.3, shoot_smg:1.8,
+  hit:1.8, arrow:3, bounce:2.5, bones:3, bubble:2.3, click:5, coin:3, cloud:2.3, error:2.4, frog:3.5, ghostShot:2.5,
+  graze:4, gremlin:1.6, hex:1.7, hiccup:4, illusion:1.7, jump:2, lick:1.4, pickup:2, poof:2.4, puff:4,
+  portalShot:1.8, reload:5, reroll:2.4, select:1.7, shatter:2, sling:3.5, spikes:2.8, spit:5, splat:1.6, stick:1.5,
+  swap:1.5, tell:2.8, throw:2.2, zap:4, step:2.2, frogHop:3, cloth:3.5, dart:1.4, brazier:2, "break":1.5, freeze:1.9,
+  spell_missiles:1.8, hurt:1.6, byproduct:3, ghost:0.6, bark:1.1
+};
+for(const k in TRIM){ if(!LIM[k]) LIM[k] = Object.assign({}, LIM_DEF); LIM[k].vol = TRIM[k]; }
+
+/* ---- the old score's helpers, until it is rewritten ---- */
 function tone(f, dur, type, vol, at, bus, slide, verb){
   const c = A.ctx; if(!c) return;
   const t = c.currentTime + (at || 0), o = c.createOscillator(), g = c.createGain();
@@ -417,130 +1041,6 @@ function swell(f, dur, type, vol, at, bus, verb){
   o.connect(lp); lp.connect(g); g.connect(bus || A.sfx); if(verb) g.connect(A.verb);
   o.start(t); o.stop(t + dur + 0.05);
 }
-
-/* every gun shot gets a little of its element on top */
-function elementTail(el){
-  if(el === "fire") burst(0.15, "lowpass", 1200, 0.12, 1, 0.01);
-  else if(el === "frost") tone(2400, 0.08, "sine", 0.03, 0.01, 0, 3600);
-  else if(el === "poison") burst(0.12, "bandpass", 700, 0.1, 6, 0.01, 0, 300);
-  else if(el === "shock") burst(0.06, "highpass", 5000, 0.08, 1, 0.01);
-  else tone(900, 0.08, "triangle", 0.03, 0.01, 0, 1400);
-}
-const LEGACY = new Set(["accordion", "active", "altar", "bark", "beat", "blink", "bones", "bonk", "boom", "boss", "bossdie", "bounce", "brazier", "break", "bubble", "buy", "byproduct", "charged", "chest", "clear", "click", "cloud", "coin", "crit", "croak", "dart", "death", "descend", "dice", "disco", "doorOpen", "doorShut", "duo", "ering", "error", "fall", "fly", "freeze", "frog", "ghost", "ghostShot", "godly", "graze", "gremlin", "gulp", "heal", "heartbeat", "hex", "hiccup", "hit", "hurt", "illusion", "inhale", "jackpot", "jump", "kill", "laserTell", "levelup", "lick", "lootDrop", "mirror", "note", "nova", "pickup", "pickupBig", "poof", "portal", "portalShot", "puff", "push", "react", "reload", "reloaded", "reroll", "reset", "secret", "select", "shatter", "shoot_launcher", "shoot_pistol", "shoot_rifle", "shoot_shotgun", "shoot_smg", "sling", "slip", "socket", "solved", "spell_chain", "spell_fireball", "spell_missiles", "spell_nova", "spell_plague", "spikes", "splash", "splat", "squeak", "stick", "stone", "swap", "tell", "tellBig", "throw", "thud", "transform", "ward", "whistle", "zap"]);
-legacy = { has:n=> LEGACY.has(n), play:function(name, o){
-  switch(name){
-    case "click":  tone(880, 0.05, "square", 0.04); break;
-    case "select": tone(660, 0.06, "triangle", 0.08); tone(990, 0.08, "triangle", 0.06, 0.05); break;
-    case "error":  tone(180, 0.12, "square", 0.06); tone(150, 0.12, "square", 0.05, 0.08); break;
-    case "shoot_pistol":   tone(520, 0.09, "square", 0.07, 0, 0, 200); burst(0.06, "bandpass", 2400, 0.25, 1); elementTail(o.el); break;
-    case "shoot_smg":      tone(380, 0.05, "square", 0.05, 0, 0, 160); burst(0.04, "bandpass", 3000, 0.2, 1); if(Math.random() < 0.4) elementTail(o.el); break;
-    case "shoot_shotgun":  burst(0.28, "lowpass", 2600, 0.6, 0.7, 0, 0, 300); tone(90, 0.2, "sine", 0.5, 0, 0, 40); elementTail(o.el); break;
-    case "shoot_rifle":    burst(0.18, "bandpass", 1800, 0.5, 0.8, 0, 0, 500, true); tone(160, 0.15, "sawtooth", 0.1, 0, 0, 60); elementTail(o.el); break;
-    case "shoot_launcher": tone(140, 0.3, "sine", 0.4, 0, 0, 70); burst(0.2, "lowpass", 800, 0.4, 1); elementTail(o.el); break;
-    case "spell_missiles": [0, 3, 7, 12, 15].forEach((s, i)=> tone(mtof(76 + s), 0.25, "triangle", 0.06, i*0.04, 0, 0, true)); break;
-    case "spell_fireball": burst(0.6, "lowpass", 600, 0.4, 1, 0, 0, 2400, true); tone(110, 0.5, "sawtooth", 0.08, 0, 0, 220); break;
-    case "spell_nova":     burst(0.5, "highpass", 3000, 0.3, 1, 0, 0, 8000, true); [0, 5, 12].forEach((s, i)=> tone(mtof(84 + s), 0.6, "sine", 0.06, i*0.03, 0, 0, true)); break;
-    case "spell_plague":   burst(0.7, "bandpass", 400, 0.4, 5, 0, 0, 1200, true); tone(80, 0.6, "sawtooth", 0.06, 0, 0, 60); break;
-    case "spell_chain":    for(let i=0;i<5;i++) burst(0.07, "highpass", 3500, 0.3, 1, i*0.04); tone(60, 0.3, "sawtooth", 0.15, 0, 0, 40); break;
-    case "hit":    tone(220, 0.07, "square", 0.05, 0, 0, 90); burst(0.05, "lowpass", 1200, 0.15); break;
-    case "crit":   tone(1320, 0.12, "triangle", 0.09); tone(1760, 0.15, "triangle", 0.07, 0.05); burst(0.08, "lowpass", 1600, 0.25); break;
-    case "bounce": tone(1600, 0.04, "triangle", 0.04, 0, 0, 2200); break;
-    case "kill":   tone(mtof(72 + Math.floor(Math.random()*5)), 0.08, "square", 0.05, 0, 0, 900); burst(0.2, "lowpass", 700, 0.3, 2, 0, 0, 150); break;
-    case "bossdie": tone(mtof(33), 3.5, "sine", 0.5, 0, 0, 0, true); tone(mtof(45), 3, "triangle", 0.12, 0.02, 0, 0, true); [57, 60, 64, 69].forEach((m, i)=> tone(mtof(m), 1.6, "triangle", 0.06, 0.5 + i*0.22, 0, 0, true)); burst(1.8, "lowpass", 700, 0.8, 0.7, 0, 0, 50, true); break;
-    case "hurt":   tone(200, 0.2, "sawtooth", 0.15, 0, 0, 70); burst(0.15, "lowpass", 1400, 0.35); break;
-    case "death":  tone(mtof(31), 4, "sine", 0.55, 0, 0, 0, true); tone(mtof(43), 3.2, "triangle", 0.12, 0.01, 0, 0, true); tone(mtof(55.3), 2.6, "sine", 0.05, 0.02, 0, 0, true); burst(1.2, "lowpass", 500, 0.5, 0.7, 0, 0, 60, true); swell(mtof(40), 4.5, "sawtooth", 0.08, 0.3, 0, true); break;
-    case "heal":   [0, 4, 7, 12].forEach((s, i)=> tone(mtof(79 + s), 0.3, "triangle", 0.05, i*0.05, 0, 0, true)); break;
-    case "blink":  tone(400, 0.15, "sine", 0.1, 0, 0, 1600); burst(0.15, "highpass", 2000, 0.12, 1, 0, 0, 6000); break;
-    case "reload": burst(0.05, "bandpass", 2500, 0.2, 4); break;
-    case "reloaded": burst(0.05, "bandpass", 1800, 0.25, 4); tone(1200, 0.04, "square", 0.03, 0.03); break;
-    case "swap":   burst(0.06, "bandpass", 2000, 0.2, 3); tone(700, 0.05, "triangle", 0.05, 0.04); break;
-    case "doorShut": burst(0.4, "lowpass", 400, 0.7, 1, 0, 0, 80, true); tone(70, 0.3, "square", 0.15, 0, 0, 40); break;
-    case "doorOpen": burst(0.6, "lowpass", 600, 0.3, 1, 0, 0, 200); [57, 60, 64].forEach((m, i)=> tone(mtof(m + 12), 0.25, "triangle", 0.06, i*0.08)); break;
-    case "clear":  tone(mtof(57), 1.4, "sine", 0.12, 0, 0, 0, true); tone(mtof(64), 1.2, "triangle", 0.04, 0.12, 0, 0, true); break;
-    case "tell":   tone(900, 0.06, "square", 0.03); break;
-    case "tellBig": tone(110, 0.4, "sawtooth", 0.1, 0, 0, 220); break;
-    case "sling":  burst(0.12, "bandpass", 900, 0.2, 3, 0, 0, 300); break;
-    case "hex":    tone(300, 0.25, "sawtooth", 0.05, 0, 0, 150, true); break;
-    case "ering":  tone(330, 0.3, "triangle", 0.08, 0, 0, 660); burst(0.2, "bandpass", 1500, 0.15, 2); break;
-    case "throw":  tone(500, 0.2, "triangle", 0.05, 0, 0, 900); break;
-    case "boom":   burst(0.8, "lowpass", 900, 0.9, 0.7, 0, 0, 70, true); tone(55, 0.5, "sine", 0.7, 0, 0, 30); break;
-    case "zap":    burst(0.1, "highpass", 4000, 0.25, 1); tone(120, 0.1, "sawtooth", 0.08, 0, 0, 2000); break;
-    case "freeze": tone(2600, 0.25, "sine", 0.06, 0, 0, 1200); burst(0.2, "highpass", 6000, 0.12); break;
-    case "cloud":  burst(0.5, "bandpass", 500, 0.25, 4, 0, 0, 200); break;
-    case "bonk":   tone(320, 0.18, "square", 0.12, 0, 0, 120); tone(1400, 0.4, "sine", 0.06, 0.08, 0, 700); tone(1700, 0.4, "sine", 0.05, 0.16, 0, 900); break;
-    case "illusion": [72, 79, 84, 91].forEach((m, i)=> tone(mtof(m), 0.6, "sine", 0.05, i*0.06, 0, 0, true)); burst(0.6, "highpass", 3000, 0.1, 1, 0, 0, 8000, true); break;
-    case "secret": [64, 67, 72, 76, 79, 84].forEach((m, i)=> tone(mtof(m), 0.4, "triangle", 0.06, i*0.07, 0, 0, true)); break;
-    case "solved": [72, 76, 79, 84].forEach((m, i)=> tone(mtof(m), 0.5, "square", 0.05, i*0.1, 0, 0, true)); break;
-    case "brazier": burst(0.3, "lowpass", 1400, 0.3, 1, 0, 0, 400); break;
-    case "lootDrop": [0, 7, 12].forEach((s, i)=> tone(mtof(79 + s + (o.rarity || 0)*2), 0.3, "triangle", 0.05, i*0.05, 0, 0, true)); break;
-    case "coin":   tone(mtof(88 + (Math.random() < 0.5 ? 0 : 3)), 0.08, "square", 0.035); tone(mtof(95), 0.12, "square", 0.03, 0.05); break;
-    case "pickup": tone(mtof(81), 0.1, "triangle", 0.06); tone(mtof(88), 0.15, "triangle", 0.05, 0.06); break;
-    case "pickupBig": [72, 76, 79, 84, 88].forEach((m, i)=> tone(mtof(m), 0.3, "triangle", 0.06, i*0.05, 0, 0, true)); break;
-    case "chest":  burst(0.3, "lowpass", 800, 0.4, 2, 0, 0, 200); [76, 79, 84].forEach((m, i)=> tone(mtof(m), 0.4, "triangle", 0.06, 0.15 + i*0.08, 0, 0, true)); break;
-    case "buy":    [84, 88, 91].forEach((m, i)=> tone(mtof(m), 0.1, "square", 0.04, i*0.06)); break;
-    case "slip":   tone(300, 0.5, "sine", 0.12, 0, 0, 1400); tone(1400, 0.4, "sine", 0.08, 0.45, 0, 300); break;   // the slide whistle
-    case "fall":   tone(900, 0.7, "sine", 0.1, 0, 0, 120); break;
-    case "spikes": burst(0.08, "highpass", 3000, 0.25, 1); tone(800, 0.05, "square", 0.04); break;
-    case "dart":   burst(0.08, "bandpass", 2500, 0.2, 2); break;
-    case "thud":   tone(60, 0.3, "sine", 0.6, 0, 0, 30); burst(0.2, "lowpass", 300, 0.5); break;
-    case "boss":   tone(mtof(29), 3, "sine", 0.5, 0, 0, 0, true); [45, 48, 52, 51].forEach((m, i)=> tone(mtof(m), 1.1, "sawtooth", 0.06, 0.2 + i*0.35, 0, 0, true)); swell(mtof(33), 4, "sawtooth", 0.12, 0, 0, true); break;
-    case "jump":   tone(120, 0.5, "sine", 0.2, 0, 0, 480); break;
-    case "portal": [60, 64, 67, 71, 74, 79].forEach((m, i)=> tone(mtof(m), 1.2, "sine", 0.05, i*0.09, 0, 0, true)); break;
-    case "descend": tone(400, 1.0, "sine", 0.1, 0, 0, 80, true); break;
-    case "socket": tone(1000, 0.06, "square", 0.04); tone(1500, 0.1, "triangle", 0.05, 0.05); break;
-    case "active": [60, 67, 72, 79].forEach((m, i)=> tone(mtof(m), 0.3, "sawtooth", 0.05, i*0.04, 0, 0, true)); burst(0.3, "highpass", 2000, 0.15, 1, 0, 0, 7000); break;
-    case "charged": tone(mtof(84), 0.1, "square", 0.04); tone(mtof(91), 0.2, "square", 0.04, 0.07); break;
-    case "altar":  [40, 43, 46].forEach((m, i)=> tone(mtof(m), 1.2, "sawtooth", 0.07, i*0.15, 0, 0, true)); break;
-    case "beat":   tone(55, 0.25, "sine", 0.6, 0, 0, 35); tone(50, 0.25, "sine", 0.5, 0.18, 0, 32); break;
-    case "bones":  for(let i=0;i<4;i++) tone(900 + Math.random()*900, 0.04, "square", 0.04, i*0.05); break;
-    case "bubble": tone(400, 0.12, "sine", 0.08, 0, 0, 1200); break;
-    case "byproduct": tone(1200 + Math.random()*400, 0.06, "triangle", 0.025, 0, 0, 2400); break;
-    case "break":  burst(0.25, "lowpass", 1600, 0.4, 1, 0, 0, 300); tone(200, 0.1, "square", 0.05, 0, 0, 80); break;
-    case "croak":  tone(110, 0.18, "sawtooth", 0.12, 0, 0, 80); tone(95, 0.2, "sawtooth", 0.1, 0.12, 0, 70); break;
-    case "frog":   tone(220, 0.08, "square", 0.05, 0, 0, 160); tone(330, 0.1, "square", 0.04, 0.06, 0, 260); break;
-    case "lick":   tone(900, 0.07, "sine", 0.06, 0, 0, 300); burst(0.05, "bandpass", 1200, 0.12, 4); break;
-    case "gulp":   tone(200, 0.2, "sine", 0.2, 0, 0, 60); break;
-    case "duo":    [72, 76, 79, 84, 79, 84, 88].forEach((m, i)=> tone(mtof(m), 0.35, "square", 0.045, i*0.06, 0, 0, true)); break;
-    case "godly":  [60, 64, 67, 72, 76, 79, 84, 88, 91, 96].forEach((m, i)=> tone(mtof(m), 0.9, "triangle", 0.06, i*0.07, 0, 0, true)); burst(1.4, "highpass", 4000, 0.15, 1, 0.2, 0, 9000, true); break;
-    case "levelup": [67, 71, 74, 79, 83].forEach((m, i)=> tone(mtof(m), 0.25, "square", 0.045, i*0.06, 0, 0, true)); break;
-    case "fly":    for(let i=0;i<6;i++) tone(mtof(88 + i*2), 0.12, "sine", 0.04, i*0.04); break;
-    case "ghost":  tone(500, 0.9, "sine", 0.06, 0, 0, 300, true); tone(507, 0.9, "sine", 0.05, 0.05, 0, 310, true); break;
-    case "graze":  tone(1800, 0.05, "sine", 0.03); break;
-    case "gremlin": for(let i=0;i<3;i++) tone(1200 + Math.random()*800, 0.05, "square", 0.03, i*0.05); break;
-    case "heartbeat": case "inhale": burst(0.6, "bandpass", 500, 0.25, 2, 0, 0, 1800, true); break;
-    case "laserTell": tone(1200, 0.5, "sine", 0.05, 0, 0, 2400); break;
-    case "mirror": [84, 79, 84].forEach((m, i)=> tone(mtof(m), 0.2, "sine", 0.05, i*0.05, 0, 0, true)); break;
-    case "note":   tone(mtof([72, 74, 76, 79, 81][o.i || 0] || 72), 0.4, "triangle", 0.09, 0, 0, 0, true); break;
-    case "nova":   burst(0.4, "highpass", 2500, 0.25, 1, 0, 0, 7000, true); break;
-    case "poof":   burst(0.25, "lowpass", 900, 0.25, 1, 0, 0, 200); break;
-    case "puff":   burst(0.2, "bandpass", 600, 0.2, 3, 0, 0, 200); break;
-    case "push":   burst(0.25, "lowpass", 300, 0.4, 1); break;
-    case "react":  tone(mtof(84), 0.08, "square", 0.05); tone(mtof(91), 0.15, "triangle", 0.06, 0.05); burst(0.2, "highpass", 3000, 0.12); break;
-    case "reroll": for(let i=0;i<6;i++) tone(mtof(72 + i*3), 0.06, "square", 0.03, i*0.04); break;
-    case "reset":  tone(600, 0.3, "triangle", 0.06, 0, 0, 200); break;
-    case "shatter": burst(0.3, "highpass", 4000, 0.3, 1); tone(3000, 0.2, "sine", 0.04, 0, 0, 1500); break;
-    case "splash": burst(0.4, "lowpass", 1400, 0.35, 1, 0, 0, 300); break;
-    case "splat":  burst(0.15, "lowpass", 600, 0.35, 2, 0, 0, 120); tone(90, 0.12, "sine", 0.2, 0, 0, 50); break;
-    case "stone":  burst(0.35, "lowpass", 260, 0.5, 1); tone(70, 0.3, "square", 0.08, 0, 0, 45); break;
-    case "transform": [60, 64, 67, 72, 76, 79, 84, 88].forEach((m, i)=> tone(mtof(m), 0.6, "sawtooth", 0.04, i*0.06, 0, 0, true)); burst(1.2, "highpass", 3000, 0.2, 1, 0.3, 0, 9000, true); break;
-    case "squeak": tone(1400, 0.12, "square", 0.05, 0, 0, 2400); tone(2200, 0.1, "square", 0.04, 0.08, 0, 1200); break;
-    case "stick":  tone(900, 0.05, "square", 0.04); tone(1200, 0.05, "square", 0.04, 0.12); break;
-    case "portalShot": tone(300, 0.2, "sine", 0.06, 0, 0, 1800, true); break;
-    case "accordion": [52, 53, 58, 59].forEach(m=> tone(mtof(m), 0.6, "sawtooth", 0.05, 0, 0, mtof(m)*0.97, true)); break;
-    case "jackpot": [76, 79, 84, 88, 91, 96].forEach((m, i)=> tone(mtof(m), 0.15, "square", 0.04, i*0.05)); break;
-    case "ghostShot": tone(700, 0.25, "sine", 0.04, 0, 0, 400, true); break;
-    case "disco": [60, 64, 67, 72, 67, 64].forEach((m, i)=> tone(mtof(m), 0.15, "square", 0.04, i*0.08)); break;
-    case "hiccup": tone(500, 0.06, "square", 0.06, 0, 0, 1100); break;
-    case "whistle": tone(2000, 0.5, "sine", 0.08, 0, 0, 2600); tone(2600, 0.4, "sine", 0.06, 0.45, 0, 1800); break;
-    case "dice": for(let i=0;i<5;i++) burst(0.04, "bandpass", 2500 + Math.random()*1500, 0.2, 4, i*0.06); break;
-    case "ward":   tone(mtof(86), 0.3, "sine", 0.07, 0, 0, 0, true); tone(mtof(93), 0.4, "sine", 0.05, 0.05, 0, 0, true); break;
-    case "bark": {   // goblin gibberish: a couple of squeaky formant blips
-      const b = 500 + Math.random()*400;
-      for(let i=0;i<3;i++) tone(b*(0.8 + Math.random()*0.6), 0.07, "square", 0.025, i*0.07, 0, b*(0.6 + Math.random()));
-      break;
-    }
-  }
-} };
 
 /* ---- the march ---- */
 const SONG = {
