@@ -11,6 +11,8 @@ const UI = DG.UI = {};
 const el = id=> document.getElementById(id);
 const esc = s=> String(s).replace(/[&<>"]/g, c=> ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" })[c]);
 const hex = c=> "#" + new THREE.Color(c).getHexString();
+/* an item's medallion as an <img> (drawn at twice the size, for sharp screens) */
+const icon = (key, s, cls)=> `<img class="${cls || "ico"}" src="${DG.Icons.url(key, s*2)}" width="${s}" height="${s}" alt="">`;
 
 UI.show = function(html, cls){
   const s = el("screens");
@@ -120,9 +122,9 @@ UI.bag = function(G){
   const p = G.player, L = DG.Loot;
   const gunCard = (gun, gi)=>{
     const s = L.stats(gun, G.mods), R = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], sp = DG.SPELLS[s.spell];
-    const innate = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> `<span class="chipx" style="--c:${DG.TIERS[DG.ITEMS[id].tier].color}" title="${esc(DG.ITEMS[id].desc)}">${esc(DG.ITEMS[id].name)}</span>`).join("");
+    const innate = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> `<span class="chipx" style="--c:${DG.TIERS[DG.ITEMS[id].tier].color}" title="${esc(DG.ITEMS[id].desc)}">${icon(id, 18, "ico sm")}${esc(DG.ITEMS[id].name)}</span>`).join("");
     return `<div class="gcard ${gi === p.cur ? "cur" : ""}" style="--el:${hex(E.color)};--ra:${gun.ascended ? "#ffb12e" : R.color}">
-      <div class="gname">${esc(gun.name)}</div>
+      <div class="gname">${icon(DG.Icons.keyFor(gun), 34, "ico gico")}${esc(gun.name)}</div>
       <div class="gsub">${gun.ascended ? "Ascended" : R.name} · level ${gun.level} · ${E.name} · ${DG.GUNS[gun.base].name}</div>
       ${gun.flavour ? `<div class="gflav">${esc(gun.flavour)}</div>` : ""}
       <div class="gstats"><span>${Math.round(s.dmg*10)/10}${s.pellets > 1 ? "×" + s.pellets : ""}<small>damage</small></span><span>${Math.round(s.rate*10)/10}<small>per sec</small></span><span>${s.mag}<small>mag</small></span><span>${Math.round(L.dps(gun, G.mods))}<small>dps</small></span></div>
@@ -131,19 +133,25 @@ UI.bag = function(G){
       ${innate ? `<div class="innate">Built in: ${innate}</div>` : ""}
     </div>`;
   };
-  const ids = Object.keys(p.items).filter(id=> DG.ITEMS[id]).sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier);
-  const items = ids.length ? ids.map(id=>{ const it = DG.ITEMS[id], T = DG.TIERS[it.tier];
-    return `<div class="pw" style="--c:${T.color}"><b>${esc(it.name)}${p.items[id] > 1 ? " ×" + p.items[id] : ""}</b><small>${T.name}</small><span>${esc(it.desc)}</span></div>`; }).join("")
+  // powerups, grouped by tier, the greatest first; each with its medallion
+  const ids = Object.keys(p.items).filter(id=> DG.ITEMS[id]).sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier || DG.ITEMS[a].name.localeCompare(DG.ITEMS[b].name));
+  const pw = (key, col, name, tag, desc, flavor)=> `<div class="pw" style="--c:${col}">${icon(key, 48)}<div class="pwt"><b>${esc(name)}</b><small>${tag}</small><span>${esc(desc)}</span>${flavor ? `<i>${esc(flavor)}</i>` : ""}</div></div>`;
+  const tiers = DG.TIERS.map((T, t)=> ({ T, ids:ids.filter(id=> DG.ITEMS[id].tier === t) })).reverse().filter(x=> x.ids.length);
+  const items = ids.length ? tiers.map(({ T, ids })=> `<h5 class="tierh" style="--c:${T.color}">${T.name} <span>${ids.length}</span></h5><div class="pws">${ids.map(id=>{ const it = DG.ITEMS[id];
+      return pw(id, T.color, it.name + (p.items[id] > 1 ? " ×" + p.items[id] : ""), T.name, it.desc, it.flavor); }).join("")}</div>`).join("")
     : `<p class="hint">No powerups yet. Treasure rooms, shops, bosses, chests and secrets hold them, and they stack in strange and terrible ways.</p>`;
-  const duos = (G.mods.duos || []).map(id=> DG.DUOS[id]).filter(Boolean).map(d=> `<div class="pw" style="--c:#ff4fd8"><b>${esc(d.name)}</b><small>duo</small><span>${esc(d.desc)}</span></div>`).join("");
+  const duoList = (G.mods.duos || []).map(n=> DG.DUOS.find(d=> d.name === n)).filter(Boolean);
+  const duos = duoList.map(d=> `<div class="pw duo" style="--c:#c86aa8"><span class="pair">${icon(d.a, 34)}${icon(d.b, 34)}</span><div class="pwt"><b>${esc(d.name)}</b><small>duo · ${esc(DG.ITEMS[d.a].name)} + ${esc(DG.ITEMS[d.b].name)}</small><span>${esc(d.desc)}</span></div></div>`).join("");
+  const forms = (G.mods.sets || []).map(id=> DG.SETS.find(x=> x.id === id)).filter(Boolean).map(s=> pw("set:" + s.id, "#c07ab8", s.name, "transformation", s.desc)).join("");
   const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Level up to choose boons.</span>`;
-  const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Find a frog pond to teach Gribbus a trick.</span>`;
-  const act = p.active ? `<div class="pw" style="--c:#ffd23d"><b>${esc(DG.ACTIVES[p.active.id].name)}</b><small>active · F</small><span>${esc(DG.ACTIVES[p.active.id].desc)}</span></div>` : "";
+  const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${icon("frog:" + id, 22, "ico sm")}${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Find a frog pond to teach Gribbus a trick.</span>`;
+  const act = p.active ? pw("active:" + p.active.id, "#e8c878", DG.ACTIVES[p.active.id].name, "active item · F", DG.ACTIVES[p.active.id].desc) : "";
   UI.show(`
     <div class="panel scroll bagp">
       <h2 class="head">SATCHEL</h2>
       <div class="guns">${p.guns.map(gunCard).join("")}</div>
-      <h4>Powerups (${ids.length})</h4><div class="pws">${act}${duos}${items}</div>
+      ${act || forms || duos ? `<h4>Held and bound</h4><div class="pws">${act}${forms}${duos}</div>` : ""}
+      <h4>Powerups (${ids.length})</h4>${items}
       <h4>Boons</h4><div class="chips">${boons}</div>
       <h4>Gribbus</h4><div class="chips">${frog}</div>
       <div class="row"><button class="item back" data-act="closeBag">CLOSE <small>TAB</small></button></div>

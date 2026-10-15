@@ -1037,13 +1037,26 @@ proto.update = function(G, dt, t){
       if(pr.kind === "pedestal"){
         const key = pr.offer ? (pr.offer.id || (pr.offer.gun && pr.offer.gun.uid) || pr.offer.kind) : null;
         if(o.key !== key || (pr.taken && o.shown)){ if(o.shown) o.holder.remove(o.shown); o.shown = null; o.key = key; }
-        if(!pr.taken && !o.shown && pr.offer){ o.shown = M.offer(pr.offer); o.holder.add(o.shown); if(pr.offer.kind === "item" && DG.ITEMS[pr.offer.id].tier >= 3){ const b = M.beam(DG.TIERS[DG.ITEMS[pr.offer.id].tier].color); b.position.y = -0.6; o.shown.add(b); } }
-        if(o.shown){ o.shown.rotation.y = t*1.2; o.shown.position.y = Math.sin(t*2)*0.06; }
+        if(!pr.taken && !o.shown && pr.offer){ o.shown = M.offer(pr.offer); o.holder.add(o.shown); }
+        if(o.shown){
+          const tok = o.shown.userData.token || o.shown, ic = o.shown.userData.icon;
+          tok.rotation.y = t*1.2; o.shown.position.y = Math.sin(t*2)*0.06;
+          // the medallion drifts on its own slow breath, and swells as Zippy comes near
+          if(ic){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.2 ? 1 : 0; o.iconK = (o.iconK || 0) + (near - (o.iconK || 0))*(1 - Math.exp(-dt*6));
+            ic.position.y = o.shown.userData.iconY + Math.sin(t*1.3 + pr.id)*0.08; ic.scale.setScalar(1 + 0.12*o.iconK);
+            ic.userData.glow.material.opacity = ic.userData.glow0*(0.85 + 0.15*Math.sin(t*2.2 + pr.id) + 0.4*o.iconK); }
+        }
         if(o.band){ o.band.visible = !pr.taken; o.band.material.opacity = 0.45 + 0.25*Math.sin(t*2.5); }
         if(pr.sunk){ o.sink = Math.min(1, o.sink + dt*1.5); o.g.position.y = -o.sink*1.2; }
       }
       if(pr.kind === "lilypad"){
-        if(pr.buff && !o.shown && !pr.taken){ o.shown = M.frogBuffIcon(pr.buff); o.holder.add(o.shown); }
+        if(pr.buff && !o.shown && !pr.taken){
+          o.shown = M.frogBuffIcon(pr.buff); o.holder.add(o.shown);
+          // its medallion, facing the camera, so the trick reads from across the pond
+          if(DG.Icons){ o.icon = M.iconSprite("frog:" + pr.buff, 0.8); o.holder.add(o.icon); }
+        }
+        if(o.icon && o.icon.parent && (!o.shown || pr.taken || pr.sunk)){ o.holder.remove(o.icon); o.icon = null; }
+        if(o.icon) o.icon.position.y = 0.75 + Math.sin(t*1.4 + pr.slot)*0.06;
         if((pr.taken || pr.sunk) && o.shown && !pr.chosen){ o.holder.remove(o.shown); o.shown = null; }
         if(o.shown){ o.shown.rotation.y = t*1.5; o.shown.position.y = Math.sin(t*2 + pr.slot)*0.08; }
         o.g.position.y = Math.sin(t*1.5 + pr.slot)*0.03 - (pr.sunk ? (o.sink = Math.min(1, o.sink + dt)) : 0)*0.5;

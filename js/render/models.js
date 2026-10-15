@@ -3296,6 +3296,7 @@ Models.pickup = function(pk){
     g.add(Models.item(pk.item));
     const col = pk.item.kind === "gun" ? DG.RARITY[pk.item.rarity].color : pk.item.kind === "item" ? DG.TIERS[DG.ITEMS[pk.item.id].tier].color : "#ffd23d";
     g.add(beam(col));
+    if(DG.Icons){ const ic = Models.iconSprite(DG.Icons.keyFor(pk.item), 0.8); ic.position.y = 0.95; g.add(ic); }
     g.userData.spin = 1.2; g.userData.hover = 0.6;
   }
   return g;
@@ -3358,7 +3359,9 @@ Models.powerup = function(id){
   } else if(cat === "trigger"){
     // a slate tablet with its sign cut in, the cut glowing in the tier's colour
     P(root, bsJitter(new THREE.BoxGeometry(0.32, 0.4, 0.08, 4, 5, 2), 0.01, 16, id.length), 0x3a3a40);
-    const glyph = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 40, { size:28, bg:"#16161c", fg:DG.TIERS[d.tier].color }) }));
+    // its sign: the item's own medallion, cut into the slate
+    const glyph = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.27), DG.Icons ? new THREE.MeshBasicMaterial({ map:iconTex(id), transparent:true, color:0xb8b8b8 })
+      : new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 40, { size:28, bg:"#16161c", fg:DG.TIERS[d.tier].color }) }));
     glyph.position.z = 0.052; root.add(glyph); R.glows.push(glyph);
     const back = glyph.clone(); back.rotation.y = PI; back.position.z = -0.052; root.add(back);
   } else if(cat === "artifact"){
@@ -3402,12 +3405,52 @@ Models.item = function(it){
   else if(it.kind === "ward") runeStone(g, null, 1.2);
   return g;
 };
-/* on a pedestal, three candles drift round the offering */
+/* What it is, from across the room: the thing's medallion (DG.Icons) on a
+   sprite that always faces the camera, unlit so it reads in the dark, a
+   soft glow of its tier behind it. Kept a shade under white so the bloom
+   only kisses it. The textures are shared per key. */
+const iconTexs = {};
+const iconTex = key=>{
+  if(iconTexs[key]) return iconTexs[key];
+  const t = new THREE.CanvasTexture(DG.Icons.canvas(key, 256));
+  t.anisotropy = 4;
+  return (iconTexs[key] = t);
+};
+Models.iconSprite = function(key, size){
+  const g = new THREE.Group(), col = new THREE.Color(DG.Icons.color(key)), tier = DG.Icons.tier(key);
+  size = size || 1;
+  const glowS = K.sprite(col.getHex(), size*(1.9 + Math.max(0, tier)*0.18), 0.16 + Math.max(0, tier)*0.05);
+  glowS.material.fog = false; glowS.renderOrder = 7; g.add(glowS);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:iconTex(key), color:0xd2d2d2, transparent:true, depthWrite:false, fog:false }));
+  sp.scale.set(size, size, 1); sp.renderOrder = 8; g.add(sp);
+  g.userData.sprite = sp; g.userData.glow = glowS; g.userData.glow0 = glowS.material.opacity;
+  return g;
+};
+/* a thin pillar of light in the tier's colour: faint for commons, a shaft for the godly */
+function pillar(col, tier){
+  const g = new THREE.Group(), k = 0.6 + Math.max(0, tier)*0.25;
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.3, 3.4, 14, 1, true), new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.07*k, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false }));
+  b.position.y = 1.7; g.add(b);
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.11, 3.4, 8, 1, true), new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.11*k, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false }));
+  inner.position.y = 1.7; g.add(inner);
+  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(col, 0.22*k)); pool.scale.set(1.3, 1, 1.3); g.add(pool);
+  return g;
+}
+/* on a pedestal: the token, a little larger than in the hand, three candles
+   drifting round it, a pillar of light, and its medallion hanging above */
 Models.offer = function(o){
-  const g = o.kind === "item" ? Models.powerup(o.id) : o.kind === "gun" ? Models.item(o.gun) : Models.item({ kind:o.kind });
+  const g = new THREE.Group();
+  const tok = o.kind === "item" ? Models.powerup(o.id) : o.kind === "gun" ? Models.item(o.gun) : Models.item({ kind:o.kind });
+  tok.scale.setScalar(1.3); tok.position.y = 0.16; g.add(tok);
   const R = rig("offer"), ring = group(g, 0, 0, 0);
   for(let i=0;i<3;i++){ const a = i/3*PI*2 + 0.5; bsCandle(R, ring, Math.cos(a)*0.42, -0.42 + (i % 2)*0.05, Math.sin(a)*0.42, 0.12 + (i % 3)*0.04, 0.9); }
   K.bake(ring, { w:0.015 });
+  if(DG.Icons){
+    const key = DG.Icons.keyFor(o), col = new THREE.Color(DG.Icons.color(key)), tier = DG.Icons.tier(key);
+    const beamG = pillar(col.getHex(), tier); beamG.position.y = -0.4; g.add(beamG);
+    const ic = Models.iconSprite(key, 1.2); ic.position.y = 1.3; g.add(ic);
+    g.userData.icon = ic; g.userData.iconY = 1.3; g.userData.token = tok;
+  }
   return g;
 };
 
@@ -3417,7 +3460,8 @@ Models.frogBuffIcon = function(id){
   P(root, bsPaint(K.sculpt(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 28, 1).rotateX(PI/2), 0.006, 20, 2), 0x3a5228, 0x16220e, 14, 1), 0xffffff);
   P(root, geo("fb-rim", ()=> new THREE.TorusGeometry(0.22, 0.026, 6, 32)), 0x6a5a2a);
   for(let i=0;i<8;i++){ const a = i/8*PI*2; P(root, S(0.014, 6, 4), 0x8a7a3a, Math.cos(a)*0.22, Math.sin(a)*0.22, 0.025); }
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.17, 20), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 32, { size:24, bg:"#1a2e14", fg:"#d8f0a8" }) }));
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.2, 24), DG.Icons ? new THREE.MeshBasicMaterial({ map:iconTex("frog:" + id), transparent:true, color:0xc8c8c8 })
+    : new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 32, { size:24, bg:"#1a2e14", fg:"#d8f0a8" }) }));
   face.position.z = 0.035; root.add(face);
   const back = face.clone(); back.rotation.y = PI; back.position.z = -0.035; root.add(back);
   halo(R, root, 0x9cff6a, 1, 0, 0, 0, 0.35);
