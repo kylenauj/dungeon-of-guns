@@ -84,6 +84,13 @@ Common → Uncommon → Rare → Legendary → **Godly**. Godly items are rare (
 ### 3.4 Pools
 Each room type draws from its own pool: treasure, shop, boss, secret, altar. An item that has been seen, offered or taken **leaves the pool for the run**, so seeing the same one twice is rare by design.
 
+**Fresh builds.** What you carried in your last two runs is offered at 0.3x weight (`Items.remember`, saved with the meta next to the golden flies), so one run's build isn't the next one's.
+
+### 3.4b The grim ones
+36 items that change how you play rather than add a number: **Hollowing** (+5% damage per kill in a room, up to +60%, gone when it's clear), **Executioner's Axe** (goblins under 15% just die), **Darksign** (once a floor, you rise again at 40%), **Lifedrinker** (2% of damage heals, 4 a second at most), **Parrying Dagger** (+60% for a second after a blink), **Black Briar Armour** (+20% while warded), **Hunter's Mark** (the first hit on each goblin triples), **Silver Bullets** (+60% on the dead and haunted), **Bell of Dread** (a toll stuns the room as it locks), **Bonfire Ember**, **Sunlight Medal**, **Soul Mass**, **Ring of the Abyss**, **Last Rites**, **Blood Moon**, and the godly **Fire Keeper's Soul**. Actives: Estus Flask, Toll of the Damned, Soul Spear. Duos: Crimson Covenant, The Reaper, Kindled, Praise the Sun, Hawkeye, Plague of Flies. Transformation: **Blood Hunter**.
+
+Adding them (40 floor-4 builds, `npm run power`): p10 1.8x → 1.7x, median 4.1x → 5.0x, p90 8.5x → 11.8x, strongest 21.2x → 20.4x, peak shots 53 → 29. Bad runs stay possible, good ones got a little better. The bot's average floor stayed in its usual range (2.08, against 2.10 to 2.25 before).
+
 ### 3.5 Duos
 Some pairs of items are named. Owning both announces the duo ("DUO! BRAIN FREEZE") and adds a bonus on top of the emergent combo.
 
