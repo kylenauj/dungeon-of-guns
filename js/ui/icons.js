@@ -867,7 +867,7 @@ Icons.spec = function(key){
     const [base, el, rar] = id.split(":");
     s = Icons.parse(Icons.GUNS[base] || "gun");
     if(el) els = [el];
-    const R = DG.RARITY && DG.RARITY[+rar || 0]; rim = R ? R.color : "#c9d1d9"; tier = Math.min(3, +rar || 0);
+    const R = DG.RARITY && DG.RARITY[+rar || 0]; rim = R ? R.color : "#c9d1d9"; tier = [0, 1, 2, 2, 3][+rar || 0];
   } else if(ns === "set"){
     s = Icons.parse(Icons.SETS[id] || "hood"); rim = "#c07ab8"; tier = 3;
   } else if(ns === "offer"){
@@ -927,8 +927,8 @@ function drawGlyphs(sp){
 }
 
 /* how a canvas gets its glyph: an ink outline, a bone (or gilt) body, a bevel */
-function glyphLayer(g, S, sp, R){
-  const k = R*0.84*2*0.86/100;
+function glyphLayer(g, S, sp, Ri){
+  const k = Ri*2*(S < 80 ? 0.9 : 0.86)/100;
   const M = mk(S), m = M.getContext("2d");
   m.setTransform(k, 0, 0, k, S/2 - 50*k, S/2 - 50*k);
   m.fillStyle = m.strokeStyle = "#fff"; m.lineCap = "round"; m.lineJoin = "round";
@@ -970,7 +970,7 @@ function medallion(g, S, sp){
     g.fillStyle = css(mix(rimC, [0, 0, 0], 0.25));
     g.strokeStyle = "rgba(0,0,0,.85)"; g.lineWidth = Math.max(1, S*0.008);
     for(let i=0;i<n;i++){
-      const a = i/n*TAU + PI/n, l = S*(sp.tier >= 4 ? (i % 2 ? 0.455 : 0.495) : 0.48), w = sp.tier >= 4 ? 0.09 : 0.13;
+      const a = i/n*TAU + PI/n, l = S*(sp.tier >= 4 ? (i % 2 ? 0.46 : 0.5) : 0.495), w = sp.tier >= 4 ? 0.12 : 0.2;
       g.beginPath(); g.moveTo(cx + Math.cos(a)*l, cy + Math.sin(a)*l); g.lineTo(cx + Math.cos(a - w)*R*0.95, cy + Math.sin(a - w)*R*0.95); g.lineTo(cx + Math.cos(a + w)*R*0.95, cy + Math.sin(a + w)*R*0.95); g.closePath(); g.fill(); g.stroke();
     }
   }
@@ -980,7 +980,7 @@ function medallion(g, S, sp){
   rg.addColorStop(0, css(hi)); rg.addColorStop(0.45, css(rimC)); rg.addColorStop(1, css(lo));
   shapePath(g, sp.shape, cx, cy, R); g.fillStyle = rg; g.fill();
   // the face: soot, warmed by an element if it carries one
-  const Ri = R*0.84;
+  const Ri = R*(S < 80 ? 0.88 : 0.84);
   shapePath(g, sp.shape, cx, cy, Ri + Math.max(0.8, S*0.012)); g.fillStyle = "rgba(0,0,0,.92)"; g.fill();
   const els = sp.els || [];
   const tintC = els.length === 1 ? elRgb(els[0]) : els.length > 1 ? els.map(elRgb).reduce((a, b)=> mix(a, b, 0.5)) : null;
@@ -1018,7 +1018,7 @@ Icons.canvas = function(key, size){
   if(cache[ck]) return cache[ck];
   const sp = Icons.spec(key), cv = mk(S), g = cv.getContext("2d");
   const m = medallion(g, S, sp);
-  glyphLayer(g, S, sp, m.R);
+  glyphLayer(g, S, sp, m.Ri);
   pips(g, S, m.R, m.els);
   return (cache[ck] = cv);
 };
@@ -1031,6 +1031,22 @@ Icons.draw = function(g, key, x, y, s, dpr){
   const px = Math.round(s*(dpr || 1));
   g.drawImage(Icons.canvas(key, px), Math.round(x - s/2), Math.round(y - s/2), s, s);
 };
+/* the key for whatever sits on a pedestal or lies on the floor:
+   { kind:"item", id }, { kind:"active", id }, { kind:"gun", gun } or a gun
+   itself, { kind:"heal" }, { kind:"ward" } */
+Icons.keyFor = function(o){
+  if(!o) return "orb";
+  if(o.kind === "item") return o.id;
+  if(o.kind === "active") return "active:" + o.id;
+  const g = o.kind === "gun" && o.gun ? o.gun : o;
+  if(g.kind === "gun" || g.base) return "gun:" + g.base + ":" + (g.element || "") + ":" + (g.rarity || 0);
+  if(o.kind === "heal" || o.kind === "ward") return "offer:" + o.kind;
+  return "glyph:orb";
+};
+/* the colour of its rim, for glows and beams */
+Icons.color = function(key){ return Icons.spec(key).rim; };
+Icons.tier = function(key){ return Icons.spec(key).tier; };
+
 /* every key there is, for the contact sheet and the tests */
 Icons.keys = function(){
   const k = [];

@@ -91,14 +91,14 @@ H.handle = function(ev, G){
     case "nomana": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"no mana", t:0, col:MANA2 }); break;
     case "nocharge": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"not charged", t:0, col:DIM }); break;
     case "levelup": H.nums.push({ x:p.x, y:p.y, z:2.6, v:"LEVEL UP", t:0, col:XP, crit:true, big:true }); break;
-    case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6 }; break;
-    case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5 }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
-    case "duo": H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4 }; break;
-    case "ascend": H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5 }; break;
-    case "frogbuff": H.card = { title:"Gribbus learned " + ev.name, sub:ev.desc, col:GREEN, tier:"Frog trick", t:0, life:3.6 }; break;
+    case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6, icons:[ev.id] }; break;
+    case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5, icons:["set:" + ev.id] }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
+    case "duo": { const duo = DG.DUOS.find(x=> x.name === ev.name); H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4, icons:duo ? [duo.a, duo.b] : null }; break; }
+    case "ascend": { const gun = G.gun && G.gun(); H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5, icons:gun ? [DG.Icons.keyFor(gun)] : null }; break; }
+    case "frogbuff": H.card = { title:"Gribbus learned " + ev.name, sub:ev.desc, col:GREEN, tier:"Frog trick", t:0, life:3.6, icons:["frog:" + ev.id] }; break;
     case "boon": H.nums.push({ x:p.x, y:p.y, z:2.6, v:ev.name, t:0, col:XP, crit:true }); break;
     case "fly": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"GOLDEN FLY", t:0, col:GOLD2, crit:true, big:true }); break;
-    case "pickup": if(ev.kind === "active") H.card = { title:DG.ACTIVES[ev.id].name, sub:DG.ACTIVES[ev.id].desc + " (F)", col:GOLD, tier:"Active item", t:0, life:3.2 }; break;
+    case "pickup": if(ev.kind === "active") H.card = { title:DG.ACTIVES[ev.id].name, sub:DG.ACTIVES[ev.id].desc + " (F)", col:GOLD, tier:"Active item", t:0, life:3.2, icons:["active:" + ev.id] }; break;
     case "graze": H.nums.push({ x:ev.x, y:ev.y, z:1.2, v:"mine", t:0, col:BONE }); break;
     case "status": if(ev.st === "confused") H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"??", t:0, col:"#c88ab8", crit:true }); break;
     case "jackpot": H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"JACKPOT", t:0, col:GOLD2, crit:true, big:true }); break;
@@ -205,13 +205,10 @@ function band(g, cx, cy, half, h, a){
   gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(0.3, "rgba(0,0,0," + a + ")"); gr.addColorStop(0.7, "rgba(0,0,0," + a + ")"); gr.addColorStop(1, "rgba(0,0,0,0)");
   g.fillStyle = gr; g.fillRect(cx - half, cy - h/2, half*2, h);
 }
-/* a powerup tile: soot, a thin tier-coloured edge, the initial engraved */
-function chip(g, x, y, s, col, label){
-  const c = mute(col, 0.3);
-  g.fillStyle = "rgba(14,11,10,.9)"; g.fillRect(R(x - s/2), R(y - s/2), R(s), R(s));
-  g.lineWidth = 1; g.strokeStyle = "rgba(0,0,0,.9)"; g.strokeRect(R(x - s/2) - 1.5, R(y - s/2) - 1.5, R(s) + 3, R(s) + 3);
-  g.strokeStyle = c; g.strokeRect(R(x - s/2) - 0.5, R(y - s/2) - 0.5, R(s) + 1, R(s) + 1);
-  text(g, label, x, y + 1, s*0.56, c, "center", "700");
+/* a powerup tile: its medallion (DG.Icons), and how many you hold if more than one */
+function chip(g, x, y, s, key, count){
+  DG.Icons.draw(g, key, x, y, s, H.dpr);
+  if(count > 1) text(g, "×" + count, x + s*0.36, y + s*0.36, Math.max(9, s*0.42), IVORY, "center", "700");
 }
 function keycap(g, x, y, s, label){
   g.fillStyle = "rgba(20,16,14,.95)"; g.fillRect(R(x - s/2), R(y - s/2), R(s), R(s));
@@ -245,6 +242,11 @@ H.draw = function(G, dt, opts){
   if(fade < 1) g.globalAlpha = fade;
   const A = (a)=> { g.globalAlpha = a*fade; };
 
+  // what Zippy stands at: a card at the bottom tells all about it (not while a pickup card shows)
+  const tg = G.state === "play" ? G.target() : null;
+  const nearInfo = tg && !H.card ? H.offerInfo(tg.o, G) : null;
+  H.nearOffer = nearInfo ? tg.o : null;
+
   // over the world: health bars, price tags, barks, numbers
   G.enemies.forEach(e=>{
     if(e.dead || e.spawn > 0 || e.boss || e.hidden || e.decoy) return;
@@ -258,7 +260,8 @@ H.draw = function(G, dt, opts){
   });
   if(G.room) G.room.props.forEach(pr=>{
     if(pr.kind !== "pedestal" || pr.taken || !pr.offer || DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) > 5) return;
-    const o = pr.offer, s = S.project(pr.x + 0.5, 1.9, pr.y + 0.5);
+    if(H.nearOffer === pr) return;   // the card at the bottom says it all
+    const o = pr.offer, s = S.project(pr.x + 0.5, 3.4, pr.y + 0.5);
     const name = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.name;
     const col = o.kind === "item" ? DG.TIERS[DG.ITEMS[o.id].tier].color : o.kind === "gun" ? DG.RARITY[o.gun.rarity].color : BONE;
     text(g, name, s.x, s.y, 13*k, mute(col, 0.3), "center", "700");
@@ -323,30 +326,34 @@ H.draw = function(G, dt, opts){
   if(G.meta.flies){ text(g, "✦ " + G.meta.flies, x0 + gw + 12, yr + 1, 13*k, GOLD, "left", "700"); }
   // the active item
   if(p.active){
-    const Ac = DG.ACTIVES[p.active.id], ax = x0 + gw + (G.meta.flies ? 54 : 14)*k, full = p.active.charge >= p.active.max;
+    const Ac = DG.ACTIVES[p.active.id], ax0 = x0 + gw + (G.meta.flies ? 54 : 14)*k, full = p.active.charge >= p.active.max;
+    const ax = ax0 + 22*k;
     const aw = Math.max(130*k, measure(g, Ac.name, 12*k, "600", BOOK) + 46*k);
     frame(g, ax, yr - 11*k, aw, 22*k, full ? "rgba(52,40,14,.92)" : null, false);
+    if(full){ g.save(); g.shadowColor = "rgba(232,200,120,.6)"; g.shadowBlur = 10; }
+    DG.Icons.draw(g, "active:" + p.active.id, ax0 + 9*k, yr, 34*k, H.dpr);
+    if(full) g.restore();
     keycap(g, ax + 11*k, yr - 1, 14*k, "F");
     text(g, Ac.name, ax + 23*k, yr - 2*k, 12*k, full ? GOLD2 : DIM, "left", "600", BOOK);
     for(let i=0;i<p.active.max;i++) diamond(g, ax + 25*k + i*9*k, yr + 7*k, 2.6*k, i < Math.floor(p.active.charge) ? GOLD2 : FAINT);
   }
   // every powerup owned, as engraved tiles; Gribbus' tricks under them
   const ids = Object.keys(p.items).filter(id=> DG.ITEMS[id]);
-  const cs = 18*k, perRow = Math.max(1, Math.floor((small ? Math.min(260, W - 60) : 380)/(cs + 6)));
-  const cx0 = x0 + 9*k, cy0 = yr + 26*k;
+  const cs = (small ? 26 : 30)*k, gap = 3*k, perRow = Math.max(1, Math.floor((small ? Math.min(260, W - 60) : 400)/(cs + gap)));
+  const cx0 = x0 + cs/2 - 2, cy0 = yr + 18*k + cs/2;
   ids.forEach((id, i)=>{
-    const it = DG.ITEMS[id], cx = cx0 + (i % perRow)*(cs + 6), cy = cy0 + Math.floor(i/perRow)*(cs + 6);
-    chip(g, cx, cy, cs, DG.TIERS[it.tier].color, it.name[0] + (p.items[id] > 1 ? p.items[id] : ""));
+    const cx = cx0 + (i % perRow)*(cs + gap), cy = cy0 + Math.floor(i/perRow)*(cs + gap);
+    chip(g, cx, cy, cs, id, p.items[id]);
   });
-  const fy = cy0 + Math.ceil(ids.length/perRow)*(cs + 6) + (ids.length ? 2 : -4);
+  const fy = cy0 + Math.ceil(ids.length/perRow)*(cs + gap) - cs/2 + (ids.length ? 10*k : -4);
   if(G.gribbus && G.gribbus.buffs.length){
     text(g, "GRIBBUS", x0, fy + 2, 10*k, GREEN, "left", "700", SERIF, 1.5);
-    G.gribbus.buffs.forEach((b, i)=> chip(g, x0 + 70*k + i*(cs + 5), fy + 2, cs*0.9, GREEN, DG.FROG_BUFFS[b].name[0]));
+    G.gribbus.buffs.forEach((b, i)=> chip(g, x0 + 70*k + i*(cs*0.8 + gap), fy + 2, cs*0.8, "frog:" + b));
   }
   // hover an item tile: what is it?
   const m = DG.Input.mouse;
   ids.forEach((id, i)=>{
-    const cx = cx0 + (i % perRow)*(cs + 6), cy = cy0 + Math.floor(i/perRow)*(cs + 6);
+    const cx = cx0 + (i % perRow)*(cs + gap), cy = cy0 + Math.floor(i/perRow)*(cs + gap);
     if(Math.abs(m.x - cx) < cs/2 && Math.abs(m.y - cy) < cs/2){
       const it = DG.ITEMS[id]; g.font = F("500", 14*k, BOOK);
       const tw = Math.min(280, W - cx - 40), lines = wrap(g, it.desc, tw - 20);
@@ -434,11 +441,11 @@ H.draw = function(G, dt, opts){
   // ---- bottom left: the guns ----
   H.guns(g, G, 24, Hh - 24, k, small ? W - 24 - (ps + 24) - 22 : 9999);
 
-  // ---- bottom middle: what E does ----
-  const tg = G.target();
-  if(tg && G.state === "play"){
+  // ---- bottom middle: what E does, and what the thing is ----
+  if(tg){
     const label = tg.text, tw = Math.min(W - 24, measure(g, label, 17*k, "500", BOOK) + 58);
     const ey = small ? Hh*0.6 : Hh - 140*k;
+    if(nearInfo) H.offerCard(g, nearInfo, W/2, ey - 14*k, k, W, p);
     frame(g, W/2 - tw/2, ey, tw, 30*k);
     keycap(g, W/2 - tw/2 + 18, ey + 15*k, 18*k, DG.Input.usingPad ? "X" : "E");
     text(g, label, W/2 - tw/2 + 36, ey + 15*k, 17*k, IVORY, "left", "500", BOOK);
@@ -476,6 +483,10 @@ H.draw = function(G, dt, opts){
       const tw = Math.min(maxW, Math.max(measure(g, c.title, tsz, "600", SERIF, tsz*0.04) + 80, 360*k, ...sub.map(l=> measure(g, l, 16*k, "500", BOOK) + 48)));
       const h = 70*k + sub.length*19*k + (c.flavor ? 20*k : 0);
       frame(g, W/2 - tw/2, y - 34*k, tw, h, "rgba(10,8,8,.93)");
+      if(c.icons && c.icons.length){
+        const is = (small ? 54 : 66)*k, n = c.icons.length, pop = c.t < 0.35 ? 1 + (0.35 - c.t)*1.4 : 1;
+        c.icons.forEach((key, i)=> DG.Icons.draw(g, key, W/2 + (i - (n - 1)/2)*is*0.92, y - 34*k - is*0.5, is*pop, H.dpr));
+      }
       const tl = c.tier.toUpperCase(), tlw = measure(g, tl, 11*k, "700", SERIF, 3);
       text(g, tl, W/2, y - 20*k, 11*k, col, "center", "700", SERIF, 3);
       rule(g, W/2 - tlw/2 - 34, y - 20*k, 26, col); rule(g, W/2 + tlw/2 + 34, y - 20*k, 26, col);
@@ -560,6 +571,84 @@ H.crosshair = function(g, G){
   if(p.reloadT > 0){
     g.lineWidth = 2.5; g.strokeStyle = GOLD2;
     g.beginPath(); g.arc(m.x, m.y, r + 6, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.reloadT/s.reload)); g.stroke();
+  }
+};
+
+/* ---- what's on offer: everything worth knowing before you take it ---- */
+H.offerInfo = function(o, G){
+  if(!o) return null;
+  let of = null;
+  if(o.kind === "pedestal" && !o.taken && o.offer) of = o.offer;
+  else if(o.kind === "item" && o.item) of = o.item.kind === "gun" ? { kind:"gun", gun:o.item } : o.item;
+  else if(o.kind === "lilypad" && o.buff && !o.taken){
+    const B = DG.FROG_BUFFS[o.buff];
+    return { key:"frog:" + o.buff, title:B.name, col:"#8aa86a", tier:"Gribbus' trick" + (B.locked ? " · a rare one" : ""), desc:B.desc, lines:[] };
+  }
+  if(!of) return null;
+  const info = { key:DG.Icons.keyFor(of), price:of.price, currency:of.currency, lines:[] };
+  if(of.kind === "item"){
+    const d = DG.ITEMS[of.id], T = DG.TIERS[d.tier];
+    Object.assign(info, { title:d.name, col:T.color, tier:T.name + " · Powerup", desc:d.desc, flavor:d.flavor });
+    const have = G.player.items[of.id];
+    if(have) info.lines.push({ t:"You carry " + (have > 1 ? have : "one") + " already. It stacks.", c:DIM });
+    DG.DUOS.forEach(du=>{
+      const other = du.a === of.id ? du.b : du.b === of.id ? du.a : null;
+      if(other && G.player.items[other]) info.lines.push({ t:"With your " + DG.ITEMS[other].name + ": " + du.name + ".", c:"#c88ab8" });
+    });
+  } else if(of.kind === "active"){
+    const A = DG.ACTIVES[of.id];
+    Object.assign(info, { title:A.name, col:GOLD2, tier:"Active item · charged by " + A.charge + (A.charge > 1 ? " rooms" : " room"), desc:A.desc + " (F)" });
+    if(G.player.active) info.lines.push({ t:"Replaces your " + DG.ACTIVES[G.player.active.id].name + ".", c:DIM });
+  } else if(of.kind === "gun"){
+    const gun = of.gun, R0 = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], s = DG.Loot.stats(gun, G.mods), sp = DG.SPELLS[s.spell];
+    Object.assign(info, { title:gun.name, col:gun.ascended ? "#ffb12e" : R0.color, tier:R0.name + " · " + E.name + " " + DG.GUNS[gun.base].name,
+      desc:Math.round(s.dmg*10)/10 + (s.pellets > 1 ? "×" + s.pellets : "") + " damage, " + Math.round(s.rate*10)/10 + " shots a second, " + s.mag + " to a load. Its spell: " + sp.name + ".",
+      flavor:gun.flavour });
+    const inn = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> DG.ITEMS[id].name);
+    if(inn.length) info.lines.push({ t:"Built in: " + inn.join(", ") + ".", c:"#b8a8c0" });
+  } else if(of.kind === "heal"){
+    Object.assign(info, { title:of.name || "Suspicious Soup", col:"#c8402c", tier:"Provision", desc:"Heals " + (of.amount || 40) + ".", flavor:"Something is floating in it." });
+  } else if(of.kind === "ward"){
+    Object.assign(info, { title:of.name || "Wards", col:WARD, tier:"Provision", desc:"+" + (of.n || 1) + " wards. Each one turns aside a single blow." });
+  } else return null;
+  return info;
+};
+/* drawn above the E prompt: the medallion on the left, the rest beside it */
+H.offerCard = function(g, info, cx, yb, k, W, p){
+  const small = W < 700, pad = 14*k, is = (small ? 58 : 78)*k;
+  const cw = Math.min(W - 24, (small ? 420 : 480)*k), tx = pad*2 + is, tw = cw - tx - pad;
+  const col = mute(info.col, 0.3);
+  // measure it all first
+  g.font = F("500", 15*k, BOOK); const desc = wrap(g, info.desc || "", tw);
+  g.font = F("italic 500", 14*k, BOOK); const flav = info.flavor ? wrap(g, info.flavor, tw) : [];
+  g.font = F("500", 14*k, BOOK); const more = []; info.lines.forEach(l=> wrap(g, l.t, tw).forEach(t=> more.push({ t, c:l.c })));
+  const nsz = fit(g, info.title, 21*k, tw, "600", SERIF, 0.03);
+  const broke = info.currency === "gold" && p.gold < info.price;
+  const price = info.currency === "gold" ? info.price + " gold" + (broke ? "  ·  you have " + p.gold : "") : info.currency === "hp" ? "costs " + info.price + " of your max health" : null;
+  const th = 6*k + 20*k + 14*k + 12*k + desc.length*18*k + (flav.length ? 3*k + flav.length*17*k : 0) + (more.length ? 4*k + more.length*17*k : 0) + (price ? 22*k : 0);
+  const h = Math.max(is + pad*2, th + pad*1.4), x = cx - cw/2, y = yb - h;
+  frame(g, x, y, cw, h, "rgba(9,7,7,.94)");
+  // the tier's colour, faint, along the top edge
+  const edge = g.createLinearGradient(x, 0, x + cw, 0); edge.addColorStop(0, "rgba(0,0,0,0)"); edge.addColorStop(0.5, col); edge.addColorStop(1, "rgba(0,0,0,0)");
+  g.save(); g.globalAlpha *= 0.6; g.fillStyle = edge; g.fillRect(R(x), R(y), R(cw), 2); g.restore();
+  DG.Icons.draw(g, info.key, x + pad + is/2, y + Math.min(h/2, pad + is/2 + 4*k), is, H.dpr);
+  let ly = y + pad + 6*k;
+  text(g, info.tier.toUpperCase(), x + tx, ly, 10.5*k, col, "left", "700", SERIF, 2.2); ly += 20*k;
+  text(g, info.title, x + tx, ly, nsz, mute(info.col, 0.5), "left", "600", SERIF, nsz*0.03); ly += 14*k;
+  const rg = g.createLinearGradient(x + tx, 0, x + tx + tw, 0); rg.addColorStop(0, "rgba(200,164,90,.6)"); rg.addColorStop(1, "rgba(200,164,90,0)");
+  g.fillStyle = rg; g.fillRect(R(x + tx), R(ly), R(tw), 1); ly += 12*k;
+  desc.forEach(l=>{ text(g, l, x + tx, ly, 15*k, BONE, "left", "500", BOOK); ly += 18*k; });
+  if(flav.length){ ly += 3*k; flav.forEach(l=>{ text(g, l, x + tx, ly, 14*k, DIM, "left", "italic 500", BOOK); ly += 17*k; }); }
+  if(more.length){ ly += 4*k; more.forEach(l=>{ text(g, l.t, x + tx, ly, 14*k, l.c, "left", "500", BOOK); ly += 17*k; }); }
+  if(price){
+    ly += 5*k;
+    const bad = info.currency === "hp" || broke, cx2 = x + tx + 5*k;
+    if(info.currency === "gold"){
+      const cr = 5*k; g.fillStyle = "rgba(0,0,0,.9)"; g.beginPath(); g.arc(cx2, ly, cr + 1.5, 0, Math.PI*2); g.fill();
+      const cg = g.createRadialGradient(cx2 - 1, ly - 1.5, 1, cx2, ly, cr); cg.addColorStop(0, "#f0d890"); cg.addColorStop(1, "#8a6a30");
+      g.fillStyle = cg; g.beginPath(); g.arc(cx2, ly, cr, 0, Math.PI*2); g.fill();
+    } else diamond(g, cx2, ly, 5*k, HP2, "rgba(0,0,0,.9)");
+    text(g, price, x + tx + 16*k, ly + 1, 13*k, bad ? HP2 : GOLD2, "left", "700", SERIF, 1);
   }
 };
 

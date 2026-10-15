@@ -109,7 +109,16 @@ kbd{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.06
 }
 /* the satchel: powerups, boons, Gribbus' tricks */
 .pws{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;}
-.pw{display:flex;flex-direction:column;gap:2px;padding:7px 10px 8px 14px;background:rgba(14,11,10,.92);border:1px solid rgba(176,152,106,.25);box-shadow:0 0 0 1px #000;position:relative;}
+.pw{display:flex;align-items:flex-start;gap:11px;padding:8px 10px 9px 10px;background:rgba(14,11,10,.92);border:1px solid rgba(176,152,106,.25);box-shadow:0 0 0 1px #000;position:relative;}
+.pwt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.pw i{font-size:14px;line-height:1.3;color:var(--dim);}
+.pw .pair{display:flex;flex:none;} .pw .pair img+img{margin-left:-8px;}
+.ico{flex:none;display:block;image-rendering:auto;}
+.ico.sm{display:inline-block;vertical-align:-5px;margin:-2px 5px -2px -6px;}
+.ico.gico{display:inline-block;vertical-align:middle;margin:-6px 8px -4px -6px;}
+.tierh{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin:14px 0 7px;color:var(--c);color:color-mix(in srgb,var(--c) 70%,#c8bca0);display:flex;align-items:center;gap:10px;}
+.tierh::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 45%,transparent),transparent);}
+.tierh span{font-family:var(--body);font-style:italic;letter-spacing:0;color:var(--dim);font-weight:500;font-size:13px;text-transform:none;}
 .pw::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--c);opacity:.75;}
 .pw b{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.04em;color:var(--c);color:color-mix(in srgb,var(--c) 68%,#c8bca0);}
 .pw small{font-family:var(--display);font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--dim);}
