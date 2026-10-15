@@ -247,6 +247,50 @@ FX.lane = function(x, z, a, len, w, life){
 /* a mesh that hangs about for a while (thrown debris, gibs) */
 FX.temp = function(obj, life, update){ FX.scene.add(obj); FX.items.push({ obj, t:0, life, update }); };
 
+/* ---- deaths ---- */
+/* a body coming apart: grey ash flaking off and drifting up on the draught,
+   with a few embers still glowing in it. (x, z) the body, r its radius, h its
+   height; n flakes. pale: a haunt's thin cold wisps instead */
+const ASH = new THREE.Color(0x3a3430), ASH2 = new THREE.Color(0x5a524a), _a = new THREE.Color();
+FX.ash = function(x, z, r, h, n, opts){
+  opts = opts || {};
+  const wx = opts.wind === undefined ? 0.25 : opts.wind;
+  for(let i=0;i<n;i++){
+    const a = Math.random()*6.283, d = Math.sqrt(Math.random())*r, y = (opts.y0 || 0.1) + Math.random()*h;
+    const px = x + Math.cos(a)*d, pz = z + Math.sin(a)*d;
+    if(opts.pale){
+      emit(px, y, pz, (Math.random() - 0.5)*0.3 + wx*0.5, 0.5 + Math.random()*0.9, (Math.random() - 0.5)*0.3, opts.col || 0xa8c8e8, 0.1 + Math.random()*0.1, 0.9 + Math.random()*0.8, -0.2, 0.8);
+      continue;
+    }
+    if(Math.random() < (opts.embers === undefined ? 0.3 : opts.embers)) emit(px, y, pz, (Math.random() - 0.5)*0.4 + wx, 0.5 + Math.random()*0.9, (Math.random() - 0.5)*0.4, Math.random() < 0.6 ? 0xff6a1a : 0xffb050, 0.07 + Math.random()*0.06, 0.7 + Math.random()*0.8, -0.3, 0.9);
+    else dark(px, y, pz, (Math.random() - 0.5)*0.3 + wx, 0.35 + Math.random()*0.7, (Math.random() - 0.5)*0.3, _a.copy(ASH).lerp(ASH2, Math.random()), 0.07 + Math.random()*0.08, 1.4 + Math.random()*1.2, 0.75, 0.4, -0.12, 0.7);
+  }
+};
+/* a boss's soul leaving: a column of pale light that climbs, holds, and thins
+   out, with motes streaming up it and a glow on the floor */
+let soulGeo = null, soulTex = null;
+FX.soul = function(x, z, h, life, col){
+  if(!soulGeo){
+    soulGeo = new THREE.CylinderGeometry(0.55, 0.8, 1, 20, 1, true); soulGeo.translate(0, 0.5, 0);
+    const cv = document.createElement("canvas"); cv.width = 4; cv.height = 128; const g = cv.getContext("2d");
+    const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.35, "rgba(255,255,255,0.55)"); gr.addColorStop(0.85, "rgba(255,255,255,1)"); gr.addColorStop(1, "rgba(255,255,255,0.6)");
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 128); soulTex = new THREE.CanvasTexture(cv);
+  }
+  const c = grade(col || 0xfff0d0).clone();
+  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const mk = (w, op)=>{ const m = new THREE.Mesh(soulGeo, new THREE.MeshBasicMaterial({ map:soulTex, color:c, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide })); m.scale.set(w, 0.01, w); m.userData.op = op; g.add(m); return m; };
+  const outer = mk(1.6, 0.35), inner = mk(0.6, 0.9);
+  const floor = new THREE.Mesh(K.glowPlane, new THREE.MeshBasicMaterial({ map:K.glowTex, color:c, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false }));
+  floor.position.y = 0.05; floor.scale.set(7, 1, 7); g.add(floor);
+  FX.scene.add(g);
+  FX.items.push({ obj:g, t:0, life, update(it, dt){
+    const k = it.t/it.life, up = Math.min(1, k*4), fade = k < 0.6 ? 1 : 1 - (k - 0.6)/0.4;
+    [outer, inner].forEach((m, i)=>{ m.scale.y = Math.max(0.01, h*up*(i ? 1.05 : 1)); const w = (i ? 0.6 : 1.6)*(1 - 0.5*k)*(1 + 0.06*Math.sin(it.t*13 + i)); m.scale.x = m.scale.z = w; m.material.opacity = m.userData.op*fade*Math.min(1, k*8); m.rotation.y += dt*(i ? 2 : -1); });
+    floor.material.opacity = 0.8*fade*Math.min(1, k*6);
+    for(let i=0;i<3;i++) if(Math.random() < fade){ const a = Math.random()*6.283, d = Math.random()*0.6*(1 - 0.5*k); emit(x + Math.cos(a)*d, 0.2 + Math.random()*h*up*0.5, z + Math.sin(a)*d, 0, 3 + Math.random()*4, 0, c, 0.12 + Math.random()*0.12, 0.9 + Math.random()*0.6, -1, 0.3); }
+  }, dispose(){ g.children.forEach(m=> m.material.dispose()); } });
+};
+
 const EL = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
 const ENEMY_SHOT = { acid:[0x9cff3a, 0.4], orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36], spore:[0xb8d84a, 0.38], ecto:[0x8ae8ff, 0.46],
   wail:[0xa8c8ff, 0.4], arrow:[0xe8dcc0, 0.26], tear:[0x6ad8ff, 0.36], blood:[0xff2a3a, 0.42] };
@@ -287,7 +331,7 @@ FX.update = function(dt, G){
   FX.items = FX.items.filter(it=>{
     it.t += dt;
     if(it.update) it.update(it, dt);
-    if(it.t >= it.life){ FX.scene.remove(it.obj); if(it.obj.geometry && it.obj.geometry !== K.glowPlane && it.obj.geometry !== ringGeo) it.obj.geometry.dispose(); if(it.ownMat) it.obj.material.dispose(); return false; }
+    if(it.t >= it.life){ FX.scene.remove(it.obj); if(it.dispose) it.dispose(); if(it.obj.geometry && it.obj.geometry !== K.glowPlane && it.obj.geometry !== ringGeo) it.obj.geometry.dispose(); if(it.ownMat) it.obj.material.dispose(); return false; }
     return true;
   });
   if(!G) return;

@@ -138,11 +138,13 @@ proto.handle = function(ev){
       const R = V.rigs[ev.id];
       // what's left behind stays for the floor
       if(!ev.fell && !ev.decoy && V.world){ const k = R ? R.kind : ""; V.world.addSplat(ev.x, ev.y, SPLAT[k] || 0x3a6a1a, ev.boss ? 4 : 1.1 + Math.random()*0.5); }
-      if(R){ delete V.rigs[ev.id]; V.dying.push({ R, t:0, fell:ev.fell, boss:ev.boss, midas:ev.midas, decoy:ev.decoy }); }
-      const col = ev.midas ? 0xffd23d : ev.decoy ? 0xd8e8ff : 0x7ad84a;
-      FX.burst(ev.x, 0.6, ev.y, col, ev.boss ? 60 : 14, ev.boss ? 9 : 4.5, 0.3, 0.6, { grav:9, col2:ev.midas ? 0xffffff : 0xffe14a });
-      if(ev.boss){ S.shake(1); FX.ring(ev.x, ev.y, 7, 0xffd23d, 1.2); }
+      if(R){ delete V.rigs[ev.id]; V.dying.push({ R, t:0, fell:ev.fell, boss:ev.boss, midas:ev.midas, decoy:ev.decoy, x:ev.x, y:ev.y }); }
+      // no pop: a spatter where the blow landed, and the body is left to stagger, fall and come apart
+      const col = ev.midas ? 0xffd23d : ev.decoy ? 0xd8e8ff : SPLAT[R ? R.kind : ""] || 0x7ad84a;
+      FX.burst(ev.x, 0.7, ev.y, col, ev.boss ? 24 : ev.decoy || ev.midas ? 14 : 8, ev.boss ? 6 : 3.5, 0.26, 0.5, { grav:9, col2:ev.midas ? 0xffffff : 0x3a0606 });
+      if(ev.boss) S.shake(1);
       play(ev.boss ? "bossdie" : ev.fell ? "fall" : ev.decoy ? "poof" : "kill");
+      if(!ev.fell && !ev.decoy) play("die", { family:ev.boss ? "boss" : DIE[R ? R.kind : ""] || "goblin", x:ev.x, y:ev.y });
       break;
     }
     case "hurt": V.zHurt = 1; V.zHurtSide = Math.random() < 0.5 ? -1 : 1; S.shake(0.35); FX.burst(p.x, 0.9, p.y, 0xff3a4a, 10, 4, 0.25, 0.35); play("hurt"); break;
@@ -609,14 +611,72 @@ proto.updateEnemies = function(dt, t){
   V.dying = V.dying.filter(d=>{
     d.t += dt;
     const R = d.R;
-    if(d.fell){ R.root.position.y -= dt*6; R.root.rotation.x += dt*4; }
-    else if(d.midas){ M.tint(R, 0xffc83a, 0.9); R.body.scale.setScalar(1 + d.t*0.3); }
-    else { R.body.rotation.x = Math.min(PI/2, d.t*6); R.body.position.y = -Math.max(0, d.t - 0.6)*0.8; M.tint(R, 0x000000, 1); }
-    M.fade(R, Math.max(0, 1 - Math.max(0, d.t - (d.boss ? 1.5 : 0.5))*2));
-    if(d.t > (d.boss ? 2.2 : 1.1)){ S.scene.remove(R.root); return false; }
+    if(d.fell || d.midas || d.decoy){
+      if(d.fell){ R.root.position.y -= dt*6; R.root.rotation.x += dt*4; }
+      else if(d.midas){ M.tint(R, 0xffc83a, 0.9); R.body.scale.setScalar(1 + d.t*0.3); }
+      else { R.body.rotation.x = Math.min(PI/2, d.t*6); M.tint(R, 0x000000, 1); }
+      M.fade(R, Math.max(0, 1 - Math.max(0, d.t - 0.5)*2));
+      if(d.t > 1.1){ S.scene.remove(R.root); return false; }
+      return true;
+    }
+    if(!V.dissolve(d, dt, t)){ S.scene.remove(R.root); return false; }
     return true;
   });
 };
+
+/* a death, Souls style: the thing staggers, its legs go, it falls (haunts and
+   floating things rise instead), and then it comes apart into drifting ash and
+   a few embers. A boss holds on longer, sinks, and its soul leaves in a column
+   of pale light. Only transforms and the dither fade: nothing is rebuilt. */
+const DIE = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"goblin", brute:"goblin", sneak:"goblin", merchant:"goblin", king:"goblin",
+  puffling:"shroom", toadstool:"shroom", shroomkin:"shroom", shroomlet:"shroom", matriarch:"shroom",
+  ghost:"haunt", banshee:"haunt", skeleton:"haunt", poltergeist:"haunt", bride:"haunt",
+  watcher:"weird", blob:"weird", blobling:"weird", tentacle:"weird", eye:"weird",
+  rotling:"gloom", spitter:"gloom", bloater:"gloom", husk:"gloom", heart:"gloom" };
+const RISE = { ghost:1, banshee:1, poltergeist:1, bride:1, watcher:1, eye:1 };
+const SOUL = { ghost:0xa8c8e8, banshee:0xa8b8f0, poltergeist:0x9cffc8, bride:0xb8d0ff, watcher:0xff8a9a, eye:0xff8a9a };
+proto.dissolve = function(d, dt, t){
+  const R = d.R, b = R.body, P = R.parts, boss = d.boss;
+  if(d.dur === undefined){
+    d.dur = boss ? 4 : 1.9; d.dir = Math.random() < 0.7 ? 1 : -1; d.side = (Math.random() - 0.5)*0.5;
+    d.rise = !!RISE[R.kind]; d.sc = R.root.scale.x; d.h = (R.h || 1.4)*R.root.scale.y; d.r = Math.max(0.25, (R.size || 1)*0.3)*d.sc;
+    d.b0 = { y:b.position.y, rx:b.rotation.x, rz:b.rotation.z }; d.hx = P.head ? P.head.rotation.x : 0;
+    d.aR = P.armR ? P.armR.rotation.x : 0; d.aL = P.armL ? P.armL.rotation.x : 0;
+  }
+  const k = d.t, sz = R.size || 1;
+  if(k > d.dur) return false;
+  const fade = smooth(boss ? 1.9 : 0.75, d.dur, k);
+  if(d.rise){
+    // haunts don't fall: they jerk, hang, and are drawn up and thin out to nothing
+    const jerk = k < 0.3 ? Math.sin(k/0.3*PI)*0.25 : 0, up = smooth(0.2, d.dur, k);
+    b.rotation.x = d.b0.rx - jerk + 0.3*up; b.rotation.z = d.b0.rz + Math.sin(k*9)*0.05*(1 - up);
+    R.root.position.y = 0.9*up*up*sz;
+    if(Math.random() < (boss ? 1 : 0.6)) FX.ash(d.x, d.y, d.r, d.h*0.8, boss ? 3 : 1, { pale:true, col:SOUL[R.kind], y0:R.root.position.y + 0.2 });
+  } else {
+    // a stagger back, the legs go, the body falls; then it settles and crumbles
+    const stag = k < 0.35 ? Math.sin(k/0.35*PI) : 0;
+    const fall = boss ? smooth(0.6, 1.6, k) : smooth(0.22, 0.75, k);
+    const drop = boss ? 0.42*fall : 1.35*fall*fall;
+    b.rotation.x = d.b0.rx - 0.32*stag + d.dir*drop + (boss ? Math.sin(k*31)*0.03*(1 - fade) : 0);
+    b.rotation.z = d.b0.rz + d.side*fall + (k < 0.4 ? Math.sin(k*40)*0.05*(1 - k/0.4) : 0);
+    b.position.y = d.b0.y - (boss ? 0.3*sz*fall : 0.06*sz*fall) - 0.12*sz*fade;
+    if(P.head) P.head.rotation.x = d.hx - 0.4*stag + 0.5*fall;
+    if(P.armR) P.armR.rotation.x = d.aR + (0.6 - d.aR*0.4)*fall;
+    if(P.armL) P.armL.rotation.x = d.aL + (0.5 - d.aL*0.4)*fall;
+    if(!d.thud && fall > 0.97){ d.thud = true; FX.smoke(d.x, 0.05, d.y, 0x2a2420, boss ? 10 : 3, boss ? 0.9 : 0.45, 0.9, { spread:d.r*2, rise:0.15 }); if(boss) S.shake(0.5); }
+    // ash and embers, thickest as it goes
+    const rate = (boss ? 3 : 1)*smooth(0.5, 1.2, k)*(1 - 0.6*fade);
+    if(Math.random() < rate) FX.ash(d.x, d.y, d.r*1.4, d.h*(0.7 - 0.4*fade), boss ? 3 : 1, { embers:0.3 });
+  }
+  // the colour goes out of it, an ember glow runs through, then the dither eats it away
+  const glow = smooth(0.5, 1.0, k)*(1 - fade);
+  M.tint(R, glow > 0.02 ? (d.rise ? SOUL[R.kind] || 0xa8c8e8 : 0xff3a08) : 0x000000, glow > 0.02 ? (d.rise ? 0.3 : 0.2)*glow : 1);
+  M.fade(R, 1 - fade);
+  // a boss's soul: the column of light, once
+  if(boss && !d.soul && k > 1.5){ d.soul = true; FX.soul(d.x, d.y, 10, 2.6, SOUL[R.kind] || 0xfff0d0); FX.ring(d.x, d.y, 4, 0xd8c8a0, 1.2); S.shake(0.6); }
+  return true;
+};
+const smooth = (a, b, x)=>{ const k = Math.max(0, Math.min(1, (x - a)/(b - a))); return k*k*(3 - 2*k); };
 
 proto.updateLoot = function(dt, t){
   const V = this, G = V.G, pk = {};
