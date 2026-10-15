@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ *
- *  Dungeon of Guns: the shared namespace, a seeded RNG, small helpers.
+ *  Zippy & Gribbus: the shared namespace, a seeded RNG, small helpers.
  *
  *  Everything in js/core is plain logic with no THREE and no DOM, so the
  *  whole game (dungeon, combat, loot, AI) runs and is tested under Node

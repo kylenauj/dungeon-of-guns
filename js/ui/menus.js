@@ -56,7 +56,7 @@ UI.title = function(){
   const b = best();
   UI.show(`
     <div class="title-wrap">
-      <div class="logo"><span>DUNGEON</span><div class="of"><i></i>of<i></i></div><span>GUNS</span></div>
+      <div class="logo"><span>ZIPPY</span><div class="of"><i></i>&amp;<i></i></div><span>GRIBBUS</span></div>
       <p class="tag-line"><b>Abandon hope. Bring ammunition.</b>A wizard, a frog, and a dungeon that rots a little more with every floor you descend.</p>
       <div class="menu">
         <button class="item" data-act="new">NEW RUN <small>a fresh descent</small></button>
@@ -77,7 +77,7 @@ UI.how = function(back){
       <h2 class="head">HOW TO PLAY</h2>
       <div class="cols">
       <div class="note">
-        <p>You are <b>Zippy</b>, a wizard who casts spells <b>through guns</b>. <b>Gribbus</b> the frog hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
+        <p>You are <b>Zippy</b>, a hexhunter who casts spells <b>through guns</b>. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
         <p>Every shot carries its gun's <b>element</b>. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
         <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
         <p>Kills give <b>XP</b>; each level lets you pick a <b>boon</b>. <b>Frog ponds</b> teach Gribbus new tricks. <b>Golden flies</b> unlock rarer ones for every future run.</p>

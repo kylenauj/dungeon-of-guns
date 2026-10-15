@@ -114,6 +114,9 @@ IN.onPadStart = ()=>{ if(app.mode === "play") app.pause(); else if(app.mode === 
 IN.onPadBag = ()=>{ if(app.mode === "play") app.openBag(); else if(app.mode === "bag") app.resume(); };
 
 /* ---- the frame ---- */
+/* the pace of play: the whole fight runs a touch slower than real time
+   (everything together, so nothing gets easier or harder, just calmer) */
+const PACE = 0.88;
 const ONE_SHOTS = ["blink", "use", "active", "swap", "reload"], NO_SHOTS = { blink:false, use:false, active:false, swap:false, reload:false, slot:-1 };
 function frame(dt, t){
   const G = app.G, V = app.V;
@@ -136,7 +139,7 @@ function frame(dt, t){
       if(app.demo) I = app.demo.input(STEP);
       else if(live){ I = Object.assign({}, input, NO_SHOTS, first ? app.pend : {}); if(first) app.pend = {}; first = false; }
       else I = {};
-      G.update(STEP, I);
+      G.update(STEP*PACE, I);
       if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));
       G.drain().forEach(ev=>{
         if(ev.type === "fly" && !app.demo) saveMeta(G.meta);

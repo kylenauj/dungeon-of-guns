@@ -499,6 +499,8 @@ proto.killEnemy = function(e, src, fell){
   // deeper floors have more goblins already, so each one only pays a little more
   const gold = Math.round(G.rng.int(g0, g1)*(1 + 0.08*(G.floor - 1))*(e.affix ? 1.5 : 1));
   if(!fell && gold > 0) G.dropGold(e.x, e.y, gold);
+  // elites sometimes carry a key
+  if(!fell && e.affix && G.rng.chance(0.12)) G.addPickup("key", e.x, e.y, 1);
   if(src.from === "gribbus" && G.gribbus.g.flies) G.addPickup("flyheal", e.x, e.y, 1);
   G.trigger("kill", { x:e.x, y:e.y, els:src.els && src.els.length ? src.els : G.shotEls(G.gun()), depth:src.depth || 0, enemy:e });
   // things that happen when an enemy pops

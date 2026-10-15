@@ -3286,6 +3286,14 @@ Models.pickup = function(pk){
     soulWisp(g); g.userData.spin = 2; g.userData.hover = 0.45;
   } else if(pk.kind === "ward"){
     runeStone(g, null, 1.35); g.userData.spin = 3; g.userData.hover = 0.5;
+  } else if(pk.kind === "key"){
+    // an old iron key, rust at the teeth, a faint warm glint so it reads on the floor
+    const kg = new THREE.Group(); g.add(kg);
+    P(kg, TO(0.09, 0.025), 0x5a5048, 0, 0.12, 0);
+    P(kg, CY(0.022, 0.022, 0.28, 8), 0x5a5048, 0, -0.06, 0);
+    P(kg, BX(0.08, 0.035, 0.03), 0x6a3a22, 0.04, -0.15, 0); P(kg, BX(0.06, 0.035, 0.03), 0x6a3a22, 0.03, -0.09, 0);
+    K.bake(kg, { w:0.01 }); kg.rotation.z = 0.5;
+    g.add(K.sprite(0xd8a060, 0.6, 0.3)); g.userData.spin = 2; g.userData.hover = 0.45;
   } else if(pk.kind === "fly"){
     g.add(new THREE.Mesh(flyGeo(), lootMat(0x3a2606)));
     [-1, 1].forEach(s=>{ const w = new THREE.Mesh(wingGeo, new THREE.MeshBasicMaterial({ map:wingTex(), color:0xe8d8a0, transparent:true, opacity:0.75, side:THREE.DoubleSide, depthWrite:false })); w.position.set(s*0.03, 0.05, -0.02); w.rotation.set(-1.1, s*0.5, -s*0.9); g.add(w); });
@@ -3385,6 +3393,7 @@ Models.powerup = function(id){
 };
 Models.item = function(it){
   if(it.kind === "item") return Models.powerup(it.id);
+  if(it.kind === "key"){ const k = Models.pickup({ kind:"key" }); k.scale.setScalar(1.6); return k; }
   const g = new THREE.Group();
   if(it.kind === "gun"){
     const R = rig("gun"), gg = Models.gun(it.base, it.element, R);

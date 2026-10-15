@@ -32,7 +32,7 @@ const Game = DG.Game = function(opts){
   const P = DG.PLAYER;
   G.player = {
     x:0, y:0, r:P.radius, vx:0, vy:0, hp:P.hp, maxHp:P.hp, mana:P.mana, maxMana:P.mana, wards:0,
-    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, xp:0, level:1, pendingLevels:0,
+    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, keys:1, xp:0, level:1, pendingLevels:0,
     active:null, blinkT:0, blinkCd:0, bdx:0, bdy:0, iframes:0, slip:0, sdx:0, sdy:0, stun:0, chill:0,
     fireCd:0, reloadT:0, aim:0, safeX:0, safeY:0, bonkCd:0, alive:true, moving:false, lastShot:0, volleys:0
   };
@@ -115,6 +115,7 @@ proto.makeOffer = function(r, pr){
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
   if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
+  if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
   if(pr.sell === "ward") return { kind:"ward", n:2, price:L.price({ kind:"ward" }, f), currency:"gold", name:"Two Wards" };
   if(pr.sell === "active"){ const id = G.rng.pick(Object.keys(DG.ACTIVES)); return { kind:"active", id, price:L.price({ kind:"active" }, f), currency:"gold", name:DG.ACTIVES[id].name }; }
   const id = Items.roll(G, pool);
@@ -625,7 +626,7 @@ proto.bossName = function(){
 proto.setDoors = function(r, open){
   const G = this, p = G.player;
   r.doors.forEach(id=>{
-    const d = G.D.doors[id]; d.open = open;
+    const d = G.D.doors[id]; d.open = open && !d.locked;
     if(!open) d.tiles.forEach(([x, y])=>{
       if(Math.abs(p.x - x - 0.5) < 0.5 + p.r && Math.abs(p.y - y - 0.5) < 0.5 + p.r){ const s = G.freeSpot(r, r.cxw, r.cyw); p.x = s.x; p.y = s.y; }
     });
@@ -670,6 +671,7 @@ proto.clearRoom = function(r){
   else if(roll < 0.2) G.addPickup("heart", x, y, 20);
   else if(roll < 0.3) G.addPickup("mana", x, y, 40);
   else if(roll < 0.38) G.addPickup("ward", x, y, 1);
+  else if(roll < 0.45) G.addPickup("key", x, y, 1);
   else if(roll < 0.7) G.dropGold(x, y, Math.round(rng.int(4, 8)*(1 + 0.3*(G.floor - 1))));
 };
 proto.ambush = function(r){
@@ -738,6 +740,7 @@ proto.updatePickups = function(dt){
     else if(k.kind === "flyheal"){ G.heal(2); k.dead = true; G.emit("pickup", { kind:"heart" }); }
     else if(k.kind === "mana" && p.mana < p.maxMana){ p.mana = Math.min(p.maxMana, p.mana + k.value); k.dead = true; G.emit("pickup", { kind:"mana" }); }
     else if(k.kind === "ward" && p.wards < DG.PLAYER.maxWards){ G.addWards(k.value); k.dead = true; }
+    else if(k.kind === "key"){ p.keys += k.value || 1; k.dead = true; G.emit("pickup", { kind:"key" }); G.emit("key", { x:k.x, y:k.y, keys:p.keys }); }
     else if(k.kind === "fly"){ G.meta.flies++; G.stats.flies++; k.dead = true; G.emit("fly", { total:G.meta.flies }); G.say("A golden fly! Gribbus can learn new tricks at frog ponds.", 3.5); }
   });
   G.pickups = G.pickups.filter(k=> !k.dead);
@@ -749,6 +752,8 @@ proto.target = function(){
   let best = null, bd = 1.5;
   const consider = (o, d, text)=>{ if(d < bd){ bd = d; best = { o, text }; } };
   G.pickups.forEach(k=>{ if(k.kind === "item") consider(k, DG.dist(k.x, k.y, p.x, p.y), "Take " + k.item.name); });
+  // a locked door, with or without a key in your pocket
+  G.D.doors.forEach(d=>{ if(d.locked) consider({ door:d }, DG.dist(d.x, d.y, p.x, p.y) - 0.4, p.keys > 0 ? "Unlock (1 key of " + p.keys + ")" : "Locked. It wants a key."); });
   if(G.portal) consider({ portal:true }, DG.dist(G.portal.x, G.portal.y, p.x, p.y) - 0.3, G.floor >= DG.FINAL_FLOOR && !G.endless ? "Escape the dungeon" : "Jump in the portal");
   const r = G.room || G.D.rooms.find(rr=> p.x > rr.x1 - 1 && p.x < rr.x2 + 2 && p.y > rr.y1 - 5 && p.y < rr.y2 + 2);
   if(r) r.props.forEach(pr=>{
@@ -761,6 +766,15 @@ proto.target = function(){
   });
   return best;
 };
+/* ---- keys ---- */
+proto.useKey = function(){ const p = this.player; if(p.keys <= 0) return false; p.keys--; this.emit("keyUsed", { left:p.keys }); return true; };
+proto.unlockDoor = function(d){
+  const G = this;
+  if(!d.locked) return;
+  if(!G.useKey()){ G.say("Locked. Somewhere down here there's a key for it."); G.emit("broke"); return; }
+  d.locked = false; d.open = true; G.D.ver = (G.D.ver || 0) + 1;
+  G.emit("unlock", { x:d.x, y:d.y, door:d.id });
+};
 proto.offerText = function(o){
   const what = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.name;
   if(o.currency === "gold") return "Buy " + what + " — " + o.price + "g";
@@ -772,12 +786,13 @@ proto.interact = function(){
   const G = this, p = G.player, tg = G.target();
   if(!tg) return;
   const o = tg.o;
+  if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }
   if(o.kind === "item"){ G.takeItem(o.item, o); return; }
   if(o.kind === "chest"){
     if(o.locked){ G.say("It's locked. Solve the room's puzzle."); return; }
     o.open = true; G.emit("chest", { id:o.id, x:o.x + 0.5, y:o.y + 0.5 });
-    G.chestLoot(o).forEach(it=> it.kind === "itemid" ? G.addProp(G.D.rooms[o.room], { kind:"pedestal", x:o.x, y:o.y + 1, pool:it.pool }) : G.dropItem(o.x + 0.5, o.y + 1, it));
+    G.chestLoot(o).forEach(it=> it.kind === "itemid" ? G.addProp(G.D.rooms[o.room], { kind:"pedestal", x:o.x, y:o.y + 1, pool:it.pool }) : it.kind === "key" ? G.addPickup("key", o.x + 0.5, o.y + 1, 1) : G.dropItem(o.x + 0.5, o.y + 1, it));
     G.dropGold(o.x + 0.5, o.y + 0.9, G.rng.int(3, 8) + o.tier*3);
     if(G.chance(0.15 + 0.1*o.tier)) G.addPickup(G.rng.pick(["heart", "mana", "ward"]), o.x + 0.5, o.y + 1, 1);
     return;
@@ -794,6 +809,7 @@ proto.interact = function(){
     else if(of.kind === "gun") G.takeItem(of.gun, null);
     else if(of.kind === "heal"){ G.heal(of.amount); G.say("Tastes like boots. You feel better."); }
     else if(of.kind === "ward") G.addWards(of.n);
+    else if(of.kind === "key"){ p.keys += of.n; G.emit("key", { x:o.x + 0.5, y:o.y + 0.5, keys:p.keys }); }
     else if(of.kind === "active") G.giveActive(of.id);
     // a treasure room's choice: the other pedestals sink
     const r = G.D.rooms[o.room];
@@ -810,6 +826,7 @@ proto.chestLoot = function(c){
   const gun = o=> L.rollGun(rng, f + (c.tier >= 2 ? 1 : 0), o);
   if(c.tier >= 2) return rng.chance(0.55) ? [{ kind:"itemid", pool:c.tier >= 3 ? "b" : "t" }] : [gun({ minRarity:1, boost:0.6 })];
   const roll = rng.next();
+  if(roll < 0.12) return [gun({ boost:0.1 }), { kind:"key" }];
   if(roll < 0.45) return [gun({ boost:0.1 })];
   if(roll < 0.6) return [{ kind:"itemid", pool:"t" }];
   return [];

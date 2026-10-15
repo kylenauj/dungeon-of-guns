@@ -1,4 +1,4 @@
-# Dungeon of Guns
+# Zippy & Gribbus (the repo is still dungeon-of-guns)
 
 A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with spell-guns, in an Isaac-style dungeon, in a grimdark Dark Souls style) in plain JavaScript and three.js r128. There's no build step. It shares its asset kit and conventions with the user's other games, *Pine Hollow Rally* and *Gloom Shooter* (github.com/kylenauj/gloom-shooter).
 

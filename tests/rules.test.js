@@ -315,13 +315,12 @@ test("the cursed altar costs 20 max health", ()=>{
 
 test("the shop takes your gold", ()=>{
   const G = game("SHOPPER");
-  const r = G.D.rooms.find(x=> x.type === "shop"), ped = r.props.find(p=> p.kind === "pedestal" && p.offer.kind === "heal");
+  const r = G.D.rooms.find(x=> x.type === "shop"), ped = r.props.find(p=> p.kind === "pedestal" && p.offer.currency === "gold");
   G.player.gold = 999; G.player.hp = 10;
   G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2; G.room = r;
   G.interact();
   assert.ok(ped.taken);
   assert.equal(G.player.gold, 999 - ped.offer.price);
-  assert.ok(G.player.hp > 10);
 });
 
 test("a treasure room is a choice, item or weapon: take one and the rest crumble", ()=>{
@@ -1018,4 +1017,19 @@ test("every item, active, frog trick, gun and set has an icon whose glyphs exist
   assert.equal(I.spec("frog:mirror").g, "mirror");
   assert.equal(I.spec("gun:rifle:shock:3").els[0], "shock");
   assert.equal(I.spec("prismheart").els.length, DG.ELEMENT_ORDER.length);
+});
+
+test("keys: you start with one, find more, and a locked door wants one", ()=>{
+  const G = game("KEYS"); G.god = true;
+  const p = G.player;
+  assert.equal(p.keys, 1, "one to start");
+  G.addPickup("key", p.x, p.y, 1); G.pickups[G.pickups.length - 1].t = 1; step(G, 0.3);
+  assert.equal(p.keys, 2, "picked one up");
+  const d = G.D.doors[0]; d.locked = true; d.open = false;
+  G.setDoors(G.D.rooms[d.rooms ? d.rooms[0] : 0], true);
+  assert.ok(!d.open, "a locked door stays shut when a room opens its doors");
+  p.keys = 0; G.unlockDoor(d);
+  assert.ok(d.locked && !d.open, "no key, no entry");
+  p.keys = 1; G.unlockDoor(d);
+  assert.ok(!d.locked && d.open && p.keys === 0, "a key opens it, and is spent");
 });

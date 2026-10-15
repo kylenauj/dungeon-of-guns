@@ -188,6 +188,8 @@ proto.handle = function(ev){
     case "fizzle": FX.burst(ev.x, 0.8, ev.y, 0xfff04a, 6, 2, 0.2, 0.3); play("error"); break;
     case "healBeam": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x5aff8a, 0.3); FX.rise(ev.x2, ev.y2, 0x5aff8a, 8, 0.4); play("heal"); break;
     case "mastery": FX.rise(ev.x, ev.y, 0xffd27a, 16, 0.7); FX.ring(ev.x, ev.y, 1.8, 0xc8a050, 0.6); play("duo"); break;
+    case "key": if(DG.HUD) DG.HUD.keyT = 0.8; play("pickup"); break;
+    case "unlock": FX.burst(ev.x, 1, ev.y, 0xd8a060, 14, 2.5, 0.15, 0.5); S.shake(0.2); play("doorOpen"); break;
     case "stash": FX.smoke(ev.x, 1.0, ev.y, 0x6a6058, 10, 0.5, 1.2); FX.burst(ev.x, 1.0, ev.y, 0xc8a050, 10, 2, 0.15, 0.5); play("coin"); break;
     case "bonk":
       S.shake(0.3); FX.burst(ev.x, 1.3, ev.y, 0xffe680, 10, 3, 0.25, 0.5, { up:1 });

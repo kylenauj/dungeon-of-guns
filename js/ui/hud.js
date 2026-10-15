@@ -329,13 +329,20 @@ H.draw = function(G, dt, opts){
   // gold, flies
   H.coinT = Math.max(0, (H.coinT || 0) - dt);
   const yr = y0 + 52*k;
-  const gw = Math.max(86*k, measure(g, p.gold + "", 15*k, "700") + 44*k);
+  const kw = 40*k;   // the keys, at the right end of the purse
+  const gw = Math.max(86*k, measure(g, p.gold + "", 15*k, "700") + 44*k) + kw;
   frame(g, x0, yr - 11*k, gw, 22*k, null, false);
   const cr = 6*k*(1 + H.coinT*0.8);
   g.fillStyle = "rgba(0,0,0,.9)"; g.beginPath(); g.arc(x0 + 13*k, yr, cr + 1.5, 0, Math.PI*2); g.fill();
   const cg = g.createRadialGradient(x0 + 11*k, yr - 2*k, 1, x0 + 13*k, yr, cr); cg.addColorStop(0, "#f0d890"); cg.addColorStop(1, "#8a6a30");
   g.fillStyle = cg; g.beginPath(); g.arc(x0 + 13*k, yr, cr, 0, Math.PI*2); g.fill();
-  text(g, p.gold + "", x0 + gw - 10, yr + 1, 15*k, H.coinT > 0 ? GOLD2 : IVORY, "right", "700");
+  text(g, p.gold + "", x0 + gw - kw - 10, yr + 1, 15*k, H.coinT > 0 ? GOLD2 : IVORY, "right", "700");
+  // a little iron key and how many you carry
+  H.keyT = Math.max(0, (H.keyT || 0) - dt);
+  const kx = x0 + gw - kw + 6*k, kc = H.keyT > 0 ? GOLD2 : p.keys ? "#c8bca0" : "#5a5046";
+  g.strokeStyle = kc; g.lineWidth = 1.6*k; g.beginPath(); g.arc(kx + 4*k, yr, 3.2*k, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.moveTo(kx + 7.2*k, yr); g.lineTo(kx + 16*k, yr); g.moveTo(kx + 13*k, yr); g.lineTo(kx + 13*k, yr + 3.5*k); g.moveTo(kx + 15.5*k, yr); g.lineTo(kx + 15.5*k, yr + 2.5*k); g.stroke();
+  text(g, p.keys + "", x0 + gw - 10, yr + 1, 14*k, kc, "right", "700");
   if(G.meta.flies){ text(g, "✦ " + G.meta.flies, x0 + gw + 12, yr + 1, 13*k, GOLD, "left", "700"); }
   // the active item
   if(p.active){

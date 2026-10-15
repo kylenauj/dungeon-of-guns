@@ -184,7 +184,7 @@ function tryGenerate(rng, floor, seed){
       r.props.push({ kind:"merchant", x:cx, y:r.y1 + 1 });
       // each shop stocks 3 to 5 wares (at least one item); the Membership Card adds two
       const n = rng.int(3, 5);
-      const sells = ["item"].concat(rng.shuffle(["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal"]).slice(0, n - 1));
+      const sells = ["item"].concat(rng.shuffle(["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal", "key"]).slice(0, n - 1));
       sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - (n - 1) + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
     }
     if(r.type === "pond") makePond(D, rng, r);

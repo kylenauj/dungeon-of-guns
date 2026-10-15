@@ -1,4 +1,4 @@
-# Dungeon of Guns
+# Zippy & Gribbus
 
 A top-down roguelike in the spirit of *The Binding of Isaac*. You're **Zippy**, a hooded hexhunter who casts spells **through guns**, with **Gribbus**, a warty old toad, hopping along beside you. The dungeon is dug fresh every run: a forsaken castle that rots a little more each floor until it is a mushroom forest.
 
@@ -24,7 +24,7 @@ npm start                 # http-server on http://localhost:8080
 
 URL shortcuts for testing: `?play` (skip the title), `?seed=WORD`, `?floor=3`, `?god`. Add `?gallery` to see every model lined up (WASD pans, the wheel zooms, 1-5 switch the floor lighting).
 
-`npm run bundle` builds `dist/dungeon-of-guns.html`, a single file that runs by double-clicking it.
+`npm run bundle` builds `dist/zippy-and-gribbus.html`, a single file that runs by double-clicking it.
 
 ## Controls
 

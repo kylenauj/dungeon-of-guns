@@ -826,7 +826,7 @@ Icons.SETS = {
   pyromancer:"flame@fire", lich:"skull@frost", storm:"cloud@shock", plague:"beak@poison", gardener:"sprout", goldfinger:"crown+coin",
   frogprince:"frog+crown", bloodhunter:"fang+droplet", clown:"mask+die"
 };
-Icons.OFFERS = { heal:"bowl", ward:"rune" };
+Icons.OFFERS = { heal:"bowl", ward:"rune", key:"key" };
 
 /* a mirror is still a mirror; the tables above name it */
 GL.mirror = function(){
@@ -1040,7 +1040,7 @@ Icons.keyFor = function(o){
   if(o.kind === "active") return "active:" + o.id;
   const g = o.kind === "gun" && o.gun ? o.gun : o;
   if(g.kind === "gun" || g.base) return "gun:" + g.base + ":" + (g.element || "") + ":" + (g.rarity || 0);
-  if(o.kind === "heal" || o.kind === "ward") return "offer:" + o.kind;
+  if(o.kind === "heal" || o.kind === "ward" || o.kind === "key") return "offer:" + o.kind;
   return "glyph:orb";
 };
 /* the colour of its rim, for glows and beams */

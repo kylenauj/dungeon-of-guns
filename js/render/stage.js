@@ -62,7 +62,8 @@ S.init = function(){
 
 S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
-  const k = S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.5)**-1;
+  // S.dyn: the adaptive resolution (1 is full; it drops when frames run slow)
+  const k = (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.5)**-1)/(S.dyn || 1);
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){
@@ -106,7 +107,7 @@ S.initPost = function(){
       "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*0.45);",
       // bloom: what burns bright (candles, eyes, spells) bleeds into the dark around it
       "  vec3 bl = vec3(0.0); float bw = 0.0;",
-      "  for(int i=0;i<12;i++){ float a = float(i)*2.39996 + 0.5, rr = 2.5 + float(i)*1.6;",
+      "  for(int i=0;i<8;i++){ float a = float(i)*2.39996 + 0.5, rr = 2.5 + float(i)*2.4;",
       "    vec2 o = vec2(cos(a), sin(a))*rr*px*(uRes.y/540.0); vec3 s = texture2D(tCol, uv + o).rgb;",
       "    float w = 1.0/(1.0 + float(i)*0.25); bl += max(s - 0.78, 0.0)*w; bw += w; }",
       "  col += bl/bw*uBloom*1.8;",
@@ -201,9 +202,23 @@ S.updateCamera = function(dt){
   S.camera.lookAt(R.x + sx*0.5, 0, R.z + sz*0.5);
 };
 
+/* adaptive resolution: if frames run slow for a while, draw fewer pixels
+   (down to 60% of the screen's); when there's headroom again, step back up */
+S.dyn = 1;
+S.adapt = function(raw){
+  if(raw > 0.25) return;                       // a hitch (tab switch, load): ignore
+  S.ft = S.ft === undefined ? raw : S.ft*0.95 + raw*0.05;
+  S.adaptT = (S.adaptT || 0) + raw;
+  if(S.adaptT < 1.5) return;
+  const was = S.dyn;
+  if(S.ft > 1/45) S.dyn = Math.max(0.6, S.dyn - 0.1);
+  else if(S.ft < 1/58 && S.dyn < 1) S.dyn = Math.min(1, S.dyn + 0.05);
+  if(S.dyn !== was){ S.adaptT = 0; S.resize(); }
+};
 S.loop = function(){
   requestAnimationFrame(S.loop);
-  const dt = Math.min(0.05, S.clock.getDelta()), t = S.clock.elapsedTime;
+  const raw = S.clock.getDelta(), dt = Math.min(0.05, raw), t = S.clock.elapsedTime;
+  S.adapt(raw);
   K.tick(t);
   S.updaters.forEach(f=> f(dt, t));
   S.updateCamera(dt);

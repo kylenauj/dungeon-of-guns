@@ -1,11 +1,11 @@
-# Dungeon of Guns: Design (v2)
+# Zippy & Gribbus: Design (v2)
 
 **Zippy** is a hooded hexhunter who casts spells through guns. With him is **Gribbus**, a frog who attacks on his own. They go down into a dungeon that gets spookier and weirder the deeper they go. The run is built from a pile of powerups that stack and combine in ways nobody planned, least of all Zippy.
 
 This document has three parts:
 
 1. What the best games in the genre do, and what we take from each (section 1).
-2. How Dungeon of Guns' systems work (sections 2–9).
+2. How Zippy & Gribbus' systems work (sections 2–9).
 3. How the code is laid out (section 10).
 
 ---
