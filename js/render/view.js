@@ -424,7 +424,7 @@ proto.update = function(dt, t){
   }
   if(dead && V.zDead > 0.3 && !V.zKnelt){ V.zKnelt = true; S.shake(0.25); FX.smoke(p.x, 0.1, p.y, 0x2a2420, 6, 0.5, 1.2, { spread:0.8, rise:0.3 }); V.play("step", { heavy:true, x:p.x, y:p.y }); }
   if(dead && V.zDead > 0.5 && Math.random() < 0.35) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, p.y + (Math.random() - 0.5)*0.6, (Math.random() - 0.5)*0.2, 0.4 + Math.random()*0.5, (Math.random() - 0.5)*0.2, Math.random() < 0.6 ? 0xb36bff : 0xff8a3a, 0.12, 1.4, -0.1, 0.4);
-  const flick = p.iframes > 0 && p.blinkT <= 0 ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
+  const flick = p.iframes > 0 && p.blinkT <= 0 && !dead ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
   if(p.blinkT > 0) FX.emit(p.x, 0.9, p.y, 0, 0, 0, 0xb36bff, 0.6, 0.25, 0, 0);
   M.tint(W, p.chill > 0 ? 0x2a6a8a : p.wards > 0 ? 0x101828 : 0x000000, 1);
