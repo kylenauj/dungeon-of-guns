@@ -56,7 +56,7 @@ proto.dressPlayer = function(look){
 };
 /* the camera looks down at an angle, which squashes anything standing up:
    characters are drawn a little taller to make up for it */
-const STRETCH = 1.16, HERO = 1.2;
+const STRETCH = 1.16, HERO = 0.92;
 const W0els = G=> [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
 const W0gunKey = G=> G.gun().uid + ":" + W0els(G).join(",");
 const AURA = {
@@ -106,6 +106,9 @@ proto.dispose = function(){
   FX.clear();
 };
 
+/* sounds from the per-frame side (footfalls, voices); quiet in the attract mode */
+proto.play = function(n, o){ const au = A(); if(au && !this.silent) au.play(n, o); };
+
 /* ---- events ---- */
 proto.handle = function(ev){
   const V = this, G = V.G, p = G.player, au = A();
@@ -117,7 +120,7 @@ proto.handle = function(ev){
         const m = V.player.muzzle, w = new THREE.Vector3(); m.getWorldPosition(w);
         FX.burst(w.x, w.y, w.z, ELC(ev.el), ev.base === "shotgun" ? 8 : 3, 3, 0.25, 0.15, { col2:0xffffff });
         S.flash.position.set(w.x, w.y + 0.3, w.z); S.flash.color.setHex(ELC(ev.el)); S.flash.intensity = ev.base === "shotgun" || ev.base === "launcher" ? 2.5 : 1.2;
-        V.recoil = ev.base === "shotgun" || ev.base === "rifle" || ev.base === "launcher" ? 1 : 0.4;
+        V.recoil = Math.min(1.3, (V.recoil || 0)*0.4 + (ev.base === "shotgun" || ev.base === "launcher" ? 1.2 : ev.base === "rifle" ? 1 : ev.base === "smg" ? 0.45 : 0.7));
         if(ev.base === "shotgun" || ev.base === "launcher") S.shake(0.12);
         play("shoot_" + ev.base, { el:ev.el });
       } else FX.burst(ev.x, 0.8, ev.y, ELC(ev.el), 2, 2, 0.2, 0.12);
@@ -135,20 +138,22 @@ proto.handle = function(ev){
       const R = V.rigs[ev.id];
       // what's left behind stays for the floor
       if(!ev.fell && !ev.decoy && V.world){ const k = R ? R.kind : ""; V.world.addSplat(ev.x, ev.y, SPLAT[k] || 0x3a6a1a, ev.boss ? 4 : 1.1 + Math.random()*0.5); }
-      if(R){ delete V.rigs[ev.id]; V.dying.push({ R, t:0, fell:ev.fell, boss:ev.boss, midas:ev.midas, decoy:ev.decoy }); }
-      const col = ev.midas ? 0xffd23d : ev.decoy ? 0xd8e8ff : 0x7ad84a;
-      FX.burst(ev.x, 0.6, ev.y, col, ev.boss ? 60 : 14, ev.boss ? 9 : 4.5, 0.3, 0.6, { grav:9, col2:ev.midas ? 0xffffff : 0xffe14a });
-      if(ev.boss){ S.shake(1); FX.ring(ev.x, ev.y, 7, 0xffd23d, 1.2); }
+      if(R){ delete V.rigs[ev.id]; V.dying.push({ R, t:0, fell:ev.fell, boss:ev.boss, midas:ev.midas, decoy:ev.decoy, x:ev.x, y:ev.y }); }
+      // no pop: a spatter where the blow landed, and the body is left to stagger, fall and come apart
+      const col = ev.midas ? 0xffd23d : ev.decoy ? 0xd8e8ff : SPLAT[R ? R.kind : ""] || 0x7ad84a;
+      FX.burst(ev.x, 0.7, ev.y, col, ev.boss ? 24 : ev.decoy || ev.midas ? 14 : 8, ev.boss ? 6 : 3.5, 0.26, 0.5, { grav:9, col2:ev.midas ? 0xffffff : 0x3a0606 });
+      if(ev.boss) S.shake(1);
       play(ev.boss ? "bossdie" : ev.fell ? "fall" : ev.decoy ? "poof" : "kill");
+      if(!ev.fell && !ev.decoy) play("die", { family:ev.boss ? "boss" : DIE[R ? R.kind : ""] || "goblin", x:ev.x, y:ev.y });
       break;
     }
-    case "hurt": S.shake(0.35); FX.burst(p.x, 0.9, p.y, 0xff3a4a, 10, 4, 0.25, 0.35); play("hurt"); break;
+    case "hurt": V.zHurt = 1; V.zHurtSide = Math.random() < 0.5 ? -1 : 1; S.shake(0.35); FX.burst(p.x, 0.9, p.y, 0xff3a4a, 10, 4, 0.25, 0.35); play("hurt"); break;
     case "wardBreak": S.shake(0.2); FX.ring(p.x, p.y, 1.6, 0x8ad8ff, 0.35); FX.burst(p.x, 0.9, p.y, 0x8ad8ff, 16, 4, 0.25, 0.4); play("ward"); break;
     case "ward": FX.rise(p.x, p.y, 0x8ad8ff, 10, 0.5); play("pickup"); break;
-    case "death": S.shake(0.8); FX.burst(p.x, 0.9, p.y, 0xb36bff, 40, 6, 0.35, 1.2, { grav:4 }); play("death"); break;
+    case "death": V.zDead = 0.001; S.shake(0.8); FX.burst(p.x, 0.9, p.y, 0xb36bff, 24, 4, 0.3, 1.0, { grav:4 }); play("death"); break;
     case "heal": FX.rise(ev.x, ev.y, 0x5aff8a, 12, 0.5); play("heal"); break;
-    case "blink": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 14, 3, 0.3, 0.35, { col2:0xffffff }); play("blink"); break;
-    case "blinkEnd": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 10, 2.5, 0.25, 0.3); break;
+    case "blink": V.zWhip = 9; FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 14, 3, 0.3, 0.35, { col2:0xffffff }); play("blink"); play("cloth"); break;
+    case "blinkEnd": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 10, 2.5, 0.25, 0.3); FX.smoke(ev.x, 0.1, ev.y, 0x2a2420, 3, 0.4, 0.6, { spread:0.5, rise:0.2 }); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
     case "reload": play("reload"); break;
     case "reloaded": play("reloaded"); break;
     case "swap": play("swap"); break;
@@ -401,17 +406,25 @@ proto.update = function(dt, t){
     if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
-  const speed = Math.hypot(p.vx, p.vy);
-  M.idle(W, t, p.blinkT > 0 ? 0 : speed);
+  const dead = G.state === "dead";
+  const speed = dead ? 0 : Math.hypot(p.vx, p.vy), ca = Math.cos(p.aim), sa = Math.sin(p.aim);
+  V.recoil = Math.max(0, (V.recoil || 0) - dt*6);
+  V.zHurt = Math.max(0, (V.zHurt || 0) - dt/0.55);
+  if(dead) V.zDead = Math.min(1, (V.zDead || 0) + dt/1.9);
   M.animate(W, t, speed);
-  // little puffs of dust where Zippy steps
-  V.stride = (V.stride || 0) + speed*dt;
-  if(V.stride > 0.75 && p.blinkT <= 0){ V.stride = 0; FX.burst(p.x + (Math.random() - 0.5)*0.3, 0.06, p.y + (Math.random() - 0.5)*0.3, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 }); }
-  V.recoil = Math.max(0, (V.recoil || 0) - dt*8);
-  W.parts.armR.rotation.x = -1.1 - V.recoil*0.25 + (p.reloadT > 0 ? 0.7 + Math.sin(t*20)*0.1 : 0);
-  if(!V.hold) W.parts.armL.rotation.x = -1.0 + Math.sin(t*2)*0.05;
-  if(W.parts.beard) W.parts.beard.rotation.x = Math.sin(t*3)*0.05 + speed*0.02;
-  const flick = p.iframes > 0 && p.blinkT <= 0 ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
+  const mo = M.stalk(W, { speed, fwd:p.vx*ca + p.vy*sa, side:p.vx*sa - p.vy*ca, max:DG.PLAYER.speed,
+    crouch:p.blinkT > 0 && !dead, whip:V.zWhip || 0, recoil:V.recoil, hurt:V.zHurt, hurtSide:V.zHurtSide, dead:V.zDead || 0,
+    reload:p.reloadT > 0 && !dead, holding:!!V.hold }, t, dt);
+  V.zWhip = 0;
+  // a footfall: a scuff of dust where it lands, and the sound of it
+  if(mo.stepped && p.blinkT <= 0 && !dead){
+    const side = (Math.floor(mo.ph/PI) % 2 ? 1 : -1)*0.12;
+    FX.burst(p.x + sa*side + ca*0.15, 0.06, p.y - ca*side + sa*0.15, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 3, 0.7, 0.2, 0.45, { up:0.5, drag:5 });
+    V.play("step", { heavy:false, x:p.x, y:p.y });
+  }
+  if(dead && V.zDead > 0.3 && !V.zKnelt){ V.zKnelt = true; S.shake(0.25); FX.smoke(p.x, 0.1, p.y, 0x2a2420, 6, 0.5, 1.2, { spread:0.8, rise:0.3 }); V.play("step", { heavy:true, x:p.x, y:p.y }); }
+  if(dead && V.zDead > 0.5 && Math.random() < 0.35) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, p.y + (Math.random() - 0.5)*0.6, (Math.random() - 0.5)*0.2, 0.4 + Math.random()*0.5, (Math.random() - 0.5)*0.2, Math.random() < 0.6 ? 0xb36bff : 0xff8a3a, 0.12, 1.4, -0.1, 0.4);
+  const flick = p.iframes > 0 && p.blinkT <= 0 && !dead ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
   if(p.blinkT > 0) FX.emit(p.x, 0.9, p.y, 0, 0, 0, 0xb36bff, 0.6, 0.25, 0, 0);
   M.tint(W, p.chill > 0 ? 0x2a6a8a : p.wards > 0 ? 0x101828 : 0x000000, 1);
@@ -419,7 +432,6 @@ proto.update = function(dt, t){
   if(V.stars > 0){ V.stars -= dt; if(Math.random() < 0.4) FX.emit(p.x + Math.cos(t*9)*0.4, 2.3, p.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.25, 0.25, 0, 0); }
   // wards: little blue orbs circling
   if(p.wards > 0 && Math.random() < 0.3*p.wards){ const a = t*3 + Math.random(); FX.emit(p.x + Math.cos(a)*0.6, 1.1, p.y + Math.sin(a)*0.6, 0, 0.2, 0, 0x8ad8ff, 0.2, 0.3, 0, 1); }
-  W.root.visible = G.state !== "dead";
   S.playerLight.position.set(p.x, 2.2, p.y + 0.3);
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
 
@@ -459,7 +471,7 @@ proto.updatePortrait = function(dt, t){
   if(F){
     M.animate(F, t, 0);
     F.root.rotation.y = -0.5 + Math.sin(t*0.5 + 1)*0.8;
-    F.body.scale.set(1 + Math.sin(t*3)*0.03, 1 - Math.sin(t*3)*0.03, 1);
+    M.hop(F, {}, t);
     if(F.parts.crown) F.parts.crown.visible = G.gribbus.buffs.indexOf("crown") >= 0;
   }
   const P = S.portrait.root.children; if(Z && P.indexOf(Z.root) < 0) S.portrait.root.add(Z.root);
@@ -482,9 +494,10 @@ proto.updateFrogs = function(dt, t){
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
     const sz = (1 + 0.5*(g.size || 0))*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
-    // squash on landing, stretch in the air
-    const air = (f.hop || 0) > 0.05;
-    R.body.scale.set(air ? 0.9 : 1 + Math.sin(t*3 + i)*0.03, air ? 1.15 : 1 - Math.sin(t*3 + i)*0.03, air ? 1.1 : 1);
+    // the hop: load, kick, reach, land hard (Models.hop)
+    const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/0.18 : 0 }, t + i*1.7, dt);
+    if(mo.tookOff){ V.play("frogHop", { x:f.x, y:f.y }); FX.smoke(f.x, 0.05, f.y, 0x2a2420, 2, 0.3, 0.5, { spread:0.3, rise:0.15 }); }
+    if(mo.landed){ V.play("frogLand", { x:f.x, y:f.y }); FX.burst(f.x, 0.05, f.y, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 4, 1, 0.22, 0.45, { up:0.4, drag:5 }); }
     if(R.parts.crown) R.parts.crown.visible = !!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0;
     M.animate(R, t, 0);
     // the tongue
@@ -499,6 +512,35 @@ proto.updateFrogs = function(dt, t){
   });
 };
 
+/* the bestiary's footfalls, swings and voices (all rate-limited: a room full
+   of goblins is a rustle, not a drum roll) */
+const SWING = { stab:1, charge:1, swipe:1, squat:1, spin:1, sweep:1, boo:1, throw:1, swell:1, spray:1 };
+const MOAN = { goblin:"goblin", brute:"goblin", shroom:"shroom", puff:"shroom", stool:"shroom", husk:"shroom",
+  ghost:"ghost", polt:"ghost", watcher:"flesh", blob:"flesh", tent:"flesh", crab:"flesh", spitter:"flesh", bloater:"flesh" };
+proto.creepSounds = function(e, R, mo, t){
+  const V = this;
+  if(mo.step && t - (V.skitT || 0) > 1/6){ V.skitT = t; V.play("skitter", { x:e.x, y:e.y }); }
+  if(mo.stomp){
+    if(t - (V.stompT || 0) > 0.14){ V.stompT = t; V.play("stomp", { x:e.x, y:e.y }); }
+    FX.smoke(e.x, 0.05, e.y, 0x2a2420, e.boss ? 4 : 2, e.boss ? 0.7 : 0.4, 0.7, { spread:e.r, rise:0.15 });
+    if(e.boss) S.shake(0.1);
+  }
+  if(mo.struck && (SWING[mo.strikeKind] || e.boss)) V.play("swing", { x:e.x, y:e.y });
+};
+proto.updateMoans = function(dt){
+  const V = this, G = V.G;
+  V.moanT = (V.moanT === undefined ? 3 + Math.random()*5 : V.moanT) - dt;
+  if(V.moanT > 0) return;
+  const boss = G.enemies.find(e=> e.boss && !e.dead && e.spawn <= 0);
+  V.moanT = boss ? 6 + Math.random()*5 : 8 + Math.random()*8;
+  const live = G.enemies.filter(e=> !e.dead && !e.hidden && e.spawn <= 0 && V.rigs[e.id]);
+  if(!live.length) return;
+  const e = boss && Math.random() < 0.6 ? boss : live[Math.floor(Math.random()*live.length)], R = V.rigs[e.id];
+  const fam = M.FAMILY[R.kind], kind = e.boss ? "boss" : R.kind === "banshee" ? "banshee" : MOAN[fam];
+  if(!kind) return;
+  R.act = 1;
+  V.play("moan", { kind, x:e.x, y:e.y });
+};
 proto.updateEnemies = function(dt, t){
   const V = this, G = V.G, p = G.player;
   const live = {};
@@ -513,6 +555,7 @@ proto.updateEnemies = function(dt, t){
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
       }
       R.shadow = shadowBlob(e.r); R.root.add(R.shadow);
+      M.creep(R, { speed:0 }, t, 0);
       S.scene.add(R.root);
     }
     R.root.position.set(e.x, 0, e.y);
@@ -523,28 +566,28 @@ proto.updateEnemies = function(dt, t){
     R.root.rotation.y += DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? 14 : 4)));
     if(e.spawn > 0){ const k = 1 - e.spawn/(e.boss ? 1.4 : 0.8); R.body.position.y = -1.2*(1 - k); M.fade(R, Math.max(0.1, k)); return; }
     const frozen = e.st.frozen > 0, stunned = e.st.stun > 0;
-    if(!frozen) M.idle(R, t, stunned ? 0 : Math.hypot(e.vx, e.vy));
-    if(R.tell > 0){
-      R.tell -= dt;
-      const k = 1 - Math.max(0, R.tell)/R.tellMax;
-      R.body.rotation.x = -0.3*k; R.body.position.x = Math.sin(t*60)*0.03*k;
-      if(R.parts.armR) R.parts.armR.rotation.x = -2.2*k;
-    } else {
-      R.body.rotation.x *= 0.8; R.body.position.x = 0;
-      if(R.parts.armR) R.parts.armR.rotation.x *= 0.85;
-    }
-    if(e.hop) R.body.position.y = e.hop;
-    if(e.swell) R.body.scale.setScalar(1 + e.swell*0.5);
-    if(e.pulse !== undefined && R.parts.head) R.parts.head.scale.setScalar(1 + e.pulse*0.12);
-    // the eye's lids close when it's invulnerable
-    if(R.parts.lidT){ const want = e.invuln ? -0.02 : -1.35; R.parts.lidT.rotation.x += (want - R.parts.lidT.rotation.x)*(1 - Math.exp(-dt*10)); R.parts.lidB.rotation.x += (-want - R.parts.lidB.rotation.x)*(1 - Math.exp(-dt*10)); if(R.parts.head) R.parts.head.lookAt(p.x, 1.6, p.y); }
+    // the wind-up, through to its release (Models.creep draws it back, holds it, lets it go)
+    let tellK = -1;
+    if(R.tell > 0){ R.tell -= dt; tellK = Math.min(1, 1 - Math.max(0, R.tell)/R.tellMax); }
     // burrowed tentacles sink into the floor
-    if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.body.position.y += (want - R.body.position.y)*(1 - Math.exp(-dt*12)); }
+    if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.sinkY = (R.sinkY || 0) + (want - (R.sinkY || 0))*(1 - Math.exp(-dt*12)); }
+    let mo = null;
+    if(!frozen){
+      mo = M.creep(R, { speed:stunned ? 0 : Math.hypot(e.vx, e.vy), tell:tellK, tellKind:R.tellKind, flinch:e.flash, act:R.act, stunned,
+        hop:e.hop, swell:e.swell, pulse:e.pulse, sink:e.def.ai === "tentacle" ? R.sinkY : undefined }, t, dt);
+      R.act = 0;
+      V.creepSounds(e, R, mo, t);
+    }
+    // the eye's lids close when it's invulnerable; it watches you, its gaze darting off and back
+    if(R.parts.lidT){
+      const want = e.invuln ? -0.02 : -1.35; R.parts.lidT.rotation.x += (want - R.parts.lidT.rotation.x)*(1 - Math.exp(-dt*10)); R.parts.lidB.rotation.x += (-want - R.parts.lidB.rotation.x)*(1 - Math.exp(-dt*10));
+      if(R.parts.head){ R.parts.head.lookAt(p.x, 1.6, p.y); if(mo && mo.sacc !== undefined){ R.parts.head.rotateY(mo.sacc); R.parts.head.rotateX(mo.saccX); } }
+    }
     if(R.shadow) R.shadow.material.opacity = e.hidden ? 0.1 : 0.5;
     let tc = 0x000000, tk = 1;
     if(e.flash > 0){ tc = 0xffffff; tk = e.boss ? 0.25 : 0.38; }
     else if(frozen) tc = 0x4ab8ff;
-    else if(R.tell > 0) { tc = 0xffffff; tk = 0.35 + 0.3*Math.sin(t*30); }
+    else if(R.tell > 0) { const q = 1 - Math.max(0, R.tell)/R.tellMax; tc = 0xffe2b8; tk = 0.1 + 0.42*q*q + 0.05*Math.sin(t*14); }
     else if(e.st.trapped > 0) { tc = 0x8ae8ff; tk = 0.5; }
     else if(e.st.burn && e.st.burn.t > 0) { tc = 0xff5a1a; tk = 0.4 + 0.3*Math.sin(t*25 + e.id); }
     else if(e.st.poison && e.st.poison.stacks > 0) { tc = e.st.poison.plague ? 0x8aff2a : 0x4ab82a; tk = 0.3 + 0.25*Math.sin(t*5 + e.id); }
@@ -564,17 +607,76 @@ proto.updateEnemies = function(dt, t){
     if(stunned && !e.st.trapped && Math.random() < 0.3) FX.emit(e.x + Math.cos(t*9)*0.4, R.h + 0.6, e.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.22, 0.2, 0, 0);
   });
   for(const id in V.rigs) if(!live[id]){ S.scene.remove(V.rigs[id].root); delete V.rigs[id]; }
+  V.updateMoans(dt);
   V.dying = V.dying.filter(d=>{
     d.t += dt;
     const R = d.R;
-    if(d.fell){ R.root.position.y -= dt*6; R.root.rotation.x += dt*4; }
-    else if(d.midas){ M.tint(R, 0xffc83a, 0.9); R.body.scale.setScalar(1 + d.t*0.3); }
-    else { R.body.rotation.x = Math.min(PI/2, d.t*6); R.body.position.y = -Math.max(0, d.t - 0.6)*0.8; M.tint(R, 0x000000, 1); }
-    M.fade(R, Math.max(0, 1 - Math.max(0, d.t - (d.boss ? 1.5 : 0.5))*2));
-    if(d.t > (d.boss ? 2.2 : 1.1)){ S.scene.remove(R.root); return false; }
+    if(d.fell || d.midas || d.decoy){
+      if(d.fell){ R.root.position.y -= dt*6; R.root.rotation.x += dt*4; }
+      else if(d.midas){ M.tint(R, 0xffc83a, 0.9); R.body.scale.setScalar(1 + d.t*0.3); }
+      else { R.body.rotation.x = Math.min(PI/2, d.t*6); M.tint(R, 0x000000, 1); }
+      M.fade(R, Math.max(0, 1 - Math.max(0, d.t - 0.5)*2));
+      if(d.t > 1.1){ S.scene.remove(R.root); return false; }
+      return true;
+    }
+    if(!V.dissolve(d, dt, t)){ S.scene.remove(R.root); return false; }
     return true;
   });
 };
+
+/* a death, Souls style: the thing staggers, its legs go, it falls (haunts and
+   floating things rise instead), and then it comes apart into drifting ash and
+   a few embers. A boss holds on longer, sinks, and its soul leaves in a column
+   of pale light. Only transforms and the dither fade: nothing is rebuilt. */
+const DIE = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"goblin", brute:"goblin", sneak:"goblin", merchant:"goblin", king:"goblin",
+  puffling:"shroom", toadstool:"shroom", shroomkin:"shroom", shroomlet:"shroom", matriarch:"shroom",
+  ghost:"haunt", banshee:"haunt", skeleton:"haunt", poltergeist:"haunt", bride:"haunt",
+  watcher:"weird", blob:"weird", blobling:"weird", tentacle:"weird", eye:"weird",
+  rotling:"gloom", spitter:"gloom", bloater:"gloom", husk:"gloom", heart:"gloom" };
+const RISE = { ghost:1, banshee:1, poltergeist:1, bride:1, watcher:1, eye:1 };
+const SOUL = { ghost:0xa8c8e8, banshee:0xa8b8f0, poltergeist:0x9cffc8, bride:0xb8d0ff, watcher:0xff8a9a, eye:0xff8a9a };
+proto.dissolve = function(d, dt, t){
+  const R = d.R, b = R.body, P = R.parts, boss = d.boss;
+  if(d.dur === undefined){
+    d.dur = boss ? 4 : 1.9; d.dir = Math.random() < 0.7 ? 1 : -1; d.side = (Math.random() - 0.5)*0.5;
+    d.rise = !!RISE[R.kind]; d.sc = R.root.scale.x; d.h = (R.h || 1.4)*R.root.scale.y; d.r = Math.max(0.25, (R.size || 1)*0.3)*d.sc;
+    d.b0 = { y:b.position.y, rx:b.rotation.x, rz:b.rotation.z }; d.hx = P.head ? P.head.rotation.x : 0;
+    d.aR = P.armR ? P.armR.rotation.x : 0; d.aL = P.armL ? P.armL.rotation.x : 0;
+  }
+  const k = d.t, sz = R.size || 1;
+  if(k > d.dur) return false;
+  const fade = smooth(boss ? 1.9 : 0.75, d.dur, k);
+  if(d.rise){
+    // haunts don't fall: they jerk, hang, and are drawn up and thin out to nothing
+    const jerk = k < 0.3 ? Math.sin(k/0.3*PI)*0.25 : 0, up = smooth(0.2, d.dur, k);
+    b.rotation.x = d.b0.rx - jerk + 0.3*up; b.rotation.z = d.b0.rz + Math.sin(k*9)*0.05*(1 - up);
+    R.root.position.y = 0.9*up*up*sz;
+    if(Math.random() < (boss ? 1 : 0.6)) FX.ash(d.x, d.y, d.r, d.h*0.8, boss ? 3 : 1, { pale:true, col:SOUL[R.kind], y0:R.root.position.y + 0.2 });
+  } else {
+    // a stagger back, the legs go, the body falls; then it settles and crumbles
+    const stag = k < 0.35 ? Math.sin(k/0.35*PI) : 0;
+    const fall = boss ? smooth(0.6, 1.6, k) : smooth(0.22, 0.75, k);
+    const drop = boss ? 0.42*fall : 1.35*fall*fall;
+    b.rotation.x = d.b0.rx - 0.32*stag + d.dir*drop + (boss ? Math.sin(k*31)*0.03*(1 - fade) : 0);
+    b.rotation.z = d.b0.rz + d.side*fall + (k < 0.4 ? Math.sin(k*40)*0.05*(1 - k/0.4) : 0);
+    b.position.y = d.b0.y - (boss ? 0.3*sz*fall : 0.06*sz*fall) - 0.12*sz*fade;
+    if(P.head) P.head.rotation.x = d.hx - 0.4*stag + 0.5*fall;
+    if(P.armR) P.armR.rotation.x = d.aR + (0.6 - d.aR*0.4)*fall;
+    if(P.armL) P.armL.rotation.x = d.aL + (0.5 - d.aL*0.4)*fall;
+    if(!d.thud && fall > 0.97){ d.thud = true; FX.smoke(d.x, 0.05, d.y, 0x2a2420, boss ? 10 : 3, boss ? 0.9 : 0.45, 0.9, { spread:d.r*2, rise:0.15 }); if(boss) S.shake(0.5); }
+    // ash and embers, thickest as it goes
+    const rate = (boss ? 3 : 1)*smooth(0.5, 1.2, k)*(1 - 0.6*fade);
+    if(Math.random() < rate) FX.ash(d.x, d.y, d.r*1.4, d.h*(0.7 - 0.4*fade), boss ? 3 : 1, { embers:0.3 });
+  }
+  // the colour goes out of it, an ember glow runs through, then the dither eats it away
+  const glow = smooth(0.5, 1.0, k)*(1 - fade);
+  M.tint(R, glow > 0.02 ? (d.rise ? SOUL[R.kind] || 0xa8c8e8 : 0xff3a08) : 0x000000, glow > 0.02 ? (d.rise ? 0.3 : 0.2)*glow : 1);
+  M.fade(R, 1 - fade);
+  // a boss's soul: the column of light, once
+  if(boss && !d.soul && k > 1.5){ d.soul = true; FX.soul(d.x, d.y, 10, 2.6, SOUL[R.kind] || 0xfff0d0); FX.ring(d.x, d.y, 4, 0xd8c8a0, 1.2); S.shake(0.6); }
+  return true;
+};
+const smooth = (a, b, x)=>{ const k = Math.max(0, Math.min(1, (x - a)/(b - a))); return k*k*(3 - 2*k); };
 
 proto.updateLoot = function(dt, t){
   const V = this, G = V.G, pk = {};

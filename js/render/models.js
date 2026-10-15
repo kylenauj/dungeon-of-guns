@@ -259,6 +259,20 @@ function zCurve(prof, n){
 }
 /* a fresh lathe (its own geometry, safe to bend); phi 0 is his front */
 function zLathe(prof, seg, phi0, phiLen, n){ return new THREE.LatheGeometry(zCurve(prof, n), seg, phi0 || 0, phiLen === undefined ? PI*2 : phiLen); }
+/* the same lathe, only the band of it between heights y0 and y1 (so a coat can
+   be cut at the belt and its skirt swing on its own); cuts of one profile meet */
+function zLatheCut(prof, seg, phi0, phiLen, n, y0, y1){
+  const c = zCurve(prof, n), pts = [];
+  const at = (a, b, y)=>{ const t = (y - a.y)/(b.y - a.y); return new THREE.Vector2(a.x + (b.x - a.x)*t, y); };
+  for(let i=0;i<c.length;i++){
+    const p = c[i], q = c[i + 1];
+    if(p.y >= y0 && p.y <= y1) pts.push(p);
+    if(q && ((p.y < y0) !== (q.y < y0))) pts.push(at(p, q, y0));
+    if(q && ((p.y < y1) !== (q.y < y1))) pts.push(at(p, q, y1));
+  }
+  pts.sort((a, b)=> a.y - b.y);
+  return new THREE.LatheGeometry(pts, seg, phi0 || 0, phiLen === undefined ? PI*2 : phiLen);
+}
 /* normals averaged across seams, so bent lathes stay smooth */
 function zSmooth(g){
   g.computeVertexNormals();
@@ -325,7 +339,7 @@ function zChain(parent, a, b, n, col, r){
   for(let i=0;i<n;i++){ const t = i/(n - 1); P(parent, zto(r || 0.018, (r || 0.018)*0.3), col || ZC.iron2, a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t, a[2] + (b[2] - a[2])*t, 0, i % 2 ? PI/2 : 0, 0); }
 }
 /* the long coat, outside (the costume pieces sit on it) */
-const ZCOAT = [[0.4, 0.2], [0.37, 0.35], [0.33, 0.52], [0.285, 0.7], [0.262, 0.82], [0.27, 0.98], [0.285, 1.1], [0.27, 1.2], [0.19, 1.3], [0.12, 1.37]];
+const ZCOAT = [[0.35, 0.2], [0.33, 0.35], [0.305, 0.52], [0.275, 0.7], [0.262, 0.82], [0.27, 0.98], [0.285, 1.1], [0.27, 1.2], [0.19, 1.3], [0.12, 1.37]];
 const ZMANT = [[0.37, 0.98], [0.355, 1.08], [0.31, 1.19], [0.2, 1.29], [0.12, 1.36]];
 function zInterp(p, y){
   if(y <= p[0][1]) return p[0][0];
@@ -360,27 +374,38 @@ Models.zippy = function(look){
   const D = DYE[look.robe] || DYE.arcane, C = DYE[look.cape] || DYE.arcane;
   const R = rig("zippy"), b = R.body;
   R.look = look; R.anim = [];
+  // below the belt his coat is its own piece (R.parts.skirt, hung from the
+  // waist), so the view can swing the hem and trail it behind him
+  const skirtP = group(b, 0, 0.82, 0), sk = group(skirtP, 0, -0.82, 0); R.parts.skirt = skirtP;
+  const CUT = 0.82;
   // the under-robe, seen where the coat hangs open
-  const robe = zLathe([[0.34, 0.12], [0.31, 0.3], [0.25, 0.6], [0.235, 0.8], [0.245, 1.0], [0.25, 1.14], [0.18, 1.28], [0.1, 1.37], [0.001, 1.4]], 30, PI, PI*2, 3);
-  zFolds(robe, 11, 0.06, 0.6, 1.1); K.tatter(robe, 0.24, 16, 0.1, 2.7);
-  P(b, zHunch(robe), D.dark);
+  const ROBE = [[0.3, 0.12], [0.285, 0.3], [0.245, 0.6], [0.235, 0.8], [0.245, 1.0], [0.25, 1.14], [0.18, 1.28], [0.1, 1.37], [0.001, 1.4]];
+  [[sk, -1, CUT + 0.012], [b, CUT - 0.012, 2]].forEach(([g, y0, y1])=>{
+    const robe = zLatheCut(ROBE, 30, PI, PI*2, 3, y0, y1);
+    zFolds(robe, 11, 0.06, 0.6, 1.1); K.tatter(robe, 0.24, 16, 0.1, 2.7);
+    P(g, zHunch(robe), D.dark);
+  });
   // the long coat, open at the front, torn at the hem, lined darker
-  const GAP = 0.75, coat = zLathe(ZCOAT, 32, GAP/2, PI*2 - GAP, 3);
-  zFolds(coat, 9, 0.07, 0.75, 0.4); K.tatter(coat, 0.36, 22, 0.17, 5.1);
-  zHunch(coat);
-  P(b, coat, D.robe); P(b, zInside(coat), zDim(D.robe, 0.45));
+  const GAP = 0.75;
+  [[sk, -1, CUT + 0.012], [b, CUT - 0.012, 2]].forEach(([g, y0, y1])=>{
+    const coat = zLatheCut(ZCOAT, 32, GAP/2, PI*2 - GAP, 3, y0, y1);
+    zFolds(coat, 9, 0.07, 0.75, 0.4); K.tatter(coat, 0.36, 22, 0.17, 5.1);
+    zHunch(coat);
+    P(g, coat, D.robe); P(g, zInside(coat), zDim(D.robe, 0.45));
+  });
   // its front edges, turned back, and clasps across the chest
   [-1, 1].forEach(s=>{
     const pts = []; for(let i=0;i<=10;i++){ const y = 0.24 + i*0.105; pts.push(zSurf(s*(GAP/2 + 0.04), y, 0.008)); }
-    P(b, zTaper(pts, 0.022, 0.018, 24, 6), zDim(D.robe, 0.7));
+    P(sk, zTaper(pts.slice(0, 7), 0.022, 0.02, 16, 6), zDim(D.robe, 0.7));
+    P(b, zTaper(pts.slice(6), 0.02, 0.018, 10, 6), zDim(D.robe, 0.7));
   });
   [0.9, 1.0, 1.1].forEach((y, i)=>{ const l = zSurf(-0.42, y, 0.02), r = zSurf(0.42, y, 0.02); zChain(b, l, r, 4, ZC.brass, 0.014); P(b, zs(0.018), ZC.brass, l[0], y, l[2]); P(b, zs(0.018), ZC.brass, r[0], y, r[2]); });
   // runes stitched round the hem in the dye's thread
   for(let i=0;i<14;i++){
     const a = GAP/2 + 0.2 + i*(PI*2 - GAP - 0.4)/13, y = 0.46 + (i % 3)*0.025;
     const p = zSurf(a, y, 0.006);
-    zFace(b, BX(0.012, 0.07, 0.006), D.stars, p, a, 0.1, (i % 2 ? 0.3 : -0.2));
-    zFace(b, BX(0.04, 0.01, 0.006), D.stars, zSurf(a + 0.03, y + (i % 2 ? 0.02 : -0.015), 0.008), a, 0.1, (i % 3)*0.5);
+    zFace(sk, BX(0.012, 0.07, 0.006), D.stars, p, a, 0.1, (i % 2 ? 0.3 : -0.2));
+    zFace(sk, BX(0.04, 0.01, 0.006), D.stars, zSurf(a + 0.03, y + (i % 2 ? 0.02 : -0.015), 0.008), a, 0.1, (i % 3)*0.5);
   }
   // a ragged mantle over the shoulders (the cloak's dye)
   const mant = zLathe(ZMANT, 28, PI, PI*2, 3);
@@ -388,39 +413,39 @@ Models.zippy = function(look){
   zHunch(mant); P(b, mant, C.cape);
   // the cloak down his back (the view keeps it moving)
   const capeG = group(b, 0, 1.31, 0.05); R.parts.cape = capeG;
-  const cloak = zLathe([[0.18, 0.02], [0.27, -0.1], [0.33, -0.3], [0.37, -0.6], [0.41, -0.9], [0.45, -1.2]], 22, PI/2 + 0.3, PI - 0.6, 3);
+  const cloak = zLathe([[0.17, 0.02], [0.25, -0.1], [0.3, -0.3], [0.33, -0.6], [0.36, -0.9], [0.39, -1.2]], 22, PI/2 + 0.3, PI - 0.6, 3);
   zFolds(cloak, 8, 0.09, -0.15, 0.9); K.tatter(cloak, -0.9, 11, 0.2, 7.7); zSmooth(cloak);
   P(capeG, cloak, C.cape); P(capeG, zInside(cloak), zDim(C.cape, 0.35));
   // belts: a broad one at the waist, a slung one at the hip, a strap across the chest
   P(b, CY(0.275, 0.272, 0.07, 30), ZC.leather, 0, 0.82, 0.004);
   P(b, BX(0.09, 0.08, 0.03), ZC.brass, 0.0, 0.82, 0.29); P(b, BX(0.05, 0.04, 0.032), ZC.iron, 0.0, 0.82, 0.295);
-  P(b, CY(0.305, 0.3, 0.045, 30), ZC.leather2, 0, 0.7, 0.01, 0, 0, 0.12);
-  for(let i=0;i<8;i++){ const a = -1.2 + i*0.35; const p = zSurf(a, 0.7 + Math.sin(a)*0.035, 0.02); P(b, zs(0.012), ZC.iron2, p[0], p[1], p[2]); }
+  P(sk, CY(0.3, 0.295, 0.045, 30), ZC.leather2, 0, 0.7, 0.01, 0, 0, 0.12);
+  for(let i=0;i<8;i++){ const a = -1.2 + i*0.35; const p = zSurf(a, 0.7 + Math.sin(a)*0.035, 0.02); P(sk, zs(0.012), ZC.iron2, p[0], p[1], p[2]); }
   { const pts = [zSurf(-0.95, 1.2, 0.02), zSurf(-0.5, 1.12, 0.03), zSurf(0, 1.0, 0.035), zSurf(0.5, 0.88, 0.03), zSurf(1.0, 0.8, 0.025), zSurf(1.5, 0.76, 0.02)];
     P(b, zTaper(pts, 0.02, 0.02, 30, 6), ZC.leather);
     // little vials on it, one still glowing
     [[-0.25, 1.06], [0.25, 0.94]].forEach(([a, y], i)=>{ const p = zSurf(a, y, 0.06); P(b, CY(0.02, 0.022, 0.07, 10), 0x6a7a78, p[0], p[1], p[2]); P(b, CY(0.012, 0.012, 0.02, 8), ZC.wood, p[0], p[1] + 0.045, p[2]); if(i) glow(R, b, 0.017, D.light, p[0], p[1] - 0.01, p[2]); });
   }
   // the chained tome at his left hip
-  { const g = group(b, -0.31, 0.62, 0.06); g.rotation.set(0.1, -1.2, 0.08); R.anim.push({ o:g, sway:0.06, speed:2.1 });
+  { const g = group(sk, -0.29, 0.62, 0.06); g.rotation.set(0.1, -1.2, 0.08); R.anim.push({ o:g, sway:0.06, speed:2.1 });
     P(g, BX(0.17, 0.22, 0.065), ZC.leather2);
     P(g, BX(0.155, 0.205, 0.055), ZC.parch, 0.012, 0, 0);
     [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([x, y])=> P(g, BX(0.03, 0.03, 0.07), ZC.brass, x*0.075, y*0.1, 0));
     P(g, BX(0.03, 0.06, 0.075), ZC.iron2, 0.085, 0, 0); P(g, zto(0.025, 0.007), ZC.iron2, 0.1, 0, 0, 0, PI/2);
     P(g, OC(0.03), D.stars, 0, 0.0, 0.034, 0, 0, PI/4, 1, 1.4, 0.3);
-    zChain(b, [-0.28, 0.79, 0.08], [-0.31, 0.73, 0.07], 3, ZC.iron2, 0.016);
+    zChain(sk, [-0.27, 0.79, 0.08], [-0.29, 0.73, 0.07], 3, ZC.iron2, 0.016);
   }
   // prayer beads at the front, ending in a little bone skull
-  { const pts = []; for(let i=0;i<=16;i++){ const t = i/16, a = 0.35 + t*0.5; const p = zSurf(a, 0.79 - Math.sin(t*PI)*0.2, 0.03); pts.push(p); P(b, S(i % 4 ? 0.016 : 0.021, 8, 6), i % 4 ? 0x3a2a20 : ZC.bone, p[0], p[1], p[2]); }
-    const top = pts[8]; for(let i=1;i<5;i++) P(b, zs(0.015), 0x3a2a20, top[0], top[1] - i*0.03, top[2] + 0.005);
-    const sk = [top[0], top[1] - 0.17, top[2] + 0.01];
-    P(b, zs(0.03), ZC.bone, sk[0], sk[1], sk[2], 0, 0, 0, 1, 1.05, 0.95);
-    P(b, BX(0.035, 0.018, 0.03), ZC.bone, sk[0], sk[1] - 0.027, sk[2] + 0.004);
-    [-1, 1].forEach(s=> P(b, zs(0.009), ZC.hole, sk[0] + s*0.012, sk[1] + 0.003, sk[2] + 0.026));
+  { const pts = []; for(let i=0;i<=16;i++){ const t = i/16, a = 0.35 + t*0.5; const p = zSurf(a, 0.79 - Math.sin(t*PI)*0.2, 0.03); pts.push(p); P(sk, S(i % 4 ? 0.016 : 0.021, 8, 6), i % 4 ? 0x3a2a20 : ZC.bone, p[0], p[1], p[2]); }
+    const top = pts[8]; for(let i=1;i<5;i++) P(sk, zs(0.015), 0x3a2a20, top[0], top[1] - i*0.03, top[2] + 0.005);
+    const skp = [top[0], top[1] - 0.17, top[2] + 0.01];
+    P(sk, zs(0.03), ZC.bone, skp[0], skp[1], skp[2], 0, 0, 0, 1, 1.05, 0.95);
+    P(sk, BX(0.035, 0.018, 0.03), ZC.bone, skp[0], skp[1] - 0.027, skp[2] + 0.004);
+    [-1, 1].forEach(s=> P(sk, zs(0.009), ZC.hole, skp[0] + s*0.012, skp[1] + 0.003, skp[2] + 0.026));
   }
   // paper talismans hung from the belt, sealed in old blood
   [[-1.6, 0.0], [-2.1, 0.3], [2.3, -0.2]].forEach(([a, r], i)=>{
-    const p = zSurf(a, 0.66, 0.035), g = group(b, p[0], p[1], p[2]); g.rotation.set(0, a, r*0.3); R.anim.push({ o:g, sway:0.08, speed:2.6 + i*0.4 });
+    const p = zSurf(a, 0.66, 0.035), g = group(sk, p[0], p[1], p[2]); g.rotation.set(0, a, r*0.3); R.anim.push({ o:g, sway:0.08, speed:2.6 + i*0.4 });
     P(g, BX(0.05, 0.17, 0.004), ZC.parch, 0, -0.08, 0);
     P(g, CY(0.016, 0.016, 0.006, 12), 0x6a1a14, 0, -0.04, 0.003, PI/2);
     [-0.09, -0.115, -0.14].forEach(y=> P(g, BX(0.03, 0.006, 0.006), 0x1a1410, 0, y, 0.003));
@@ -552,6 +577,13 @@ Models.zippy = function(look){
   // the costume pieces (R.anim: the bits the view keeps moving)
   const ctx = { R, b, head, hat, tip, beard, cape:capeG, armL:R.parts.armL, armR:R.parts.armR, D, C, face, surf:zSurf, HY };
   look.parts.forEach(p=>{ if(OUTFIT[p]) OUTFIT[p](ctx); });
+  // whatever a costume hung below the belt (pouches, jars, charms) swings with the skirt
+  b.children.slice().forEach(o=>{ if(o !== skirtP && o.position.y > 0.17 && o.position.y < 0.8){ b.remove(o); sk.add(o); } });
+  // gaunt: the whole figure drawn narrower than it was built; the hood and the
+  // gun keep (nearly) their own proportions
+  b.scale.set(0.86, 1, 0.92);
+  head.scale.set(0.95/0.86, 1, 0.97/0.92);
+  gunHolder.scale.set(1/0.86, 1, 1/0.92);
   R.h = 2.1;
   finish(R);
   return R;
@@ -999,15 +1031,28 @@ Models.frog = function(twin, buffs){
   const WART = twin ? 0x56625a : 0x6e6438, IRIS = twin ? 0x9ab890 : 0xc8902a;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
+  // the rig: a pivot for each moving bit, with an inner group set back by the
+  // pivot so every part is still placed in body coordinates
+  const pivot = (parent, x, y, z)=>{ const g = group(parent, x, y, z); return [g, group(g, -x, -y, -z)]; };
+  const [headP, H] = pivot(b, 0, 0.3, 0.06); R.parts.head = headP;
+  const [throatP, TH] = pivot(H, 0, 0.245, 0.2); R.parts.throat = throatP;
+  const hind = [], thighs = [], front = [], feet = [], lids = [];
+  [-1, 1].forEach(s=>{
+    const [tp, ti] = pivot(b, s*0.25, 0.22, -0.18); thighs.push(tp); tp.userData.inner = ti;
+    const [hp, hi] = pivot(b, s*0.25, 0.22, -0.18); hind.push(hp);
+    const [fp, fi] = pivot(hi, s*0.3, 0.07, -0.08); feet.push(fp); hp.userData.inner = hi; fp.userData.inner = fi;
+    const [ap, ai] = pivot(b, s*0.16, 0.25, 0.22); front.push(ap); ap.userData.inner = ai;
+  });
+  R.parts.hind = hind; R.parts.thighs = thighs; R.parts.feet = feet; R.parts.front = front; R.parts.lids = lids;
   // the body: heavy and squat, belly sagging
   P(b, fSkin(0.32, 34, 26, 0.02, 15, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
   // the head: wide and flat, a pale throat under it
-  P(b, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
-  P(b, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
+  P(H, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
+  P(TH, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
   // poison glands behind the eyes, pitted
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.09, 20, 14, 0.006, 30, 4 + s, G2, zDim(G2, 0.7)), 0xffffff, s*0.21, 0.44, 0.0, 0, s*0.35, 0, 0.7, 0.5, 1.4);
-    for(let i=0;i<5;i++) P(b, zs(0.008), FC.hole, s*(0.2 + (i % 2)*0.03), 0.475, -0.06 + i*0.03);
+    P(H, fSkin(0.09, 20, 14, 0.006, 30, 4 + s, G2, zDim(G2, 0.7)), 0xffffff, s*0.21, 0.44, 0.0, 0, s*0.35, 0, 0.7, 0.5, 1.4);
+    for(let i=0;i<5;i++) P(H, zs(0.008), FC.hole, s*(0.2 + (i % 2)*0.03), 0.475, -0.06 + i*0.03);
   });
   // warts all over his back and head
   for(let i=0;i<32;i++){
@@ -1015,46 +1060,50 @@ Models.frog = function(twin, buffs){
     const x = Math.sin(u)*Math.cos(v)*0.32*1.18, y = 0.26 + Math.sin(v)*0.32*0.76, z = -0.03 + Math.cos(u)*Math.cos(v)*0.32*1.08;
     P(b, K.lump(r, 1, 0.4, i + (twin ? 50 : 0)), i % 3 ? WART : zDim(WART, 0.75), x*1.0, y, z, 0, 0, 0, 1, 0.75, 1);
   }
-  for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(b, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
+  for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(H, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
   // the eyes: raised, slit-pupilled, glowing dully under heavy lids; the left one scarred half shut
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
-    P(b, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
-    glow(R, b, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
-    halo(R, b, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
-    P(b, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
-    const lid = P(b, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256);
-    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35);
-    P(b, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
-    P(b, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
+    P(H, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
+    P(H, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
+    glow(R, H, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
+    halo(R, H, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
+    P(H, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
+    const lg = group(H, s*0.15, 0.52, 0.256); lids.push(lg);
+    const lid = P(lg, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, 0, 0, 0);
+    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35); lg.userData.shut = s < 0 ? 0.95 : 1.3;
+    P(H, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
+    P(H, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
   });
   // a scar down over the left eye, stitched; another across his back
   { const c0 = [-0.15, 0.52, 0.256], pts = [[-0.7, 0.4, -0.6], [-0.35, 0.85, 0.1], [-0.05, 0.75, 0.66], [0.1, 0.2, 0.98]].map(d=>{ const m = Math.hypot(d[0], d[1], d[2]); return [c0[0] + d[0]/m*0.078, c0[1] + d[1]/m*0.078, c0[2] + d[2]/m*0.078]; });
     pts.push([-0.12, 0.37, 0.4]);
-    P(b, K.tube(pts, 0.005, 14, 5), FC.scar);
-    [1, 2].forEach(i=> P(b, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
+    P(H, K.tube(pts, 0.005, 14, 5), FC.scar);
+    [1, 2].forEach(i=> P(H, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
   { const pts = []; for(let i=0;i<=8;i++){ const u = PI*0.75 + i*0.08, v = 0.35 + i*0.06; pts.push([Math.sin(u)*Math.cos(v)*0.39, 0.26 + Math.sin(v)*0.25, -0.03 + Math.cos(u)*Math.cos(v)*0.355]); }
     P(b, K.tube(pts, 0.008, 16, 5), FC.scar);
     pts.forEach((p, i)=>{ if(i % 2) P(b, BX(0.004, 0.035, 0.006), 0x2a2018, p[0], p[1], p[2], 0.6, 0.8, 0.3); }); }
   // the mouth: wide, down at the corners, a rusty ring through one side
   { const pts = []; for(let i=0;i<=16;i++){ const q = -1.2 + i/16*2.4; pts.push([Math.sin(q)*0.29, 0.325 - Math.pow(q/1.2, 2)*0.07, 0.16 + Math.cos(q)*0.244]); }
-    P(b, K.tube(pts, 0.01, 32, 6), FC.mouth);
-    P(b, K.tube(pts.map(p=> [p[0]*1.02, p[1] + 0.014, p[2] + 0.003]), 0.009, 32, 5), zDim(G2, 0.9)); }
-  P(b, zto(0.024, 0.006), FC.rust, 0.27, 0.25, 0.27, 0.3, 1.1, 0);
-  [-1, 1].forEach(s=> P(b, zs(0.011), FC.hole, s*0.04, 0.425, 0.405, 0, 0, 0, 1, 0.6, 1));
+    P(H, K.tube(pts, 0.01, 32, 6), FC.mouth);
+    P(H, K.tube(pts.map(p=> [p[0]*1.02, p[1] + 0.014, p[2] + 0.003]), 0.009, 32, 5), zDim(G2, 0.9)); }
+  P(H, zto(0.024, 0.006), FC.rust, 0.27, 0.25, 0.27, 0.3, 1.1, 0);
+  [-1, 1].forEach(s=> P(H, zs(0.011), FC.hole, s*0.04, 0.425, 0.405, 0, 0, 0, 1, 0.6, 1));
   // legs: thick folded haunches, long webbed toes with knuckled tips
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
-    P(b, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, G2, zDim(G2, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
+    const ti = thighs[s < 0 ? 0 : 1].userData.inner, fi = feet[s < 0 ? 0 : 1].userData.inner, ai = front[s < 0 ? 0 : 1].userData.inner;
+    P(ti, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
+    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, G2, zDim(G2, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
+    // the shin, folded away inside the haunch until the leg straightens in a kick
+    P(fi, zTaper([[s*0.3, 0.06, -0.02], [s*0.27, 0.15, -0.14], [s*0.25, 0.22, -0.24]], 0.04, 0.05, 8, 8), G1);
     [-0.5, -0.15, 0.2, 0.55].forEach((a, k)=>{ const ang = a + s*0.25, l = 0.12 + (k % 2)*0.03; const x0 = s*0.31, z0 = 0.1;
       const tip = [x0 + Math.sin(ang)*l, 0.018, z0 + Math.cos(ang)*l];
-      P(b, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), G2);
-      P(b, zs(0.016), zDim(G2, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
+      P(fi, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), G2);
+      P(fi, zs(0.016), zDim(G2, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
     // front legs, splayed hands
-    P(b, zTaper([[s*0.16, 0.24, 0.24], [s*0.2, 0.12, 0.29], [s*0.2, 0.04, 0.31]], 0.048, 0.034, 10, 10), G1);
-    P(b, zs(0.045), G2, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
+    P(ai, zTaper([[s*0.16, 0.24, 0.24], [s*0.2, 0.12, 0.29], [s*0.2, 0.04, 0.31]], 0.048, 0.034, 10, 10), G1);
+    P(ai, zs(0.045), G2, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
     [-0.6, -0.1, 0.4].forEach((a, k)=>{ const ang = a + s*0.4, tip = [s*0.2 + Math.sin(ang)*0.08, 0.014, 0.34 + Math.cos(ang)*0.08];
-      P(b, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(b, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
+      P(ai, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(ai, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
   });
   // a rag knotted round his neck, a bone charm hung from it
   { const t = new THREE.TorusGeometry(0.25, 0.04, 9, 36); K.sculpt(t, 0.008, 25, 2);
@@ -1065,16 +1114,16 @@ Models.frog = function(twin, buffs){
     P(b, CO(0.018, 0.06, 6), FC.bone, 0.0, 0.15, 0.38, PI);
     P(b, zto(0.01, 0.003), FC.brass, 0.0, 0.185, 0.375); }
   // the crown (Royal Crown), hidden until he earns it: rusted iron, a little gold left on the points
-  const crown = group(b, 0, 0.6, 0.12); crown.visible = false; R.parts.crown = crown;
+  const crown = group(H, 0, 0.6, 0.12); crown.visible = false; R.parts.crown = crown;
   P(crown, CY(0.11, 0.12, 0.07, 24), FC.rust);
   P(crown, zto(0.115, 0.008), 0x8a6a2e, 0, -0.03, 0, PI/2);
   for(let i=0;i<5;i++){ const a = i/5*PI*2; P(crown, CO(0.025, 0.09, 6), 0x8a6a2e, Math.cos(a)*0.11, 0.07, Math.sin(a)*0.11); P(crown, zs(0.012), 0x6a1a14, Math.cos(a)*0.118, 0.0, Math.sin(a)*0.118); }
   // what he's learned, he wears
-  buffs.forEach(id=>{ if(FROG_OUTFIT[id]) FROG_OUTFIT[id]({ R, b, G1, G2 }); });
+  buffs.forEach(id=>{ if(FROG_OUTFIT[id]) FROG_OUTFIT[id]({ R, b, h:H, G1, G2 }); });
   // the tongue: not baked, so the view can stretch it
   const tongue = new THREE.Mesh(CY(0.035, 0.05, 1, 8), K.lambert(0x8a3e48));
   tongue.geometry = tongue.geometry.clone(); tongue.geometry.rotateX(PI/2); tongue.geometry.translate(0, 0, 0.5);
-  tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; b.add(tongue); R.parts.tongue = tongue;
+  tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; H.add(tongue); R.parts.tongue = tongue;
   R.h = 0.75;
   finish(R, { w:0.022 });
   return R;
@@ -1082,22 +1131,22 @@ Models.frog = function(twin, buffs){
 
 /* Gribbus' tricks, worn (head at about (0, 0.37, 0.18), eyes on top at (±0.15, 0.49, 0.25)) */
 const FROG_OUTFIT = {
-  tongue(c){ P(c.b, zs(0.04), 0x8a3e48, 0.04, 0.31, 0.39, 0, 0, 0, 1, 0.6, 1.3); },
-  spit(c){ [[0.12, 0.45, -0.18], [-0.1, 0.42, -0.22], [0.0, 0.5, -0.05], [0.18, 0.35, -0.08]].forEach(([x, y, z], i)=> P(c.b, K.lump(0.03, 1, 0.3, i), 0x6a8a2a, x, y, z, 0, 0, 0, 1, 0.6, 1)); P(c.b, zTaper([[-0.06, 0.32, 0.4], [-0.07, 0.25, 0.41], [-0.065, 0.18, 0.4]], 0.014, 0.004, 6, 6), 0x7a9a2a); glow(c.R, c.b, 0.02, 0x9cff3a, -0.065, 0.2, 0.4); },
+  tongue(c){ P(c.h, zs(0.04), 0x8a3e48, 0.04, 0.31, 0.39, 0, 0, 0, 1, 0.6, 1.3); },
+  spit(c){ [[0.12, 0.45, -0.18], [-0.1, 0.42, -0.22], [0.0, 0.5, -0.05], [0.18, 0.35, -0.08]].forEach(([x, y, z], i)=> P(c.b, K.lump(0.03, 1, 0.3, i), 0x6a8a2a, x, y, z, 0, 0, 0, 1, 0.6, 1)); P(c.h, zTaper([[-0.06, 0.32, 0.4], [-0.07, 0.25, 0.41], [-0.065, 0.18, 0.4]], 0.014, 0.004, 6, 6), 0x7a9a2a); glow(c.R, c.h, 0.02, 0x9cff3a, -0.065, 0.2, 0.4); },
   croak(c){ for(let i=0;i<5;i++){ const a = -0.9 + i*0.45; P(c.b, CO(0.02, 0.1, 5), 0x9ab8c8, Math.sin(a)*0.25, 0.22, 0.1 + Math.cos(a)*0.25, PI); } halo(c.R, c.b, 0x8ad8ff, 0.6, 0, 0.2, 0.3, 0.25); },
   hop(c){ [[0, 0.55, -0.22, 0.4], [0.03, 0.47, -0.27, -0.4], [0, 0.39, -0.3, 0.4]].forEach(([x, y, z, r])=> P(c.b, BX(0.035, 0.1, 0.02), 0x9a8a3a, x, y, z, -0.6, 0, r)); glow(c.R, c.b, 0.025, 0xfff04a, 0, 0.47, -0.31); },
   brood(c){ [[-0.12, 0.5, -0.12], [0.08, 0.52, -0.15], [0.0, 0.47, -0.25]].forEach(([x, y, z], i)=>{ P(c.b, zs(0.042), 0x1e261e, x, y, z); P(c.b, zTaper([[x, y, z - 0.03], [x + 0.02, y - 0.01, z - 0.09], [x - 0.01, y - 0.02, z - 0.13]], 0.02, 0.004, 8, 6), 0x2a342a); glow(c.R, c.b, 0.007, 0x9cff3a, x + 0.015, y + 0.02, z + 0.03); }); },
-  lily(c){ const pad = new THREE.CylinderGeometry(0.2, 0.2, 0.02, 24, 1, false, 0.3, PI*2 - 0.6); K.sculpt(pad, 0.008, 14, 1); P(c.b, pad, 0x3e4a26, 0, 0.62, 0.15, 0.2); for(let k=0;k<5;k++){ const q = k/5*PI*2; P(c.b, zs(0.022), 0xa8909a, 0.06 + Math.cos(q)*0.02, 0.645, 0.18 + Math.sin(q)*0.02, 0, 0, 0, 1, 0.5, 1); } },
+  lily(c){ const pad = new THREE.CylinderGeometry(0.2, 0.2, 0.02, 24, 1, false, 0.3, PI*2 - 0.6); K.sculpt(pad, 0.008, 14, 1); P(c.h, pad, 0x3e4a26, 0, 0.62, 0.15, 0.2); for(let k=0;k<5;k++){ const q = k/5*PI*2; P(c.h, zs(0.022), 0xa8909a, 0.06 + Math.cos(q)*0.02, 0.645, 0.18 + Math.sin(q)*0.02, 0, 0, 0, 1, 0.5, 1); } },
   gulp(c){ P(c.b, CO(0.13, 0.16, 3), 0xa89c80, 0, 0.24, 0.34, PI + 0.4, 0, 0, 1, 1, 0.25); P(c.b, zs(0.025), 0x5a3a22, 0.03, 0.2, 0.37, 0, 0, 0, 1, 0.8, 0.3); },
   crown(c){ /* the crown is already on him, hidden until now */ },
   bigboy(c){ [-1, 1].forEach(s=> P(c.b, fSkin(0.08, 16, 12, 0.005, 25, s, c.G1, c.G2), 0xffffff, s*0.22, 0.2, 0.25, 0, 0, 0, 1.3, 1, 1)); },
-  flyhunt(c){ const g = group(c.b, 0.15, 0.85, 0.1); c.R.anim.push({ o:g, bob:0.06, speed:11 }); P(g, zs(0.03), 0x1a1a1a, 0, 0, 0, 0, 0, 0, 1, 1, 1.5); glow(c.R, g, 0.012, 0x9cff3a, 0, 0.01, 0.04); [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), new THREE.MeshBasicMaterial({ color:0xb8b8a8, transparent:true, opacity:0.45, side:THREE.DoubleSide })); w.position.set(s*0.05, 0.02, 0); w.rotation.set(-0.5, 0, s*0.5); g.add(w); c.R.glows.push(w); }); },
+  flyhunt(c){ const g = group(c.h, 0.15, 0.85, 0.1); c.R.anim.push({ o:g, bob:0.06, speed:11 }); P(g, zs(0.03), 0x1a1a1a, 0, 0, 0, 0, 0, 0, 1, 1, 1.5); glow(c.R, g, 0.012, 0x9cff3a, 0, 0.01, 0.04); [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), new THREE.MeshBasicMaterial({ color:0xb8b8a8, transparent:true, opacity:0.45, side:THREE.DoubleSide })); w.position.set(s*0.05, 0.02, 0); w.rotation.set(-0.5, 0, s*0.5); g.add(w); c.R.glows.push(w); }); },
   mirror(c){ [[-0.1, 0.45, 0.25], [0.15, 0.4, 0.1]].forEach(([x, y, z])=> glow(c.R, c.b, 0.015, 0xd8e0e8, x, y, z)); },
-  bubble(c){ P(c.b, CY(0.012, 0.012, 0.15, 6), 0x2a1c12, 0.12, 0.3, 0.4, PI/2, 0, -0.3); P(c.b, CY(0.04, 0.03, 0.06, 10), 0x2a1c12, 0.18, 0.33, 0.47); const bub = new THREE.Mesh(S(0.08, 12, 8), new THREE.MeshPhongMaterial({ color:0x8aa0a8, transparent:true, opacity:0.4, shininess:90 })); bub.position.set(0.2, 0.46, 0.5); c.b.add(bub); c.R.glows.push(bub); c.R.anim.push({ o:bub, bob:0.04, speed:3 }); },
-  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.b, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.b, 0.022, 0xff2a1a, s*0.15, 0.52, 0.3)); },
+  bubble(c){ P(c.h, CY(0.012, 0.012, 0.15, 6), 0x2a1c12, 0.12, 0.3, 0.4, PI/2, 0, -0.3); P(c.h, CY(0.04, 0.03, 0.06, 10), 0x2a1c12, 0.18, 0.33, 0.47); const bub = new THREE.Mesh(S(0.08, 12, 8), new THREE.MeshPhongMaterial({ color:0x8aa0a8, transparent:true, opacity:0.4, shininess:90 })); bub.position.set(0.2, 0.46, 0.5); c.h.add(bub); c.R.glows.push(bub); c.R.anim.push({ o:bub, bob:0.04, speed:3 }); },
+  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.h, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.h, 0.022, 0xff2a1a, s*0.15, 0.52, 0.3)); },
   twin(c){},
-  zoomies(c){ P(c.b, zto(0.2, 0.016), 0x3a2a1e, 0, 0.53, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.b, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.53, 0.29, PI/2 - 0.3); P(c.b, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.535, 0.293, PI/2 - 0.3); }); },
-  sticky(c){ P(c.b, zs(0.03), 0x9a6a7a, -0.06, 0.26, 0.39, 0, 0, 0, 1, 1.8, 1); }
+  zoomies(c){ P(c.h, zto(0.2, 0.016), 0x3a2a1e, 0, 0.53, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.h, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.53, 0.29, PI/2 - 0.3); P(c.h, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.535, 0.293, PI/2 - 0.3); }); },
+  sticky(c){ P(c.h, zs(0.03), 0x9a6a7a, -0.06, 0.26, 0.39, 0, 0, 0, 1, 1.8, 1); }
 };
 
 /* ================================================================== *
@@ -2754,19 +2803,364 @@ Models.enemy = function(model){
 
 /* ================================================================== *
  *  Animation helpers
+ *  Everything here moves group transforms only (no geometry is rebuilt).
+ *  Springs keep their state on the rig (R.mo), and work out their own dt
+ *  from t when the caller (the gallery, the portrait) doesn't pass one.
  * ================================================================== */
+const clamp01 = x=> x < 0 ? 0 : x > 1 ? 1 : x;
+const smooth = (a, b, x)=>{ const k = clamp01((x - a)/(b - a)); return k*k*(3 - 2*k); };
+/* a damped spring toward a target: s = { x, v }; k stiffness, c damping */
+function spring(s, target, k, c, dt){ s.v += ((target - s.x)*k - s.v*c)*dt; s.x += s.v*dt; return s.x; }
+Models.spring = spring;
+function stepDt(m, t, dt){
+  if(dt === undefined){ dt = m.lastT === undefined ? 1/60 : t - m.lastT; }
+  m.lastT = t;
+  return Math.max(0, Math.min(0.05, dt));
+}
+
+/* Zippy's stalk. A tired hunter, not a bouncing wizard: a steady lean into
+   the walk that deepens with speed, a dip at every footfall and nothing side
+   to side; the coat's skirt and the cloak hang plumb and trail behind with
+   their own weight; the free hand swings a little, the gun hand stays on aim.
+   o: { speed, fwd, side (his own frame), max, crouch (blink, 0/1), recoil,
+   hurt (1 falling to 0), hurtSide, dead (0..1 collapse), reload }.
+   Sets m.stepped on the frame a foot comes down. */
+Models.stalk = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { ph:0, run:0, lean:{ x:0, v:0 }, roll:{ x:0, v:0 }, crouch:{ x:0, v:0 }, skx:{ x:0, v:0 }, skz:{ x:0, v:0 }, cpx:{ x:0, v:0 }, cpz:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const b = R.body, p = R.parts, max = o.max || 6;
+  const sp = o.speed || 0, run = Math.min(1, sp/max);
+  m.run += (run - m.run)*(1 - Math.exp(-dt*6));
+  const fwdN = o.fwd === undefined ? run : Math.max(-1, Math.min(1, o.fwd/max));
+  const sideN = o.side === undefined ? 0 : Math.max(-1, Math.min(1, o.side/max));
+  // strides: about 2.6 footfalls a second at full speed
+  const ph0 = m.ph;
+  if(sp > 0.4) m.ph += dt*(1.3 + 1.3*run)*PI;
+  m.stepped = sp > 0.8 && Math.floor(m.ph/PI) !== Math.floor(ph0/PI);
+  const fall = 1 - Math.abs(Math.sin(m.ph));        // 1 at a footfall, 0 mid-stride
+  // blink: drop into a crouch, then snap up out of it (an underdamped spring)
+  const cr = spring(m.crouch, o.crouch ? 1 : 0, o.crouch ? 900 : 520, o.crouch ? 60 : 17, dt);
+  // the lean: into the walk (a little back when he backs off), and into a strafe
+  const lean = spring(m.lean, 0.05 + 0.24*Math.max(0, fwdN) - 0.06*Math.max(0, -fwdN) + 0.06*Math.abs(sideN), 40, 12, dt);
+  const roll = spring(m.roll, -0.07*sideN, 40, 12, dt);
+  const rec = o.recoil || 0, h = o.hurt || 0, d = o.dead || 0;
+  // a stagger: thrown back hard, then catching himself
+  const lurch = h > 0 ? Math.sin(Math.min(1, (1 - h)*4)*PI/2)*h : 0;
+  // death: a stumble, the knees go, then he folds forward and stays there
+  const kneel = smooth(0.12, 0.5, d), slump = smooth(0.4, 1, d), stum = d > 0 ? Math.sin(Math.min(1, d/0.15)*PI)*(1 - kneel) : 0;
+  const breathe = Math.sin(t*1.7);
+  let pitch = lean + 0.035*fall*m.run + cr*0.38 - rec*0.11 - lurch*0.34 - stum*0.14 + slump*0.5;
+  let y = -0.045*fall*m.run + breathe*0.006*(1 - m.run) - cr*0.17 - kneel*0.46 + (kneel > 0.98 ? 0 : Math.sin(kneel*PI)*0.03);
+  b.position.set(0, y, -rec*0.07 - lurch*0.09);
+  b.rotation.set(pitch, 0, roll + lurch*0.12*(o.hurtSide || 1));
+  // the skirt and the cloak hang plumb, trail behind, and swing on with their own weight
+  if(p.skirt){
+    const sx = spring(m.skx, -pitch*0.75 + 0.2*fwdN + 0.25*cr + 0.03*Math.abs(Math.cos(m.ph))*m.run, 70, 8, dt);
+    const sz = spring(m.skz, -roll*0.9 - 0.14*sideN + 0.03*Math.sin(m.ph)*m.run, 70, 8, dt);
+    p.skirt.rotation.set(sx, 0, sz);
+    p.skirt.scale.set(1 + 0.12*kneel, 1 - 0.42*kneel, 1 + 0.12*kneel);
+  }
+  if(p.cape){
+    const flut = Math.sin(t*6.3)*0.025*(0.2 + m.run) + Math.sin(t*1.3)*0.012;
+    if(o.whip){ m.cpx.v += o.whip; }
+    const cx = spring(m.cpx, -pitch*0.85 + 0.12 + 0.42*Math.max(0, fwdN) + 0.5*cr + flut - 0.1*slump, 38, 5, dt);
+    const cz = spring(m.cpz, -roll - 0.3*sideN + Math.sin(t*1.7)*0.02, 38, 5, dt);
+    p.cape.rotation.set(Math.max(-0.1, cx), 0, cz);
+  }
+  // the gun hand holds the aim against all of it; the free hand swings and hangs
+  if(p.armR) p.armR.rotation.x = -1.1 - pitch*(1 - slump) - rec*0.45 + (o.reload ? 0.7 + Math.sin(t*20)*0.1 : 0) + slump*0.95 + lurch*0.25;
+  if(p.armL && !o.holding){
+    p.armL.rotation.x = -1.0 + 0.5*m.run - pitch*0.6 + Math.sin(m.ph)*0.16*m.run + breathe*0.03 + lurch*-0.5 + slump*1.0 + cr*0.5;
+    p.armL.rotation.z = -0.3 - 0.06*m.run - lurch*0.3;
+  }
+  if(p.head) p.head.rotation.x = -pitch*0.55 + 0.04*fall*m.run - rec*0.08 - lurch*0.3 + kneel*0.15 + slump*0.5;
+  if(p.beard) p.beard.rotation.x = -pitch*0.7 - 0.05*m.run + Math.sin(t*2.1)*0.02 - lurch*0.2;
+  if(p.tip) p.tip.rotation.set(-0.15*m.run - 0.1*cr, 0, -0.5 + Math.sin(t*1.3)*0.06 + m.skz.x*0.6);
+  return m;
+};
+
+/* Gribbus' hop, a heavy old toad's: he sinks and loads, the hind legs kick
+   out straight behind him, the front legs reach in the air, he lands hard
+   on his belly and the legs fold back under. On the ground: a slow throat,
+   a blink now and then, and every so often a shift of his whole weight.
+   o: { k (0..1 through a hop, < 0 on the ground), lick (0..1) }.
+   Sets m.tookOff / m.landed on those frames. */
+Models.hop = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { air:false, land:9, sq:{ x:0, v:0 }, pitch:{ x:0, v:0 }, blink:0, nextBlink:2 + Math.random()*3, shift:0, shiftT:4 + Math.random()*4, shiftTo:0, roll:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const b = R.body, p = R.parts, k = o.k === undefined ? -1 : o.k, air = k >= 0;
+  m.tookOff = air && !m.air; m.landed = !air && m.air; m.air = air;
+  if(m.landed){ m.land = 0; m.sq.v -= 9; }
+  if(m.tookOff) m.sq.v += 5;
+  m.land += dt;
+  // squash (< 0) and stretch (> 0): a spring kicked at take-off and landing
+  const sq = spring(m.sq, air ? 0.22*Math.sin(Math.min(1, k/0.25)*PI*0.5)*(1 - smooth(0.6, 1, k)) : 0, 260, 13, dt);
+  // between hops he sinks and loads up, and lets it go if nothing comes
+  const load = air ? 0 : smooth(0.12, 0.35, m.land)*(1 - smooth(1.5, 2.6, m.land));
+  // the body's pitch: nose up off the ground, nose down to land
+  const pTarget = air ? -0.38*(1 - smooth(0, 0.55, k)) + 0.28*smooth(0.55, 0.95, k) : 0.1*load;
+  const pitch = spring(m.pitch, pTarget, 160, 18, dt);
+  // the weight shift: now and then he rolls his bulk onto one side and back
+  m.shiftT -= dt;
+  if(m.shiftT <= 0 && !air){ m.shiftTo = m.shiftTo ? 0 : (Math.random() < 0.5 ? -1 : 1)*(0.06 + Math.random()*0.04); m.shiftT = m.shiftTo ? 0.9 + Math.random()*0.8 : 3 + Math.random()*5; }
+  const roll = spring(m.roll, air ? 0 : m.shiftTo, 25, 9, dt);
+  const breath = Math.sin(t*1.9);
+  b.scale.set(1 - sq*0.45 + breath*0.012, 1 + sq*0.55 - 0.12*load - breath*0.012, 1 + sq*0.9);
+  b.rotation.set(pitch, 0, roll);
+  b.position.set(roll*0.25, -0.03*load, 0);
+  // legs: phase weights through the hop
+  const kick = air ? smooth(0, 0.14, k)*(1 - smooth(0.58, 0.88, k)) : 0;      // hind legs out straight behind
+  const reach = air ? smooth(0.1, 0.4, k) : 0;                                   // front legs forward in the air
+  const catchUp = air ? smooth(0.7, 0.95, k) : 0;                               // and down to take the landing
+  const fold = air ? 0 : Math.exp(-m.land*9);                                    // the landing shoves them back under
+  if(p.thighs) p.thighs.forEach((g, i)=>{ g.rotation.x = 0.45*kick - 0.15*load + 0.1*fold; g.rotation.z = (i ? 1 : -1)*(0.08*kick - 0.06*load); });
+  if(p.hind) p.hind.forEach((g, i)=>{ g.rotation.x = 2.25*kick - 0.25*load + 0.15*fold; g.rotation.z = (i ? 1 : -1)*(0.1*kick - 0.08*load); });
+  if(p.feet) p.feet.forEach((g, i)=>{
+    // the leg straightens: the foot slides out along the folded leg, the shin comes out of the haunch
+    const u = g.userData, ext = 0.18*smooth(0.45, 1, kick);
+    if(!u.p0) u.p0 = g.position.clone();
+    g.position.set(u.p0.x + (i ? 1 : -1)*0.03*ext, u.p0.y - 0.5*ext, u.p0.z + 0.85*ext);
+    g.rotation.x = 0.9*kick - 0.15*load;
+  });
+  if(p.front) p.front.forEach((g, i)=>{ g.rotation.x = -1.05*reach*(1 - catchUp) - 0.35*catchUp + 0.45*fold + 0.12*load - pitch*0.6; g.rotation.z = (i ? -1 : 1)*0.15*reach; });
+  // the head: low and heavy, jerked forward when the tongue goes out
+  const lk = o.lick || 0, jerk = lk > 0 ? Math.sin(Math.min(1, lk)*PI) : 0;
+  if(p.head){ p.head.rotation.x = -pitch*0.4 + 0.22*jerk + 0.05*load; p.head.position.z = 0.06 + 0.07*jerk; }
+  // a slow throat, swelling and letting go
+  if(p.throat){ const th = Math.pow(Math.max(0, Math.sin(t*1.25 + 0.4)), 3); p.throat.scale.set(1 + 0.1*th, 1 + 0.32*th, 1 + 0.14*th); }
+  // blinks: both lids, quick, every few seconds (and on landing)
+  m.nextBlink -= dt; if(m.nextBlink <= 0 || m.landed){ m.blink = 0.16; m.nextBlink = 2.5 + Math.random()*4.5; }
+  if(m.blink > 0) m.blink -= dt;
+  const shut = m.blink > 0 ? Math.sin((1 - m.blink/0.16)*PI) : 0;
+  if(p.lids) p.lids.forEach(g=> g.rotation.x = g.userData.shut*shut);
+  return m;
+};
+
+/* ---- the bestiary's motion ----
+   Every family moves its own way, all of it a little wrong: goblins skitter
+   and twitch, brutes lumber and shift their weight, fungus sways and
+   shudders, the dead drift and lunge, the skeleton rattles and snaps its
+   head round, flesh quivers and writhes, the Gloom scuttles and wheezes.
+   Wind-ups are slow and deliberate (drawn back, held, trembling), then let go
+   at once. Bosses breathe.
+   o: { speed, tell (0..1 through a wind-up, < 0 for none), tellKind, flinch
+   (> 0 while hit), act (1 to start an idle fit: a moan, a lurch), stunned,
+   hop, swell, pulse, sink (tentacle, under the floor) }.
+   Sets m.step (a small footfall), m.stomp (a heavy one) and m.struck (the
+   frame a wind-up is let go) for the view to sound. */
+const FAMILY = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"goblin", sneak:"goblin", merchant:"goblin", brute:"brute", king:"king",
+  puffling:"puff", toadstool:"stool", shroomkin:"shroom", shroomlet:"shroom", husk:"husk", matriarch:"matriarch",
+  ghost:"ghost", banshee:"ghost", bride:"bride", skeleton:"skel", poltergeist:"polt",
+  watcher:"watcher", eye:"eye", blob:"blob", blobling:"blob", tentacle:"tent",
+  rotling:"crab", spitter:"spitter", bloater:"bloater", heart:"heart" };
+Models.FAMILY = FAMILY;
+const BOSSES = { king:1, matriarch:1, bride:1, eye:1, heart:1 };
+/* the rest pose of everything that moves, kept once so motion is always rest + offset */
+function rest(m, o){
+  if(!o) return null;
+  let r = m.rest.get(o);
+  if(!r){ r = { p:o.position.clone(), r:o.rotation.clone(), s:o.scale.clone() }; m.rest.set(o, r); }
+  return r;
+}
+function pose(m, o, px, py, pz, rx, ry, rz, sx, sy, sz){
+  if(!o) return;
+  const r = rest(m, o);
+  o.position.set(r.p.x + (px || 0), r.p.y + (py || 0), r.p.z + (pz || 0));
+  o.rotation.set(r.r.x + (rx || 0), r.r.y + (ry || 0), r.r.z + (rz || 0));
+  o.scale.set(r.s.x*(sx === undefined ? 1 : sx), r.s.y*(sy === undefined ? 1 : sy), r.s.z*(sz === undefined ? 1 : sz));
+}
+const snap = x=> Math.sign(x)*Math.pow(Math.abs(x), 0.55);      // a gait that jerks rather than swings
+const rnd = (a, b)=> a + Math.random()*(b - a);
+/* a twitchy look-around: a new target every so often, reached almost at once */
+function glance(m, dt, every, range, k){
+  m.gT -= dt;
+  if(m.gT <= 0){ m.gT = rnd(every[0], every[1]); m.gY = Math.random() < 0.35 ? 0 : rnd(-range, range); m.gX = rnd(-range, range)*0.35; m.gZ = Math.random() < 0.2 ? rnd(-0.35, 0.35) : 0; }
+  spring(m.gy, m.gY, k || 500, 38, dt); spring(m.gx, m.gX, k || 500, 38, dt); spring(m.gz, m.gZ, (k || 500)*0.5, 26, dt);
+}
+Models.creep = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { rest:new Map(), ph:Math.random()*6, run:0, seed:Math.random()*10, strike:0, fl:0, act:0, lastTell:-1,
+    gT:0, gY:0, gX:0, gZ:0, gy:{ x:0, v:0 }, gx:{ x:0, v:0 }, gz:{ x:0, v:0 }, fitT:rnd(1.5, 5), fit:0, sway:{ x:0, v:0 }, wob:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const fam = FAMILY[R.kind] || "goblin", boss = !!BOSSES[R.kind], sz = R.size || 1, P = R.parts, b = R.body;
+  const sp = o.speed || 0;
+  m.run += (Math.min(1, sp/3.5) - m.run)*(1 - Math.exp(-dt*8));
+  const s = m.run, sd = m.seed;
+  // the wind-up and its release
+  const tk = o.tell === undefined ? -1 : o.tell;
+  m.struck = false;
+  if(m.lastTell >= 0 && tk < 0){ m.strike = 1; m.struck = true; m.strikeKind = m.tellKind; }
+  m.lastTell = tk; if(tk >= 0) m.tellKind = o.tellKind;
+  m.strike = Math.max(0, m.strike - dt/(boss ? 0.5 : 0.32));
+  const wind = tk >= 0 ? smooth(0, 0.75, tk) : 0;
+  const shake = tk >= 0 ? smooth(0.35, 1, tk)*Math.sin(t*47 + sd)*(boss ? 0.025 : 0.018) : 0;
+  const st = m.strike > 0 ? Math.sin(Math.min(1, (1 - m.strike)*3.5)*PI*0.5)*m.strike : 0;   // out fast, back slow
+  // a hit: a jolt back
+  if(o.flinch > 0 && !m.wasHit) m.fl = 1;
+  m.wasHit = o.flinch > 0; m.fl = Math.max(0, m.fl - dt*5);
+  const fl = m.fl*m.fl;
+  // fits: now and then something seizes it (a shudder, a lunge, a look); a moan starts one too
+  m.fitT -= dt;
+  if(o.act || m.fitT <= 0){ m.fit = 1; m.fitT = rnd(2.5, 7); }
+  m.fit = Math.max(0, m.fit - dt/0.6);
+  const fit = m.fit;
+  const breath = Math.sin(t*(boss ? 1.1 : 1.8) + sd);
+  // strides
+  const ph0 = m.ph;
+  const rate = { goblin:4 + 9*s, brute:2 + 3.2*s, king:1.6 + 2.6*s, husk:2 + 3*s, shroom:3 + 5*s, skel:3.5 + 7*s, crab:8 + 14*s, spitter:3 + 5*s, bloater:1.6 + 2.6*s, matriarch:1.4 + 2*s }[fam] || 3 + 5*s;
+  if(sp > 0.2) m.ph += dt*rate;
+  const stepped = sp > 0.6 && Math.floor(m.ph/PI) !== Math.floor(ph0/PI);
+  m.step = stepped && (fam === "goblin" || fam === "skel" || fam === "crab" || fam === "shroom" || fam === "puff" || fam === "spitter");
+  m.stomp = stepped && (fam === "brute" || fam === "king" || fam === "husk" || fam === "matriarch" || fam === "bloater");
+  const ph = m.ph, fall = 1 - Math.abs(Math.sin(ph));
+  // common: the wind-up rears back and rises, the release throws it forward
+  let bx = -0.3*wind + 0.42*st - 0.2*fl + shake, by = 0.04*wind*sz, bz = (0.16*st - 0.06*fl)*sz, brz = 0, bry = 0;
+  let bsx = 1, bsy = 1, bsz = 1;
+  let armUp = -2.3*wind + 1.0*st;
+  if((tk >= 0 ? o.tellKind : m.strikeKind) === "charge"){
+    // a charge is wound up low: head down, weight forward, a foot pawing the floor
+    bx = 0.3*wind + 0.25*st - 0.2*fl + shake; by = -0.06*wind*sz; bz = 0.25*st*sz; armUp = 0.5*wind - 0.3*st;
+  }
+  if(fam === "goblin"){
+    // a hunched lope that hitches, legs snapping, head jerking about
+    glance(m, dt, [0.25, 1.4], 0.75);
+    by += Math.abs(Math.sin(ph))*0.06*s - 0.015*fall*s + breath*0.005;
+    bx += 0.16*s; brz += Math.sin(ph*0.5)*0.025*s;
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.85*s));
+    pose(m, R.tor, 0, 0, 0, 0.12*s + 0.04*breath - 0.15*wind + 0.2*st);
+    const tw = fit > 0.6 ? Math.sin(t*70)*0.12*(fit - 0.6)/0.4 : 0;
+    pose(m, P.head, 0, 0, 0, m.gx.x - 0.12*s + 0.25*wind - 0.3*fl, m.gy.x, m.gz.x + tw);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.55*s + Math.sin(t*2.3 + sd)*0.06 + armUp);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.55*s + Math.sin(t*2.1 + sd)*0.06 - 0.6*wind);
+  } else if(fam === "brute" || fam === "king" || fam === "husk"){
+    // weight: the whole bulk rolls onto each foot as it comes down
+    const kb = fam === "king" ? 1.3 : 1;
+    if(fam !== "husk") glance(m, dt, [1.2, 3.5], 0.45, 160);
+    by += -0.07*fall*s*sz + breath*0.012*sz*kb + 0.05*wind*sz;
+    brz += Math.sin(ph)*0.09*s; bx += 0.08*s;
+    bsy *= 1 + breath*0.015*kb; bsx *= 1 - breath*0.008*kb;
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.5*s - 0.25*wind*(i ? 0 : 1)*(1 + Math.sin(t*11))));
+    pose(m, R.tor, 0, 0, 0, 0.04*breath*kb - 0.12*wind + 0.18*st);
+    pose(m, P.head, 0, 0, 0, (fam === "husk" ? 0 : m.gx.x) + 0.1*s + 0.06*breath - 0.25*fl + 0.15*wind, fam === "husk" ? Math.sin(t*0.6 + sd)*0.25 : m.gy.x, fam === "husk" && fit > 0.5 ? Math.sin(t*50)*0.1*fit : 0);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*1.05);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (fam === "king" ? armUp*0.8 : -0.4*wind));
+    if(fam === "king" && P.crown) pose(m, P.crown, 0, 0, 0, 0, 0, Math.sin(ph)*0.05*s);
+  } else if(fam === "shroom" || fam === "matriarch"){
+    // swaying on a stalk, shuddering in fits, the cap twitching
+    const big = fam === "matriarch";
+    const shud = fit > 0 ? Math.sin(t*61 + sd)*0.05*fit : 0;
+    brz += Math.sin(t*0.9 + sd)*0.07 + shud; bx += Math.sin(t*0.63 + sd)*0.04 + 0.1*s + shud*0.6;
+    by += Math.abs(Math.sin(ph))*0.03*s + breath*(big ? 0.02 : 0.008);
+    if(big){ bsy *= 1 + breath*0.02; bsx *= 1 - breath*0.01; }
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.55*s));
+    const capT = fit > 0.7 ? Math.sin(t*38)*0.25*(fit - 0.7)/0.3 : 0;
+    pose(m, P.head, 0, 0, 0, -0.35*wind + 0.3*st + Math.sin(t*1.3 + sd)*0.05, Math.sin(t*0.5 + sd)*0.15, capT + Math.sin(t*0.8 + sd)*0.06);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*(big ? 0.7 : 1) + Math.sin(t*1.7 + sd)*0.05);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (big ? armUp*0.7 : -0.3*wind) + Math.sin(t*1.5 + sd)*0.05);
+  } else if(fam === "puff" || fam === "stool"){
+    // spore things: a slow breath that fills them, a shudder, a lean as they creep
+    const shud = fit > 0 ? Math.sin(t*55 + sd)*0.06*fit : 0;
+    const inf = 0.06*Math.pow(Math.max(0, breath), 2);
+    bsx *= 1 + inf + (o.swell || 0)*0.5; bsy *= 1 + inf*0.6 + (o.swell || 0)*0.3 - 0.12*wind; bsz *= 1 + inf + (o.swell || 0)*0.5;
+    brz += Math.sin(t*1.1 + sd)*0.08 + shud; bx += 0.15*s + Math.sin(ph)*0.08*s;
+    by += Math.abs(Math.sin(ph))*0.05*s;
+    if(fam === "stool") pose(m, P.head, 0, -0.05*wind + 0.06*st, 0, Math.sin(t*0.7 + sd)*0.06, 0, Math.sin(t*0.9 + sd)*0.08 + (fit > 0.6 ? Math.sin(t*40)*0.2*(fit - 0.6) : 0), 1 + 0.15*wind, 1 - 0.25*wind + 0.25*st, 1 + 0.15*wind);
+  } else if(fam === "ghost" || fam === "bride" || fam === "polt"){
+    // they drift; then, without warning, they lurch at you
+    const f = P.head, big = fam === "bride";
+    const lunge = fit > 0 ? (fit > 0.85 ? (1 - fit)/0.15 : fit/0.85) : 0;   // out in a blink, back slowly
+    const L = lunge*lunge*(big ? 0.35 : 0.3);
+    pose(m, f, Math.sin(t*0.53 + sd)*0.06, Math.sin(t*1.05 + sd)*0.1 + 0.25*wind - 0.1*st + breath*(big ? 0.03 : 0), L + 0.4*st - 0.12*wind,
+      0.22*s + L*0.8 - 0.35*wind + 0.55*st - 0.3*fl, Math.sin(t*0.37 + sd)*0.15, Math.sin(t*0.7 + sd)*0.08 + (lunge > 0.6 ? Math.sin(t*40)*0.06 : 0));
+    bx = shake; by = 0; bz = 0;
+    if(big){ pose(m, P.armR, 0, 0, 0, armUp*0.8 + Math.sin(t*0.9 + sd)*0.08); pose(m, P.armL, 0, 0, 0, -1.4*wind + 0.6*st + Math.sin(t*0.8 + sd + 1)*0.08); }
+    if(fam === "polt" && P.orbit){
+      // the debris won't keep an orbit: it lurches, stalls, tilts, and pulls in before a throw
+      const ou = m.orbit || (m.orbit = { a:0 });
+      ou.a += dt*(1.2 + 2.6*Math.max(0, Math.sin(t*0.8 + sd)*Math.sin(t*2.3)) + 6*wind + 4*fit);
+      const os = 1 - 0.3*wind + 0.4*st;
+      pose(m, P.orbit, 0, Math.sin(t*1.7)*0.08, 0, Math.sin(t*0.9 + sd)*0.35, ou.a, Math.cos(t*0.7 + sd)*0.3, os, os, os);
+      P.orbit.children.forEach((c, i)=>{ if(c.isGroup) pose(m, c, 0, Math.sin(t*3.1 + i*1.7)*0.09 + (Math.random() < 0.02 ? rnd(-0.08, 0.08) : 0), 0, Math.sin(t*2 + i)*0.3, t*(0.5 + (i % 3)*0.4), 0); });
+    }
+  } else if(fam === "skel"){
+    // bones: a stiff stalk, a constant faint rattle, the skull snapping round
+    m.gT -= dt;
+    if(m.gT <= 0){ m.gT = rnd(0.7, 2.6); m.gY = Math.random() < 0.4 ? 0 : rnd(-0.9, 0.9); m.gZ = Math.random() < 0.3 ? rnd(-0.45, 0.45) : 0; m.gX = rnd(-0.15, 0.2); }
+    const rat = (0.008 + 0.02*s + 0.05*fit)*(Math.random() < 0.5 ? 1 : 0);
+    const j = ()=> (Math.random() - 0.5)*rat;
+    by += Math.abs(Math.sin(ph))*0.035*s; bx += 0.05*s + j(); brz += j();
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.6*s + j()));
+    pose(m, P.head, 0, 0, 0, m.gX + j()*2 - 0.3*fl, m.gY + j()*2, m.gZ + j()*2);
+    // the bow arm comes up and holds; the draw hand pulls back
+    pose(m, P.armL, 0, 0, 0, -Math.sin(ph)*0.35*s - 1.45*wind + 0.3*st + j(), 0, 0.2*wind);
+    pose(m, P.armR, 0, 0, 0, Math.sin(ph)*0.35*s - 1.3*wind + j(), -0.5*wind, 0);
+  } else if(fam === "watcher" || fam === "eye"){
+    // a pulse like a slow heart; the gaze darts and fixes
+    const f = P.head, beat = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd)), 8), beat2 = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd - 0.5)), 8);
+    const pul = 1 + 0.05*beat + 0.03*beat2 + 0.12*wind;
+    glance(m, dt, [0.18, 1.1], 0.6, 900);
+    if(fam === "watcher") pose(m, f, 0, Math.sin(t*0.9 + sd)*0.08 + 0.15*wind, 0.2*st, m.gx.x + shake*3, m.gy.x, 0, pul, pul, pul);
+    else pose(m, f, 0, Math.sin(t*0.6 + sd)*0.1 + 0.2*wind, 0, 0, 0, 0, pul, pul, pul);
+    bx = shake; by = 0; bz = 0;
+    m.sacc = m.gy.x*0.35; m.saccX = m.gx.x*0.35;
+  } else if(fam === "blob"){
+    // jelly: it can't stop quivering
+    const q = 0.035*Math.sin(t*13 + sd) + 0.02*Math.sin(t*7.3 + sd*2) + 0.05*fit*Math.sin(t*31) + 0.06*s*Math.sin(ph*2);
+    const land = o.hop !== undefined ? o.hop : 0;
+    bsx *= 1 + q - land*0.15 + 0.1*wind; bsy *= 1 - q + land*0.3 - 0.2*wind + 0.3*st; bsz *= 1 + q - land*0.15 + 0.1*wind;
+    bx = shake; bz = 0.1*st*sz; by = 0;
+    if(P.head) pose(m, P.head, Math.sin(t*0.8 + sd)*0.04, Math.sin(t*1.1 + sd)*0.03, Math.cos(t*0.7 + sd)*0.04, Math.sin(t*0.5)*0.4, t*0.3, 0);
+    if(P.goo) P.goo.scale.set(1.1 + q*1.4, 0.8 - q*1.4, 1.1 + q*1.4);
+  } else if(fam === "tent"){
+    // writhing: a wave runs up it, and it coils before it lashes
+    if(P.segs) P.segs.forEach((g, i)=>{
+      const w = 1 + i*0.18;
+      pose(m, g, 0, 0, 0, Math.cos(t*1.7 - i*0.9 + sd)*0.16*w - 0.38*wind + 0.55*st + (fit > 0 ? Math.sin(t*25 + i)*0.08*fit : 0),
+        0, Math.sin(t*2.3 - i*0.8 + sd)*0.22*w + Math.sin(t*0.6 + i)*0.08);
+    });
+    bx = shake; bz = 0;
+  } else if(fam === "crab" || fam === "spitter" || fam === "bloater"){
+    // the Gloom: rotlings scuttle sideways like crabs; spitters sway on their legs;
+    // bloaters drag a wheezing gut that swells and lets go
+    if(P.legs) P.legs.forEach((l, i)=>{
+      const q = ph + (i % 2)*PI, lift = Math.max(0, Math.sin(q));
+      const idle = fam === "crab" ? Math.sin(t*9 + i*2.1)*0.05*(fit + 0.2) : 0;
+      pose(m, l, 0, 0, 0, 0, Math.cos(q)*(fam === "crab" ? 0.4 : 0.25)*s, lift*(fam === "crab" ? 0.55 : 0.35)*s + idle);
+    });
+    if(fam === "crab"){
+      glance(m, dt, [0.2, 0.9], 0.5, 700);
+      bry = m.gy.x*0.6; brz += Math.sin(ph)*0.06*s; by += Math.abs(Math.sin(ph*2))*0.025*s - 0.05*wind; bx += -0.3*wind + 0.3*st;
+      bz += Math.sin(ph*0.5)*0.03*s;
+    } else if(fam === "spitter"){
+      by += breath*0.01; brz += Math.sin(t*0.8 + sd)*0.05;
+      pose(m, P.head, 0, 0, 0, Math.sin(t*1.1 + sd)*0.1 - 0.5*wind + 0.6*st, Math.sin(t*0.6 + sd)*0.25, 0, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st);
+    } else {
+      // breath in (slow), a shaking catch at the top, out (quick)
+      const c = ((t*0.42 + sd) % 1), inh = c < 0.7 ? smooth(0, 0.7, c) : 1 - smooth(0.7, 0.85, c);
+      const catchJ = c > 0.62 && c < 0.72 ? Math.sin(t*60)*0.02 : 0;
+      const g = 1 + 0.08*inh + catchJ + 0.12*wind + (o.swell || 0)*0.4;
+      pose(m, P.head, 0, -0.03*fall*s, 0, 0.05*s, 0, Math.sin(ph)*0.06*s, g, 1 + 0.06*inh + catchJ + 0.1*wind, g);
+      by += -0.03*fall*s; brz += Math.sin(ph)*0.05*s;
+      m.wheeze = c > 0.62 && c < 0.64;
+    }
+  } else if(fam === "heart"){
+    const g = 1 + 0.03*breath + 0.15*(o.pulse || 0) + 0.08*wind - 0.1*st;
+    pose(m, P.head, 0, 0.05*breath, 0, 0, 0, 0, g, g*(1 + 0.03*Math.sin(t*2.3)), g);
+    bx = shake; by = 0; bz = 0;
+  }
+  // stunned: it sags and wavers
+  if(o.stunned){ bx += 0.15; brz += Math.sin(t*2.5 + sd)*0.08; }
+  if(o.hop) by += o.hop;
+  if(o.sink !== undefined) by += o.sink;
+  pose(m, b, 0, by, bz, bx, bry, brz, bsx, bsy, bsz);
+  if(P.tip) P.tip.rotation.z = -0.5 + Math.sin(t*3)*0.15 + s*0.1;
+  if(P.gem) P.gem.scale.setScalar(1 + 0.3*Math.sin(t*6));
+  return m;
+};
+
 Models.idle = function(R, t, speed){
-  const s = Math.min(1, speed/3), ph = t*(6 + speed*1.5);
-  R.body.position.y = Math.abs(Math.sin(ph))*0.06*s + Math.sin(t*2)*0.012;
-  R.body.rotation.z = Math.sin(ph)*0.07*s;
-  if(R.parts.legs) R.parts.legs.forEach((l, i)=> l.rotation.x = Math.sin(ph + i*Math.PI)*0.7*s);
-  if(R.parts.armL && R.kind !== "zippy") R.parts.armL.rotation.x = Math.sin(ph)*0.5*s;
-  if(R.parts.tip) R.parts.tip.rotation.z = -0.5 + Math.sin(t*3)*0.15 + s*0.1;
-  if(R.parts.gem) R.parts.gem.scale.setScalar(1 + 0.3*Math.sin(t*6));
-  if(R.ghostly && R.parts.head) R.parts.head.position.y = (R.parts.head.userData.y0 === undefined ? (R.parts.head.userData.y0 = R.parts.head.position.y) : R.parts.head.userData.y0) + Math.sin(t*2.2)*0.12;
-  if(R.parts.orbit) R.parts.orbit.rotation.y = t*2.5;
-  if(R.parts.segs) R.parts.segs.forEach((g, i)=>{ g.rotation.z = Math.sin(t*2.4 + i*0.7)*0.22; g.rotation.x = Math.cos(t*1.9 + i*0.6)*0.15; });
-  if(R.parts.goo) R.parts.goo.scale.set(1.1 + Math.sin(t*5)*0.04, 0.8 - Math.sin(t*5)*0.04, 1.1 + Math.sin(t*5)*0.04);
+  if(R.kind === "zippy"){ Models.stalk(R, { speed }, t); return; }
+  if(R.kind === "frog"){ Models.hop(R, {}, t); return; }
+  Models.creep(R, { speed }, t);
 };
 const _c = new THREE.Color();
 Models.tint = function(R, hex, k){
