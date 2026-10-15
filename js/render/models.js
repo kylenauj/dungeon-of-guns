@@ -2936,20 +2936,231 @@ Models.hop = function(R, o, t, dt){
   return m;
 };
 
+/* ---- the bestiary's motion ----
+   Every family moves its own way, all of it a little wrong: goblins skitter
+   and twitch, brutes lumber and shift their weight, fungus sways and
+   shudders, the dead drift and lunge, the skeleton rattles and snaps its
+   head round, flesh quivers and writhes, the Gloom scuttles and wheezes.
+   Wind-ups are slow and deliberate (drawn back, held, trembling), then let go
+   at once. Bosses breathe.
+   o: { speed, tell (0..1 through a wind-up, < 0 for none), tellKind, flinch
+   (> 0 while hit), act (1 to start an idle fit: a moan, a lurch), stunned,
+   hop, swell, pulse, sink (tentacle, under the floor) }.
+   Sets m.step (a small footfall), m.stomp (a heavy one) and m.struck (the
+   frame a wind-up is let go) for the view to sound. */
+const FAMILY = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"goblin", sneak:"goblin", merchant:"goblin", brute:"brute", king:"king",
+  puffling:"puff", toadstool:"stool", shroomkin:"shroom", shroomlet:"shroom", husk:"husk", matriarch:"matriarch",
+  ghost:"ghost", banshee:"ghost", bride:"bride", skeleton:"skel", poltergeist:"polt",
+  watcher:"watcher", eye:"eye", blob:"blob", blobling:"blob", tentacle:"tent",
+  rotling:"crab", spitter:"spitter", bloater:"bloater", heart:"heart" };
+Models.FAMILY = FAMILY;
+const BOSSES = { king:1, matriarch:1, bride:1, eye:1, heart:1 };
+/* the rest pose of everything that moves, kept once so motion is always rest + offset */
+function rest(m, o){
+  if(!o) return null;
+  let r = m.rest.get(o);
+  if(!r){ r = { p:o.position.clone(), r:o.rotation.clone(), s:o.scale.clone() }; m.rest.set(o, r); }
+  return r;
+}
+function pose(m, o, px, py, pz, rx, ry, rz, sx, sy, sz){
+  if(!o) return;
+  const r = rest(m, o);
+  o.position.set(r.p.x + (px || 0), r.p.y + (py || 0), r.p.z + (pz || 0));
+  o.rotation.set(r.r.x + (rx || 0), r.r.y + (ry || 0), r.r.z + (rz || 0));
+  o.scale.set(r.s.x*(sx === undefined ? 1 : sx), r.s.y*(sy === undefined ? 1 : sy), r.s.z*(sz === undefined ? 1 : sz));
+}
+const snap = x=> Math.sign(x)*Math.pow(Math.abs(x), 0.55);      // a gait that jerks rather than swings
+const rnd = (a, b)=> a + Math.random()*(b - a);
+/* a twitchy look-around: a new target every so often, reached almost at once */
+function glance(m, dt, every, range, k){
+  m.gT -= dt;
+  if(m.gT <= 0){ m.gT = rnd(every[0], every[1]); m.gY = Math.random() < 0.35 ? 0 : rnd(-range, range); m.gX = rnd(-range, range)*0.35; m.gZ = Math.random() < 0.2 ? rnd(-0.35, 0.35) : 0; }
+  spring(m.gy, m.gY, k || 500, 38, dt); spring(m.gx, m.gX, k || 500, 38, dt); spring(m.gz, m.gZ, (k || 500)*0.5, 26, dt);
+}
+Models.creep = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { rest:new Map(), ph:Math.random()*6, run:0, seed:Math.random()*10, strike:0, fl:0, act:0, lastTell:-1,
+    gT:0, gY:0, gX:0, gZ:0, gy:{ x:0, v:0 }, gx:{ x:0, v:0 }, gz:{ x:0, v:0 }, fitT:rnd(1.5, 5), fit:0, sway:{ x:0, v:0 }, wob:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const fam = FAMILY[R.kind] || "goblin", boss = !!BOSSES[R.kind], sz = R.size || 1, P = R.parts, b = R.body;
+  const sp = o.speed || 0;
+  m.run += (Math.min(1, sp/3.5) - m.run)*(1 - Math.exp(-dt*8));
+  const s = m.run, sd = m.seed;
+  // the wind-up and its release
+  const tk = o.tell === undefined ? -1 : o.tell;
+  m.struck = false;
+  if(m.lastTell >= 0 && tk < 0){ m.strike = 1; m.struck = true; m.strikeKind = m.tellKind; }
+  m.lastTell = tk; if(tk >= 0) m.tellKind = o.tellKind;
+  m.strike = Math.max(0, m.strike - dt/(boss ? 0.5 : 0.32));
+  const wind = tk >= 0 ? smooth(0, 0.75, tk) : 0;
+  const shake = tk >= 0 ? smooth(0.35, 1, tk)*Math.sin(t*47 + sd)*(boss ? 0.025 : 0.018) : 0;
+  const st = m.strike > 0 ? Math.sin(Math.min(1, (1 - m.strike)*3.5)*PI*0.5)*m.strike : 0;   // out fast, back slow
+  // a hit: a jolt back
+  if(o.flinch > 0 && !m.wasHit) m.fl = 1;
+  m.wasHit = o.flinch > 0; m.fl = Math.max(0, m.fl - dt*5);
+  const fl = m.fl*m.fl;
+  // fits: now and then something seizes it (a shudder, a lunge, a look); a moan starts one too
+  m.fitT -= dt;
+  if(o.act || m.fitT <= 0){ m.fit = 1; m.fitT = rnd(2.5, 7); }
+  m.fit = Math.max(0, m.fit - dt/0.6);
+  const fit = m.fit;
+  const breath = Math.sin(t*(boss ? 1.1 : 1.8) + sd);
+  // strides
+  const ph0 = m.ph;
+  const rate = { goblin:4 + 9*s, brute:2 + 3.2*s, king:1.6 + 2.6*s, husk:2 + 3*s, shroom:3 + 5*s, skel:3.5 + 7*s, crab:8 + 14*s, spitter:3 + 5*s, bloater:1.6 + 2.6*s, matriarch:1.4 + 2*s }[fam] || 3 + 5*s;
+  if(sp > 0.2) m.ph += dt*rate;
+  const stepped = sp > 0.6 && Math.floor(m.ph/PI) !== Math.floor(ph0/PI);
+  m.step = stepped && (fam === "goblin" || fam === "skel" || fam === "crab" || fam === "shroom" || fam === "puff" || fam === "spitter");
+  m.stomp = stepped && (fam === "brute" || fam === "king" || fam === "husk" || fam === "matriarch" || fam === "bloater");
+  const ph = m.ph, fall = 1 - Math.abs(Math.sin(ph));
+  // common: the wind-up rears back and rises, the release throws it forward
+  let bx = -0.3*wind + 0.42*st - 0.2*fl + shake, by = 0.04*wind*sz, bz = (0.16*st - 0.06*fl)*sz, brz = 0, bry = 0;
+  let bsx = 1, bsy = 1, bsz = 1;
+  let armUp = -2.3*wind + 1.0*st;
+  if((tk >= 0 ? o.tellKind : m.strikeKind) === "charge"){
+    // a charge is wound up low: head down, weight forward, a foot pawing the floor
+    bx = 0.3*wind + 0.25*st - 0.2*fl + shake; by = -0.06*wind*sz; bz = 0.25*st*sz; armUp = 0.5*wind - 0.3*st;
+  }
+  if(fam === "goblin"){
+    // a hunched lope that hitches, legs snapping, head jerking about
+    glance(m, dt, [0.25, 1.4], 0.75);
+    by += Math.abs(Math.sin(ph))*0.06*s - 0.015*fall*s + breath*0.005;
+    bx += 0.16*s; brz += Math.sin(ph*0.5)*0.025*s;
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.85*s));
+    pose(m, R.tor, 0, 0, 0, 0.12*s + 0.04*breath - 0.15*wind + 0.2*st);
+    const tw = fit > 0.6 ? Math.sin(t*70)*0.12*(fit - 0.6)/0.4 : 0;
+    pose(m, P.head, 0, 0, 0, m.gx.x - 0.12*s + 0.25*wind - 0.3*fl, m.gy.x, m.gz.x + tw);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.55*s + Math.sin(t*2.3 + sd)*0.06 + armUp);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.55*s + Math.sin(t*2.1 + sd)*0.06 - 0.6*wind);
+  } else if(fam === "brute" || fam === "king" || fam === "husk"){
+    // weight: the whole bulk rolls onto each foot as it comes down
+    const kb = fam === "king" ? 1.3 : 1;
+    if(fam !== "husk") glance(m, dt, [1.2, 3.5], 0.45, 160);
+    by += -0.07*fall*s*sz + breath*0.012*sz*kb + 0.05*wind*sz;
+    brz += Math.sin(ph)*0.09*s; bx += 0.08*s;
+    bsy *= 1 + breath*0.015*kb; bsx *= 1 - breath*0.008*kb;
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.5*s - 0.25*wind*(i ? 0 : 1)*(1 + Math.sin(t*11))));
+    pose(m, R.tor, 0, 0, 0, 0.04*breath*kb - 0.12*wind + 0.18*st);
+    pose(m, P.head, 0, 0, 0, (fam === "husk" ? 0 : m.gx.x) + 0.1*s + 0.06*breath - 0.25*fl + 0.15*wind, fam === "husk" ? Math.sin(t*0.6 + sd)*0.25 : m.gy.x, fam === "husk" && fit > 0.5 ? Math.sin(t*50)*0.1*fit : 0);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*1.05);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (fam === "king" ? armUp*0.8 : -0.4*wind));
+    if(fam === "king" && P.crown) pose(m, P.crown, 0, 0, 0, 0, 0, Math.sin(ph)*0.05*s);
+  } else if(fam === "shroom" || fam === "matriarch"){
+    // swaying on a stalk, shuddering in fits, the cap twitching
+    const big = fam === "matriarch";
+    const shud = fit > 0 ? Math.sin(t*61 + sd)*0.05*fit : 0;
+    brz += Math.sin(t*0.9 + sd)*0.07 + shud; bx += Math.sin(t*0.63 + sd)*0.04 + 0.1*s + shud*0.6;
+    by += Math.abs(Math.sin(ph))*0.03*s + breath*(big ? 0.02 : 0.008);
+    if(big){ bsy *= 1 + breath*0.02; bsx *= 1 - breath*0.01; }
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.55*s));
+    const capT = fit > 0.7 ? Math.sin(t*38)*0.25*(fit - 0.7)/0.3 : 0;
+    pose(m, P.head, 0, 0, 0, -0.35*wind + 0.3*st + Math.sin(t*1.3 + sd)*0.05, Math.sin(t*0.5 + sd)*0.15, capT + Math.sin(t*0.8 + sd)*0.06);
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*(big ? 0.7 : 1) + Math.sin(t*1.7 + sd)*0.05);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (big ? armUp*0.7 : -0.3*wind) + Math.sin(t*1.5 + sd)*0.05);
+  } else if(fam === "puff" || fam === "stool"){
+    // spore things: a slow breath that fills them, a shudder, a lean as they creep
+    const shud = fit > 0 ? Math.sin(t*55 + sd)*0.06*fit : 0;
+    const inf = 0.06*Math.pow(Math.max(0, breath), 2);
+    bsx *= 1 + inf + (o.swell || 0)*0.5; bsy *= 1 + inf*0.6 + (o.swell || 0)*0.3 - 0.12*wind; bsz *= 1 + inf + (o.swell || 0)*0.5;
+    brz += Math.sin(t*1.1 + sd)*0.08 + shud; bx += 0.15*s + Math.sin(ph)*0.08*s;
+    by += Math.abs(Math.sin(ph))*0.05*s;
+    if(fam === "stool") pose(m, P.head, 0, -0.05*wind + 0.06*st, 0, Math.sin(t*0.7 + sd)*0.06, 0, Math.sin(t*0.9 + sd)*0.08 + (fit > 0.6 ? Math.sin(t*40)*0.2*(fit - 0.6) : 0), 1 + 0.15*wind, 1 - 0.25*wind + 0.25*st, 1 + 0.15*wind);
+  } else if(fam === "ghost" || fam === "bride" || fam === "polt"){
+    // they drift; then, without warning, they lurch at you
+    const f = P.head, big = fam === "bride";
+    const lunge = fit > 0 ? (fit > 0.85 ? (1 - fit)/0.15 : fit/0.85) : 0;   // out in a blink, back slowly
+    const L = lunge*lunge*(big ? 0.35 : 0.3);
+    pose(m, f, Math.sin(t*0.53 + sd)*0.06, Math.sin(t*1.05 + sd)*0.1 + 0.25*wind - 0.1*st + breath*(big ? 0.03 : 0), L + 0.4*st - 0.12*wind,
+      0.22*s + L*0.8 - 0.35*wind + 0.55*st - 0.3*fl, Math.sin(t*0.37 + sd)*0.15, Math.sin(t*0.7 + sd)*0.08 + (lunge > 0.6 ? Math.sin(t*40)*0.06 : 0));
+    bx = shake; by = 0; bz = 0;
+    if(big){ pose(m, P.armR, 0, 0, 0, armUp*0.8 + Math.sin(t*0.9 + sd)*0.08); pose(m, P.armL, 0, 0, 0, -1.4*wind + 0.6*st + Math.sin(t*0.8 + sd + 1)*0.08); }
+    if(fam === "polt" && P.orbit){
+      // the debris won't keep an orbit: it lurches, stalls, tilts, and pulls in before a throw
+      const ou = m.orbit || (m.orbit = { a:0 });
+      ou.a += dt*(1.2 + 2.6*Math.max(0, Math.sin(t*0.8 + sd)*Math.sin(t*2.3)) + 6*wind + 4*fit);
+      const os = 1 - 0.3*wind + 0.4*st;
+      pose(m, P.orbit, 0, Math.sin(t*1.7)*0.08, 0, Math.sin(t*0.9 + sd)*0.35, ou.a, Math.cos(t*0.7 + sd)*0.3, os, os, os);
+      P.orbit.children.forEach((c, i)=>{ if(c.isGroup) pose(m, c, 0, Math.sin(t*3.1 + i*1.7)*0.09 + (Math.random() < 0.02 ? rnd(-0.08, 0.08) : 0), 0, Math.sin(t*2 + i)*0.3, t*(0.5 + (i % 3)*0.4), 0); });
+    }
+  } else if(fam === "skel"){
+    // bones: a stiff stalk, a constant faint rattle, the skull snapping round
+    m.gT -= dt;
+    if(m.gT <= 0){ m.gT = rnd(0.7, 2.6); m.gY = Math.random() < 0.4 ? 0 : rnd(-0.9, 0.9); m.gZ = Math.random() < 0.3 ? rnd(-0.45, 0.45) : 0; m.gX = rnd(-0.15, 0.2); }
+    const rat = (0.008 + 0.02*s + 0.05*fit)*(Math.random() < 0.5 ? 1 : 0);
+    const j = ()=> (Math.random() - 0.5)*rat;
+    by += Math.abs(Math.sin(ph))*0.035*s; bx += 0.05*s + j(); brz += j();
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.6*s + j()));
+    pose(m, P.head, 0, 0, 0, m.gX + j()*2 - 0.3*fl, m.gY + j()*2, m.gZ + j()*2);
+    // the bow arm comes up and holds; the draw hand pulls back
+    pose(m, P.armL, 0, 0, 0, -Math.sin(ph)*0.35*s - 1.45*wind + 0.3*st + j(), 0, 0.2*wind);
+    pose(m, P.armR, 0, 0, 0, Math.sin(ph)*0.35*s - 1.3*wind + j(), -0.5*wind, 0);
+  } else if(fam === "watcher" || fam === "eye"){
+    // a pulse like a slow heart; the gaze darts and fixes
+    const f = P.head, beat = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd)), 8), beat2 = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd - 0.5)), 8);
+    const pul = 1 + 0.05*beat + 0.03*beat2 + 0.12*wind;
+    glance(m, dt, [0.18, 1.1], 0.6, 900);
+    if(fam === "watcher") pose(m, f, 0, Math.sin(t*0.9 + sd)*0.08 + 0.15*wind, 0.2*st, m.gx.x + shake*3, m.gy.x, 0, pul, pul, pul);
+    else pose(m, f, 0, Math.sin(t*0.6 + sd)*0.1 + 0.2*wind, 0, 0, 0, 0, pul, pul, pul);
+    bx = shake; by = 0; bz = 0;
+    m.sacc = m.gy.x*0.35; m.saccX = m.gx.x*0.35;
+  } else if(fam === "blob"){
+    // jelly: it can't stop quivering
+    const q = 0.035*Math.sin(t*13 + sd) + 0.02*Math.sin(t*7.3 + sd*2) + 0.05*fit*Math.sin(t*31) + 0.06*s*Math.sin(ph*2);
+    const land = o.hop !== undefined ? o.hop : 0;
+    bsx *= 1 + q - land*0.15 + 0.1*wind; bsy *= 1 - q + land*0.3 - 0.2*wind + 0.3*st; bsz *= 1 + q - land*0.15 + 0.1*wind;
+    bx = shake; bz = 0.1*st*sz; by = 0;
+    if(P.head) pose(m, P.head, Math.sin(t*0.8 + sd)*0.04, Math.sin(t*1.1 + sd)*0.03, Math.cos(t*0.7 + sd)*0.04, Math.sin(t*0.5)*0.4, t*0.3, 0);
+    if(P.goo) P.goo.scale.set(1.1 + q*1.4, 0.8 - q*1.4, 1.1 + q*1.4);
+  } else if(fam === "tent"){
+    // writhing: a wave runs up it, and it coils before it lashes
+    if(P.segs) P.segs.forEach((g, i)=>{
+      const w = 1 + i*0.18;
+      pose(m, g, 0, 0, 0, Math.cos(t*1.7 - i*0.9 + sd)*0.16*w - 0.38*wind + 0.55*st + (fit > 0 ? Math.sin(t*25 + i)*0.08*fit : 0),
+        0, Math.sin(t*2.3 - i*0.8 + sd)*0.22*w + Math.sin(t*0.6 + i)*0.08);
+    });
+    bx = shake; bz = 0;
+  } else if(fam === "crab" || fam === "spitter" || fam === "bloater"){
+    // the Gloom: rotlings scuttle sideways like crabs; spitters sway on their legs;
+    // bloaters drag a wheezing gut that swells and lets go
+    if(P.legs) P.legs.forEach((l, i)=>{
+      const q = ph + (i % 2)*PI, lift = Math.max(0, Math.sin(q));
+      const idle = fam === "crab" ? Math.sin(t*9 + i*2.1)*0.05*(fit + 0.2) : 0;
+      pose(m, l, 0, 0, 0, 0, Math.cos(q)*(fam === "crab" ? 0.4 : 0.25)*s, lift*(fam === "crab" ? 0.55 : 0.35)*s + idle);
+    });
+    if(fam === "crab"){
+      glance(m, dt, [0.2, 0.9], 0.5, 700);
+      bry = m.gy.x*0.6; brz += Math.sin(ph)*0.06*s; by += Math.abs(Math.sin(ph*2))*0.025*s - 0.05*wind; bx += -0.3*wind + 0.3*st;
+      bz += Math.sin(ph*0.5)*0.03*s;
+    } else if(fam === "spitter"){
+      by += breath*0.01; brz += Math.sin(t*0.8 + sd)*0.05;
+      pose(m, P.head, 0, 0, 0, Math.sin(t*1.1 + sd)*0.1 - 0.5*wind + 0.6*st, Math.sin(t*0.6 + sd)*0.25, 0, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st);
+    } else {
+      // breath in (slow), a shaking catch at the top, out (quick)
+      const c = ((t*0.42 + sd) % 1), inh = c < 0.7 ? smooth(0, 0.7, c) : 1 - smooth(0.7, 0.85, c);
+      const catchJ = c > 0.62 && c < 0.72 ? Math.sin(t*60)*0.02 : 0;
+      const g = 1 + 0.08*inh + catchJ + 0.12*wind + (o.swell || 0)*0.4;
+      pose(m, P.head, 0, -0.03*fall*s, 0, 0.05*s, 0, Math.sin(ph)*0.06*s, g, 1 + 0.06*inh + catchJ + 0.1*wind, g);
+      by += -0.03*fall*s; brz += Math.sin(ph)*0.05*s;
+      m.wheeze = c > 0.62 && c < 0.64;
+    }
+  } else if(fam === "heart"){
+    const g = 1 + 0.03*breath + 0.15*(o.pulse || 0) + 0.08*wind - 0.1*st;
+    pose(m, P.head, 0, 0.05*breath, 0, 0, 0, 0, g, g*(1 + 0.03*Math.sin(t*2.3)), g);
+    bx = shake; by = 0; bz = 0;
+  }
+  // stunned: it sags and wavers
+  if(o.stunned){ bx += 0.15; brz += Math.sin(t*2.5 + sd)*0.08; }
+  if(o.hop) by += o.hop;
+  if(o.sink !== undefined) by += o.sink;
+  pose(m, b, 0, by, bz, bx, bry, brz, bsx, bsy, bsz);
+  if(P.tip) P.tip.rotation.z = -0.5 + Math.sin(t*3)*0.15 + s*0.1;
+  if(P.gem) P.gem.scale.setScalar(1 + 0.3*Math.sin(t*6));
+  return m;
+};
+
 Models.idle = function(R, t, speed){
   if(R.kind === "zippy"){ Models.stalk(R, { speed }, t); return; }
   if(R.kind === "frog"){ Models.hop(R, {}, t); return; }
-  const s = Math.min(1, speed/3), ph = t*(6 + speed*1.5);
-  R.body.position.y = Math.abs(Math.sin(ph))*0.06*s + Math.sin(t*2)*0.012;
-  R.body.rotation.z = Math.sin(ph)*0.07*s;
-  if(R.parts.legs) R.parts.legs.forEach((l, i)=> l.rotation.x = Math.sin(ph + i*Math.PI)*0.7*s);
-  if(R.parts.armL && R.kind !== "zippy") R.parts.armL.rotation.x = Math.sin(ph)*0.5*s;
-  if(R.parts.tip) R.parts.tip.rotation.z = -0.5 + Math.sin(t*3)*0.15 + s*0.1;
-  if(R.parts.gem) R.parts.gem.scale.setScalar(1 + 0.3*Math.sin(t*6));
-  if(R.ghostly && R.parts.head) R.parts.head.position.y = (R.parts.head.userData.y0 === undefined ? (R.parts.head.userData.y0 = R.parts.head.position.y) : R.parts.head.userData.y0) + Math.sin(t*2.2)*0.12;
-  if(R.parts.orbit) R.parts.orbit.rotation.y = t*2.5;
-  if(R.parts.segs) R.parts.segs.forEach((g, i)=>{ g.rotation.z = Math.sin(t*2.4 + i*0.7)*0.22; g.rotation.x = Math.cos(t*1.9 + i*0.6)*0.15; });
-  if(R.parts.goo) R.parts.goo.scale.set(1.1 + Math.sin(t*5)*0.04, 0.8 - Math.sin(t*5)*0.04, 1.1 + Math.sin(t*5)*0.04);
+  Models.creep(R, { speed }, t);
 };
 const _c = new THREE.Color();
 Models.tint = function(R, hex, k){

@@ -510,6 +510,35 @@ proto.updateFrogs = function(dt, t){
   });
 };
 
+/* the bestiary's footfalls, swings and voices (all rate-limited: a room full
+   of goblins is a rustle, not a drum roll) */
+const SWING = { stab:1, charge:1, swipe:1, squat:1, spin:1, sweep:1, boo:1, throw:1, swell:1, spray:1 };
+const MOAN = { goblin:"goblin", brute:"goblin", shroom:"shroom", puff:"shroom", stool:"shroom", husk:"shroom",
+  ghost:"ghost", polt:"ghost", watcher:"flesh", blob:"flesh", tent:"flesh", crab:"flesh", spitter:"flesh", bloater:"flesh" };
+proto.creepSounds = function(e, R, mo, t){
+  const V = this;
+  if(mo.step && t - (V.skitT || 0) > 1/6){ V.skitT = t; V.play("skitter", { x:e.x, y:e.y }); }
+  if(mo.stomp){
+    if(t - (V.stompT || 0) > 0.14){ V.stompT = t; V.play("stomp", { x:e.x, y:e.y }); }
+    FX.smoke(e.x, 0.05, e.y, 0x2a2420, e.boss ? 4 : 2, e.boss ? 0.7 : 0.4, 0.7, { spread:e.r, rise:0.15 });
+    if(e.boss) S.shake(0.1);
+  }
+  if(mo.struck && (SWING[mo.strikeKind] || e.boss)) V.play("swing", { x:e.x, y:e.y });
+};
+proto.updateMoans = function(dt){
+  const V = this, G = V.G;
+  V.moanT = (V.moanT === undefined ? 3 + Math.random()*5 : V.moanT) - dt;
+  if(V.moanT > 0) return;
+  const boss = G.enemies.find(e=> e.boss && !e.dead && e.spawn <= 0);
+  V.moanT = boss ? 6 + Math.random()*5 : 8 + Math.random()*8;
+  const live = G.enemies.filter(e=> !e.dead && !e.hidden && e.spawn <= 0 && V.rigs[e.id]);
+  if(!live.length) return;
+  const e = boss && Math.random() < 0.6 ? boss : live[Math.floor(Math.random()*live.length)], R = V.rigs[e.id];
+  const fam = M.FAMILY[R.kind], kind = e.boss ? "boss" : R.kind === "banshee" ? "banshee" : MOAN[fam];
+  if(!kind) return;
+  R.act = 1;
+  V.play("moan", { kind, x:e.x, y:e.y });
+};
 proto.updateEnemies = function(dt, t){
   const V = this, G = V.G, p = G.player;
   const live = {};
@@ -524,6 +553,7 @@ proto.updateEnemies = function(dt, t){
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
       }
       R.shadow = shadowBlob(e.r); R.root.add(R.shadow);
+      M.creep(R, { speed:0 }, t, 0);
       S.scene.add(R.root);
     }
     R.root.position.set(e.x, 0, e.y);
@@ -534,28 +564,28 @@ proto.updateEnemies = function(dt, t){
     R.root.rotation.y += DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? 14 : 4)));
     if(e.spawn > 0){ const k = 1 - e.spawn/(e.boss ? 1.4 : 0.8); R.body.position.y = -1.2*(1 - k); M.fade(R, Math.max(0.1, k)); return; }
     const frozen = e.st.frozen > 0, stunned = e.st.stun > 0;
-    if(!frozen) M.idle(R, t, stunned ? 0 : Math.hypot(e.vx, e.vy));
-    if(R.tell > 0){
-      R.tell -= dt;
-      const k = 1 - Math.max(0, R.tell)/R.tellMax;
-      R.body.rotation.x = -0.3*k; R.body.position.x = Math.sin(t*60)*0.03*k;
-      if(R.parts.armR) R.parts.armR.rotation.x = -2.2*k;
-    } else {
-      R.body.rotation.x *= 0.8; R.body.position.x = 0;
-      if(R.parts.armR) R.parts.armR.rotation.x *= 0.85;
-    }
-    if(e.hop) R.body.position.y = e.hop;
-    if(e.swell) R.body.scale.setScalar(1 + e.swell*0.5);
-    if(e.pulse !== undefined && R.parts.head) R.parts.head.scale.setScalar(1 + e.pulse*0.12);
-    // the eye's lids close when it's invulnerable
-    if(R.parts.lidT){ const want = e.invuln ? -0.02 : -1.35; R.parts.lidT.rotation.x += (want - R.parts.lidT.rotation.x)*(1 - Math.exp(-dt*10)); R.parts.lidB.rotation.x += (-want - R.parts.lidB.rotation.x)*(1 - Math.exp(-dt*10)); if(R.parts.head) R.parts.head.lookAt(p.x, 1.6, p.y); }
+    // the wind-up, through to its release (Models.creep draws it back, holds it, lets it go)
+    let tellK = -1;
+    if(R.tell > 0){ R.tell -= dt; tellK = Math.min(1, 1 - Math.max(0, R.tell)/R.tellMax); }
     // burrowed tentacles sink into the floor
-    if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.body.position.y += (want - R.body.position.y)*(1 - Math.exp(-dt*12)); }
+    if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.sinkY = (R.sinkY || 0) + (want - (R.sinkY || 0))*(1 - Math.exp(-dt*12)); }
+    let mo = null;
+    if(!frozen){
+      mo = M.creep(R, { speed:stunned ? 0 : Math.hypot(e.vx, e.vy), tell:tellK, tellKind:R.tellKind, flinch:e.flash, act:R.act, stunned,
+        hop:e.hop, swell:e.swell, pulse:e.pulse, sink:e.def.ai === "tentacle" ? R.sinkY : undefined }, t, dt);
+      R.act = 0;
+      V.creepSounds(e, R, mo, t);
+    }
+    // the eye's lids close when it's invulnerable; it watches you, its gaze darting off and back
+    if(R.parts.lidT){
+      const want = e.invuln ? -0.02 : -1.35; R.parts.lidT.rotation.x += (want - R.parts.lidT.rotation.x)*(1 - Math.exp(-dt*10)); R.parts.lidB.rotation.x += (-want - R.parts.lidB.rotation.x)*(1 - Math.exp(-dt*10));
+      if(R.parts.head){ R.parts.head.lookAt(p.x, 1.6, p.y); if(mo && mo.sacc !== undefined){ R.parts.head.rotateY(mo.sacc); R.parts.head.rotateX(mo.saccX); } }
+    }
     if(R.shadow) R.shadow.material.opacity = e.hidden ? 0.1 : 0.5;
     let tc = 0x000000, tk = 1;
     if(e.flash > 0){ tc = 0xffffff; tk = e.boss ? 0.25 : 0.38; }
     else if(frozen) tc = 0x4ab8ff;
-    else if(R.tell > 0) { tc = 0xffffff; tk = 0.35 + 0.3*Math.sin(t*30); }
+    else if(R.tell > 0) { const q = 1 - Math.max(0, R.tell)/R.tellMax; tc = 0xffe2b8; tk = 0.1 + 0.42*q*q + 0.05*Math.sin(t*14); }
     else if(e.st.trapped > 0) { tc = 0x8ae8ff; tk = 0.5; }
     else if(e.st.burn && e.st.burn.t > 0) { tc = 0xff5a1a; tk = 0.4 + 0.3*Math.sin(t*25 + e.id); }
     else if(e.st.poison && e.st.poison.stacks > 0) { tc = e.st.poison.plague ? 0x8aff2a : 0x4ab82a; tk = 0.3 + 0.25*Math.sin(t*5 + e.id); }
@@ -575,6 +605,7 @@ proto.updateEnemies = function(dt, t){
     if(stunned && !e.st.trapped && Math.random() < 0.3) FX.emit(e.x + Math.cos(t*9)*0.4, R.h + 0.6, e.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.22, 0.2, 0, 0);
   });
   for(const id in V.rigs) if(!live[id]){ S.scene.remove(V.rigs[id].root); delete V.rigs[id]; }
+  V.updateMoans(dt);
   V.dying = V.dying.filter(d=>{
     d.t += dt;
     const R = d.R;
