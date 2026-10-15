@@ -1,7 +1,8 @@
 /* ------------------------------------------------------------------ *
  *  Everything that isn't the game: the title, pause, the satchel, level-up
  *  boons, how to play, and the end of a run.
- *  Plain DOM, styled like Pine Hollow's menus.
+ *  Plain DOM, dressed as an old grim book: engraved capitals, thin gold
+ *  rules, and a YOU DIED that takes its time.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -52,17 +53,17 @@ UI.title = function(){
   const b = best();
   UI.show(`
     <div class="title-wrap">
-      <div class="logo"><span>DUNGEON</span><small>of</small><span>GUNS</span></div>
-      <p class="tag-line">Zippy the wizard, Gribbus the frog, and a dungeon that gets weirder the deeper it goes.</p>
+      <div class="logo"><span>DUNGEON</span><div class="of"><i></i>of<i></i></div><span>GUNS</span></div>
+      <p class="tag-line"><b>Abandon hope. Bring ammunition.</b>A wizard, a frog, and a dungeon that rots a little more with every floor you descend.</p>
       <div class="menu">
-        <button class="item" data-act="new">NEW RUN <small>a fresh dungeon</small></button>
+        <button class="item" data-act="new">NEW RUN <small>a fresh descent</small></button>
         <div class="seed-row"><input id="seed" maxlength="12" placeholder="SEED (optional)" spellcheck="false" autocomplete="off"><button class="item small" data-act="seeded">PLAY SEED</button></div>
         <button class="item" data-act="how">HOW TO PLAY</button>
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
         <button class="item" data-act="ink">LOOK <small>${DG.Stage.fancy ? "ink" : "plain"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
       </div>
-      ${b.runs ? `<p class="hint">Runs ${b.runs} · deepest floor ${b.floor} · goblins bopped ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound.</p>`}
+      ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest floor ${b.floor} · foes slain ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound. Something down there is listening.</p>`}
     </div>`, "title");
 };
 
@@ -72,11 +73,11 @@ UI.how = function(back){
       <h2 class="head">HOW TO PLAY</h2>
       <div class="cols">
       <div class="note">
-        <p>You're <b>Zippy</b>, a wizard who casts spells <b>through guns</b>. <b>Gribbus</b> the frog hops along and licks things. Clear a room and the doors open. Beat the floor's <b>boss</b> and take the portal down. Five floors, each spookier and stranger.</p>
+        <p>You are <b>Zippy</b>, a wizard who casts spells <b>through guns</b>. <b>Gribbus</b> the frog hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
         <p>Every shot carries its gun's <b>element</b>. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
         <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
         <p>Kills give <b>XP</b>; each level lets you pick a <b>boon</b>. <b>Frog ponds</b> teach Gribbus new tricks. <b>Golden flies</b> unlock rarer ones for every future run.</p>
-        <p><b>Not every door is a door.</b> Some are paintings. Some walls aren't walls: shoot or walk into suspicious stone.</p>
+        <p><b>Not every door is a door.</b> Some are paintings. Some walls are not walls: shoot or walk into suspicious stone. Trust nothing down here.</p>
       </div>
       <div class="note keys">
         <p><kbd>WASD</kbd> move &nbsp; <kbd>mouse</kbd> aim</p>
@@ -98,7 +99,7 @@ UI.pause = function(G){
   UI.show(`
     <div class="title-wrap">
       <h2 class="head">PAUSED</h2>
-      <p class="hint">Floor ${G.floor} · ${esc(G.D.theme.name)} · seed <b>${G.seedWord}</b></p>
+      <p class="hint">Floor ${G.floor} · ${esc(G.D.theme.name)} · seed <b>${G.seedWord}</b><br>The dark waits. It is patient.</p>
       <div class="menu">
         <button class="item" data-act="resume">RESUME</button>
         <button class="item" data-act="bag">SATCHEL <small>guns and powerups</small></button>
@@ -130,9 +131,9 @@ UI.bag = function(G){
   const ids = Object.keys(p.items).filter(id=> DG.ITEMS[id]).sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier);
   const items = ids.length ? ids.map(id=>{ const it = DG.ITEMS[id], T = DG.TIERS[it.tier];
     return `<div class="pw" style="--c:${T.color}"><b>${esc(it.name)}${p.items[id] > 1 ? " ×" + p.items[id] : ""}</b><small>${T.name}</small><span>${esc(it.desc)}</span></div>`; }).join("")
-    : `<p class="hint">No powerups yet. Treasure rooms, shops, bosses, chests and secrets all have them, and they stack in strange ways.</p>`;
+    : `<p class="hint">No powerups yet. Treasure rooms, shops, bosses, chests and secrets hold them, and they stack in strange and terrible ways.</p>`;
   const duos = (G.mods.duos || []).map(id=> DG.DUOS[id]).filter(Boolean).map(d=> `<div class="pw" style="--c:#ff4fd8"><b>${esc(d.name)}</b><small>duo</small><span>${esc(d.desc)}</span></div>`).join("");
-  const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Level up to pick boons.</span>`;
+  const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Level up to choose boons.</span>`;
   const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Find a frog pond to teach Gribbus a trick.</span>`;
   const act = p.active ? `<div class="pw" style="--c:#ffd23d"><b>${esc(DG.ACTIVES[p.active.id].name)}</b><small>active · F</small><span>${esc(DG.ACTIVES[p.active.id].desc)}</span></div>` : "";
   UI.show(`
@@ -151,8 +152,8 @@ UI.choose = function(G){
   const c = G.choice; if(!c) return;
   UI.show(`
     <div class="title-wrap">
-      <h2 class="head">LEVEL ${c.level}!</h2>
-      <p class="hint">Pick one. (1, 2, 3 or click)</p>
+      <h2 class="head">LEVEL ${c.level}</h2>
+      <p class="hint">Strength gathers. Choose one boon (1, 2, 3 or click).</p>
       <div class="boons">${c.options.map((id, i)=>{ const B = DG.BOONS[id];
         return `<button class="item boon" data-act="boon" data-i="${i}"><kbd>${i + 1}</kbd><b>${esc(B.name)}</b><small>${esc(B.desc)}</small></button>`; }).join("")}</div>
     </div>`, "choose");
@@ -160,25 +161,27 @@ UI.choose = function(G){
 
 UI.end = function(G, won){
   const s = G.stats, m = Math.floor(s.time/60), sec = Math.floor(s.time % 60);
-  const killer = { orb:"Grubnok's royal spit", rock:"a rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a bomb", pit:"a pit", brute:"a Brute's hug", king:"Grubnok's belly", grunt:"a Grunt's stab", sneak:"a Sneak",
-    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar", matriarch:"the Shroom Matriarch", bride:"the Bride", eye:"the Eye", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores" };
-  const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "goblins";
+  const killer = { orb:"Grubnok's royal spit", rock:"a thrown rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a goblin bomb", pit:"a pit, and a long fall", brute:"a Brute's embrace", king:"Grubnok's belly", grunt:"a Grunt's rusty blade", sneak:"a Sneak, from behind",
+    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a terrible stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar's price", matriarch:"the Morel Matriarch", bride:"the Weeping Bride", eye:"the Eye Below", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores", "giving up":"despair" };
+  const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "the dark";
   UI.show(`
-    <div class="title-wrap">
-      <h2 class="head ${won ? "win" : "lose"}">${won ? "YOU ESCAPED THE DUNGEON" : "YOU DIED"}</h2>
-      <p class="note">${won ? "The dungeon's heart stops. Gribbus croaks once, very proudly." : "Done in by " + esc(why) + " on floor " + G.floor + " (" + esc(G.D.theme.name) + ")."}</p>
+    <div class="endwrap">
+      <div class="died-band"><h1 class="died ${won ? "win" : ""}">${won ? "YOU ESCAPED" : "YOU DIED"}</h1>
+        <p class="died-sub">${won ? "The dungeon's heart is still. Daylight, at last. Gribbus croaks once, very proudly." : "Slain by " + esc(why) + ", on floor " + G.floor + ", in " + esc(G.D.theme.name) + "."}</p></div>
+      <div class="after">
       <div class="stats">
         <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>kills</span><span><b>${s.items}</b>powerups</span><span><b>${s.reactions}</b>reactions</span><span><b>${s.rooms}</b>rooms</span>
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
       <p class="hint">Best gun: <b>${esc(G.player.guns.slice().sort((a, b)=> DG.Loot.dps(b, G.mods) - DG.Loot.dps(a, G.mods))[0].name)}</b> · seed <b>${G.seedWord}</b></p>
       <div class="menu">
-        ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper and nastier</small></button>` : ""}
-        <button class="item" data-act="new">NEW RUN</button>
+        ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper, and worse</small></button>` : ""}
+        <button class="item" data-act="new">NEW RUN <small>try again</small></button>
         <button class="item" data-act="again">SAME SEED <small>${G.seedWord}</small></button>
         <button class="item" data-act="title">TITLE</button>
       </div>
-    </div>`, won ? "end win" : "end");
+      </div>
+    </div>`, won ? "end win" : "end lose");
 };
 
 })();

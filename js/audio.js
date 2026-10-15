@@ -2,9 +2,9 @@
  *  Audio, all synthesised (as in Pine Hollow and Gloom Shooter): two
  *  buses, music and effects, into one compressor.
  *
- *  The music is a sneaky goblin march in A minor, sequenced ahead of
- *  the clock. Exploring gets bass and plucks; a locked room adds drums;
- *  the bosses get the lot, faster.
+ *  The music is a slow goblin dirge in A minor over a low drone,
+ *  sequenced ahead of the clock. Exploring gets bass and plucks; a
+ *  locked room adds drums; the bosses get the lot, faster.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -57,6 +57,16 @@ function burst(dur, ftype, freq, vol, q, at, bus, sweep, verb){
   s.start(t, Math.random()*1.5); s.stop(t + dur + 0.05);
 }
 const mtof = m=> 440*Math.pow(2, (m - 69)/12);
+/* a slow swell and fade, for drones and tolls */
+function swell(f, dur, type, vol, at, bus, verb){
+  const c = A.ctx; if(!c) return;
+  const t = c.currentTime + (at || 0), o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+  o.type = type || "sawtooth"; o.frequency.setValueAtTime(f, t);
+  lp.type = "lowpass"; lp.frequency.value = 420; lp.Q.value = 0.7;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur*0.4); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  o.connect(lp); lp.connect(g); g.connect(bus || A.sfx); if(verb) g.connect(A.verb);
+  o.start(t); o.stop(t + dur + 0.05);
+}
 
 /* every gun shot gets a little of its element on top */
 function elementTail(el){
@@ -92,9 +102,9 @@ A.play = function(name, o){
     case "crit":   tone(1320, 0.12, "triangle", 0.09); tone(1760, 0.15, "triangle", 0.07, 0.05); burst(0.08, "lowpass", 1600, 0.25); break;
     case "bounce": tone(1600, 0.04, "triangle", 0.04, 0, 0, 2200); break;
     case "kill":   tone(mtof(72 + Math.floor(Math.random()*5)), 0.08, "square", 0.05, 0, 0, 900); burst(0.2, "lowpass", 700, 0.3, 2, 0, 0, 150); break;
-    case "bossdie": [69, 72, 76, 81, 84, 88].forEach((m, i)=> tone(mtof(m), 0.5, "triangle", 0.09, i*0.1, 0, 0, true)); burst(1.5, "lowpass", 900, 0.8, 0.7, 0, 0, 60, true); break;
+    case "bossdie": tone(mtof(33), 3.5, "sine", 0.5, 0, 0, 0, true); tone(mtof(45), 3, "triangle", 0.12, 0.02, 0, 0, true); [57, 60, 64, 69].forEach((m, i)=> tone(mtof(m), 1.6, "triangle", 0.06, 0.5 + i*0.22, 0, 0, true)); burst(1.8, "lowpass", 700, 0.8, 0.7, 0, 0, 50, true); break;
     case "hurt":   tone(200, 0.2, "sawtooth", 0.15, 0, 0, 70); burst(0.15, "lowpass", 1400, 0.35); break;
-    case "death":  [64, 62, 59, 55, 52].forEach((m, i)=> tone(mtof(m), 0.6, "triangle", 0.1, i*0.18, 0, 0, true)); break;
+    case "death":  tone(mtof(31), 4, "sine", 0.55, 0, 0, 0, true); tone(mtof(43), 3.2, "triangle", 0.12, 0.01, 0, 0, true); tone(mtof(55.3), 2.6, "sine", 0.05, 0.02, 0, 0, true); burst(1.2, "lowpass", 500, 0.5, 0.7, 0, 0, 60, true); swell(mtof(40), 4.5, "sawtooth", 0.08, 0.3, 0, true); break;
     case "heal":   [0, 4, 7, 12].forEach((s, i)=> tone(mtof(79 + s), 0.3, "triangle", 0.05, i*0.05, 0, 0, true)); break;
     case "blink":  tone(400, 0.15, "sine", 0.1, 0, 0, 1600); burst(0.15, "highpass", 2000, 0.12, 1, 0, 0, 6000); break;
     case "reload": burst(0.05, "bandpass", 2500, 0.2, 4); break;
@@ -102,7 +112,7 @@ A.play = function(name, o){
     case "swap":   burst(0.06, "bandpass", 2000, 0.2, 3); tone(700, 0.05, "triangle", 0.05, 0.04); break;
     case "doorShut": burst(0.4, "lowpass", 400, 0.7, 1, 0, 0, 80, true); tone(70, 0.3, "square", 0.15, 0, 0, 40); break;
     case "doorOpen": burst(0.6, "lowpass", 600, 0.3, 1, 0, 0, 200); [57, 60, 64].forEach((m, i)=> tone(mtof(m + 12), 0.25, "triangle", 0.06, i*0.08)); break;
-    case "clear":  [69, 72, 76, 81].forEach((m, i)=> tone(mtof(m), 0.3, "square", 0.04, i*0.08, 0, 0, true)); break;
+    case "clear":  tone(mtof(57), 1.4, "sine", 0.12, 0, 0, 0, true); tone(mtof(64), 1.2, "triangle", 0.04, 0.12, 0, 0, true); break;
     case "tell":   tone(900, 0.06, "square", 0.03); break;
     case "tellBig": tone(110, 0.4, "sawtooth", 0.1, 0, 0, 220); break;
     case "sling":  burst(0.12, "bandpass", 900, 0.2, 3, 0, 0, 300); break;
@@ -129,7 +139,7 @@ A.play = function(name, o){
     case "spikes": burst(0.08, "highpass", 3000, 0.25, 1); tone(800, 0.05, "square", 0.04); break;
     case "dart":   burst(0.08, "bandpass", 2500, 0.2, 2); break;
     case "thud":   tone(60, 0.3, "sine", 0.6, 0, 0, 30); burst(0.2, "lowpass", 300, 0.5); break;
-    case "boss":   [45, 48, 52, 51].forEach((m, i)=> tone(mtof(m), 0.8, "sawtooth", 0.08, i*0.25, 0, 0, true)); break;
+    case "boss":   tone(mtof(29), 3, "sine", 0.5, 0, 0, 0, true); [45, 48, 52, 51].forEach((m, i)=> tone(mtof(m), 1.1, "sawtooth", 0.06, 0.2 + i*0.35, 0, 0, true)); swell(mtof(33), 4, "sawtooth", 0.12, 0, 0, true); break;
     case "jump":   tone(120, 0.5, "sine", 0.2, 0, 0, 480); break;
     case "portal": [60, 64, 67, 71, 74, 79].forEach((m, i)=> tone(mtof(m), 1.2, "sine", 0.05, i*0.09, 0, 0, true)); break;
     case "descend": tone(400, 1.0, "sine", 0.1, 0, 0, 80, true); break;
@@ -202,15 +212,16 @@ const SONG = {
 A.setMode = m=>{ A.mode = m; };
 A.tick = function(){
   const c = A.ctx; if(!c || c.state !== "running") return;
-  const bpm = A.mode === "boss" ? 132 : A.mode === "fight" ? 118 : 96, spb = 60/bpm/4;
+  const bpm = A.mode === "boss" ? 120 : A.mode === "fight" ? 108 : 84, spb = 60/bpm/4;
   while(A.next < c.currentTime + 0.2){
     const at = A.next - c.currentTime, s = A.step % 16, bar = Math.floor(A.step/16) % 4, Bu = A.music;
     const ch = SONG.chords[bar], bass = SONG.bass[bar] - (A.mode === "boss" ? 12 : 0);
     // the walking bass: on the beat, sneaking
     if(s % 4 === 0) tone(mtof(bass + (s === 8 ? 7 : 0)), spb*3, "triangle", 0.16, at, Bu);
     if(s % 4 === 2 && A.mode !== "menu") tone(mtof(bass + 12), spb*1.5, "triangle", 0.07, at, Bu);
-    // a soft pad
+    // a soft pad, and under everything a low drone that swells with each bar
     if(s === 0) ch.forEach((n, i)=> tone(mtof(n), spb*15, "sine", 0.022, at + i*0.01, Bu));
+    if(s === 0){ swell(mtof(SONG.bass[bar] - 12), spb*17, "sawtooth", 0.05, at, Bu); swell(mtof(SONG.bass[bar] - 12)*1.006, spb*17, "sawtooth", 0.035, at, Bu, true); }
     // plucks
     if(s % 2 === 0) tone(mtof(ch[(s/2) % 3] + 12), 0.18, "triangle", A.mode === "menu" ? 0.03 : 0.02, at, Bu);
     // drums once there's a fight
@@ -222,7 +233,7 @@ A.tick = function(){
     }
     // the tune
     const n = SONG.lead[bar][s];
-    if(n > 0 && (A.mode === "menu" || A.mode === "boss" || Math.floor(A.step/64) % 2 === 1)) tone(mtof(n), spb*2.5, "square", 0.022, at, Bu);
+    if(n > 0 && (A.mode === "menu" || A.mode === "boss" || Math.floor(A.step/64) % 2 === 1)) tone(mtof(n), spb*3, "triangle", 0.03, at, Bu, 0, true);
     A.next += spb; A.step++;
   }
 };

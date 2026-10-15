@@ -101,32 +101,32 @@ DG.PLAYER = {
 DG.ENEMIES = {
   /* goblins */
   grunt:    { name:"Goblin Grunt",    hp:22,  speed:3.5, radius:0.34, cost:1,   dmg:9,  gold:[1,2], ai:"melee",   model:"grunt",
-              lines:["OI!", "Stabby time!", "Mine!"] },
+              lines:["Fresh meat!", "Stick 'im!", "Mine. All mine."] },
   slinger:  { name:"Goblin Slinger",  hp:16,  speed:3.2, radius:0.32, cost:1.5, dmg:8,  gold:[1,3], ai:"ranged",  model:"slinger",
-              shot:{ speed:7.5, cd:1.9, tell:0.45, n:1, kind:"rock" }, keep:[4.5, 7], lines:["Rock!", "Heads up!"] },
+              shot:{ speed:7.5, cd:1.9, tell:0.45, n:1, kind:"rock" }, keep:[4.5, 7], lines:["Eat stone!", "Hold still, wizard!"] },
   bomber:   { name:"Goblin Bomber",   hp:20,  speed:3.0, radius:0.34, cost:2,   dmg:16, gold:[2,3], ai:"bomber",  model:"bomber",
-              bomb:{ cd:2.6, fuse:1.15, radius:1.7 }, keep:[4, 7], lines:["Fire in the hole!", "Hehehehe"] },
+              bomb:{ cd:2.6, fuse:1.15, radius:1.7 }, keep:[4, 7], lines:["Fire in the hole!", "Hehehe... boom."] },
   shaman:   { name:"Goblin Shaman",   hp:26,  speed:2.8, radius:0.34, cost:2.5, dmg:7,  gold:[2,4], ai:"shaman",  model:"shaman",
-              shot:{ speed:6, cd:2.4, tell:0.5, n:3, spread:22, kind:"hex" }, heal:{ cd:4.5, amt:10, range:6 }, keep:[5, 8], lines:["Mumbo jumbo!", "Get up, ya lazy git"] },
+              shot:{ speed:6, cd:2.4, tell:0.5, n:3, spread:22, kind:"hex" }, heal:{ cd:4.5, amt:10, range:6 }, keep:[5, 8], lines:["Bones, rise!", "Up, ya lazy corpse."] },
   brute:    { name:"Goblin Brute",    hp:90,  speed:2.3, radius:0.6,  cost:3.5, dmg:18, gold:[4,7], ai:"brute",   model:"brute",
-              charge:{ cd:3.4, tell:0.75, speed:10, time:0.65, stun:1.4 }, lines:["SMASH", "Brute want hug"] },
+              charge:{ cd:3.4, tell:0.75, speed:10, time:0.65, stun:1.4 }, lines:["CRUSH.", "Brute want hug."] },
   sneak:    { name:"Goblin Sneak",    hp:18,  speed:5.0, radius:0.3,  cost:1.5, dmg:11, gold:[2,3], ai:"sneak",   model:"sneak",
-              lines:["...", "Boo."] },
+              lines:["...", "Behind you."] },
   /* shroom folk */
   puffling: { name:"Puffling",        hp:12,  speed:4.4, radius:0.3,  cost:1,   dmg:10, gold:[1,2], ai:"puffling",model:"puffling",
-              lines:["poof?", "POOF!"] },
+              lines:["poof?", "POOF."] },
   toadstool:{ name:"Toadstool Turret",hp:40,  speed:0,   radius:0.45, cost:2,   dmg:8,  gold:[2,3], ai:"toadstool",model:"toadstool",
               shot:{ speed:5.5, cd:2.2, tell:0.6, n:5, spread:70, kind:"spore" } },
   shroomkin:{ name:"Shroomkin",       hp:34,  speed:3.0, radius:0.42, cost:2,   dmg:10, gold:[2,3], ai:"melee",   model:"shroomkin", splits:"shroomlet",
-              lines:["Spore-ry!", "Mush!"] },
+              lines:["Rot... spreads...", "Spore-ry."] },
   shroomlet:{ name:"Shroomlet",       hp:10,  speed:4.2, radius:0.24, cost:0.5, dmg:6,  gold:[0,1], ai:"melee",   model:"shroomlet" },
   /* the haunted */
   ghost:    { name:"Ghost",           hp:28,  speed:2.2, radius:0.36, cost:2,   dmg:10, gold:[1,3], ai:"ghost",   model:"ghost", phases:true,
-              shot:{ speed:5, cd:3, tell:0.5, n:1, kind:"ecto" }, lines:["Boooo", "Wooo"] },
+              shot:{ speed:5, cd:3, tell:0.5, n:1, kind:"ecto" }, lines:["Leave... this place...", "So cold..."] },
   banshee:  { name:"Banshee",         hp:38,  speed:2.6, radius:0.38, cost:3,   dmg:9,  gold:[2,4], ai:"banshee", model:"banshee", phases:true,
               wail:{ cd:4.5, tell:0.9, n:11, arc:70, speed:6.5 }, keep:[3.5, 6.5] },
   skeleton: { name:"Skeleton Archer", hp:24,  speed:3.0, radius:0.33, cost:2,   dmg:10, gold:[1,3], ai:"ranged",  model:"skeleton", reassemble:true,
-              shot:{ speed:11, cd:2.1, tell:0.55, n:1, kind:"arrow" }, keep:[5, 8], lines:["*rattle*", "click clack"] },
+              shot:{ speed:11, cd:2.1, tell:0.55, n:1, kind:"arrow" }, keep:[5, 8], lines:["*rattle*", "*clatter*"] },
   poltergeist:{ name:"Poltergeist",   hp:26,  speed:2.8, radius:0.34, cost:2.5, dmg:14, gold:[2,3], ai:"bomber",  model:"poltergeist", phases:true,
               bomb:{ cd:2.4, fuse:0.5, radius:1.3, junk:true }, keep:[4, 7] },
   /* the weird */
@@ -144,20 +144,25 @@ DG.ENEMIES = {
   bloater:  { name:"Bloater",         hp:60,  speed:1.6, radius:0.62, cost:2.5, dmg:14, gold:[2,4], ai:"melee",   model:"bloater", deathCloud:true,
               lines:["blorp", "*gurgle*"] },
   husk:     { name:"Blight Husk",     hp:58,  speed:2.6, radius:0.45, cost:3,   dmg:16, gold:[2,4], ai:"brute",   model:"husk", armor:0.75,
-              charge:{ cd:3.8, tell:0.8, speed:9, time:0.6, stun:1.2 }, lines:["...the Gloom...", "join us"] }
+              charge:{ cd:3.8, tell:0.8, speed:9, time:0.6, stun:1.2 }, lines:["...the Gloom...", "Join us."] }
 };
 
 DG.BOSSES = {
-  king:      { name:"Grubnok the Goblin King", hp:800,  speed:2.6, radius:1.1, dmg:16, ai:"king",      model:"king",
-               lines:["WHO TOUCHED MY DUNGEON", "GUARDS! ...guards?", "I'LL SIT ON YOU"] },
+  king:      { name:"Grubnok, the Gorged King", hp:800,  speed:2.6, radius:1.1, dmg:16, ai:"king",      model:"king",
+               lines:["Who dares trespass in MY keep?", "Guards! ...Guards? Cowards, all.", "Kneel, little wizard. Or be sat upon."],
+               felled:"TYRANT FELLED" },
   matriarch: { name:"The Morel Matriarch",     hp:1150, speed:1.4, radius:1.2, dmg:15, ai:"matriarch", model:"matriarch",
-               lines:["You smell of... soap.", "My children will grow on you.", "Spores, my darlings."] },
+               lines:["You smell of soap... and fear.", "My children shall take root in you.", "Breathe deep, little mage. Breathe deep."],
+               felled:"ROT UPROOTED" },
   bride:     { name:"The Weeping Bride",       hp:1300, speed:2.4, radius:0.8, dmg:17, ai:"bride",     model:"bride",
-               lines:["You're not him.", "Stay. Stay forever.", "Why does everyone leave?"] },
+               lines:["You are not him.", "Stay. Stay with me forever.", "Everyone leaves. Not you. Not anymore."],
+               felled:"VOWS SEVERED" },
   eye:       { name:"The Eye Below",           hp:1700, speed:0.8, radius:1.5, dmg:19, ai:"eye",       model:"eye",
-               lines:["I SEE YOU", "BLINK, LITTLE WIZARD", "LOOK AT ME"] },
+               lines:["I SEE YOU.", "BLINK, LITTLE WIZARD. I NEVER DO.", "LOOK UPON ME."],
+               felled:"THE EYE IS SHUT" },
   heart:     { name:"The Gloom Heart",         hp:2300, speed:0,   radius:1.6, dmg:20, ai:"heart",     model:"heart",
-               lines:["ba-dum.", "the forest is mine.", "rot with me, little wizard."] }
+               lines:["ba-dum.", "the forest is mine. the forest is me.", "rot with me, little wizard."],
+               felled:"HEART STILLED" }
 };
 
 /* elite affixes */
@@ -221,16 +226,16 @@ DG.TRAPS = {
 
 /* ---- lines ---- */
 DG.LINES = {
-  shop:   ["Snibbit's Discount Emporium! No refunds, no returns, no questions.", "Ooh, a customer! A wizard customer! Rich, I hope.", "Everything's legally obtained. Mostly."],
-  broke:  ["No gold, no goods, pointy-hat.", "That's not enough shinies.", "Do I look like a charity?"],
-  bonk:   ["BONK. It's a painting of a door.", "Ow. Very convincing paint job.", "That door is a lie.", "The door was a picture. You feel silly.", "Goblin art. Infuriatingly realistic."],
-  secret: ["A wall that isn't! How rude of it.", "Illusionary wall. The goblins think they're SO clever.", "Through the fake wall... a secret!"],
-  wrong:  ["HAHAHA it was the OTHER door!", "Gotcha! Lads, get 'im!", "Wrong door, wizard!"],
-  solved: ["Click. Something unlocked.", "Puzzle solved! A goblin somewhere is furious.", "Ta-da!"],
-  clear:  ["Room clear.", "Goblins: scattered.", "Tidy."],
+  shop:   ["Snibbit's Emporium of Dubious Wares. No refunds. No survivors.", "A customer! A living one, even. How rare.", "Every ware lawfully looted from the dead. Mostly."],
+  broke:  ["No gold, no goods, pointy-hat.", "Your purse is as empty as your future.", "Charity died down here long ago."],
+  bonk:   ["BONK. A painting of a door. How cruel.", "Merely paint. Somewhere, a goblin snickers.", "That door is a lie.", "A false door. Your nose will remember it.", "Goblin art. Infuriatingly convincing."],
+  secret: ["The wall was a lie. Something waits beyond.", "An illusory wall. Clever, for goblins.", "Hidden things, hidden for a reason."],
+  wrong:  ["HAHAHA. The OTHER door, fool!", "Gotcha! Lads, get 'im!", "Wrong door, wizard. Your last mistake."],
+  solved: ["Click. Something old unlocks.", "The mechanism yields. Somewhere, a goblin weeps.", "It is done."],
+  clear:  ["The room falls silent.", "Nothing stirs. For now.", "Silence returns."],
   gribbus:["*ribbit*", "*RIBBIT*", "*croak*", "*blorp*", "*slurp*", "*ribbit?*"],
-  pond:   ["Gribbus wants a lily pad. He looks at you very hard.", "The pond smells of adventure (and frog).", "Three lily pads. Gribbus can only sit on one."],
-  altar:  ["The altar wants a little of your life. Just a little.", "Blood for power. Classic.", "The altar hums. It is hungry."]
+  pond:   ["Gribbus eyes the lily pads with grave intent.", "Still black water. It smells of frog, and of old secrets.", "Three lily pads. Gribbus may claim but one."],
+  altar:  ["The altar thirsts. A little of your life will do.", "Blood for power. The oldest bargain.", "The altar hums. It is hungry. It is always hungry."]
 };
 DG.DOOR_COLORS = [
   { id:"red",    name:"red",    hex:0xd2453a },
