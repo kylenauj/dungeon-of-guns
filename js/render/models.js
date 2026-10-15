@@ -999,7 +999,7 @@ function bsChain(parent, a, b, n, col, r, sag){
   }
 }
 /* a tooth: an uneven yellowed fang, point along +y */
-const bsTooth = ()=> bsPrefab("tooth", g=>{ P(g, K.sculpt(new THREE.ConeGeometry(0.02, 0.08, 8, 3), 0.002, 60, 1), 0xd0c4a0, 0, 0.04, 0); P(g, CY(0.021, 0.018, 0.02, 8), 0x8a5a48, 0, -0.005, 0); });
+const bsTooth = ()=> bsPrefab("tooth", g=>{ P(g, bsJitter(new THREE.ConeGeometry(0.02, 0.08, 8, 3), 0.002, 60, 1), 0xd0c4a0, 0, 0.04, 0); P(g, CY(0.021, 0.018, 0.02, 8), 0x8a5a48, 0, -0.005, 0); });
 
 /* ---- floor 1, the Castle Keep: Grubnok, a hollow tyrant on a throne lashed
    to a starved hog-beast. Crown rusted into his skull, mantle in rags, a
@@ -1040,7 +1040,7 @@ Models.king = function(){
     P(hb, S(0.05, 10, 8), BS.black, s*0.11, 0.1, 0.16, 0, 0, 0, 1, 0.7, 0.8);
     glow(R, hb, 0.014, 0xff4a1a, s*0.115, 0.1, 0.19);
     P(hb, BX(0.12, 0.035, 0.06), 0x4e4a3c, s*0.1, 0.16, 0.16, 0, 0, s*-0.35);
-    P(hb, bsPaint(K.sculpt(new THREE.ConeGeometry(0.08, 0.26, 12, 3), 0.01, 20, s), 0x5a5444, 0x3a1a1a, 9, s), 0xffffff, s*0.16, 0.16, -0.08, -0.7, 0, -s*1.0, 1, 1, 0.35);
+    P(hb, bsPaint(bsJitter(new THREE.ConeGeometry(0.08, 0.26, 12, 3), 0.01, 20, s), 0x5a5444, 0x3a1a1a, 9, s), 0xffffff, s*0.16, 0.16, -0.08, -0.7, 0, -s*1.0, 1, 1, 0.35);
   });
   P(hb, bsRing(0.135, 0.018), BS.rust, 0, -0.01, 0.3);
   [-1, 1].forEach(s=>{ P(hb, bsRing(0.04, 0.012), BS.rust, s*0.14, -0.01, 0.3, 0, PI/2); bsChain(b, [s*0.15, 0.97, 1.55], [s*0.42, 1.68, 0.12], 14, 0x3a3034, 0.026, 0.12); });
@@ -1136,7 +1136,7 @@ Models.king = function(){
     P(head, S(0.05, 12, 8), BS.black, s*0.075, 0.035, 0.15, 0, 0, 0, 1.2, 0.75, 0.55);
     glow(R, head, 0.012, 0xff3a1a, s*0.075, 0.03, 0.18);
     P(head, BX(0.11, 0.03, 0.05), SKIN2, s*0.075, 0.085, 0.16, 0.2, 0, s*-0.3);
-    P(head, bsPaint(K.sculpt(new THREE.ConeGeometry(0.1, 0.55, 14, 4), 0.012, 16, s*3), SKIN, 0x3a1a1a, 10, s), 0xffffff, s*0.27, -0.12, -0.03, -0.35, 0, -s*(PI/2 + 0.95), 0.8, 0.8, 0.28);
+    P(head, bsPaint(bsJitter(new THREE.ConeGeometry(0.1, 0.55, 14, 4), 0.012, 16, s*3), SKIN, 0x3a1a1a, 10, s), 0xffffff, s*0.27, -0.12, -0.03, -0.35, 0, -s*(PI/2 + 0.95), 0.8, 0.8, 0.28);
     P(head, bsRing(0.035, 0.008), BS.brass, s*0.27, -0.12, 0.0, 0, PI/2);
   });
   P(head, BX(0.15, 0.022, 0.03), 0x140808, 0, -0.105, 0.185);
@@ -1183,6 +1183,15 @@ Models.king = function(){
   R.h = 3.2; R.size = 2.5;
   return finish(R, { w:0.03 });
 };
+/* roughen a shape by moving each corner with smooth noise; unlike K.sculpt the
+   seams of boxes and cones stay closed, as it only looks at positions */
+function bsJitter(g, amt, f, seed){
+  const a = g.attributes.position;
+  for(let i=0;i<a.count;i++){ const x = a.getX(i), y = a.getY(i), z = a.getZ(i);
+    a.setXYZ(i, x + bsN(x, y, z, f, seed)*amt, y + bsN(y, z, x, f, seed + 1)*amt, z + bsN(z, x, y, f, seed + 2)*amt); }
+  g.computeVertexNormals();
+  return g;
+}
 /* a tube that tapers from r0 to r1 along its length (roots, nerves, tendrils, fingers) */
 function bsTaper(pts, r0, r1, seg, rseg){
   const curve = new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2])));
@@ -1512,7 +1521,7 @@ Models.heart = function(){
     const e = p[p.length - 1], q = p[p.length - 2];
     const m = P(b, CO(0.06, 0.16, 8), BONE, e[0], e[1], e[2]); bsAim(m, [e[0] - q[0], e[1] - q[1], e[2] - q[2]]);
   }
-  for(let i=0;i<6;i++){ const z = -1.35 - i*0.03, x = (i - 2.5)*0.3; P(b, bsPaint(K.sculpt(new THREE.BoxGeometry(0.22, 0.16, 0.26, 3, 3, 3), 0.015, 18, i), BONE, 0x3a3428, 9, i), 0xffffff, x, 0.1, z - Math.abs(x)*0.15, 0, 0.1*i, 0); P(b, CO(0.05, 0.2, 6), BONE, x, 0.25, z - Math.abs(x)*0.15 - 0.05, -0.4); }
+  for(let i=0;i<6;i++){ const z = -1.35 - i*0.03, x = (i - 2.5)*0.3; P(b, bsPaint(bsJitter(new THREE.BoxGeometry(0.22, 0.16, 0.26, 3, 3, 3), 0.015, 18, i), BONE, 0x3a3428, 9, i), 0xffffff, x, 0.1, z - Math.abs(x)*0.15, 0, 0.1*i, 0); P(b, CO(0.05, 0.2, 6), BONE, x, 0.25, z - Math.abs(x)*0.15 - 0.05, -0.4); }
   // the heart
   const beat = group(b, 0, 1.38, 0); R.parts.head = beat;
   const H = group(beat); H.scale.setScalar(1.1);
@@ -1627,30 +1636,120 @@ Models.fade = function(R, a){
 /* ================================================================== *
  *  Things to pick up, and powerup tokens on pedestals
  * ================================================================== */
-const coinGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.04, 12); coinGeo.rotateX(PI/2);
-const coinBig = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 12); coinBig.rotateX(PI/2);
-const coinM = K.lambert(0xffc83a, { emissive:0x553a00 });
+/* Loot is old and worn: tarnished coins, blood in a flask, a pale soul,
+   a cracked rune-stone, a gilded fly. Each piece is merged once into a
+   vertex-coloured geometry and shared; a little self-glow (and the light
+   it gives off) keeps it findable in the dark. */
+const lootMats = {};
+const lootMat = em=> lootMats[em] || (lootMats[em] = K.ink({ emissive:em }));
+const lootGlass = (c, op)=> new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, depthWrite:false });
+/* a worn old coin: a crowned skull struck on one face, a cross on the other */
+const coinGeo = ()=> bsPrefab("coin", g=>{
+  const c = new THREE.CylinderGeometry(0.12, 0.118, 0.024, 26, 1); c.rotateX(PI/2);
+  K.sculpt(c, 0.004, 40, 3);
+  bsPaint(c, 0xa8823a, 0x4a3612, 26, 2, (k, x, y, z)=>{ const r = Math.hypot(x, y); if(r > 0.1) k.multiplyScalar(0.75); });
+  P(g, c, 0xffffff);
+  [-1, 1].forEach(s=> P(g, geo("bs-coinrim", ()=> new THREE.TorusGeometry(0.108, 0.008, 4, 26)), 0x7a5a24, 0, 0, s*0.012));
+  P(g, S(0.034, 10, 8), 0xb8923e, 0, 0.0, 0.012, 0, 0, 0, 1, 1.1, 0.35);
+  [-1, 1].forEach(s=> P(g, S(0.009, 6, 4), 0x2a1a08, s*0.013, 0.005, 0.022));
+  for(let i=0;i<3;i++) P(g, CO(0.008, 0.024, 4), 0xb8923e, (i - 1)*0.018, 0.043, 0.014);
+  P(g, BX(0.014, 0.07, 0.006), 0x8a6a2a, 0, 0, -0.014); P(g, BX(0.05, 0.014, 0.006), 0x8a6a2a, 0, 0.01, -0.014);
+});
+/* a flask of blood, corked and sealed; the blood glows */
+const vialProf = [[0, -0.17], [0.09, -0.165], [0.135, -0.1], [0.14, -0.02], [0.11, 0.06], [0.05, 0.11], [0.038, 0.14], [0.038, 0.22], [0.048, 0.235], [0.0, 0.24]];
+function bloodVial(g, k, R){
+  const s = new THREE.Group(); s.scale.setScalar(k); g.add(s);
+  const liquid = new THREE.Mesh(geo("vial-blood", ()=> K.lathe([[0, -0.155], [0.08, -0.15], [0.122, -0.09], [0.127, -0.02], [0.1, 0.04], [0.0, 0.045]], 16)), K.basic(0xb0101a));
+  s.add(liquid);
+  const surf = new THREE.Mesh(geo("vial-surf", ()=> new THREE.CircleGeometry(0.1, 20).rotateX(-PI/2)), K.basic(0xff3a2a)); surf.position.y = 0.045; s.add(surf);
+  const glass = new THREE.Mesh(geo("vial-glass", ()=> K.lathe(vialProf, 18)), lootGlass(0xc8b8b0, 0.22)); s.add(glass);
+  const fit = new THREE.Mesh(bsPrefab("vial-fit", q=>{
+    P(q, CY(0.034, 0.03, 0.07, 12), 0x5a3a22, 0, 0.255, 0);
+    P(q, CY(0.05, 0.05, 0.02, 14), 0x5a4420, 0, 0.215, 0);
+    P(q, geo("bs-vialcord", ()=> new THREE.TorusGeometry(0.045, 0.008, 5, 16)), 0x3a2a1a, 0, 0.17, 0, PI/2);
+    P(q, CY(0.03, 0.04, 0.02, 10), 0x6a1010, 0, 0.29, 0);
+    [0.4, 2.2, 4.1].forEach((a, i)=> P(q, CY(0.007, 0.01, 0.06 + i*0.02, 6), 0x5a0c0c, Math.cos(a)*0.035, 0.26 - i*0.01, Math.sin(a)*0.035));
+    P(q, K.tube([[0.04, 0.17, 0.02], [0.08, 0.1, 0.07], [0.1, 0.0, 0.06]], 0.006, 6, 4), 0x3a2a1a);
+    P(q, BX(0.06, 0.08, 0.008), 0xa8987a, 0.1, -0.03, 0.06, 0, 0.6, 0.1);
+  }), lootMat(0x140a06));
+  s.add(fit);
+  const h = K.sprite(0xff2a1a, 0.9*k, 0.55); h.position.y = -0.05*k; g.add(h);
+  if(R) R.glows.push(liquid, surf, glass, h);
+  return s;
+}
+/* the ward rune (algiz, the elk-sedge: protection), with a crack through the stone */
+const runeTex = (()=>{ let t; return ()=> t || (t = (()=>{
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d");
+  g.strokeStyle = "#fff"; g.lineCap = "round"; g.shadowColor = "#fff"; g.shadowBlur = 6;
+  g.lineWidth = 6; g.beginPath(); g.moveTo(32, 86); g.lineTo(32, 12); g.moveTo(32, 46); g.lineTo(12, 18); g.moveTo(32, 46); g.lineTo(52, 18); g.stroke();
+  g.lineWidth = 2; g.shadowBlur = 3; g.beginPath(); g.moveTo(50, 4); g.lineTo(44, 22); g.lineTo(48, 34); g.lineTo(38, 52); g.lineTo(42, 66); g.lineTo(34, 92); g.stroke();
+  return new THREE.CanvasTexture(cv); })()); })();
+const runeStoneGeo = ()=> bsPrefab("runestone", g=>{
+  const st = new THREE.BoxGeometry(0.24, 0.32, 0.075, 5, 7, 2);
+  const a = st.attributes.position; for(let i=0;i<a.count;i++){ const y = a.getY(i); a.setX(i, a.getX(i)*(1 - Math.max(0, y)*0.9)); }
+  bsJitter(st, 0.012, 14, 5);
+  bsPaint(st, 0x5e5e64, 0x22222a, 12, 3, (c, x, y, z)=>{ if(y < -0.08 && bsN(x, y, z, 20, 1) > 0.2) c.lerp(bsC.setHex(0x3a5a3a), 0.6); });
+  P(g, st, 0xffffff);
+});
+function runeStone(g, R, k){
+  const s = new THREE.Group(); s.scale.setScalar(k || 1); g.add(s);
+  s.add(new THREE.Mesh(runeStoneGeo(), lootMat(0x0a1218)));
+  const mat = new THREE.MeshBasicMaterial({ map:runeTex(), color:0x8ad8ff, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
+  [1, -1].forEach(sd=>{ const r = new THREE.Mesh(geo("rune-plane", ()=> new THREE.PlaneGeometry(0.17, 0.25)), mat); r.position.z = sd*0.045; if(sd < 0) r.rotation.y = PI; s.add(r); if(R) R.glows.push(r); });
+  const h = K.sprite(0x8ad8ff, 0.8*(k || 1), 0.35); s.add(h); if(R) R.glows.push(h);
+  return s;
+}
+/* a pale soul: a flame of cold light with two dark eyes in it */
+function soulWisp(g){
+  const flame = geo("wisp-flame", ()=> K.lathe([[0, -0.1], [0.075, -0.07], [0.09, 0.0], [0.065, 0.08], [0.025, 0.17], [0, 0.26]], 14));
+  const outer = new THREE.Mesh(flame, new THREE.MeshBasicMaterial({ color:0x2a6aa8, transparent:true, opacity:0.5, blending:THREE.AdditiveBlending, depthWrite:false })); outer.scale.setScalar(1.5); outer.position.y = -0.03; g.add(outer);
+  const mid = new THREE.Mesh(flame, new THREE.MeshBasicMaterial({ color:0x8ad8ff, transparent:true, opacity:0.6, blending:THREE.AdditiveBlending, depthWrite:false })); g.add(mid);
+  const core = new THREE.Mesh(S(0.055, 10, 8), K.basic(0xe8f6ff)); core.position.y = -0.01; g.add(core);
+  [-1, 1].forEach(s=>{ const e = new THREE.Mesh(S(0.014, 6, 4), K.basic(0x0a1622)); e.position.set(s*0.026, 0.02, 0.06); e.scale.set(1, 1.5, 0.6); g.add(e); });
+  [[0.05, -0.16, 0.02, 0.025], [-0.03, -0.24, -0.02, 0.018], [0.01, -0.31, 0.03, 0.012]].forEach(([x, y, z, r])=>{ const m = new THREE.Mesh(S(r, 6, 4), new THREE.MeshBasicMaterial({ color:0x8ad8ff, transparent:true, opacity:0.6, blending:THREE.AdditiveBlending, depthWrite:false })); m.position.set(x, y, z); g.add(m); });
+  g.add(K.sprite(0x6ab8ff, 1.0, 0.45));
+}
+/* a fly gone to gold: tarnished gilt, red eyes, veined wings */
+const flyGeo = ()=> bsPrefab("goldfly", g=>{
+  const GL = 0xc89a3a, GD = 0x5a3a12;
+  P(g, bsPaint(new THREE.SphereGeometry(0.065, 16, 12), GL, GD, 40, 1), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1.1);
+  const ab = new THREE.SphereGeometry(0.075, 18, 12); bsPaint(ab, GL, GD, 30, 2, (c, x, y, z)=>{ if(Math.sin(z*90) > 0.4) c.multiplyScalar(0.45); });
+  P(g, ab, 0xffffff, 0, -0.01, -0.11, -0.2, 0, 0, 0.85, 0.75, 1.5);
+  P(g, S(0.045, 12, 10), GL, 0, 0.005, 0.08);
+  for(let i=0;i<3;i++) [-1, 1].forEach(s=> P(g, K.tube([[s*0.04, -0.03, 0.04 - i*0.05], [s*0.1, -0.05, 0.05 - i*0.06], [s*0.12, -0.13, 0.07 - i*0.08]], 0.006, 6, 4), 0x2a1a08));
+  P(g, CO(0.008, 0.05, 4), 0x2a1a08, 0, -0.03, 0.12, PI/2 + 0.6);
+});
+const wingGeo = geo("fly-wing", ()=>{ const w = new THREE.CircleGeometry(0.1, 14); w.scale(0.6, 1.5, 1); w.translate(0, 0.13, 0); return w; });
+const wingTex = (()=>{ let t; return ()=> t || (t = (()=>{
+  const cv = document.createElement("canvas"); cv.width = cv.height = 32; const g = cv.getContext("2d");
+  g.fillStyle = "rgba(220,200,140,0.35)"; g.fillRect(0, 0, 32, 32); g.strokeStyle = "rgba(60,40,10,0.9)"; g.lineWidth = 1;
+  [[16, 32, 6, 0], [16, 32, 16, 0], [16, 32, 26, 0], [16, 32, 2, 12], [16, 32, 30, 12]].forEach(([a, b, c, d])=>{ g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+  g.beginPath(); g.moveTo(4, 14); g.lineTo(28, 10); g.stroke();
+  return new THREE.CanvasTexture(cv); })()); })();
+
 Models.pickup = function(pk){
   const g = new THREE.Group();
-  if(pk.kind === "gold"){ g.add(new THREE.Mesh(pk.value >= 5 ? coinBig : coinGeo, coinM)); g.userData.spin = 4; g.userData.hover = 0.3; }
-  else if(pk.kind === "heart" || pk.kind === "flyheal"){
-    const m = K.lambert(0xff3a4a, { emissive:0x501018 });
-    const k = pk.kind === "flyheal" ? 0.5 : 1;
-    for(const s of [-1, 1]){ const l = new THREE.Mesh(S(0.12*k), m); l.position.set(s*0.09*k, 0.05*k, 0); g.add(l); }
-    const c = new THREE.Mesh(CO(0.17*k, 0.22*k), m); c.rotation.z = PI; c.position.y = -0.08*k; g.add(c);
-    if(pk.kind === "flyheal") g.add(K.sprite(0xff8a9a, 0.6, 0.6));
+  if(pk.kind === "gold"){
+    const m = lootMat(0x2a1a04), c = coinGeo();
+    if(pk.value >= 5){ [[0, -0.05, 0, PI/2 - 0.1, 0, 0], [0.04, -0.02, 0.02, PI/2 + 0.15, 0.6, 0], [-0.02, 0.02, -0.03, PI/2 - 0.2, 1.4, 0.1], [0.0, 0.08, 0.04, 0, 0.3, 0.2]].forEach(([x, y, z, rx, ry, rz])=>{ const o = new THREE.Mesh(c, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.scale.setScalar(1.25); g.add(o); }); }
+    else g.add(new THREE.Mesh(c, m));
+    const h = K.sprite(0xd8a040, 0.55, 0.22); g.add(h);
+    g.userData.spin = 4; g.userData.hover = 0.3;
+  } else if(pk.kind === "heart" || pk.kind === "flyheal"){
+    const k = pk.kind === "flyheal" ? 0.55 : 1;
+    bloodVial(g, k);
+    if(pk.kind === "flyheal") g.add(K.sprite(0xff5a4a, 0.6, 0.5));
     g.userData.spin = 2; g.userData.hover = 0.45;
   } else if(pk.kind === "mana"){
-    g.add(new THREE.Mesh(OC(0.16), K.lambert(0x46a8ff, { emissive:0x103060 })));
-    g.add(K.sprite(0x46a8ff, 0.9, 0.5)); g.userData.spin = 2; g.userData.hover = 0.45;
+    soulWisp(g); g.userData.spin = 2; g.userData.hover = 0.45;
   } else if(pk.kind === "ward"){
-    g.add(new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 8, 16), K.lambert(0x8ad8ff, { emissive:0x2a5a8a })));
-    g.add(K.sprite(0x8ad8ff, 1, 0.5)); g.userData.spin = 3; g.userData.hover = 0.5;
+    runeStone(g); g.userData.spin = 3; g.userData.hover = 0.5;
   } else if(pk.kind === "fly"){
-    const m = K.lambert(0xffd23d, { emissive:0x8a6a00 });
-    g.add(new THREE.Mesh(S(0.1), m));
-    [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.14, 10), new THREE.MeshBasicMaterial({ color:0xfff8d0, transparent:true, opacity:0.7, side:THREE.DoubleSide })); w.position.set(s*0.12, 0.06, 0); w.rotation.set(-0.5, 0, s*0.4); g.add(w); });
-    g.add(K.sprite(0xffd23d, 1.4, 0.8)); g.userData.spin = 6; g.userData.hover = 0.8; g.userData.buzz = true;
+    g.add(new THREE.Mesh(flyGeo(), lootMat(0x3a2606)));
+    [-1, 1].forEach(s=>{ const w = new THREE.Mesh(wingGeo, new THREE.MeshBasicMaterial({ map:wingTex(), color:0xe8d8a0, transparent:true, opacity:0.75, side:THREE.DoubleSide, depthWrite:false })); w.position.set(s*0.03, 0.05, -0.02); w.rotation.set(-1.1, s*0.5, -s*0.9); g.add(w); });
+    [-1, 1].forEach(s=>{ const e = new THREE.Mesh(S(0.022, 8, 6), K.basic(0xff2a1a)); e.position.set(s*0.035, 0.015, 0.105); g.add(e); });
+    g.add(K.sprite(0xc8a040, 1.0, 0.45)); g.add(K.sprite(0xff3a1a, 0.25, 0.6));
+    g.userData.spin = 6; g.userData.hover = 0.8; g.userData.buzz = true;
   } else if(pk.kind === "item"){
     g.add(Models.item(pk.item));
     const col = pk.item.kind === "gun" ? DG.RARITY[pk.item.rarity].color : pk.item.kind === "item" ? DG.TIERS[DG.ITEMS[pk.item.id].tier].color : "#ffd23d";
@@ -1659,49 +1758,83 @@ Models.pickup = function(pk){
   }
   return g;
 };
+/* a shaft of dusty light over something worth having */
 function beam(col){
   const g = new THREE.Group();
-  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 3, 8, 1, true), new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.22, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.26, 3, 12, 1, true), new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.13, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
   b.position.y = 1.2; g.add(b);
-  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(new THREE.Color(col), 0.5)); pool.scale.set(1.6, 1, 1.6); pool.position.y = -0.55; g.add(pool);
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.1, 3, 8, 1, true), new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.18, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+  inner.position.y = 1.2; g.add(inner);
+  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(new THREE.Color(col), 0.38)); pool.scale.set(1.5, 1, 1.5); pool.position.y = -0.55; g.add(pool);
   return g;
 }
 Models.beam = beam;
 
-/* a powerup's token: its look comes from what kind of thing it is */
+/* a powerup's token: its look comes from what kind of thing it is. Each one
+   hangs in a little reliquary frame, a ring of tarnished gilt with thorns */
 const ELC = el=> DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
+const RELIC = 0x7a5e2a, RELIC2 = 0x3a2a14;
+function reliquary(root, tierHex){
+  // a little monstrance stand under the token: a crown of thorns on a gilt stem
+  P(root, geo("relic-ring", ()=> new THREE.TorusGeometry(0.17, 0.016, 5, 36)), RELIC, 0, -0.27, 0, PI/2);
+  for(let i=0;i<10;i++){ const a = i/10*PI*2, l = i % 2 ? 0.07 : 0.12; P(root, CO(0.013, l, 4), i % 2 ? RELIC2 : RELIC, Math.cos(a)*0.17, -0.27 + l*0.35, Math.sin(a)*0.17, Math.sin(a)*0.5, 0, -Math.cos(a)*0.5); }
+  P(root, CY(0.018, 0.026, 0.16, 8), RELIC2, 0, -0.35, 0);
+  P(root, CY(0.07, 0.09, 0.03, 12), RELIC, 0, -0.44, 0);
+  P(root, S(0.02, 8, 6), tierHex, 0, -0.27, 0);
+}
 Models.powerup = function(id){
   const d = DG.ITEMS[id], g = new THREE.Group(), tierCol = new THREE.Color(DG.TIERS[d.tier].color);
   const R = rig("token");
   const cat = d.tier === 4 ? "godly" : d.els ? "element" : d.on ? "trigger" : d.shot ? "shot" : d.special ? "artifact" : "potion";
   const root = group(g, 0, 0, 0);
   if(cat === "potion"){
-    P(root, K.lathe([[0, -0.2], [0.16, -0.18], [0.18, -0.05], [0.12, 0.06], [0.05, 0.1], [0.05, 0.2], [0, 0.2]], 14), 0xd8eef8);
-    P(root, S(0.15, 12, 10), [0xff4a5a, 0x4aa8ff, 0x7dff3a, 0xffd23d, 0xb36bff][id.length % 5], 0, -0.08, 0, 0, 0, 0, 1, 0.75, 1);
-    P(root, CY(0.055, 0.055, 0.06, 8), 0x8a5a2a, 0, 0.22, 0);
+    // an apothecary's bottle, dark glass, the draught inside glowing through it
+    const liq = [0xd8303a, 0x3a88d8, 0x6ad830, 0xd8a830, 0x9a58d8][id.length % 5];
+    P(root, K.lathe([[0, -0.2], [0.15, -0.19], [0.17, -0.06], [0.12, 0.05], [0.05, 0.1], [0.05, 0.19], [0.062, 0.21], [0, 0.21]], 16), 0x2a3432);
+    const l = glow(R, root, 0.13, liq, 0, -0.08, 0); l.scale.set(1.02, 0.75, 1.02); l.material.opacity = 0.9;
+    P(root, CY(0.045, 0.04, 0.07, 10), 0x5a3a22, 0, 0.24, 0);
+    P(root, CY(0.05, 0.055, 0.025, 10), 0x6a1010, 0, 0.27, 0);
+    P(root, BX(0.18, 0.09, 0.01), 0xa89a78, 0, -0.07, 0.16, -0.08);
+    P(root, BX(0.12, 0.012, 0.012), 0x3a2a1a, 0, -0.06, 0.166, -0.08);
+    halo(R, root, liq, 0.9, 0, -0.08, 0, 0.45);
   } else if(cat === "shot"){
-    P(root, CY(0.09, 0.09, 0.24, 12), GOLD, 0, -0.06, 0);
-    P(root, CO(0.09, 0.18, 12), 0xc8c8d8, 0, 0.15, 0);
-    P(root, TO(0.095, 0.02), tierCol.getHex(), 0, -0.12, 0, PI/2);
+    // a cartridge: tarnished brass, a lead nose, the tier's colour in its band
+    P(root, CY(0.085, 0.085, 0.24, 16), 0x8a6a30, 0, -0.06, 0);
+    P(root, CY(0.095, 0.095, 0.03, 16), 0x6a5024, 0, -0.18, 0);
+    P(root, K.lathe([[0.085, 0], [0.08, 0.06], [0.055, 0.14], [0.02, 0.19], [0, 0.2]], 14), 0x6a6a72, 0, 0.06, 0);
+    P(root, CY(0.088, 0.088, 0.035, 16), tierCol.getHex(), 0, -0.1, 0);
+    P(root, BX(0.01, 0.12, 0.004), 0x3a2a14, 0, -0.04, 0.086);
   } else if(cat === "element"){
+    // a shard of the element, set in an iron claw
     const c = ELC(d.els[0]);
-    P(root, OC(0.2), c, 0, 0, 0, 0, 0, 0, 0.8, 1.4, 0.8);
-    halo(R, root, c, 1.2, 0, 0, 0, 0.6);
+    P(root, OC(0.17), c, 0, 0.03, 0, 0, 0, 0, 0.7, 1.5, 0.7);
+    [[0.11, -0.1, 0.03, 0.5], [-0.1, -0.11, -0.03, -0.5], [0.02, -0.12, -0.1, 0.2]].forEach(([x, y, z, r])=> P(root, OC(0.07), c, x, y, z, 0, r, r, 0.6, 1.4, 0.6));
+    for(let i=0;i<3;i++){ const a = i/3*PI*2; P(root, K.tube([[0, -0.22, 0], [Math.cos(a)*0.08, -0.17, Math.sin(a)*0.08], [Math.cos(a)*0.1, -0.05, Math.sin(a)*0.1], [Math.cos(a)*0.06, 0.04, Math.sin(a)*0.06]], 0.012, 8, 5), 0x2a2a30); }
+    P(root, S(0.04, 8, 6), 0x2a2a30, 0, -0.22, 0);
+    glow(R, root, 0.05, c, 0, 0.03, 0);
+    halo(R, root, c, 1.1, 0, 0, 0, 0.55);
   } else if(cat === "trigger"){
-    P(root, BX(0.32, 0.4, 0.1), 0x6a6a7a);
-    const glyph = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 40, { size:28, bg:"#3a3a48", fg:DG.TIERS[d.tier].color }) }));
-    glyph.position.z = 0.051; root.add(glyph); R.glows.push(glyph);
-    const back = glyph.clone(); back.rotation.y = PI; back.position.z = -0.051; root.add(back);
+    // a slate tablet with its sign cut in, the cut glowing in the tier's colour
+    P(root, bsJitter(new THREE.BoxGeometry(0.32, 0.4, 0.08, 4, 5, 2), 0.01, 16, id.length), 0x3a3a40);
+    const glyph = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 40, { size:28, bg:"#16161c", fg:DG.TIERS[d.tier].color }) }));
+    glyph.position.z = 0.052; root.add(glyph); R.glows.push(glyph);
+    const back = glyph.clone(); back.rotation.y = PI; back.position.z = -0.052; root.add(back);
   } else if(cat === "artifact"){
-    P(root, new THREE.DodecahedronGeometry(0.17), tierCol.getHex());
-    P(root, TO(0.22, 0.025), GOLD, 0, 0, 0, PI/2);
+    // a relic: a stone of the tier's colour caged in iron bands
+    P(root, new THREE.DodecahedronGeometry(0.15), tierCol.getHex());
+    P(root, geo("relic-cage", ()=> new THREE.TorusGeometry(0.165, 0.014, 5, 28)), 0x2a2a30, 0, 0, 0, PI/2);
+    P(root, geo("relic-cage", ()=> new THREE.TorusGeometry(0.165, 0.014, 5, 28)), 0x2a2a30, 0, 0, 0, 0, PI/2);
+    P(root, geo("relic-loop", ()=> new THREE.TorusGeometry(0.04, 0.01, 5, 14)), 0x2a2a30, 0, 0.2, 0);
+    halo(R, root, tierCol.getHex(), 0.8, 0, 0, 0, 0.4);
   } else {
-    // godly: a little sun with rays
-    glow(R, root, 0.16, 0xfff27a);
-    for(let i=0;i<8;i++){ const a = i/8*PI*2; P(root, CO(0.04, 0.16, 6), 0xffe14a, Math.cos(a)*0.24, Math.sin(a)*0.24, 0, 0, 0, a - PI/2); }
-    halo(R, root, 0xfff27a, 2.2, 0, 0, 0, 0.8);
+    // godly: a black sun, thorned, burning
+    glow(R, root, 0.15, 0xfff27a);
+    P(root, geo("relic-sun", ()=> new THREE.TorusGeometry(0.17, 0.025, 6, 30)), 0x3a2a10);
+    for(let i=0;i<12;i++){ const a = i/12*PI*2, l = i % 2 ? 0.13 : 0.22; P(root, CO(0.03, l, 6), i % 2 ? 0x3a2a10 : 0x8a6a30, Math.cos(a)*(0.19 + l/2), Math.sin(a)*(0.19 + l/2), 0, 0, 0, a - PI/2); }
+    halo(R, root, 0xfff27a, 2.0, 0, 0, 0, 0.75);
   }
-  halo(R, root, tierCol.getHex(), 0.9, 0, 0, 0, 0.35);
+  if(cat !== "godly") reliquary(root, tierCol.getHex());
+  halo(R, root, tierCol.getHex(), 0.9, 0, 0, 0, 0.3);
   finish(R, { w:0.015 });
   return g;
 };
@@ -1712,37 +1845,41 @@ Models.item = function(it){
     const R = rig("gun"), gg = Models.gun(it.base, it.element, R);
     K.bake(gg, { w:0.015 }); gg.scale.setScalar(1.5); gg.rotation.y = PI/2; g.add(gg);
   } else if(it.kind === "active"){
+    // a reliquary lantern: blackened iron, an ember kept alive inside
     const R = rig("active"), root = group(g, 0, 0, 0);
-    P(root, CY(0.16, 0.16, 0.05, 14), 0x4a4a5a, 0, 0, 0, PI/2);
-    P(root, TO(0.16, 0.03), GOLD, 0, 0, 0);
-    glow(R, root, 0.07, 0xff8a3a, 0, 0, 0.04);
+    P(root, CY(0.12, 0.14, 0.04, 14), 0x26262a, 0, -0.17, 0);
+    P(root, CY(0.1, 0.12, 0.04, 14), 0x26262a, 0, 0.15, 0);
+    P(root, CO(0.11, 0.1, 14), 0x26262a, 0, 0.22, 0);
+    P(root, geo("relic-loop", ()=> new THREE.TorusGeometry(0.04, 0.01, 5, 14)), 0x3a3a40, 0, 0.3, 0);
+    for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(root, BX(0.02, 0.3, 0.02), 0x3a3a40, Math.cos(a)*0.1, 0, Math.sin(a)*0.1); }
+    const e = glow(R, root, 0.06, 0xff7a2a, 0, -0.02, 0); e.scale.set(1, 1.5, 1);
+    glow(R, root, 0.03, 0xffd080, 0, -0.04, 0);
+    halo(R, root, 0xff8a3a, 0.8, 0, 0, 0, 0.55);
     finish(R, { w:0.015 });
-  } else if(it.kind === "heal"){
-    const R = rig("soup"), root = group(g, 0, 0, 0);
-    P(root, new THREE.SphereGeometry(0.2, 12, 6, 0, PI*2, PI/2, PI/2), 0x8a6a4a);
-    P(root, new THREE.CircleGeometry(0.18, 12), 0x6aa83a, 0, -0.03, 0, -PI/2);
-    finish(R, { w:0.015 });
-  } else if(it.kind === "ward"){
-    g.add(new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 8, 16), K.lambert(0x8ad8ff, { emissive:0x2a5a8a })));
-  }
+  } else if(it.kind === "heal") bloodVial(g, 1.25);
+  else if(it.kind === "ward") runeStone(g, null, 1.2);
   return g;
 };
+/* on a pedestal, three candles drift round the offering */
 Models.offer = function(o){
-  if(o.kind === "item") return Models.powerup(o.id);
-  if(o.kind === "gun") return Models.item(o.gun);
-  return Models.item({ kind:o.kind });
+  const g = o.kind === "item" ? Models.powerup(o.id) : o.kind === "gun" ? Models.item(o.gun) : Models.item({ kind:o.kind });
+  const R = rig("offer"), ring = group(g, 0, 0, 0);
+  for(let i=0;i<3;i++){ const a = i/3*PI*2 + 0.5; bsCandle(R, ring, Math.cos(a)*0.42, -0.42 + (i % 2)*0.05, Math.sin(a)*0.42, 0.12 + (i % 3)*0.04, 0.9); }
+  K.bake(ring, { w:0.015 });
+  return g;
 };
 
-/* a Gribbus buff on a lily pad: a little frog-green token with its letter */
+/* a Gribbus buff on a lily pad: a mossy bronze token with its letter */
 Models.frogBuffIcon = function(id){
   const d = DG.FROG_BUFFS[id], g = new THREE.Group(), R = rig("fb"), root = group(g, 0, 0, 0);
-  P(root, CY(0.22, 0.22, 0.06, 16), 0x5ac83a, 0, 0, 0, PI/2);
-  P(root, TO(0.22, 0.03), GOLD, 0, 0, 0);
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.17, 16), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 32, { size:24, bg:"#3a8a2a", fg:"#fff8d0" }) }));
+  P(root, bsPaint(K.sculpt(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 28, 1).rotateX(PI/2), 0.006, 20, 2), 0x3a5228, 0x16220e, 14, 1), 0xffffff);
+  P(root, geo("fb-rim", ()=> new THREE.TorusGeometry(0.22, 0.026, 6, 32)), 0x6a5a2a);
+  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(root, S(0.014, 6, 4), 0x8a7a3a, Math.cos(a)*0.22, Math.sin(a)*0.22, 0.025); }
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.17, 20), new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 32, { size:24, bg:"#1a2e14", fg:"#d8f0a8" }) }));
   face.position.z = 0.035; root.add(face);
   const back = face.clone(); back.rotation.y = PI; back.position.z = -0.035; root.add(back);
-  halo(R, root, 0x9cff6a, 1, 0, 0, 0, 0.45);
-  if(d.locked) halo(R, root, 0xffd23d, 1.4, 0, 0, 0, 0.5);
+  halo(R, root, 0x9cff6a, 1, 0, 0, 0, 0.35);
+  if(d.locked) halo(R, root, 0xffd23d, 1.4, 0, 0, 0, 0.45);
   finish(R, { w:0.015 });
   return g;
 };
