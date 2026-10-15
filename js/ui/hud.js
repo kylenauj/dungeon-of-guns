@@ -265,15 +265,18 @@ H.draw = function(G, dt, opts){
     let named = null, nd = 4.5;
     offers.forEach(pr=>{ const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y); if(d < nd){ nd = d; named = pr; } });
     if(named === H.nearOffer) named = null;
+    // just over the top of the medallion (it hangs about 2.5 up, 1.2 across, and faces the camera)
+    const up = H.camUp || (H.camUp = new THREE.Vector3());
+    up.set(0, 1, 0).applyQuaternion(S.camera.quaternion);
     offers.forEach(pr=>{
       if(H.nearOffer === pr) return;   // the card at the bottom says it all
-      const o = pr.offer, s = S.project(pr.x + 0.5, 3.5, pr.y + 0.5);
-      let y = s.y;
-      if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : "−" + o.price + " max HP", s.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
+      const o = pr.offer, x = pr.x + 0.5, z = pr.y + 0.5, top = S.project(x + up.x*0.72, 2.5 + up.y*0.72, z + up.z*0.72);
+      let y = top.y - 7*k;
+      if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : "−" + o.price + " max HP", top.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
       if(pr === named){
         const name = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.kind === "active" ? DG.ACTIVES[o.id].name : o.name;
         const col = o.kind === "item" ? DG.TIERS[DG.ITEMS[o.id].tier].color : o.kind === "gun" ? DG.RARITY[o.gun.rarity].color : BONE;
-        text(g, name, s.x, y, 13*k, mute(col, 0.3), "center", "700");
+        text(g, name, top.x, y, 13*k, mute(col, 0.3), "center", "700");
       }
     });
   }
