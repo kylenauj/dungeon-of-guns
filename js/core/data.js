@@ -176,7 +176,7 @@ DG.AFFIXES = {
 
 /* how the dungeon gets meaner each floor */
 DG.FLOOR_SCALE = f=>({
-  hp:  1 + 0.42*(f - 1) + 0.04*(f - 1)*(f - 1),
+  hp:  1 + 0.5*(f - 1) + 0.04*(f - 1)*(f - 1),
   dmg: 1.15 + 0.3*(f - 1),
   budget: 4 + f*2.4,
   waves: f >= 3 ? 2 : 1,
