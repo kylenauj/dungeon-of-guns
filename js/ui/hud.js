@@ -606,11 +606,22 @@ H.guns = function(g, G, x, yb, k, maxW){
   });
 };
 
-/* ---- the map: one box per known room (jumbo rooms span cells) ---- */
+/* ---- the map: it starts dark, and rooms go on it as you find them ----
+   visited rooms are filled (cleared ones paler, the one you're in gold);
+   rooms you've glimpsed are dim; doorways out of a visited room show where
+   something waits as a faint dashed outline. A room that's just gone on
+   the map fades in with a gold flash. Corridors link what you know. */
+H.mapReveal = {};
 H.minimap = function(g, G, xr, y, small){
   const D = G.D, cs = small ? 9 : 12, gap = 3, lost = G.curses.indexOf("lost") >= 0;
-  const shown = D.rooms.filter(r=> r.seen || (r.type === "secret" && r.found) || (!lost && r.type !== "secret" && r.links.some(id=> D.rooms[id].seen && D.rooms[id].type !== "secret")) || r.hinted || (r.known && r.type !== "secret"));
+  const visited = r=> r.visited || (r.type === "secret" && r.found);
+  const known = r=> visited(r) || r.seen || r.hinted || r.known;
+  // a doorway out of somewhere you've been: you know there's a room there, not what it is
+  const beyond = r=> !lost && r.type !== "secret" && r.links.some(id=> visited(D.rooms[id]) && D.rooms[id].type !== "secret");
+  const shown = D.rooms.filter(r=> known(r) || beyond(r));
   if(!shown.length) return 0;
+  const key = G.floor + ":" + G.seedWord, now = G.t;
+  if(H.mapReveal.key !== key) H.mapReveal = { key, at:{} };
   const cells = []; shown.forEach(r=> r.cells.forEach(c=> cells.push(c)));
   const minx = Math.min(...cells.map(c=> c[0])), maxx = Math.max(...cells.map(c=> c[0])), miny = Math.min(...cells.map(c=> c[1])), maxy = Math.max(...cells.map(c=> c[1]));
   const cw = cs*1.4 + gap, ch = cs + gap;
@@ -618,14 +629,38 @@ H.minimap = function(g, G, xr, y, small){
   const x = xr - w;
   frame(g, x, y, w, h, "rgba(8,6,6,.78)");
   const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"" };
+  const box = r=>{ const rx = x + 8 + (r.c0x - minx)*cw, ry = y + 8 + (r.c0y - miny)*ch; return { rx, ry, rw:(r.c1x - r.c0x + 1)*cw - gap, rh:(r.c1y - r.c0y + 1)*ch - gap }; };
+  // corridors between rooms you know
+  g.strokeStyle = "rgba(150,132,104,.55)"; g.lineWidth = 2;
+  shown.forEach(r=> r.links.forEach(id=>{
+    const o = D.rooms[id]; if(id < r.id || shown.indexOf(o) < 0 || !(visited(r) || visited(o)) || o.type === "secret" && !visited(o)) return;
+    const a = box(r), b = box(o);
+    g.beginPath(); g.moveTo(R(a.rx + a.rw/2), R(a.ry + a.rh/2)); g.lineTo(R(b.rx + b.rw/2), R(b.ry + b.rh/2)); g.stroke();
+  }));
   shown.forEach(r=>{
-    const here = G.room === r, seen = r.seen || r.found;
-    const rx = x + 8 + (r.c0x - minx)*cw, ry = y + 8 + (r.c0y - miny)*ch;
-    const rw = (r.c1x - r.c0x + 1)*cw - gap, rh = (r.c1y - r.c0y + 1)*ch - gap;
-    if(!seen){ g.strokeStyle = "#4a423a"; g.lineWidth = 1; g.strokeRect(R(rx) + 0.5, R(ry) + 0.5, R(rw) - 1, R(rh) - 1); }
-    else { g.fillStyle = here ? GOLD : r.cleared ? "#5e554a" : r.active ? "#8a2418" : "#3a332c"; g.fillRect(R(rx), R(ry), R(rw), R(rh)); }
+    const here = G.room === r, v = visited(r), k = known(r);
+    const { rx, ry, rw, rh } = box(r);
+    const state = v ? "v" : k ? "k" : "b";
+    const rev = H.mapReveal.at;
+    if(!rev[r.id] || rev[r.id].s !== state) rev[r.id] = { s:state, t:now };
+    const age = now - rev[r.id].t, f = Math.min(1, age/0.6);   // fade in over 0.6 s
+    g.save(); g.globalAlpha = 0.25 + 0.75*f;
+    if(state === "b"){
+      g.setLineDash([3, 3]); g.strokeStyle = "#5a5046"; g.lineWidth = 1;
+      g.strokeRect(R(rx) + 0.5, R(ry) + 0.5, R(rw) - 1, R(rh) - 1); g.setLineDash([]);
+    } else if(state === "k"){
+      g.fillStyle = "#211c18"; g.fillRect(R(rx), R(ry), R(rw), R(rh));
+      g.strokeStyle = "#5a5046"; g.lineWidth = 1; g.strokeRect(R(rx) + 0.5, R(ry) + 0.5, R(rw) - 1, R(rh) - 1);
+    } else {
+      g.fillStyle = here ? GOLD : r.active ? "#8a2418" : r.cleared || r.type !== "combat" ? "#6e6252" : "#4a4036";
+      g.fillRect(R(rx), R(ry), R(rw), R(rh));
+      g.strokeStyle = here ? "#fff0c0" : "#8a7a62"; g.lineWidth = 1; g.strokeRect(R(rx) + 0.5, R(ry) + 0.5, R(rw) - 1, R(rh) - 1);
+    }
+    // the moment it goes on the map: a gold flash that spreads and fades
+    if(age < 0.9 && state !== "b"){ const q = age/0.9; g.globalAlpha = 1 - q; g.strokeStyle = GOLD; g.lineWidth = 2; g.strokeRect(R(rx - q*5), R(ry - q*5), R(rw + q*10), R(rh + q*10)); }
+    g.restore();
     const ic = ICON[r.type];
-    if(ic && (seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" ? "#c05a7a" : GOLD, "center", "700", "Georgia,serif");
+    if(ic && (v || r.seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : !v ? "#7a6a58" : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" ? "#c05a7a" : GOLD, "center", "700", "Georgia,serif");
   });
   if(lost) text(g, "?", x + w/2, y + h/2, 20, "#c88ab8", "center", "700");
   return h;

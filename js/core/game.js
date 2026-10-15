@@ -82,7 +82,8 @@ proto.enterFloor = function(n){
     r.traps.forEach(t=>{ t.room = r.id; t.t = t.phase*(DG.TRAPS[t.kind].cycle || 1); t.state = "idle"; G.traps.push(t); });
     r.props.forEach(pr=> G.initProp(r, pr));
   });
-  if(G.curses.indexOf("lost") < 0) G.D.rooms.forEach(r=>{ if(r.type !== "secret") r.known = true; });
+  // the map starts dark: a room goes on it when you find it (the Seer's Lantern shows the lot)
+  G.D.rooms.forEach(r=>{ r.visited = r.type === "start"; r.known = r.type === "start"; });
   p.x = G.D.start.x; p.y = G.D.start.y; p.safeX = p.x; p.safeY = p.y; p.vx = p.vy = 0;
   G.gribbus.x = p.x - 1; G.gribbus.y = p.y + 0.5;
   G.flow = null;
@@ -564,6 +565,7 @@ proto.updateRooms = function(dt){
   if(inside !== G.room){
     G.room = inside;
     if(inside){
+      if(!inside.visited){ inside.visited = true; G.emit("visit", { room:inside.id }); }
       G.emit("enter", { room:inside.id, type:inside.type });
       if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss")) G.activate(inside);
       if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); }

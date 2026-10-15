@@ -881,3 +881,36 @@ test("what you carried last run turns up less in the next", ()=>{
   assert.deepEqual(G.meta.recentRuns, [["spinach"], ["coffee"]]);
   assert.deepEqual(G.meta.recent.sort(), ["coffee", "spinach"]);
 });
+
+test("the map starts dark: rooms go on it as you find them", ()=>{
+  const G = game("DARKMAP");
+  const start = G.D.rooms.find(r=> r.type === "start");
+  assert.ok(start.visited && start.known, "you know where you start");
+  assert.ok(G.D.rooms.filter(r=> r !== start).every(r=> !r.known && !r.visited && !r.seen), "nothing else yet");
+  const r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.god = true; G.player.x = spot.x; G.player.y = spot.y;
+  const ev = step(G, 0.2);
+  assert.ok(r.visited && r.seen && r.known, "walking in puts it on the map");
+  assert.ok(ev.some(e=> e.type === "visit" && e.room === r.id));
+  // the Seer's Lantern still shows the whole floor
+  G.player.active = { id:"seer", charge:9, max:1 }; G.useActive();
+  assert.ok(G.D.rooms.filter(x=> x.type !== "secret").every(x=> x.known));
+});
+
+test("level-up choices keep changing: no repeats from the last offers, a wide spread", ()=>{
+  let overlap = 0, offers = 0;
+  const seen = new Set();
+  for(let s=0; s<30; s++){
+    const G = game("BOONS" + s);
+    let last = [];
+    for(let k=0; k<10; k++){
+      const o = DG.Items.rollBoons(G, 3);
+      assert.equal(new Set(o).size, 3, "three different boons");
+      overlap += o.filter(id=> last.indexOf(id) >= 0).length; offers++;
+      o.forEach(id=> seen.add(id));
+      G.player.boons.push(o[0]); last = o;
+    }
+  }
+  assert.ok(overlap/offers < 0.15, "back-to-back offers rarely share a boon: " + (overlap/offers).toFixed(2));
+  assert.ok(seen.size >= 50, "almost every boon turns up somewhere: " + seen.size);
+});

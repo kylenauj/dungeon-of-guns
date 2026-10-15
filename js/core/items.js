@@ -341,7 +341,36 @@ DG.BOONS = {
   b_pierce: { name:"Pointy",           desc:"+1 pierce.", rare:true,   shot:{ pierce:1 } },
   b_bounce: { name:"Springy",          desc:"+1 bounce.", rare:true,   shot:{ bounces:1 } },
   b_extra:  { name:"One More",         desc:"+1 shot per volley, -8% damage.", rare:true, shot:{ extra:1 }, stats:{ dmg:-0.08 } },
-  b_home:   { name:"Guided",           desc:"Shots curve slightly toward goblins.", rare:true, shot:{ homing:0.5 } }
+  b_home:   { name:"Guided",           desc:"Shots curve slightly toward goblins.", rare:true, shot:{ homing:0.5 } },
+  /* the ones that change how a fight goes */
+  b_thirst: { name:"Bloodthirst",      desc:"1 kill in 12 heals 2.",   on:{ kill:[{ do:"heal", n:2, chance:0.08 }] } },
+  b_splint: { name:"Bone Splinters",   desc:"Kills throw 3 splinters of bone.", on:{ kill:[{ do:"shards", n:3, dmg:0.35 }] } },
+  b_ember:  { name:"Ember Touch",      desc:"1 hit in 12 flares up in fire.", on:{ hit:[{ do:"nova", r:1, dmg:0.3, el:"fire", chance:0.08 }] } },
+  b_chill:  { name:"Grave Chill",      desc:"1 hit in 10 chills a goblin.", on:{ hit:[{ do:"status", st:"chill", t:1.5, chance:0.1 }] } },
+  b_hex:    { name:"Hex Mark",         desc:"1 hit in 10 marks a goblin with arcane for 3 seconds.", on:{ hit:[{ do:"status", st:"marked", t:3, chance:0.1 }] } },
+  b_redcrit:{ name:"Crimson Crits",    desc:"Crits throw 2 shards.",   on:{ crit:[{ do:"shards", n:2, dmg:0.4 }] } },
+  b_bastion:{ name:"Bastion",          desc:"1 cleared room in 3 gives a ward.", on:{ clear:[{ do:"ward", n:1, max:3, chance:0.33 }] } },
+  b_respite:{ name:"Respite",          desc:"Clearing a room heals 5.", on:{ clear:[{ do:"heal", n:5 }] } },
+  b_haunt:  { name:"Haunting",         desc:"When a room locks, a wisp of your element joins you.", on:{ lock:[{ do:"wisp", n:1, at:"player" }] } },
+  b_pulse:  { name:"Dark Pulse",       desc:"Every 6 seconds in a fight, a small nova of your element bursts around you.", on:{ tick:[{ do:"nova", r:2.2, dmg:0.6, every:6, at:"player" }] } },
+  b_shatter:{ name:"Shatterstep",      desc:"Blinking throws 3 shards.", on:{ blink:[{ do:"shards", n:3, dmg:0.5, at:"player" }] } },
+  b_wind:   { name:"Second Wind",      desc:"Blinking heals 1.",       on:{ blink:[{ do:"heal", n:1 }] } },
+  b_rburst: { name:"Reload Burst",     desc:"Reloading sets off a small nova.", on:{ reload:[{ do:"nova", r:1.8, dmg:0.5 }] } },
+  b_retal:  { name:"Retaliation",      desc:"Getting hurt fires a ring of 6 shots.", on:{ hurt:[{ do:"ring", n:6, dmg:0.7 }] } },
+  b_robber: { name:"Grave Robber",     desc:"1 kill in 10 drops a coin.", on:{ kill:[{ do:"gold", n:1, chance:0.1 }] } },
+  b_attune: { name:"Attunement",       desc:"+30% mana regen, spells cost 10% less.", stats:{ regen:0.3, spellCost:0.1 } },
+  b_edge:   { name:"Elemental Edge",   desc:"+8% damage, statuses last 20% longer.", stats:{ dmg:0.08, statusDur:0.2 } },
+  b_bond:   { name:"Frog Bond",        desc:"Gribbus hits 15% harder and 15% faster.", stats:{ frogDmg:0.15, frogRate:0.15 } },
+  b_spawn:  { name:"Spawning",         desc:"When a room locks, a tadpole joins you.", on:{ lock:[{ do:"tadpole", n:1, at:"player" }] } },
+  b_glass:  { name:"Glass Bones",      desc:"+25% damage. -15 max health.", stats:{ dmg:0.25, hp:-15 } },
+  b_stout:  { name:"Stout",            desc:"+30 max health. -5% move speed.", stats:{ hp:30, speed:-0.05 } },
+  b_rage:   { name:"Last Stand",       desc:"+70% damage while below 30% health.", rare:true, special:"desperation" },
+  b_still:  { name:"Stillness",        desc:"Shots hit up to 2x harder the longer you wait between them.", rare:true, special:"patience" },
+  b_ambush: { name:"Ambush",           desc:"The first hit on each goblin deals triple damage.", rare:true, special:"firsthit" },
+  b_hollow: { name:"Hollow",           desc:"Every kill in a room makes you 5% stronger, up to +60%, until it's clear.", rare:true, special:"hollowing" },
+  b_silver: { name:"Silvered",         desc:"+60% damage to the dead and the haunted.", special:"silver" },
+  b_parry:  { name:"Parry",            desc:"For a second after you blink, your shots hit 60% harder.", special:"riposte" },
+  b_slayer: { name:"Slayer",           desc:"Bosses take 25% more damage.", rare:true, special:"bossbane" }
 };
 
 /* ---- Gribbus buffs: chosen at frog ponds (1 of 3). `locked` ones need golden flies ---- */
@@ -543,11 +572,20 @@ function setPull(G, id){
   return 1 + SET_PULL*k;
 }
 
+/* a level-up offers n boons: never one you've taken three times, rarely
+   one you were just offered, less often one you already have, so the
+   choices keep changing */
 Items.rollBoons = function(G, n){
-  const owned = G.player.boons, ids = Object.keys(DG.BOONS);
+  const p = G.player, owned = p.boons, recent = (p.boonOffers || []).flat();
+  const cand = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3).map(id=>{
+    const have = owned.filter(x=> x === id).length, b = DG.BOONS[id];
+    return { id, w:(b.rare ? 0.45 : 1)*(have ? 0.5/have : 1)*(recent.indexOf(id) >= 0 ? 0.15 : 1) };
+  });
   const pick = [];
-  const bag = G.rng.shuffle(ids.slice()).filter(id=> !(DG.BOONS[id].rare && G.rng.chance(0.6)));
-  for(const id of bag){ if(pick.length >= n) break; if(owned.filter(x=> x === id).length < 3) pick.push(id); }
+  while(pick.length < n && cand.length){
+    const c = G.rng.weighted(cand); pick.push(c.id); cand.splice(cand.indexOf(c), 1);
+  }
+  p.boonOffers = [pick].concat(p.boonOffers || []).slice(0, 2);
   return pick;
 };
 
