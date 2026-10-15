@@ -591,8 +591,8 @@ const BR = {
     });
   },
   eggsac(g){ // a sac of something, veined and clammy, stuck to the floor with threads
-    P(g, K.sculpt(new THREE.SphereGeometry(0.28, 16, 12), 0.03, 9, 2), 0x8a7a68, 0, 0.3, 0, 0, 0, 0, 1, 1.15, 1);
-    for(let k=0;k<6;k++){ const a = k/6*PI*2 + 0.3; P(g, K.tube([[Math.cos(a)*0.1, 0.56, Math.sin(a)*0.1], [Math.cos(a)*0.27, 0.35, Math.sin(a)*0.27], [Math.cos(a)*0.22, 0.1, Math.sin(a)*0.22]], 0.012, 8, 3), 0x5a2a2a); }
+    P(g, K.sculpt(new THREE.SphereGeometry(0.28, 16, 12), 0.05, 7, 2), 0x5e4e44, 0, 0.3, 0, 0.2, 0, 0.15, 0.9, 1.2, 1);
+    for(let k=0;k<6;k++){ const a = k/6*PI*2 + 0.3; P(g, K.tube([[Math.cos(a)*0.1, 0.56, Math.sin(a)*0.1], [Math.cos(a)*0.27, 0.35, Math.sin(a)*0.27], [Math.cos(a)*0.22, 0.1, Math.sin(a)*0.22]], 0.02, 8, 3), 0x4a1a1e); }
     [0.4, 2.5, 4.4].forEach(a=> P(g, S(0.07, 8, 6), 0x6a5a48, Math.cos(a)*0.24, 0.32, Math.sin(a)*0.24));
     for(let k=0;k<5;k++){ const a = k*1.3; P(g, CY(0.006, 0.006, 0.3, 3), MYCEL, Math.cos(a)*0.3, 0.08, Math.sin(a)*0.3, Math.sin(a)*1.2, 0, -Math.cos(a)*1.2); }
   },

@@ -398,7 +398,7 @@ proto.bigBlock = function(b, x, y, st, h, a, cW, cTop){
     } else P2(K.slathe([[0.14, 0], [0.16, 0.12], [0.15, 0.26], [0.1, 0.33], [0, 0.35]], 10, 3), sc, cx + 0.55, 0.85, cz - 0.5, 1.2, 0, 0.4);
     // the rubble of him, at his feet
     for(let k=0;k<4;k++) stone(b.wall, box(0.12 + k*0.03, 0.08, 0.14, cx + Math.cos(h*9 + k*1.7)*0.6, 0.84, cz + Math.sin(h*9 + k*1.7)*0.6, 0, h*5 + k, 0.1), cW, cTop, 0.85);
-  } else if(th.decor === "undercroft"){
+  } else if(th.decor === "undercroft" && h2 < 0.5){
     // a cistern: a low ring of stone round black water, slime over its lip,
     // and something's hand above the surface
     const oct = (r, h, y)=> new THREE.CylinderGeometry(r, r, h, 8).rotateY(PI/8).translate(cx, y, cz);
@@ -424,6 +424,7 @@ proto.bigBlock = function(b, x, y, st, h, a, cW, cTop){
     // its top has crumbled: loose stones, a skull someone left
     for(let k=0;k<3;k++) stone(b.wall, box(0.24 + k*0.05, 0.12, 0.2, cx + Math.cos(h*9 + k*2.1)*0.45, 1.76, cz + Math.sin(h*9 + k*2.1)*0.45, 0, h*5 + k, 0.08), cW, cTop, 0.85);
     if(h3 < 0.5) skull(P, b.parts, cx - 0.1, 1.7, cz + 0.2, 0.1, h*6);
+    if(th.decor === "undercroft") for(let k=0;k<6;k++){ const an = h*4 + k*1.1, r = 0.05 + frac(h*(k + 2)*3.7)*0.06; P(b.parts, K.lump(r, 1, 0.45, h*9 + k), [0x5a4e3a, 0x4a4234, 0x3e4436][k % 3], cx + Math.cos(an)*0.82, 0.4 + k*0.17, cz + Math.sin(an)*0.82, 0, an, 0, 1.3, 0.45, 1.3); }
     if(th.decor === "castle"){
       [0.62, 1.3].forEach(by=>{
         P(b.parts, new THREE.CylinderGeometry(0.8, 0.8, 0.09, 8), 0x26262a, cx, by, cz, 0, PI/8, 0);
@@ -840,11 +841,17 @@ proto.addProp = function(p){
       const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0xff2a3a, 0.5)); pool.scale.set(3, 1, 3); pool.position.y = 0.05; g.add(pool);
       W.lights.push({ x:p.x + 0.5, y:1.4, z:p.y + 0.7, c:0xff3a3a, i:1.2, room:p.room, ph:0 });
     } else {
-      P(g, new THREE.CylinderGeometry(0.32, 0.4, 0.7, 8), W.th.top, 0, 0.35, 0);
-      P(g, new THREE.CylinderGeometry(0.42, 0.42, 0.08, 8), W.th.wall, 0, 0.74, 0);
-      P(g, new THREE.CylinderGeometry(0.46, 0.46, 0.08, 8), W.th.wall, 0, 0.04, 0);
-      P(g, new THREE.CylinderGeometry(0.52, 0.56, 0.06, 8), new THREE.Color(W.th.wall).multiplyScalar(0.7).getHex(), 0, 0.01, 0);
-      for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(g, new THREE.BoxGeometry(0.1, 0.5, 0.06), new THREE.Color(W.th.top).multiplyScalar(1.25).getHex(), Math.cos(a)*0.35, 0.38, Math.sin(a)*0.35, 0, -a + PI/2, 0); }
+      // an altar: a cracked block on a stepped base, an iron band, old blood down its face
+      const st = new THREE.Color(W.th.wall).multiplyScalar(1.1).getHex(), dk = new THREE.Color(W.th.wall).multiplyScalar(0.7).getHex();
+      P(g, new THREE.CylinderGeometry(0.56, 0.6, 0.08, 8), dk, 0, 0.04, 0, 0, PI/8, 0);
+      P(g, new THREE.CylinderGeometry(0.46, 0.5, 0.1, 8), st, 0, 0.13, 0, 0, PI/8, 0);
+      P(g, new THREE.CylinderGeometry(0.33, 0.37, 0.52, 8), st, 0, 0.44, 0, 0, PI/8, 0);
+      P(g, new THREE.CylinderGeometry(0.44, 0.4, 0.09, 8), st, 0, 0.74, 0, 0, PI/8, 0);
+      P(g, new THREE.CylinderGeometry(0.375, 0.375, 0.06, 8), 0x26262a, 0, 0.3, 0, 0, PI/8, 0);
+      for(let i=0;i<8;i++){ const a = i/8*PI*2 + PI/8; P(g, new THREE.SphereGeometry(0.02, 4, 3), 0x4a4a50, Math.cos(a)*0.38, 0.3, Math.sin(a)*0.38); }
+      P(g, new THREE.BoxGeometry(0.1, 0.3, 0.01), 0x3a0c08, 0.05, 0.56, 0.35, -0.1, 0, 0.05); P(g, new THREE.BoxGeometry(0.04, 0.42, 0.01), 0x3a0c08, -0.07, 0.5, 0.35, -0.1, 0, -0.03);
+      P(g, new THREE.BoxGeometry(0.02, 0.4, 0.01), 0x0a0a0a, 0.2, 0.45, 0.31, -0.1, 0.4, 0.4);
+      DG.Decor.skull(g, -0.36, 0.14, 0.32, 0.07, 0.5, 0.2, 0xa89c84);
       K.bake(g, { w:0.02 });
       const band = new THREE.Mesh(new THREE.CylinderGeometry(0.365, 0.365, 0.06, 16, 1, true), new THREE.MeshBasicMaterial({ color:W.th.rim || 0xffd23d, transparent:true, opacity:0.7, blending:THREE.AdditiveBlending, depthWrite:false }));
       band.position.y = 0.55; g.add(band); o.band = band;
@@ -905,10 +912,9 @@ proto.buildPuzzle = function(r){
   if(pz.kind === "chorus") pz.items.forEach((it, i)=>{
     const col = [0xff4a6a, 0x46e4ff, 0x9cff3a, 0xffd23d][i];
     const g = new THREE.Group(); g.position.set(it.x, 0, it.y);
-    P(g, new THREE.CylinderGeometry(0.12, 0.16, 0.6, 10), 0xf0e6d4, 0, 0.3, 0);
-    P(g, new THREE.SphereGeometry(0.42, 16, 8, 0, PI*2, 0, PI/2), col, 0, 0.58, 0, 0, 0, 0, 1, 0.7, 1);
-    [-1, 1].forEach(s=> P(g, new THREE.SphereGeometry(0.04, 6, 4), 0x101010, s*0.06, 0.4, 0.13));
-    P(g, new THREE.TorusGeometry(0.05, 0.012, 6, 10, PI), 0x3a1a1a, 0, 0.32, 0.14, 0, 0, PI);
+    P(g, new THREE.CylinderGeometry(0.12, 0.16, 0.6, 10), 0x9a948a, 0, 0.3, 0);
+    P(g, new THREE.SphereGeometry(0.42, 16, 8, 0, PI*2, 0, PI/2), new THREE.Color(col).multiplyScalar(0.45).getHex(), 0, 0.58, 0, 0, 0, 0, 1, 0.7, 1);
+    P(g, new THREE.SphereGeometry(0.06, 8, 6), 0x0a0406, 0, 0.36, 0.11, 0, 0, 0, 0.8, 1.4, 0.5);
     K.bake(g, { w:0.02 });
     const glow = K.sprite(col, 2.2, 0); glow.position.y = 0.8; g.add(glow);
     add(g); out.items.push({ g, glow, col });
