@@ -18,13 +18,14 @@ const pick = a=> a[Math.floor(Math.random()*a.length)];
 const clamp = (v, a, b)=> v < a ? a : v > b ? b : v;
 const mtof = m=> 440*Math.pow(2, (m - 69)/12);
 const LIVE_MAX = 260;            // started-but-not-ended sources, across everything
+const MUSIC_GAIN = 0.45;
 
 /* ---- the graph ---- */
 A.start = function(){
   const AC = window.AudioContext || window.webkitAudioContext;
   if(A.ctx){ if(A.ctx.state === "suspended") A.ctx.resume(); return; }
   if(!AC) return;
-  try{ A.muted = localStorage.getItem("dungeonofguns.muted") === "1"; }catch(e){}
+  try{ A.muted = localStorage.getItem("dungeonofguns.muted") === "1"; A.musicOn = localStorage.getItem("dungeonofguns.music") !== "0"; }catch(e){}
   let c; try{ c = new AC(); }catch(e){ return; }
   A.init(c);
   A.timer = setInterval(A.tick, 50);
@@ -41,7 +42,7 @@ A.init = function(c, offline){
   A.master = c.createGain(); A.master.gain.value = A.muted ? 0 : 0.8; A.master.connect(comp);
   A.sfx = c.createGain(); A.sfx.gain.value = 0.9; A.sfx.connect(A.master);
   A.musicLP = c.createBiquadFilter(); A.musicLP.type = "lowpass"; A.musicLP.frequency.value = 3600; A.musicLP.connect(A.master);
-  A.music = c.createGain(); A.music.gain.value = 0.45; A.music.connect(A.musicLP);
+  A.music = c.createGain(); A.music.gain.value = A.musicOn === false ? 0 : MUSIC_GAIN; A.music.connect(A.musicLP);
   makeBuffers(c);
   // the hall: a long dark tail behind everything, high-passed so it never muddies
   A.verbIn = c.createGain(); A.verbIn.gain.value = 1;
@@ -57,6 +58,13 @@ A.init = function(c, offline){
   A.echoIn.connect(dl); dl.connect(elp); elp.connect(fb); fb.connect(dl); elp.connect(eout); eout.connect(A.master); eout.connect(A.verbIn);
   A.next = c.currentTime + 0.1; A.step = 0;
   if(A.buildMusic) A.buildMusic();
+};
+/* the score alone, for those who'd rather hear the dungeon */
+A.toggleMusic = function(){
+  A.musicOn = A.musicOn === false;
+  try{ localStorage.setItem("dungeonofguns.music", A.musicOn ? "1" : "0"); }catch(e){}
+  if(A.music) A.music.gain.setTargetAtTime(A.musicOn ? MUSIC_GAIN : 0, A.ctx.currentTime, 0.3);
+  return A.musicOn;
 };
 A.toggleMute = function(){
   A.muted = !A.muted;
@@ -325,8 +333,8 @@ A.has = name=> !!SND[name];
 lim("step", { min:0.12, cap:3, wet:0.16, jit:0.07 });
 SND.step = o=>{
   const h = !!o.heavy;
-  noise(h ? 0.16 : 0.11, "lowpass", h ? 420 : 620, h ? 0.3 : 0.18, { q:0.9, v:false });
-  thump(h ? 105 : 130, 50, 0.09, h ? 0.22 : 0.1, { v:false });
+  noise(h ? 0.16 : 0.11, "lowpass", h ? 420 : 620, h ? 0.2 : 0.18, { q:0.9, v:false });
+  thump(h ? 105 : 130, 50, 0.09, h ? 0.14 : 0.1, { v:false });
   noise(0.07, "bandpass", rnd(1800, 2800), 0.05, { at:0.012, q:1.1, buf:"c" });   // grit under the boot
   if(h) clink(rnd(1100, 1500), 0.012, 0.02);
 };
@@ -1001,7 +1009,7 @@ SND.socket = SND.reloaded;
  *      footfalls and clicks sit near -36, shots and blows near -30 to -20, and only
  *      the boss, the death toll and the doors reach about -12 ---- */
 const TRIM = {
-  altar:0.5, beat:0.4, boss:0.6, bossdie:0.65, death:0.6, descend:0.6, doorOpen:0.6, doorShut:0.45, slip:0.4, stone:0.45,
+  altar:0.5, beat:0.3, skitter:3, stomp:0.6, die:0.7, boss:0.6, bossdie:0.65, death:0.6, descend:0.6, doorOpen:0.6, doorShut:0.45, slip:0.4, stone:0.45,
   thud:0.7, transform:0.85, kill:0.55, fall:0.55, godly:0.7, shoot_launcher:0.75, shoot_pistol:1.3, shoot_smg:1.8,
   hit:1.8, arrow:3, bounce:2.5, bones:3, bubble:2.3, click:5, coin:3, cloud:2.3, error:2.4, frog:3.5, ghostShot:2.5,
   graze:4, gremlin:1.6, hex:1.7, hiccup:4, illusion:1.7, jump:2, lick:1.4, pickup:2, poof:2.4, puff:4,
@@ -1011,75 +1019,232 @@ const TRIM = {
 };
 for(const k in TRIM){ if(!LIM[k]) LIM[k] = Object.assign({}, LIM_DEF); LIM[k].vol = TRIM[k]; }
 
-/* ---- the old score's helpers, until it is rewritten ---- */
-function tone(f, dur, type, vol, at, bus, slide, verb){
-  const c = A.ctx; if(!c) return;
-  const t = c.currentTime + (at || 0), o = c.createOscillator(), g = c.createGain();
-  o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
-  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(bus || A.sfx); if(verb) g.connect(A.verb);
-  o.start(t); o.stop(t + dur + 0.05);
+/* ================================================================== *
+ *  The score: a gothic requiem in D minor.
+ *
+ *  Long-lived voices that never stop (so no node churn): a low drone,
+ *  a four-voice formant choir (saws through vowel band-passes), three
+ *  bowed strings with a tremolo, and wind. A step clock in eighth notes
+ *  moves them chord to chord and drops in the short things: distant
+ *  church bells, drips, rare whispers, and in a fight slow heavy taiko.
+ *
+ *  explore  sparse: drone, wind, a choir that comes and goes, a far bell
+ *  fight    taiko on the one and the and-of-three, tremolo strings
+ *  boss     full choir every bar, bells, driving drums, a string ostinato
+ *  Deeper floors detune everything, darken the filter, swap the drone's
+ *  fifth for a tritone, stretch the bells and slip in clusters.
+ * ================================================================== */
+const MODES = {
+  menu:    { bpm:46, bars:2, drone:0.9, choir:0.85, sing:0.85, strings:0.5, wind:0.5,  trem:0,    perc:0,   bells:0.8, drips:0.04 },
+  explore: { bpm:50, bars:2, drone:0.8, choir:0.7,  sing:0.5,  strings:0.5, wind:0.8,  trem:0,    perc:0,   bells:0.6, drips:0.07 },
+  fight:   { bpm:64, bars:2, drone:1,   choir:0.65, sing:0.7,  strings:0.75, wind:0.3,  trem:0.55, perc:1,   bells:0.5, drips:0.02 },
+  boss:    { bpm:74, bars:1, drone:1,   choir:0.75, sing:1,    strings:0.85,   wind:0.12, trem:0.7,  perc:1.2, bells:1,   drips:0 }
+};
+/* choir voicings (bass, tenor, alto, soprano) */
+const CH = {
+  i:[50, 57, 62, 65], VI:[46, 58, 62, 65], iv:[43, 58, 62, 67], V:[45, 57, 61, 64], bII:[51, 58, 63, 67],
+  vii:[49, 55, 58, 64], III:[53, 57, 60, 65], v:[45, 57, 60, 64],
+  // the deep floors: clusters and tritones
+  x1:[50, 51, 57, 62], x2:[50, 56, 62, 63], x3:[44, 50, 56, 61], x4:[49, 50, 56, 63]
+};
+const PROG = {
+  menu:   [["i", "VI", "iv", "V"], ["i", "III", "VI", "V"]],
+  explore:[["i", "VI", "iv", "V"], ["i", "bII", "i", "vii"], ["i", "iv", "VI", "v"], ["i", "III", "bII", "V"]],
+  fight:  [["i", "i", "VI", "V"], ["i", "bII", "vii", "i"], ["i", "iv", "bII", "V"]],
+  boss:   [["i", "VI", "bII", "V"], ["i", "bII", "iv", "vii"], ["i", "i", "bII", "bII"]]
+};
+const M = A.M = { built:false };
+A.musicOff = false;
+
+A.buildMusic = function(){
+  const c = A.ctx, bus = A.music;
+  const gain = (v, to)=>{ const g = c.createGain(); g.gain.value = v; if(to) g.connect(to); return g; };
+  const osc = (type, f, to)=>{ const o = c.createOscillator(); o.type = type; o.frequency.value = f; if(to) o.connect(to); o.start(); return o; };
+  const filt = (type, f, q, to)=>{ const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; if(to) b.connect(to); return b; };
+  const lfo = (rate, depth, param)=>{ const g = gain(depth); g.connect(param); osc("sine", rate, g); return g; };
+  M.L = {}; M.send = {};
+  const SEND = { drone:0.15, choir:0.9, strings:0.7, wind:0.35, perc:0.4, bells:1, amb:0.9 };
+  for(const k in SEND){ M.L[k] = gain(0, bus); M.send[k] = gain(SEND[k], A.verbIn); M.L[k].connect(M.send[k]); }
+  M.L.amb.gain.value = 1;
+  // drone: two detuned saws and a fifth on D, a sine an octave down, a breathing low-pass
+  M.droneLP = filt("lowpass", 240, 1.4, M.L.drone);
+  lfo(0.045, 90, M.droneLP.frequency);
+  M.dr = [osc("sawtooth", mtof(38), gain(0.03, M.droneLP)), osc("sawtooth", mtof(38), gain(0.03, M.droneLP)), osc("sine", mtof(26), gain(0.04, M.droneLP))];
+  M.fifthG = gain(0.012, M.droneLP); M.fifth = osc("sawtooth", mtof(45), M.fifthG);
+  M.warble = gain(0); osc("sine", 0.13, M.warble);       // the deep floors' seasick drift
+  M.dr.concat([M.fifth]).forEach(o=> M.warble.connect(o.detune));
+  // choir: four voices of two saws each, through three vowel formants
+  M.choirIn = gain(1);
+  M.form = [0, 1, 2].map(i=>{ const b = filt("bandpass", VOWEL.a[i][0], VOWEL.a[i][0]/(80 + i*40), null); M.choirIn.connect(b); b.connect(gain(VOWEL.a[i][1]*5, M.L.choir)); return b; });
+  const vibA = gain(9), vibB = gain(12); osc("sine", 5.1, vibA); osc("sine", 5.7, vibB);
+  M.cv = [0, 1, 2, 3].map(i=>{
+    const g = gain(0, M.choirIn), a = osc("sawtooth", mtof(CH.i[i]), g), b = osc("sawtooth", mtof(CH.i[i]), g);
+    a.detune.value = -7; b.detune.value = 7; vibA.connect(a.detune); vibB.connect(b.detune);
+    return { g, a, b };
+  });
+  // strings: three bowed voices, dark-filtered, with a tremolo for the fights
+  const sIn = gain(1), slp = filt("lowpass", 1500, 0.5, null), shp = filt("highpass", 110, 0.5, null);
+  M.trem = gain(0.75, M.L.strings); sIn.connect(slp); slp.connect(shp); shp.connect(M.trem);
+  M.tremDepth = lfo(7.5, 0, M.trem.gain);
+  M.sv = [0, 1, 2].map(i=>{
+    const g = gain(0, sIn), a = osc("sawtooth", mtof(62), g), b = osc("sawtooth", mtof(62), g);
+    a.detune.value = -6; b.detune.value = 6;
+    return { g, a, b };
+  });
+  // wind: one looped noise through a broad band and a narrow howl, both drifting
+  const ws = c.createBufferSource(); ws.buffer = BUF.w; ws.loop = true; ws.playbackRate.value = 0.5;
+  M.windAmp = gain(0.25, M.L.wind);
+  const b1 = filt("bandpass", 380, 0.9, gain(0.5, M.windAmp)), b2 = filt("bandpass", 720, 9, gain(0.3, M.windAmp));
+  ws.connect(b1); ws.connect(b2); ws.start();
+  lfo(0.07, 220, b1.frequency); lfo(0.11, 320, b2.frequency); lfo(0.05, 0.15, M.windAmp.gain);
+  // two fixed positions, left and right, for drips and whispers
+  M.panL = c.createStereoPanner ? c.createStereoPanner() : gain(1); M.panR = c.createStereoPanner ? c.createStereoPanner() : gain(1);
+  if(M.panL.pan){ M.panL.pan.value = -0.7; M.panR.pan.value = 0.7; }
+  M.panL.connect(M.L.amb); M.panR.connect(M.L.amb);
+  M.built = true; M.applied = null; M.depth = -1; M.prog = null; M.chord = CH.i;
+  applyMode();
+};
+
+function depthNow(){
+  if(A.mode === "menu") return 0.1;
+  const G = DG.app && DG.app.G, f = G && G.floor || 1;
+  return clamp((f - 1)/4, 0, 1.4);
 }
-function burst(dur, ftype, freq, vol, q, at, bus, sweep, verb){
-  const c = A.ctx; if(!c) return;
-  const t = c.currentTime + (at || 0), s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-  s.buffer = A.noise; s.playbackRate.value = 0.6 + Math.random()*0.8;
-  f.type = ftype; f.frequency.setValueAtTime(freq, t); f.Q.value = q || 1;
-  if(sweep) f.frequency.exponentialRampToValueAtTime(sweep, t + dur);
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f); f.connect(g); g.connect(bus || A.sfx); if(verb) g.connect(A.verb);
-  s.start(t, Math.random()*1.5); s.stop(t + dur + 0.05);
+function applyMode(){
+  const c = A.ctx; if(!c || !M.built) return;
+  const md = MODES[A.mode] || MODES.explore, t = c.currentTime, off = A.musicOff;
+  ["drone", "choir", "strings", "wind"].forEach(k=> M.L[k].gain.setTargetAtTime(off ? 0 : md[k], t, 1.2));
+  M.L.perc.gain.setTargetAtTime(off ? 0 : 0.35, t, 0.3); M.L.bells.gain.setTargetAtTime(off ? 0 : 1.2, t, 0.3); M.L.amb.gain.setTargetAtTime(off ? 0 : 1, t, 0.5);
+  M.tremDepth.gain.setTargetAtTime(md.trem*0.3, t, 0.8);
+  M.applied = A.mode;
 }
-/* a slow swell and fade, for drones and tolls */
-function swell(f, dur, type, vol, at, bus, verb){
-  const c = A.ctx; if(!c) return;
-  const t = c.currentTime + (at || 0), o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
-  o.type = type || "sawtooth"; o.frequency.setValueAtTime(f, t);
-  lp.type = "lowpass"; lp.frequency.value = 420; lp.Q.value = 0.7;
-  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur*0.4); g.gain.linearRampToValueAtTime(0.0001, t + dur);
-  o.connect(lp); lp.connect(g); g.connect(bus || A.sfx); if(verb) g.connect(A.verb);
-  o.start(t); o.stop(t + dur + 0.05);
+A.setMode = m=>{
+  if(!MODES[m]) m = "explore";
+  if(m === A.mode && M.applied === m) return;
+  const was = A.mode; A.mode = m;
+  applyMode();
+  // a fresh phrase when the fight starts or ends, on the next bar
+  if(was !== m && A.ctx) M.prog = null;
+};
+/* the deep floors: retune what never stops */
+function setDepth(d, t){
+  M.depth = d;
+  const det = 6 + 22*d;
+  M.dr[0].detune.setTargetAtTime(-det, t, 2); M.dr[1].detune.setTargetAtTime(det, t, 2);
+  M.fifth.frequency.setTargetAtTime(mtof(d >= 0.5 ? 44 : 45), t, 2);
+  M.fifthG.gain.setTargetAtTime(0.011 + 0.01*d, t, 2);
+  M.warble.gain.setTargetAtTime(d >= 0.6 ? 10 + 16*d : 0, t, 2);
+  M.cv.forEach(v=>{ v.a.detune.setTargetAtTime(-7 - 14*d, t, 2); v.b.detune.setTargetAtTime(7 + 14*d, t, 2); });
+  A.musicLP.frequency.setTargetAtTime(3600 - 1500*Math.min(1, d), t, 2);
+  M.droneLP.Q.setTargetAtTime(1.4 + 3*d, t, 2);
 }
 
-/* ---- the march ---- */
-const SONG = {
-  chords:[[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 56, 59]],     // Am F G E
-  bass:[45, 41, 43, 40],
-  lead:[
-    [69, -1, 72, -1, 71, 69, -1, 64, -1, -1, 65, -1, 64, -1, -1, -1],
-    [65, -1, 69, -1, 72, -1, 74, 72, -1, 69, -1, -1, 65, -1, -1, -1],
-    [67, -1, 71, -1, 74, -1, 72, 71, -1, 67, -1, 71, 74, -1, -1, -1],
-    [68, -1, 71, -1, 74, -1, 76, -1, 74, 71, -1, 68, 64, -1, -1, -1]
-  ]
-};
-A.setMode = m=>{ A.mode = m; };
 A.tick = function(){
-  const c = A.ctx; if(!c || c.state !== "running") return;
-  const bpm = A.mode === "boss" ? 120 : A.mode === "fight" ? 108 : 84, spb = 60/bpm/4;
-  while(A.next < c.currentTime + 0.2){
-    const at = A.next - c.currentTime, s = A.step % 16, bar = Math.floor(A.step/16) % 4, Bu = A.music;
-    const ch = SONG.chords[bar], bass = SONG.bass[bar] - (A.mode === "boss" ? 12 : 0);
-    // the walking bass: on the beat, sneaking
-    if(s % 4 === 0) tone(mtof(bass + (s === 8 ? 7 : 0)), spb*3, "triangle", 0.16, at, Bu);
-    if(s % 4 === 2 && A.mode !== "menu") tone(mtof(bass + 12), spb*1.5, "triangle", 0.07, at, Bu);
-    // a soft pad, and under everything a low drone that swells with each bar
-    if(s === 0) ch.forEach((n, i)=> tone(mtof(n), spb*15, "sine", 0.022, at + i*0.01, Bu));
-    if(s === 0){ swell(mtof(SONG.bass[bar] - 12), spb*17, "sawtooth", 0.05, at, Bu); swell(mtof(SONG.bass[bar] - 12)*1.006, spb*17, "sawtooth", 0.035, at, Bu, true); }
-    // plucks
-    if(s % 2 === 0) tone(mtof(ch[(s/2) % 3] + 12), 0.18, "triangle", A.mode === "menu" ? 0.03 : 0.02, at, Bu);
-    // drums once there's a fight
-    if(A.mode === "fight" || A.mode === "boss"){
-      if(s % 8 === 0) tone(60, 0.18, "sine", 0.45, at, Bu, 35);
-      if(s % 8 === 4) burst(0.12, "bandpass", 1800, 0.18, 1, at, Bu);
-      if(s % 2 === 1) burst(0.03, "highpass", 7000, 0.05, 1, at, Bu);
-      if(A.mode === "boss" && s % 4 === 2) tone(55, 0.12, "sine", 0.3, at, Bu, 35);
-    }
-    // the tune
-    const n = SONG.lead[bar][s];
-    if(n > 0 && (A.mode === "menu" || A.mode === "boss" || Math.floor(A.step/64) % 2 === 1)) tone(mtof(n), spb*3, "triangle", 0.03, at, Bu, 0, true);
-    A.next += spb; A.step++;
+  const c = A.ctx;
+  if(!c || c.state !== "running" || A.offline) return;
+  A.schedule(c.currentTime + 0.3);
+};
+/* schedules the score up to a time (the tick looks 0.3 s ahead; tests render it offline) */
+A.schedule = function(until){
+  const c = A.ctx; if(!c || !M.built) return;
+  if(A.next < c.currentTime - 0.25) A.next = c.currentTime + 0.05;     // after a stall, skip ahead rather than pile up
+  while(A.next < until){
+    const md = MODES[A.mode] || MODES.explore;
+    try{ if(!A.musicOff && A.musicOn !== false) stepMusic(A.next, md); }catch(e){ P = null; if(!A.warned){ A.warned = true; if(window.console) console.warn("music", e); } }
+    A.next += 60/md.bpm/2; A.step++;
   }
 };
+/* a context for the score's own short sounds: straight onto a layer, no jitter */
+function mus(t, bus, fn){
+  P = { t, dry:bus, wet:null, echo:null, pj:1, fj:1, vol:1, end:t };
+  try{ fn(); } finally{ P = null; }
+}
+function taiko(t, f, vol, bus){
+  mus(t, bus || M.L.perc, ()=>{
+    thump(f, f*0.45, 0.7, vol);
+    noise(0.1, "lowpass", 1000, vol*0.3);
+    noise(0.55, "lowpass", 170, vol*0.6, { buf:"b" });
+  });
+}
+function stepMusic(t, md){
+  const s = A.step % 8, eighth = 60/md.bpm/2, quiet = A.muted;
+  if(s === 0) newBar(t, md);
+  if(quiet) return;
+  const bar = Math.floor(A.step/8), d = M.depth;
+  // drums
+  if(A.mode === "fight"){
+    if(s === 0) taiko(t, 62, 0.42*md.perc);
+    if(s === 5) taiko(t, 66, 0.3*md.perc);
+    if(s === 3) taiko(t, 130, 0.1*md.perc);
+    if(s === 7 && bar % 2 === 1) taiko(t, 120, 0.12*md.perc);
+    if(bar % 4 === 3 && s >= 6) taiko(t + eighth/2, 110, 0.1*md.perc);
+  }
+  else if(A.mode === "boss"){
+    if(s === 0 || s === 3 || s === 6) taiko(t, 58, 0.45*md.perc);
+    if(s === 4){ mus(t, M.L.perc, ()=> metal(rnd(300, 330), 0.5, 0.025)); taiko(t, 70, 0.25*md.perc); }
+    if(s === 2 || s === 7) taiko(t, 125, 0.14*md.perc);
+    if(bar % 4 === 3 && s >= 4) taiko(t + eighth/2, 105, 0.13*md.perc);
+    // the string ostinato, marcato on every eighth
+    const v = M.sv[2], f = mtof(M.chord[0] + 12 + [0, 0, 1, 0, -1, 0, 3, 1][s]);
+    v.a.frequency.setTargetAtTime(f, t, 0.006); v.b.frequency.setTargetAtTime(f, t, 0.006);
+    v.g.gain.setTargetAtTime(0.06, t, 0.008); v.g.gain.setTargetAtTime(0.012, t + 0.07, 0.07);
+  }
+  else if(d >= 0.4 && s === 0 && bar % 4 === 2 && Math.random() < d) taiko(t, 52, 0.12, M.L.amb);   // something heavy, far off
+  // the room: drips, wind does itself, and very rarely a whisper
+  if(Math.random() < md.drips) mus(t + Math.random()*eighth, pick([M.panL, M.panR, M.L.amb]), ()=>{
+    const f = rnd(700, 1500); osc("sine", f, 0.07, 0.03, { to:f*rnd(1.4, 1.9), glide:0.025, att:0.002 });
+  });
+  if(A.mode !== "boss" && Math.random() < (A.mode === "fight" ? 0.001 : 0.003 + 0.006*d))
+    mus(t, Math.random() < 0.5 ? M.panL : M.panR, ()=> whisper(rnd(1.2, 2.4), 0.01 + 0.006*d));
+  if(d >= 0.6 && A.mode === "explore" && Math.random() < 0.006)
+    mus(t, M.L.amb, ()=> voice(rnd(45, 55), 4, 0.02, "u", { att:1.5, rasp:0.4, pc:[[1, 0.9]] }));   // the dungeon groans
+}
+function newBar(t, md){
+  const bar = Math.floor(A.step/8), d = depthNow();
+  if(Math.abs(d - M.depth) > 0.01) setDepth(d, t);
+  const per = md.bars;
+  if(bar % per !== 0) return;
+  const k = Math.floor(bar/per);
+  if(!M.prog || k % 4 === 0){ M.prog = pick(PROG[A.mode] || PROG.explore); M.pi = 0; }
+  let name = M.prog[M.pi++ % 4];
+  if(name !== "i" && Math.random() < d*0.5) name = pick(d > 0.8 ? ["x1", "x2", "x3", "x4"] : ["x1", "x2"]);
+  const ch = M.chord = CH[name], dur = per*8*60/md.bpm/2, quiet = A.muted;
+  // choir: glide to the chord, and sing this phrase or rest
+  const sing = Math.random() < md.sing, vowel = d > 0.5 ? pick(["o", "u", "o", "a"]) : pick(["a", "o", "a", "e"]);
+  M.form.forEach((b, i)=> b.frequency.setTargetAtTime(VOWEL[vowel][i][0], t, 0.8));
+  M.cv.forEach((v, i)=>{
+    const f = mtof(ch[i]);
+    v.a.frequency.setTargetAtTime(f, t, 0.09); v.b.frequency.setTargetAtTime(f, t, 0.09);
+    v.g.gain.setTargetAtTime(sing ? (i === 3 ? 0.025 : 0.035) : 0, t + 0.05, sing ? dur*0.18 : 0.8);
+    if(sing && A.mode !== "boss") v.g.gain.setTargetAtTime(0, t + dur*0.78, dur*0.07);
+  });
+  // strings
+  if(A.mode === "explore" || A.mode === "menu"){
+    const swell = Math.random() < (A.mode === "menu" ? 0.6 : 0.4);
+    const notes = [ch[1] + 12, ch[2] + 12, Math.random() < 0.3 + d*0.5 ? ch[2] + 13 : ch[3] + 12];   // sometimes a rub of a semitone
+    M.sv.forEach((v, i)=>{
+      v.a.frequency.setTargetAtTime(mtof(notes[i]), t, 0.3); v.b.frequency.setTargetAtTime(mtof(notes[i]), t, 0.3);
+      v.g.gain.setTargetAtTime(swell ? 0.045 : 0, t + 0.1 + i*0.6, swell ? dur*0.2 : 0.8);
+      if(swell) v.g.gain.setTargetAtTime(0, t + dur*0.6, dur*0.1);
+    });
+  } else {
+    // a sustained chord under tremolo; in a fight the top voice creeps up a semitone
+    M.sv.forEach((v, i)=>{
+      if(A.mode === "boss" && i === 2) return;
+      const n = (i === 0 ? ch[0] + 12 : i === 1 ? ch[2] + 12 : ch[3] + 12);
+      v.a.frequency.setTargetAtTime(mtof(n), t, 0.08); v.b.frequency.setTargetAtTime(mtof(n), t, 0.08);
+      if(A.mode === "fight" && i === 2 && Math.random() < 0.4){ v.a.frequency.setTargetAtTime(mtof(n + 1), t + dur*0.4, dur*0.25); v.b.frequency.setTargetAtTime(mtof(n + 1), t + dur*0.4, dur*0.25); }
+      v.g.gain.setTargetAtTime(0.04, t, 0.3);
+    });
+  }
+  if(quiet) return;
+  // bells: a far toll while exploring, sometimes three; every other bar for a boss
+  const bt = { str:d*2, n:d > 0.5 ? 10 : 8 };
+  if(A.mode === "boss"){ if(bar % 2 === 0) mus(t, M.L.bells, ()=> bell(mtof(ch[0]), 6, 0.06*md.bells, bt)); }
+  else if(bar % 4 === 0 && Math.random() < (A.mode === "fight" ? 0.5 : 0.65)){
+    const n = Math.random() < 0.25 ? 3 : 1, f = mtof(pick([50, 50, 45, 43]));
+    for(let i=0;i<n;i++) mus(t + i*2.6, M.L.bells, ()=> bell(f, 7, 0.035*md.bells, bt));
+  }
+}
 
 })();
