@@ -40,7 +40,7 @@ app.newRun = function(word){
   const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta() });
   if(Q.has("god")) G.god = true;
   app.G = G; app.V = new DG.View(G); app.demo = null;
-  app.mode = "play"; app.acc = 0;
+  app.mode = "play"; app.acc = 0; app.pend = {};
   HUD.reset(); UI.hide(); IN.clear();
   HUD.handle({ type:"floor", floor:G.floor, name:G.D.theme.name }, G);
   document.body.classList.add("playing");
@@ -58,7 +58,7 @@ app.stopRun = function(){
 };
 
 app.pause = function(){ if(app.mode !== "play") return; app.mode = "pause"; UI.pause(app.G); IN.clear(); document.body.classList.remove("playing"); };
-app.resume = function(){ app.mode = "play"; UI.hide(); IN.clear(); document.body.classList.add("playing"); };
+app.resume = function(){ app.mode = "play"; app.pend = {}; UI.hide(); IN.clear(); document.body.classList.add("playing"); };
 app.openBag = function(){ if(app.mode !== "play" && app.mode !== "pause") return; app.mode = "bag"; UI.bag(app.G); IN.clear(); document.body.classList.remove("playing"); };
 app.choose = function(){ app.mode = "choose"; UI.choose(app.G); IN.clear(); document.body.classList.remove("playing"); };
 app.pick = function(i){ if(app.mode !== "choose") return; app.G.choose(i); app.resume(); };
@@ -114,6 +114,7 @@ IN.onPadStart = ()=>{ if(app.mode === "play") app.pause(); else if(app.mode === 
 IN.onPadBag = ()=>{ if(app.mode === "play") app.openBag(); else if(app.mode === "bag") app.resume(); };
 
 /* ---- the frame ---- */
+const ONE_SHOTS = ["blink", "use", "active", "swap", "reload"], NO_SHOTS = { blink:false, use:false, active:false, swap:false, reload:false, slot:-1 };
 function frame(dt, t){
   const G = app.G, V = app.V;
   if(!G || !V) return;
@@ -122,11 +123,18 @@ function frame(dt, t){
     let first = true;
     const live = app.mode === "play";
     const input = live ? IN.sample(G) : app.demo ? null : {};
+    // one-shot presses wait for the next game step: on a fast screen (120 Hz+)
+    // most frames run no step at all, and a press there used to be dropped
+    if(live){
+      const P = app.pend = app.pend || {};
+      ONE_SHOTS.forEach(k=>{ if(input[k]) P[k] = true; });
+      if(input.slot >= 0) P.slot = input.slot;
+    }
     while(app.acc >= STEP){
       app.acc -= STEP;
       let I;
       if(app.demo) I = app.demo.input(STEP);
-      else if(live){ I = first ? input : Object.assign({}, input, { blink:false, use:false, active:false, swap:false, reload:false, slot:-1 }); first = false; }
+      else if(live){ I = Object.assign({}, input, NO_SHOTS, first ? app.pend : {}); if(first) app.pend = {}; first = false; }
       else I = {};
       G.update(STEP, I);
       if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));

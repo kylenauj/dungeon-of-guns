@@ -914,3 +914,31 @@ test("level-up choices keep changing: no repeats from the last offers, a wide sp
   assert.ok(overlap/offers < 0.15, "back-to-back offers rarely share a boon: " + (overlap/offers).toFixed(2));
   assert.ok(seen.size >= 50, "almost every boon turns up somewhere: " + seen.size);
 });
+
+test("a blink pressed just before it's ready still happens", ()=>{
+  const G = game("BUFFER"); G.god = true; park(G);
+  const p = G.player;
+  p.blinkCd = 0.1;
+  G.update(1/60, { blink:true });
+  let ev = G.drain();
+  assert.ok(!ev.some(e=> e.type === "blink"), "not yet");
+  for(let i=0;i<10;i++){ G.update(1/60, {}); ev = ev.concat(G.drain()); }
+  assert.ok(ev.some(e=> e.type === "blink"), "it went as soon as it could");
+});
+
+test("a false door is worth a knock: the first bonk can shake loose a stash", ()=>{
+  let stashes = 0, doors = 0;
+  for(let s=1; s<60; s++){
+    const G = game("KNOCK" + s); G.god = true;
+    const d = G.D.painted.find(x=> x.kind === "bonk"); if(!d) continue;
+    doors++;
+    const p = G.player; p.x = d.x + 0.5; p.y = d.y + 1 + p.r; p.bonkCd = 0;
+    G.checkBonk(p);
+    const ev = G.drain();
+    assert.ok(ev.some(e=> e.type === "bonk"), "bonk");
+    if(ev.some(e=> e.type === "stash")){ stashes++; assert.ok(G.pickups.some(k=> k.kind === "gold"), "coins came out"); }
+    p.bonkCd = 0; G.checkBonk(p);
+    assert.ok(!G.drain().some(e=> e.type === "stash"), "only the first knock");
+  }
+  assert.ok(doors > 10 && stashes > 0 && stashes < doors, stashes + " stashes behind " + doors + " doors");
+});

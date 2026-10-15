@@ -559,37 +559,58 @@ proto.buildFakes = function(){
   });
 };
 
-/* ---- painted doors ---- */
+/* ---- false doors: they look like every other heavy door in the place (a
+   stone arch, iron-strapped planks, a ring) until you walk into one. The
+   one tell, for a sharp eye: a hairline crack where the paint shows bare
+   stone. Puzzle doors hang a coloured rag over the arch; a wrong one gets
+   an X scratched across it. ---- */
 const doorTex = {};
-function paintedDoorTex(color, mark){
-  const k = color + ":" + (mark || "");
+function paintedDoorTex(mark){
+  const k = mark || "plain";
   if(doorTex[k]) return doorTex[k];
-  const cv = document.createElement("canvas"); cv.width = 32; cv.height = 48; const g = cv.getContext("2d");
-  const c = new THREE.Color(color);
-  g.fillStyle = "#2a1a10"; g.fillRect(0, 0, 32, 48);
-  g.fillStyle = "#" + c.getHexString(); g.fillRect(3, 4, 26, 44);
-  g.fillStyle = "#" + c.clone().multiplyScalar(0.7).getHexString();
-  for(let i=0;i<4;i++) g.fillRect(4 + i*7, 6, 2, 42);
-  g.fillRect(3, 4, 26, 3);
-  g.fillStyle = "#ffd23d"; g.fillRect(23, 26, 3, 3);
-  if(mark === "x"){ g.strokeStyle = "#111"; g.lineWidth = 3; g.beginPath(); g.moveTo(6, 10); g.lineTo(26, 44); g.moveTo(26, 10); g.lineTo(6, 44); g.stroke(); }
-  const t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d");
+  g.fillStyle = "#2a1c12"; g.fillRect(0, 0, 64, 96);
+  for(let i=0;i<5;i++){
+    const x = 2 + i*12.4, v = 52 + (i*37 % 23);
+    g.fillStyle = "rgb(" + v + "," + Math.round(v*0.68) + "," + Math.round(v*0.45) + ")"; g.fillRect(x, 0, 11.4, 96);
+    g.fillStyle = "rgba(0,0,0,.35)"; for(let j=0;j<6;j++) g.fillRect(x + 2 + (j*7 % 8), 6 + j*15, 1, 9);
+  }
+  g.fillStyle = "#1c1a1c"; [16, 64].forEach(y=>{ g.fillRect(0, y, 64, 7); g.fillStyle = "#3a3640"; for(let x=4;x<64;x+=10) g.fillRect(x, y + 2, 3, 3); g.fillStyle = "#1c1a1c"; });
+  g.strokeStyle = "#4a4448"; g.lineWidth = 3; g.beginPath(); g.arc(46, 46, 6, 0, Math.PI*2); g.stroke();
+  // the tell: a hairline crack, bare stone under the paint
+  g.strokeStyle = "rgba(150,146,140,.55)"; g.lineWidth = 1; g.beginPath(); g.moveTo(22, 30); g.lineTo(25, 41); g.lineTo(21, 50); g.lineTo(26, 63); g.stroke();
+  if(mark === "x"){ g.strokeStyle = "rgba(220,210,190,.85)"; g.lineWidth = 3; g.beginPath(); g.moveTo(10, 14); g.lineTo(54, 86); g.moveTo(54, 14); g.lineTo(10, 86); g.stroke(); }
+  const t = new THREE.CanvasTexture(cv);
   return doorTex[k] = t;
 }
 proto.buildPainted = function(){
-  const W = this;
+  const W = this, th = W.th, cTop = new THREE.Color(th.top).multiplyScalar(1.1).getHex(), cW = new THREE.Color(th.wall).multiplyScalar(1.05).getHex();
   W.painted = [];
   W.D.painted.forEach(p=>{
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 1.3), K.ink({ vertexColors:false, map:paintedDoorTex(p.color), transparent:true }));
-    m.position.set(p.x + 0.5, 0.65, p.y + 1.012);
-    const a = W.area[p.y*W.D.w + p.x];
-    W.areaGroup(a >= 0 ? a : p.room).add(m);
+    const a = W.area[p.y*W.D.w + p.x], grp = W.areaGroup(a >= 0 ? a : p.room);
+    const cx = p.x + 0.5, z = p.y + 1;
+    // the arch, standing proud of the wall like the real doorways'
+    const arch = new THREE.Group(), P = K.part;
+    [-1, 1].forEach(sd=> P(arch, new THREE.BoxGeometry(0.16, 1.45, 0.16), cW, cx + sd*0.5, 0.725, z + 0.06));
+    P(arch, new THREE.TorusGeometry(0.5, 0.09, 8, 18, Math.PI), cTop, cx, 1.42, z + 0.06);
+    P(arch, new THREE.BoxGeometry(1.2, 0.12, 0.2), cTop, cx, 0.06, z + 0.08);
+    P(arch, new THREE.BoxGeometry(0.12, 0.12, 0.12), 0x6a6a72, cx, 1.95, z + 0.07);
+    if(p.kind !== "bonk"){
+      // a puzzle door: a rag of its colour hangs over the arch
+      const c = new THREE.Color(p.color).multiplyScalar(0.7);
+      P(arch, new THREE.PlaneGeometry(0.42, 0.5), c.getHex(), cx, 1.62, z + 0.17);
+    }
+    K.bake(arch, { w:0.012 });
+    grp.add(arch);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.84, 1.42), K.ink({ vertexColors:false, map:paintedDoorTex() }));
+    m.position.set(cx, 0.71, z + 0.012);
+    grp.add(m);
     W.painted.push({ p, m });
   });
 };
 proto.markPainted = function(i){
   const P = this.painted.find(o=> o.p.kind === "trick" && o.p.puzzle === i);
-  if(P){ P.m.material.map = paintedDoorTex(P.p.color, "x"); P.m.material.needsUpdate = true; }
+  if(P){ P.m.material.map = paintedDoorTex("x"); P.m.material.needsUpdate = true; }
 };
 
 /* ---- torches on north walls ---- */
@@ -655,14 +676,30 @@ proto.buildTraps = function(){
   W.D.rooms.forEach(r=> r.traps.forEach(t=>{
     const g = new THREE.Group(); g.position.set(t.x + 0.5, 0, t.y + 0.5);
     const o = { t, g };
+    // every trap shows a faint warning glow even at rest, so it reads in the dark and
+    // the fog; it flares as the trap arms (see update)
+    const warn = new THREE.Mesh(K.glowPlane, K.glowMat(t.kind === "vent" ? 0xff6a1a : 0xc8402a, 0.14)); warn.scale.set(1.5, 1, 1.5); warn.position.y = 0.05;
+    if(t.kind === "spikes" || t.kind === "vent"){ g.add(warn); o.warn = warn; }
     if(t.kind === "spikes"){
-      K.part(g, new THREE.BoxGeometry(0.94, 0.04, 0.94), 0x55555e, 0, 0.02, 0); K.bake(g, { outline:false });
+      // a rusted iron plate, darker rim, holes the spikes come up through, old blood
+      K.part(g, new THREE.BoxGeometry(0.96, 0.05, 0.96), 0x2a2224, 0, 0.025, 0);
+      K.part(g, new THREE.BoxGeometry(0.84, 0.055, 0.84), 0x5a4a42, 0, 0.028, 0);
+      for(let i=0;i<3;i++) for(let j=0;j<3;j++) K.part(g, new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), 0x0a0808, -0.3 + i*0.3, 0.03, -0.3 + j*0.3);
+      K.part(g, new THREE.CylinderGeometry(0.22, 0.26, 0.058, 10), 0x3a0e0a, 0.18, 0.029, -0.12, 0, 0, 0, 1, 1, 0.7);
+      [[-0.44, -0.44], [0.44, -0.44], [-0.44, 0.44], [0.44, 0.44]].forEach(([x, z])=> K.part(g, new THREE.SphereGeometry(0.035, 6, 4), 0x8a8a92, x, 0.05, z));
+      K.bake(g, { outline:false });
       const sp = new THREE.Group(); g.add(sp);
       for(let i=0;i<3;i++) for(let j=0;j<3;j++) K.part(sp, new THREE.ConeGeometry(0.07, 0.45, 4), 0xc8ccd8, -0.3 + i*0.3, 0.22, -0.3 + j*0.3);
       K.bake(sp, { w:0.012 });
       sp.position.y = -0.45; o.spikes = sp;
     } else if(t.kind === "darts"){
-      const slit = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.5), K.basic(0x000000)); slit.position.set(t.dir*0.52, 0.8, 0); g.add(slit);
+      // a carved skull on the wall, the dart slit in its mouth, a red glint in the dark of it
+      const sk = new THREE.Group(); sk.position.set(t.dir*0.5, 0.82, 0); sk.rotation.y = t.dir > 0 ? -PI/2 : PI/2; g.add(sk);
+      K.part(sk, new THREE.SphereGeometry(0.17, 12, 8), 0xb8ac90, 0, 0.04, -0.08, 0, 0, 0, 1, 1, 0.6);
+      [-1, 1].forEach(e=> K.part(sk, new THREE.SphereGeometry(0.045, 8, 6), 0x0a0808, e*0.065, 0.07, 0.0));
+      K.part(sk, new THREE.BoxGeometry(0.14, 0.05, 0.04), 0x0a0808, 0, -0.06, 0.0);
+      K.bake(sk, { w:0.01 });
+      const gl = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 4), K.basic(0xff3a1a)); gl.position.set(0, -0.06, 0.02); sk.add(gl); o.glint = gl;
     } else if(t.kind === "vent"){
       K.part(g, new THREE.BoxGeometry(0.8, 0.04, 0.8), 0x222226, 0, 0.02, 0);
       for(let i=0;i<4;i++) K.part(g, new THREE.BoxGeometry(0.06, 0.05, 0.78), 0x4a4a50, -0.27 + i*0.18, 0.04, 0);
@@ -983,6 +1020,8 @@ proto.update = function(G, dt, t){
       o.spikes.position.y += (want - o.spikes.position.y)*(1 - Math.exp(-dt*(tr.state === "up" ? 40 : 10)));
     }
     if(o.glow) o.glow.material.opacity = tr.state === "warn" ? 0.4 + 0.3*Math.sin(t*20) : tr.state === "up" ? 0.9 : 0;
+    if(o.warn) o.warn.material.opacity = tr.state === "warn" ? 0.5 + 0.25*Math.sin(t*24) : tr.state === "up" ? 0.35 : 0.12 + 0.04*Math.sin(t*2 + tr.x);
+    if(o.glint) o.glint.material.color.setHex(Math.sin(t*3 + tr.y) > 0.6 ? 0xff5a2a : 0x8a1a0a);
     if(o.peel) o.peel.visible = !tr.gone;
   });
   // props

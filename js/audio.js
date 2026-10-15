@@ -939,7 +939,9 @@ SND.spear = ()=>{
  *  Traps and pratfalls, made grim
  * ================================================================== */
 lim("spikes", { min:0.1, cap:3, wet:0.45, jit:0.06 });
-SND.spikes = ()=>{ noise(0.15, "bandpass", 3500, 0.13, { q:3, to:5000 }); metal(rnd(500, 600), 0.3, 0.035); thump(150, 60, 0.08, 0.15, { v:false }); };
+SND.spikes = ()=>{ noise(0.12, "bandpass", 1600, 0.12, { q:1.5, to:700 }); thump(140, 55, 0.12, 0.2, { v:false }); metal(rnd(180, 220), 0.12, 0.01); };   // a dull iron shunk, not a ping
+lim("vent", { min:0.15, cap:2, wet:0.4, jit:0.08 });
+SND.vent = ()=>{ noise(0.7, "bandpass", 500, 0.16, { q:0.8, to:1400, att:0.05 }); thump(70, 40, 0.3, 0.12, { v:false }); };
 lim("dart", { min:0.08, cap:3, wet:0.35, jit:0.08 });
 SND.dart = ()=>{ noise(0.1, "bandpass", 2800, 0.08, { q:2, to:1500 }); thump(220, 120, 0.05, 0.08, { at:0.08, v:false }); };
 lim("slip", { min:0.3, cap:1, wet:0.45, jit:0.05 });
@@ -1042,7 +1044,7 @@ const TRIM = {
   thud:0.7, transform:0.85, kill:0.55, fall:0.55, godly:0.7, shoot_launcher:0.75, shoot_pistol:1.3, shoot_smg:1.8,
   hit:1.8, arrow:3, bounce:2.5, bones:3, bubble:2.3, click:5, coin:3, cloud:2.3, error:2.4, frog:3.5, ghostShot:2.5,
   graze:4, gremlin:1.6, hex:1.7, hiccup:4, illusion:1.7, jump:2, lick:1.4, pickup:2, poof:2.4, puff:4,
-  portalShot:1.8, reload:5, reroll:2.4, select:1.7, shatter:2, sling:3.5, spikes:2.8, spit:5, splat:1.6, stick:1.5,
+  portalShot:1.8, reload:5, reroll:2.4, select:1.7, shatter:2, sling:3.5, spikes:1.3, vent:1, spit:5, splat:1.6, stick:1.5,
   swap:1.5, tell:2.8, throw:2.2, zap:4, step:2.2, frogHop:3, cloth:3.5, dart:1.4, brazier:2, "break":1.5, freeze:1.9,
   spell_missiles:1.8, hurt:1.6, byproduct:3, ghost:0.6, bark:1.1
 };

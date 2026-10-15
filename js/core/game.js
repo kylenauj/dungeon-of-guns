@@ -272,7 +272,11 @@ proto.updatePlayer = function(dt, I){
     const k = 1 - Math.exp(-dt*18);
     p.vx += (mx*sp - p.vx)*k; p.vy += (my*sp - p.vy)*k;
     G.move(p, p.vx*dt, p.vy*dt, "player");
-    if(I.blink && p.blinkCd <= 0){
+    // a blink pressed just before it's ready waits for it, instead of being lost
+    if(I.blink && p.blinkCd > 0 && p.blinkCd < 0.25) p.blinkBuf = 0.25;
+    p.blinkBuf = Math.max(0, (p.blinkBuf || 0) - dt);
+    if((I.blink || p.blinkBuf > 0) && p.blinkCd <= 0){
+      p.blinkBuf = 0;
       let bx = mx, by = my;
       if(Math.hypot(bx, by) < 0.1){ bx = Math.cos(p.aim); by = Math.sin(p.aim); }
       const bl = Math.hypot(bx, by); p.bdx = bx/bl; p.bdy = by/bl;
@@ -344,6 +348,15 @@ proto.checkBonk = function(p){
       room.puzzle.failed.push(d.puzzle);
       G.say(G.rng.pick(DG.LINES.wrong));
       G.ambush(room);
+    } else if(d.kind === "bonk" && !d.shaken){
+      // the first knock on a false door can shake loose what someone hid behind the paint
+      d.shaken = true;
+      if(G.rng.chance(0.5)){
+        G.dropGold(d.x + 0.5, d.y + 1.6, G.rng.int(5, 10) + G.floor*2);
+        if(G.rng.chance(0.3)) G.addPickup("heart", d.x + 0.5, d.y + 1.7, 10);
+        G.emit("stash", { x:d.x + 0.5, y:d.y + 1.2 });
+        G.say("Something was hidden behind the paint.", 2.2);
+      } else G.say(G.rng.pick(DG.LINES.bonk));
     } else G.say(G.rng.pick(DG.LINES.bonk));
     return;
   }
@@ -880,7 +893,9 @@ proto.updateTraps = function(dt){
         });
       }
     } else if(t.kind === "vent"){
+      const prev = t.state;
       t.state = ph < D.cycle - D.warn - D.up ? "idle" : ph < D.cycle - D.up ? "warn" : "up";
+      if(t.state === "up" && prev !== "up") G.emit("trap", { kind:"vent", x:t.x + 0.5, y:t.y + 0.5 });
       if(t.state === "up"){
         if(DG.dist(p.x, p.y, t.x + 0.5, t.y + 0.5) < 0.75) G.hurtPlayer(D.dmg*G.scale.dmg, "vent");
         G.enemies.forEach(e=>{ if(!e.dead && e.spawn <= 0 && DG.dist(e.x, e.y, t.x + 0.5, t.y + 0.5) < 0.8) G.applyBurn(e, 4, 2, false); });

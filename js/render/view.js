@@ -187,6 +187,7 @@ proto.handle = function(ev){
     case "cloud": FX.disc(ev.x, ev.y, ev.r, 0x7dff3a, 0.5); play("cloud"); break;
     case "fizzle": FX.burst(ev.x, 0.8, ev.y, 0xfff04a, 6, 2, 0.2, 0.3); play("error"); break;
     case "healBeam": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x5aff8a, 0.3); FX.rise(ev.x2, ev.y2, 0x5aff8a, 8, 0.4); play("heal"); break;
+    case "stash": FX.smoke(ev.x, 1.0, ev.y, 0x6a6058, 10, 0.5, 1.2); FX.burst(ev.x, 1.0, ev.y, 0xc8a050, 10, 2, 0.15, 0.5); play("coin"); break;
     case "bonk":
       S.shake(0.3); FX.burst(ev.x, 1.3, ev.y, 0xffe680, 10, 3, 0.25, 0.5, { up:1 });
       play("bonk"); V.stars = 1.2;
@@ -218,7 +219,8 @@ proto.handle = function(ev){
     case "broke": play("error"); break;
     case "slip": play("slip"); break;
     case "fall": play("fall"); break;
-    case "trap": play(ev.kind === "spikes" ? "spikes" : "dart"); break;
+    // only the traps near you make a sound, placed where they are (a floor of spike plates used to ping as one)
+    case "trap": if(DG.dist(ev.x, ev.y, G.player.x, G.player.y) < 10) play(ev.kind === "spikes" ? "spikes" : ev.kind === "vent" ? "vent" : "dart", { x:ev.x, y:ev.y }); break;
     case "dizzy": FX.burst(ev.x, 1.6, ev.y, 0xffe680, 8, 2, 0.25, 0.8, { up:1 }); play("thud"); S.shake(0.3); break;
     case "boss": play("boss"); break;
     case "bossPhase": S.shake(0.5); play("tellBig"); break;
