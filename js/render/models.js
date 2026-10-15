@@ -1031,15 +1031,28 @@ Models.frog = function(twin, buffs){
   const WART = twin ? 0x56625a : 0x6e6438, IRIS = twin ? 0x9ab890 : 0xc8902a;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
+  // the rig: a pivot for each moving bit, with an inner group set back by the
+  // pivot so every part is still placed in body coordinates
+  const pivot = (parent, x, y, z)=>{ const g = group(parent, x, y, z); return [g, group(g, -x, -y, -z)]; };
+  const [headP, H] = pivot(b, 0, 0.3, 0.06); R.parts.head = headP;
+  const [throatP, TH] = pivot(H, 0, 0.245, 0.2); R.parts.throat = throatP;
+  const hind = [], thighs = [], front = [], feet = [], lids = [];
+  [-1, 1].forEach(s=>{
+    const [tp, ti] = pivot(b, s*0.25, 0.22, -0.18); thighs.push(tp); tp.userData.inner = ti;
+    const [hp, hi] = pivot(b, s*0.25, 0.22, -0.18); hind.push(hp);
+    const [fp, fi] = pivot(hi, s*0.3, 0.07, -0.08); feet.push(fp); hp.userData.inner = hi; fp.userData.inner = fi;
+    const [ap, ai] = pivot(b, s*0.16, 0.25, 0.22); front.push(ap); ap.userData.inner = ai;
+  });
+  R.parts.hind = hind; R.parts.thighs = thighs; R.parts.feet = feet; R.parts.front = front; R.parts.lids = lids;
   // the body: heavy and squat, belly sagging
   P(b, fSkin(0.32, 34, 26, 0.02, 15, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
   // the head: wide and flat, a pale throat under it
-  P(b, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
-  P(b, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
+  P(H, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
+  P(TH, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
   // poison glands behind the eyes, pitted
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.09, 20, 14, 0.006, 30, 4 + s, G2, zDim(G2, 0.7)), 0xffffff, s*0.21, 0.44, 0.0, 0, s*0.35, 0, 0.7, 0.5, 1.4);
-    for(let i=0;i<5;i++) P(b, zs(0.008), FC.hole, s*(0.2 + (i % 2)*0.03), 0.475, -0.06 + i*0.03);
+    P(H, fSkin(0.09, 20, 14, 0.006, 30, 4 + s, G2, zDim(G2, 0.7)), 0xffffff, s*0.21, 0.44, 0.0, 0, s*0.35, 0, 0.7, 0.5, 1.4);
+    for(let i=0;i<5;i++) P(H, zs(0.008), FC.hole, s*(0.2 + (i % 2)*0.03), 0.475, -0.06 + i*0.03);
   });
   // warts all over his back and head
   for(let i=0;i<32;i++){
@@ -1047,46 +1060,50 @@ Models.frog = function(twin, buffs){
     const x = Math.sin(u)*Math.cos(v)*0.32*1.18, y = 0.26 + Math.sin(v)*0.32*0.76, z = -0.03 + Math.cos(u)*Math.cos(v)*0.32*1.08;
     P(b, K.lump(r, 1, 0.4, i + (twin ? 50 : 0)), i % 3 ? WART : zDim(WART, 0.75), x*1.0, y, z, 0, 0, 0, 1, 0.75, 1);
   }
-  for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(b, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
+  for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(H, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
   // the eyes: raised, slit-pupilled, glowing dully under heavy lids; the left one scarred half shut
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
-    P(b, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
-    glow(R, b, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
-    halo(R, b, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
-    P(b, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
-    const lid = P(b, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256);
-    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35);
-    P(b, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
-    P(b, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
+    P(H, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
+    P(H, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
+    glow(R, H, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
+    halo(R, H, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
+    P(H, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
+    const lg = group(H, s*0.15, 0.52, 0.256); lids.push(lg);
+    const lid = P(lg, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, 0, 0, 0);
+    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35); lg.userData.shut = s < 0 ? 0.95 : 1.3;
+    P(H, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
+    P(H, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
   });
   // a scar down over the left eye, stitched; another across his back
   { const c0 = [-0.15, 0.52, 0.256], pts = [[-0.7, 0.4, -0.6], [-0.35, 0.85, 0.1], [-0.05, 0.75, 0.66], [0.1, 0.2, 0.98]].map(d=>{ const m = Math.hypot(d[0], d[1], d[2]); return [c0[0] + d[0]/m*0.078, c0[1] + d[1]/m*0.078, c0[2] + d[2]/m*0.078]; });
     pts.push([-0.12, 0.37, 0.4]);
-    P(b, K.tube(pts, 0.005, 14, 5), FC.scar);
-    [1, 2].forEach(i=> P(b, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
+    P(H, K.tube(pts, 0.005, 14, 5), FC.scar);
+    [1, 2].forEach(i=> P(H, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
   { const pts = []; for(let i=0;i<=8;i++){ const u = PI*0.75 + i*0.08, v = 0.35 + i*0.06; pts.push([Math.sin(u)*Math.cos(v)*0.39, 0.26 + Math.sin(v)*0.25, -0.03 + Math.cos(u)*Math.cos(v)*0.355]); }
     P(b, K.tube(pts, 0.008, 16, 5), FC.scar);
     pts.forEach((p, i)=>{ if(i % 2) P(b, BX(0.004, 0.035, 0.006), 0x2a2018, p[0], p[1], p[2], 0.6, 0.8, 0.3); }); }
   // the mouth: wide, down at the corners, a rusty ring through one side
   { const pts = []; for(let i=0;i<=16;i++){ const q = -1.2 + i/16*2.4; pts.push([Math.sin(q)*0.29, 0.325 - Math.pow(q/1.2, 2)*0.07, 0.16 + Math.cos(q)*0.244]); }
-    P(b, K.tube(pts, 0.01, 32, 6), FC.mouth);
-    P(b, K.tube(pts.map(p=> [p[0]*1.02, p[1] + 0.014, p[2] + 0.003]), 0.009, 32, 5), zDim(G2, 0.9)); }
-  P(b, zto(0.024, 0.006), FC.rust, 0.27, 0.25, 0.27, 0.3, 1.1, 0);
-  [-1, 1].forEach(s=> P(b, zs(0.011), FC.hole, s*0.04, 0.425, 0.405, 0, 0, 0, 1, 0.6, 1));
+    P(H, K.tube(pts, 0.01, 32, 6), FC.mouth);
+    P(H, K.tube(pts.map(p=> [p[0]*1.02, p[1] + 0.014, p[2] + 0.003]), 0.009, 32, 5), zDim(G2, 0.9)); }
+  P(H, zto(0.024, 0.006), FC.rust, 0.27, 0.25, 0.27, 0.3, 1.1, 0);
+  [-1, 1].forEach(s=> P(H, zs(0.011), FC.hole, s*0.04, 0.425, 0.405, 0, 0, 0, 1, 0.6, 1));
   // legs: thick folded haunches, long webbed toes with knuckled tips
   [-1, 1].forEach(s=>{
-    P(b, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
-    P(b, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, G2, zDim(G2, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
+    const ti = thighs[s < 0 ? 0 : 1].userData.inner, fi = feet[s < 0 ? 0 : 1].userData.inner, ai = front[s < 0 ? 0 : 1].userData.inner;
+    P(ti, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
+    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, G2, zDim(G2, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
+    // the shin, folded away inside the haunch until the leg straightens in a kick
+    P(fi, zTaper([[s*0.3, 0.06, -0.02], [s*0.27, 0.15, -0.14], [s*0.25, 0.22, -0.24]], 0.04, 0.05, 8, 8), G1);
     [-0.5, -0.15, 0.2, 0.55].forEach((a, k)=>{ const ang = a + s*0.25, l = 0.12 + (k % 2)*0.03; const x0 = s*0.31, z0 = 0.1;
       const tip = [x0 + Math.sin(ang)*l, 0.018, z0 + Math.cos(ang)*l];
-      P(b, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), G2);
-      P(b, zs(0.016), zDim(G2, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
+      P(fi, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), G2);
+      P(fi, zs(0.016), zDim(G2, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
     // front legs, splayed hands
-    P(b, zTaper([[s*0.16, 0.24, 0.24], [s*0.2, 0.12, 0.29], [s*0.2, 0.04, 0.31]], 0.048, 0.034, 10, 10), G1);
-    P(b, zs(0.045), G2, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
+    P(ai, zTaper([[s*0.16, 0.24, 0.24], [s*0.2, 0.12, 0.29], [s*0.2, 0.04, 0.31]], 0.048, 0.034, 10, 10), G1);
+    P(ai, zs(0.045), G2, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
     [-0.6, -0.1, 0.4].forEach((a, k)=>{ const ang = a + s*0.4, tip = [s*0.2 + Math.sin(ang)*0.08, 0.014, 0.34 + Math.cos(ang)*0.08];
-      P(b, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(b, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
+      P(ai, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(ai, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
   });
   // a rag knotted round his neck, a bone charm hung from it
   { const t = new THREE.TorusGeometry(0.25, 0.04, 9, 36); K.sculpt(t, 0.008, 25, 2);
@@ -1097,16 +1114,16 @@ Models.frog = function(twin, buffs){
     P(b, CO(0.018, 0.06, 6), FC.bone, 0.0, 0.15, 0.38, PI);
     P(b, zto(0.01, 0.003), FC.brass, 0.0, 0.185, 0.375); }
   // the crown (Royal Crown), hidden until he earns it: rusted iron, a little gold left on the points
-  const crown = group(b, 0, 0.6, 0.12); crown.visible = false; R.parts.crown = crown;
+  const crown = group(H, 0, 0.6, 0.12); crown.visible = false; R.parts.crown = crown;
   P(crown, CY(0.11, 0.12, 0.07, 24), FC.rust);
   P(crown, zto(0.115, 0.008), 0x8a6a2e, 0, -0.03, 0, PI/2);
   for(let i=0;i<5;i++){ const a = i/5*PI*2; P(crown, CO(0.025, 0.09, 6), 0x8a6a2e, Math.cos(a)*0.11, 0.07, Math.sin(a)*0.11); P(crown, zs(0.012), 0x6a1a14, Math.cos(a)*0.118, 0.0, Math.sin(a)*0.118); }
   // what he's learned, he wears
-  buffs.forEach(id=>{ if(FROG_OUTFIT[id]) FROG_OUTFIT[id]({ R, b, G1, G2 }); });
+  buffs.forEach(id=>{ if(FROG_OUTFIT[id]) FROG_OUTFIT[id]({ R, b, h:H, G1, G2 }); });
   // the tongue: not baked, so the view can stretch it
   const tongue = new THREE.Mesh(CY(0.035, 0.05, 1, 8), K.lambert(0x8a3e48));
   tongue.geometry = tongue.geometry.clone(); tongue.geometry.rotateX(PI/2); tongue.geometry.translate(0, 0, 0.5);
-  tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; b.add(tongue); R.parts.tongue = tongue;
+  tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; H.add(tongue); R.parts.tongue = tongue;
   R.h = 0.75;
   finish(R, { w:0.022 });
   return R;
@@ -1114,22 +1131,22 @@ Models.frog = function(twin, buffs){
 
 /* Gribbus' tricks, worn (head at about (0, 0.37, 0.18), eyes on top at (±0.15, 0.49, 0.25)) */
 const FROG_OUTFIT = {
-  tongue(c){ P(c.b, zs(0.04), 0x8a3e48, 0.04, 0.31, 0.39, 0, 0, 0, 1, 0.6, 1.3); },
-  spit(c){ [[0.12, 0.45, -0.18], [-0.1, 0.42, -0.22], [0.0, 0.5, -0.05], [0.18, 0.35, -0.08]].forEach(([x, y, z], i)=> P(c.b, K.lump(0.03, 1, 0.3, i), 0x6a8a2a, x, y, z, 0, 0, 0, 1, 0.6, 1)); P(c.b, zTaper([[-0.06, 0.32, 0.4], [-0.07, 0.25, 0.41], [-0.065, 0.18, 0.4]], 0.014, 0.004, 6, 6), 0x7a9a2a); glow(c.R, c.b, 0.02, 0x9cff3a, -0.065, 0.2, 0.4); },
+  tongue(c){ P(c.h, zs(0.04), 0x8a3e48, 0.04, 0.31, 0.39, 0, 0, 0, 1, 0.6, 1.3); },
+  spit(c){ [[0.12, 0.45, -0.18], [-0.1, 0.42, -0.22], [0.0, 0.5, -0.05], [0.18, 0.35, -0.08]].forEach(([x, y, z], i)=> P(c.b, K.lump(0.03, 1, 0.3, i), 0x6a8a2a, x, y, z, 0, 0, 0, 1, 0.6, 1)); P(c.h, zTaper([[-0.06, 0.32, 0.4], [-0.07, 0.25, 0.41], [-0.065, 0.18, 0.4]], 0.014, 0.004, 6, 6), 0x7a9a2a); glow(c.R, c.h, 0.02, 0x9cff3a, -0.065, 0.2, 0.4); },
   croak(c){ for(let i=0;i<5;i++){ const a = -0.9 + i*0.45; P(c.b, CO(0.02, 0.1, 5), 0x9ab8c8, Math.sin(a)*0.25, 0.22, 0.1 + Math.cos(a)*0.25, PI); } halo(c.R, c.b, 0x8ad8ff, 0.6, 0, 0.2, 0.3, 0.25); },
   hop(c){ [[0, 0.55, -0.22, 0.4], [0.03, 0.47, -0.27, -0.4], [0, 0.39, -0.3, 0.4]].forEach(([x, y, z, r])=> P(c.b, BX(0.035, 0.1, 0.02), 0x9a8a3a, x, y, z, -0.6, 0, r)); glow(c.R, c.b, 0.025, 0xfff04a, 0, 0.47, -0.31); },
   brood(c){ [[-0.12, 0.5, -0.12], [0.08, 0.52, -0.15], [0.0, 0.47, -0.25]].forEach(([x, y, z], i)=>{ P(c.b, zs(0.042), 0x1e261e, x, y, z); P(c.b, zTaper([[x, y, z - 0.03], [x + 0.02, y - 0.01, z - 0.09], [x - 0.01, y - 0.02, z - 0.13]], 0.02, 0.004, 8, 6), 0x2a342a); glow(c.R, c.b, 0.007, 0x9cff3a, x + 0.015, y + 0.02, z + 0.03); }); },
-  lily(c){ const pad = new THREE.CylinderGeometry(0.2, 0.2, 0.02, 24, 1, false, 0.3, PI*2 - 0.6); K.sculpt(pad, 0.008, 14, 1); P(c.b, pad, 0x3e4a26, 0, 0.62, 0.15, 0.2); for(let k=0;k<5;k++){ const q = k/5*PI*2; P(c.b, zs(0.022), 0xa8909a, 0.06 + Math.cos(q)*0.02, 0.645, 0.18 + Math.sin(q)*0.02, 0, 0, 0, 1, 0.5, 1); } },
+  lily(c){ const pad = new THREE.CylinderGeometry(0.2, 0.2, 0.02, 24, 1, false, 0.3, PI*2 - 0.6); K.sculpt(pad, 0.008, 14, 1); P(c.h, pad, 0x3e4a26, 0, 0.62, 0.15, 0.2); for(let k=0;k<5;k++){ const q = k/5*PI*2; P(c.h, zs(0.022), 0xa8909a, 0.06 + Math.cos(q)*0.02, 0.645, 0.18 + Math.sin(q)*0.02, 0, 0, 0, 1, 0.5, 1); } },
   gulp(c){ P(c.b, CO(0.13, 0.16, 3), 0xa89c80, 0, 0.24, 0.34, PI + 0.4, 0, 0, 1, 1, 0.25); P(c.b, zs(0.025), 0x5a3a22, 0.03, 0.2, 0.37, 0, 0, 0, 1, 0.8, 0.3); },
   crown(c){ /* the crown is already on him, hidden until now */ },
   bigboy(c){ [-1, 1].forEach(s=> P(c.b, fSkin(0.08, 16, 12, 0.005, 25, s, c.G1, c.G2), 0xffffff, s*0.22, 0.2, 0.25, 0, 0, 0, 1.3, 1, 1)); },
-  flyhunt(c){ const g = group(c.b, 0.15, 0.85, 0.1); c.R.anim.push({ o:g, bob:0.06, speed:11 }); P(g, zs(0.03), 0x1a1a1a, 0, 0, 0, 0, 0, 0, 1, 1, 1.5); glow(c.R, g, 0.012, 0x9cff3a, 0, 0.01, 0.04); [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), new THREE.MeshBasicMaterial({ color:0xb8b8a8, transparent:true, opacity:0.45, side:THREE.DoubleSide })); w.position.set(s*0.05, 0.02, 0); w.rotation.set(-0.5, 0, s*0.5); g.add(w); c.R.glows.push(w); }); },
+  flyhunt(c){ const g = group(c.h, 0.15, 0.85, 0.1); c.R.anim.push({ o:g, bob:0.06, speed:11 }); P(g, zs(0.03), 0x1a1a1a, 0, 0, 0, 0, 0, 0, 1, 1, 1.5); glow(c.R, g, 0.012, 0x9cff3a, 0, 0.01, 0.04); [-1, 1].forEach(s=>{ const w = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), new THREE.MeshBasicMaterial({ color:0xb8b8a8, transparent:true, opacity:0.45, side:THREE.DoubleSide })); w.position.set(s*0.05, 0.02, 0); w.rotation.set(-0.5, 0, s*0.5); g.add(w); c.R.glows.push(w); }); },
   mirror(c){ [[-0.1, 0.45, 0.25], [0.15, 0.4, 0.1]].forEach(([x, y, z])=> glow(c.R, c.b, 0.015, 0xd8e0e8, x, y, z)); },
-  bubble(c){ P(c.b, CY(0.012, 0.012, 0.15, 6), 0x2a1c12, 0.12, 0.3, 0.4, PI/2, 0, -0.3); P(c.b, CY(0.04, 0.03, 0.06, 10), 0x2a1c12, 0.18, 0.33, 0.47); const bub = new THREE.Mesh(S(0.08, 12, 8), new THREE.MeshPhongMaterial({ color:0x8aa0a8, transparent:true, opacity:0.4, shininess:90 })); bub.position.set(0.2, 0.46, 0.5); c.b.add(bub); c.R.glows.push(bub); c.R.anim.push({ o:bub, bob:0.04, speed:3 }); },
-  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.b, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.b, 0.022, 0xff2a1a, s*0.15, 0.52, 0.3)); },
+  bubble(c){ P(c.h, CY(0.012, 0.012, 0.15, 6), 0x2a1c12, 0.12, 0.3, 0.4, PI/2, 0, -0.3); P(c.h, CY(0.04, 0.03, 0.06, 10), 0x2a1c12, 0.18, 0.33, 0.47); const bub = new THREE.Mesh(S(0.08, 12, 8), new THREE.MeshPhongMaterial({ color:0x8aa0a8, transparent:true, opacity:0.4, shininess:90 })); bub.position.set(0.2, 0.46, 0.5); c.h.add(bub); c.R.glows.push(bub); c.R.anim.push({ o:bub, bob:0.04, speed:3 }); },
+  doom(c){ const h = new THREE.SphereGeometry(0.31, 28, 12, 0, PI*2, 0, PI*0.55); K.tatter(h, 0.12, 9, 0.06, 4); P(c.h, h, 0x1a1418, 0, 0.36, -0.1, -0.5, 0, 0, 1.1, 0.9, 1); [-1, 1].forEach(s=> glow(c.R, c.h, 0.022, 0xff2a1a, s*0.15, 0.52, 0.3)); },
   twin(c){},
-  zoomies(c){ P(c.b, zto(0.2, 0.016), 0x3a2a1e, 0, 0.53, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.b, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.53, 0.29, PI/2 - 0.3); P(c.b, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.535, 0.293, PI/2 - 0.3); }); },
-  sticky(c){ P(c.b, zs(0.03), 0x9a6a7a, -0.06, 0.26, 0.39, 0, 0, 0, 1, 1.8, 1); }
+  zoomies(c){ P(c.h, zto(0.2, 0.016), 0x3a2a1e, 0, 0.53, 0.18, PI/2 - 0.2); [-1, 1].forEach(s=>{ P(c.h, CY(0.07, 0.07, 0.04, 14), 0x8a6a30, s*0.15, 0.53, 0.29, PI/2 - 0.3); P(c.h, CY(0.055, 0.055, 0.042, 14), 0x8a5a20, s*0.15, 0.535, 0.293, PI/2 - 0.3); }); },
+  sticky(c){ P(c.h, zs(0.03), 0x9a6a7a, -0.06, 0.26, 0.39, 0, 0, 0, 1, 1.8, 1); }
 };
 
 /* ================================================================== *
@@ -2862,8 +2879,66 @@ Models.stalk = function(R, o, t, dt){
   return m;
 };
 
+/* Gribbus' hop, a heavy old toad's: he sinks and loads, the hind legs kick
+   out straight behind him, the front legs reach in the air, he lands hard
+   on his belly and the legs fold back under. On the ground: a slow throat,
+   a blink now and then, and every so often a shift of his whole weight.
+   o: { k (0..1 through a hop, < 0 on the ground), lick (0..1) }.
+   Sets m.tookOff / m.landed on those frames. */
+Models.hop = function(R, o, t, dt){
+  const m = R.mo || (R.mo = { air:false, land:9, sq:{ x:0, v:0 }, pitch:{ x:0, v:0 }, blink:0, nextBlink:2 + Math.random()*3, shift:0, shiftT:4 + Math.random()*4, shiftTo:0, roll:{ x:0, v:0 } });
+  dt = stepDt(m, t, dt);
+  const b = R.body, p = R.parts, k = o.k === undefined ? -1 : o.k, air = k >= 0;
+  m.tookOff = air && !m.air; m.landed = !air && m.air; m.air = air;
+  if(m.landed){ m.land = 0; m.sq.v -= 9; }
+  if(m.tookOff) m.sq.v += 5;
+  m.land += dt;
+  // squash (< 0) and stretch (> 0): a spring kicked at take-off and landing
+  const sq = spring(m.sq, air ? 0.22*Math.sin(Math.min(1, k/0.25)*PI*0.5)*(1 - smooth(0.6, 1, k)) : 0, 260, 13, dt);
+  // between hops he sinks and loads up, and lets it go if nothing comes
+  const load = air ? 0 : smooth(0.12, 0.35, m.land)*(1 - smooth(1.5, 2.6, m.land));
+  // the body's pitch: nose up off the ground, nose down to land
+  const pTarget = air ? -0.38*(1 - smooth(0, 0.55, k)) + 0.28*smooth(0.55, 0.95, k) : 0.1*load;
+  const pitch = spring(m.pitch, pTarget, 160, 18, dt);
+  // the weight shift: now and then he rolls his bulk onto one side and back
+  m.shiftT -= dt;
+  if(m.shiftT <= 0 && !air){ m.shiftTo = m.shiftTo ? 0 : (Math.random() < 0.5 ? -1 : 1)*(0.06 + Math.random()*0.04); m.shiftT = m.shiftTo ? 0.9 + Math.random()*0.8 : 3 + Math.random()*5; }
+  const roll = spring(m.roll, air ? 0 : m.shiftTo, 25, 9, dt);
+  const breath = Math.sin(t*1.9);
+  b.scale.set(1 - sq*0.45 + breath*0.012, 1 + sq*0.55 - 0.12*load - breath*0.012, 1 + sq*0.9);
+  b.rotation.set(pitch, 0, roll);
+  b.position.set(roll*0.25, -0.03*load, 0);
+  // legs: phase weights through the hop
+  const kick = air ? smooth(0, 0.14, k)*(1 - smooth(0.58, 0.88, k)) : 0;      // hind legs out straight behind
+  const reach = air ? smooth(0.1, 0.4, k) : 0;                                   // front legs forward in the air
+  const catchUp = air ? smooth(0.7, 0.95, k) : 0;                               // and down to take the landing
+  const fold = air ? 0 : Math.exp(-m.land*9);                                    // the landing shoves them back under
+  if(p.thighs) p.thighs.forEach((g, i)=>{ g.rotation.x = 0.45*kick - 0.15*load + 0.1*fold; g.rotation.z = (i ? 1 : -1)*(0.08*kick - 0.06*load); });
+  if(p.hind) p.hind.forEach((g, i)=>{ g.rotation.x = 2.25*kick - 0.25*load + 0.15*fold; g.rotation.z = (i ? 1 : -1)*(0.1*kick - 0.08*load); });
+  if(p.feet) p.feet.forEach((g, i)=>{
+    // the leg straightens: the foot slides out along the folded leg, the shin comes out of the haunch
+    const u = g.userData, ext = 0.18*smooth(0.45, 1, kick);
+    if(!u.p0) u.p0 = g.position.clone();
+    g.position.set(u.p0.x + (i ? 1 : -1)*0.03*ext, u.p0.y - 0.5*ext, u.p0.z + 0.85*ext);
+    g.rotation.x = 0.9*kick - 0.15*load;
+  });
+  if(p.front) p.front.forEach((g, i)=>{ g.rotation.x = -1.05*reach*(1 - catchUp) - 0.35*catchUp + 0.45*fold + 0.12*load - pitch*0.6; g.rotation.z = (i ? -1 : 1)*0.15*reach; });
+  // the head: low and heavy, jerked forward when the tongue goes out
+  const lk = o.lick || 0, jerk = lk > 0 ? Math.sin(Math.min(1, lk)*PI) : 0;
+  if(p.head){ p.head.rotation.x = -pitch*0.4 + 0.22*jerk + 0.05*load; p.head.position.z = 0.06 + 0.07*jerk; }
+  // a slow throat, swelling and letting go
+  if(p.throat){ const th = Math.pow(Math.max(0, Math.sin(t*1.25 + 0.4)), 3); p.throat.scale.set(1 + 0.1*th, 1 + 0.32*th, 1 + 0.14*th); }
+  // blinks: both lids, quick, every few seconds (and on landing)
+  m.nextBlink -= dt; if(m.nextBlink <= 0 || m.landed){ m.blink = 0.16; m.nextBlink = 2.5 + Math.random()*4.5; }
+  if(m.blink > 0) m.blink -= dt;
+  const shut = m.blink > 0 ? Math.sin((1 - m.blink/0.16)*PI) : 0;
+  if(p.lids) p.lids.forEach(g=> g.rotation.x = g.userData.shut*shut);
+  return m;
+};
+
 Models.idle = function(R, t, speed){
   if(R.kind === "zippy"){ Models.stalk(R, { speed }, t); return; }
+  if(R.kind === "frog"){ Models.hop(R, {}, t); return; }
   const s = Math.min(1, speed/3), ph = t*(6 + speed*1.5);
   R.body.position.y = Math.abs(Math.sin(ph))*0.06*s + Math.sin(t*2)*0.012;
   R.body.rotation.z = Math.sin(ph)*0.07*s;

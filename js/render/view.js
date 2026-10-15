@@ -469,7 +469,7 @@ proto.updatePortrait = function(dt, t){
   if(F){
     M.animate(F, t, 0);
     F.root.rotation.y = -0.5 + Math.sin(t*0.5 + 1)*0.8;
-    F.body.scale.set(1 + Math.sin(t*3)*0.03, 1 - Math.sin(t*3)*0.03, 1);
+    M.hop(F, {}, t);
     if(F.parts.crown) F.parts.crown.visible = G.gribbus.buffs.indexOf("crown") >= 0;
   }
   const P = S.portrait.root.children; if(Z && P.indexOf(Z.root) < 0) S.portrait.root.add(Z.root);
@@ -492,9 +492,10 @@ proto.updateFrogs = function(dt, t){
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
     const sz = (1 + 0.5*(g.size || 0))*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
-    // squash on landing, stretch in the air
-    const air = (f.hop || 0) > 0.05;
-    R.body.scale.set(air ? 0.9 : 1 + Math.sin(t*3 + i)*0.03, air ? 1.15 : 1 - Math.sin(t*3 + i)*0.03, air ? 1.1 : 1);
+    // the hop: load, kick, reach, land hard (Models.hop)
+    const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/0.18 : 0 }, t + i*1.7, dt);
+    if(mo.tookOff){ V.play("frogHop", { x:f.x, y:f.y }); FX.smoke(f.x, 0.05, f.y, 0x2a2420, 2, 0.3, 0.5, { spread:0.3, rise:0.15 }); }
+    if(mo.landed){ V.play("frogLand", { x:f.x, y:f.y }); FX.burst(f.x, 0.05, f.y, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 4, 1, 0.22, 0.45, { up:0.4, drag:5 }); }
     if(R.parts.crown) R.parts.crown.visible = !!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0;
     M.animate(R, t, 0);
     // the tongue
