@@ -1011,7 +1011,13 @@ proto.update = function(G, dt, t){
         if(pr.sunk){ o.sink = Math.min(1, o.sink + dt*1.5); o.g.position.y = -o.sink*1.2; }
       }
       if(pr.kind === "lilypad"){
-        if(pr.buff && !o.shown && !pr.taken){ o.shown = M.frogBuffIcon(pr.buff); o.holder.add(o.shown); }
+        if(pr.buff && !o.shown && !pr.taken){
+          o.shown = M.frogBuffIcon(pr.buff); o.holder.add(o.shown);
+          // its medallion, facing the camera, so the trick reads from across the pond
+          if(DG.Icons){ o.icon = M.iconSprite("frog:" + pr.buff, 0.8); o.holder.add(o.icon); }
+        }
+        if(o.icon && o.icon.parent && (!o.shown || pr.taken || pr.sunk)){ o.holder.remove(o.icon); o.icon = null; }
+        if(o.icon) o.icon.position.y = 0.75 + Math.sin(t*1.4 + pr.slot)*0.06;
         if((pr.taken || pr.sunk) && o.shown && !pr.chosen){ o.holder.remove(o.shown); o.shown = null; }
         if(o.shown){ o.shown.rotation.y = t*1.5; o.shown.position.y = Math.sin(t*2 + pr.slot)*0.08; }
         o.g.position.y = Math.sin(t*1.5 + pr.slot)*0.03 - (pr.sunk ? (o.sink = Math.min(1, o.sink + dt)) : 0)*0.5;

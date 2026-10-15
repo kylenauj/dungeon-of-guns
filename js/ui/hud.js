@@ -258,15 +258,25 @@ H.draw = function(G, dt, opts){
     if(e.affix) text(g, DG.AFFIXES[e.affix].name, s.x, s.y - 9, 11*k, mute(hex(DG.AFFIXES[e.affix].tint), 0.25), "center", "700", SERIF, 1);
     if(e.st.poison && e.st.poison.stacks > 0) text(g, "☣" + e.st.poison.stacks, s.x + w/2 + 6, s.y + 2, 12*k, "#8ac84a", "left", "700");
   });
-  if(G.room) G.room.props.forEach(pr=>{
-    if(pr.kind !== "pedestal" || pr.taken || !pr.offer || DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) > 5) return;
-    if(H.nearOffer === pr) return;   // the card at the bottom says it all
-    const o = pr.offer, s = S.project(pr.x + 0.5, 3.4, pr.y + 0.5);
-    const name = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.name;
-    const col = o.kind === "item" ? DG.TIERS[DG.ITEMS[o.id].tier].color : o.kind === "gun" ? DG.RARITY[o.gun.rarity].color : BONE;
-    text(g, name, s.x, s.y, 13*k, mute(col, 0.3), "center", "700");
-    if(o.currency) text(g, o.currency === "gold" ? o.price + " gold" : "−" + o.price + " max HP", s.x, s.y + 15*k, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK);
-  });
+  // offers: the medallion over each says what it is; here, its price just above it,
+  // and the name of the nearest one (the one you stand at gets the full card)
+  if(G.room){
+    const offers = G.room.props.filter(pr=> pr.kind === "pedestal" && !pr.taken && pr.offer && DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 6);
+    let named = null, nd = 4.5;
+    offers.forEach(pr=>{ const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y); if(d < nd){ nd = d; named = pr; } });
+    if(named === H.nearOffer) named = null;
+    offers.forEach(pr=>{
+      if(H.nearOffer === pr) return;   // the card at the bottom says it all
+      const o = pr.offer, s = S.project(pr.x + 0.5, 3.5, pr.y + 0.5);
+      let y = s.y;
+      if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : "−" + o.price + " max HP", s.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
+      if(pr === named){
+        const name = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.kind === "active" ? DG.ACTIVES[o.id].name : o.name;
+        const col = o.kind === "item" ? DG.TIERS[DG.ITEMS[o.id].tier].color : o.kind === "gun" ? DG.RARITY[o.gun.rarity].color : BONE;
+        text(g, name, s.x, y, 13*k, mute(col, 0.3), "center", "700");
+      }
+    });
+  }
   H.barks = H.barks.filter(b=>{
     b.t += dt;
     const e = G.enemies.find(o=> o.id === b.id); if(e){ b.x = e.x; b.y = e.y; }
@@ -602,7 +612,7 @@ H.offerInfo = function(o, G){
   } else if(of.kind === "gun"){
     const gun = of.gun, R0 = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], s = DG.Loot.stats(gun, G.mods), sp = DG.SPELLS[s.spell];
     Object.assign(info, { title:gun.name, col:gun.ascended ? "#ffb12e" : R0.color, tier:R0.name + " · " + E.name + " " + DG.GUNS[gun.base].name,
-      desc:Math.round(s.dmg*10)/10 + (s.pellets > 1 ? "×" + s.pellets : "") + " damage, " + Math.round(s.rate*10)/10 + " shots a second, " + s.mag + " to a load. Its spell: " + sp.name + ".",
+      desc:Math.round(s.dmg*10)/10 + (s.pellets > 1 ? "×" + s.pellets : "") + " damage, " + Math.round(s.rate*10)/10 + (Math.round(s.rate*10) === 10 ? " shot" : " shots") + " a second, " + s.mag + " to a load. Its spell: " + sp.name + ".",
       flavor:gun.flavour });
     const inn = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> DG.ITEMS[id].name);
     if(inn.length) info.lines.push({ t:"Built in: " + inn.join(", ") + ".", c:"#b8a8c0" });

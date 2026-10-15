@@ -29,7 +29,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
   - Models are parts baked per rig (`models.js`). `decor.js` builds the map dressing, and `vanity.js` adds view-only decals, mist, light shafts, critters and splats.
   - `?gallery` lines up every model.
   - `view.js` reads the game state and its event list; it never writes to the game.
-- `js/ui/` holds `hud.js` (a canvas HUD) and `menus.js` (DOM screens).
+- `js/ui/` holds `hud.js` (a canvas HUD), `menus.js` (DOM screens) and `icons.js` (`DG.Icons`: a procedural medallion for every item, active, frog trick and gun, used by the HUD, the satchel and the pedestals). A new item needs a glyph in `DG.Icons.ITEMS` (the tests check); `tools/icons.html` is the contact sheet.
 - `docs/DESIGN.md` covers the design, the curves and the roadmap.
 
 ## Rules of the house
