@@ -52,7 +52,7 @@ proto.dressPlayer = function(look){
   // and the close-up in the corner
   const P = S.portrait;
   if(V.pzZippy) P.root.remove(V.pzZippy.root);
-  V.pzZippy = M.zippy(look); V.pzZippy.gunKey = null; V.pzZippy.root.position.x = -0.38; P.root.add(V.pzZippy.root);
+  V.pzZippy = M.zippy(look); V.pzZippy.gunKey = null; V.pzZippy.root.position.set(-0.38, -0.1, 0); P.root.add(V.pzZippy.root);
 };
 /* the camera looks down at an angle, which squashes anything standing up:
    characters are drawn a little taller to make up for it */
