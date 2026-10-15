@@ -136,7 +136,7 @@ function dark(x, y, z, vx, vy, vz, col, size, life, alpha, grow, grav, drag){
   D.grow[i] = grow || 0; D.grav[i] = grav || 0; D.drag[i] = drag === undefined ? 1.5 : drag;
 }
 FX.dark = dark;
-const SOOT = new THREE.Color(0x14100e), BLOOD = new THREE.Color(0x3a0606), _d = new THREE.Color();
+const SOOT = new THREE.Color(0x2a2420), BLOOD = new THREE.Color(0x3a0606), _d = new THREE.Color();
 /* a puff of smoke, faintly tinted by what made it */
 FX.smoke = function(x, y, z, col, n, size, life, opts){
   opts = opts || {};
@@ -168,7 +168,7 @@ FX.burst = function(x, y, z, col, n, speed, size, life, opts){
       Math.cos(a)*Math.cos(e)*s, Math.sin(e)*s + (opts.up || 0), Math.sin(a)*Math.cos(e)*s, c, size*(0.6 + Math.random()*0.6), life*(0.6 + Math.random()*0.6), opts.grav || 0, opts.drag);
   }
   if(gore) FX.blood(x, y, z, col, Math.min(40, Math.ceil(n*0.7)), speed*0.8, size*0.8, life*2.2);
-  if(n >= 8 && !opts.flat) FX.smoke(x, y, z, col, Math.min(10, Math.ceil(n/5)), size*3.2, life*1.8, { spread:opts.spread || 0.4, alpha:0.42 });
+  if(n >= 8 && !opts.flat) FX.smoke(x, y, z, col, Math.min(10, Math.ceil(n/5)), size*3.2, life*1.8, { spread:opts.spread || 0.4, alpha:0.55 });
   if(n >= 20) for(let i=0;i<Math.min(12, n/4);i++){ const a = Math.random()*6.283; dark(x + Math.cos(a)*0.4, y + 0.3, z + Math.sin(a)*0.4, Math.cos(a)*0.4, 0.8 + Math.random(), Math.sin(a)*0.4, 0x4a4440, 0.06 + Math.random()*0.05, 1.4 + Math.random(), 0.8, 0, -0.15, 0.8); }
 };
 FX.rise = function(x, z, col, n, r, opts){
@@ -181,11 +181,11 @@ FX.rise = function(x, z, col, n, r, opts){
 const ringTex = (()=>{
   const S0 = 128, cv = document.createElement("canvas"); cv.width = cv.height = S0; const g = cv.getContext("2d");
   const r = g.createRadialGradient(64, 64, 20, 64, 64, 63);
-  r.addColorStop(0, "rgba(255,255,255,0)"); r.addColorStop(0.62, "rgba(255,255,255,0.08)"); r.addColorStop(0.9, "rgba(255,255,255,0.75)"); r.addColorStop(0.96, "rgba(255,255,255,0.9)"); r.addColorStop(1, "rgba(255,255,255,0)");
+  r.addColorStop(0, "rgba(255,255,255,0)"); r.addColorStop(0.7, "rgba(255,255,255,0)"); r.addColorStop(0.86, "rgba(255,255,255,0.18)"); r.addColorStop(0.94, "rgba(255,255,255,0.8)"); r.addColorStop(0.975, "rgba(255,255,255,0.95)"); r.addColorStop(1, "rgba(255,255,255,0)");
   g.fillStyle = r; g.fillRect(0, 0, S0, S0);
   // break it up, like dust thrown out rather than a clean line
   g.globalCompositeOperation = "destination-out";
-  for(let i=0;i<260;i++){ const a = Math.random()*6.283, d = 40 + Math.random()*24; g.fillStyle = "rgba(0,0,0," + (0.3 + Math.random()*0.5) + ")"; g.beginPath(); g.arc(64 + Math.cos(a)*d, 64 + Math.sin(a)*d, 1 + Math.random()*3, 0, 7); g.fill(); }
+  for(let i=0;i<120;i++){ const a = Math.random()*6.283, d = 50 + Math.random()*13; g.fillStyle = "rgba(0,0,0," + (0.25 + Math.random()*0.5) + ")"; g.beginPath(); g.arc(64 + Math.cos(a)*d, 64 + Math.sin(a)*d, 0.8 + Math.random()*2, 0, 7); g.fill(); }
   return new THREE.CanvasTexture(cv);
 })();
 const ringGeo = new THREE.PlaneGeometry(2.1, 2.1);

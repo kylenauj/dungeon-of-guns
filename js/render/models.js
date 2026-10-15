@@ -1444,8 +1444,11 @@ Models.eye = function(){
   }
   // the socket: meat behind and round the eye
   const sock = bsBlob(1.0, 1.25, 1.2, 0.9, 0.08, 3.5, 2.2, 44, 32);
-  bsPaint(sock, FL, FL2, 4, 3, (c, x, y, z)=>{ if(Math.abs(bsN(x, y, z, 5, 1)) < 0.05) c.lerp(bsC.setHex(0x8a1a2a), 0.7); });
+  bsPaint(sock, FL, FL2, 4, 3, (c, x, y, z)=>{ if(Math.abs(bsN(x, y, z, 5, 1)) < 0.05) c.lerp(bsC.setHex(0xb02428), 0.85); });
   P(float, sock, 0xffffff, 0, -0.05, -0.62);
+  // sores weeping light on the back of it, so it never reads as a hole from behind
+  for(let i=0;i<9;i++){ const u = 2.2 + i*0.24, v = -0.5 + (i % 4)*0.35, d = [Math.sin(u)*Math.cos(v), Math.sin(v), Math.cos(u)*Math.cos(v)];
+    glow(R, float, 0.035 + (i % 3)*0.015, 0xd8301a, d[0]*1.27, -0.05 + d[1]*1.22, -0.62 + d[2]*0.93); }
   // lids: wrinkled, bruised, and lined with teeth that meet when it shuts
   const lid = top=>{
     const g = group(float, 0, 0, 0);
