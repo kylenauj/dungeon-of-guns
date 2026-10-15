@@ -802,71 +802,155 @@ Models.goblin = function(kind){
 };
 
 /* ================================================================== *
- *  Shroom folk
+ *  Shroom folk: what the spores make of the dead. Pale, bruised caps
+ *  with the gills showing, mycelium in threads over everything, and
+ *  under the caps, what's left of the people they grew out of.
  * ================================================================== */
-function capSpots(parent, r, y, n, col, scale){
+/* a cap: domed, its rim turned down and torn, its skin sculpted and bruised */
+function capGeo(r, h, droop, seed, bruise){
+  const g = K.sculpt(K.slathe([[0, -0.02], [r*0.35, -0.04], [r*0.82, -droop*0.75], [r*1.0, -droop], [r*1.04, -droop*0.45], [r*0.92, h*0.42], [r*0.58, h*0.85], [0, h]], 20, 4), r*0.05, 2.6/r, seed);
+  return blotch(g, bruise || 0x6a5060, 2.4/r, 0.2, seed);
+}
+/* the underside: a dark disc and radiating gill plates */
+function underCap(parent, r, y, col, n){
+  P(parent, new THREE.CircleGeometry(r*0.92, 28), 0x2a201e, 0, y - 0.002, 0, PI/2);
+  for(let i=0;i<n;i++){ const a = i/n*PI*2; P(parent, BX(0.006, r*0.1, r*0.58), col, Math.cos(a)*r*0.6, y - r*0.05, Math.sin(a)*r*0.6, 0, PI/2 - a, 0); }
+}
+/* warts and scales on a cap */
+function warts(parent, r, y, n, col, seed){
   for(let i=0;i<n;i++){
-    const a = i*2.4, e = 0.25 + (i % 3)*0.18;
-    P(parent, S(r*0.13, 8, 6), col, Math.cos(a)*Math.cos(e)*r*(scale || 1), y + Math.sin(e)*r*0.62, Math.sin(a)*Math.cos(e)*r*(scale || 1), 0, 0, 0, 1, 0.5, 1);
+    const a = i*2.39996 + (seed || 0), e = 0.35 + (i % 4)*0.17, s = 0.05 + (i % 3)*0.02;
+    P(parent, K.lump(r*s*1.6, 0, 0.4, i + (seed || 0)), col, Math.cos(a)*Math.cos(e)*r*0.95, y + Math.sin(e)*r*0.6, Math.sin(a)*Math.cos(e)*r*0.95, 0, 0, 0, 1, 0.5, 1);
   }
+}
+/* pale threads of mycelium, from a point out over the floor */
+function mycelium(parent, n, x, y, z, reach, col, seed){
+  for(let i=0;i<n;i++){
+    const a = i/n*PI*2 + (seed || 0)*1.3 + Math.sin(i*5.1)*0.3, l = reach*(0.6 + 0.4*Math.abs(Math.sin(i*3.7 + (seed || 0))));
+    P(parent, K.tube([[x, y, z], [x + Math.cos(a)*l*0.4, 0.03, z + Math.sin(a)*l*0.4], [x + Math.cos(a + 0.3)*l*0.75, 0.012, z + Math.sin(a + 0.3)*l*0.75], [x + Math.cos(a + 0.1)*l, 0.006, z + Math.sin(a + 0.1)*l]], 0.009, 5, 6), col || 0xb8b0a0);
+  }
+}
+/* threads of mycelium hanging from a rim */
+function strands(parent, n, r, y, len, col, seed){
+  for(let i=0;i<n;i++){
+    const a = i*2.39996 + (seed || 0), l = len*(0.5 + 0.5*Math.abs(Math.sin(i*4.1 + (seed || 0)))), x = Math.cos(a)*r, z = Math.sin(a)*r;
+    P(parent, K.tube([[x, y, z], [x*0.97, y - l*0.5, z*0.97], [x*0.93 + 0.01, y - l, z*0.93]], 0.005, 4, 5), col || 0xb8b0a0);
+  }
+}
+/* a bracket fungus: a shelf of hard growth stuck out of something, toward ry (0 = +z) */
+function bracket(parent, r, x, y, z, ry, col){
+  P(parent, K.sculpt(new THREE.SphereGeometry(r, 18, 8, 0, PI, 0, PI/2), r*0.08, 1.5/r, x*10 + y), col, x, y, z, 0, ry, 0, 1, 0.3, 1);
+  P(parent, new THREE.TorusGeometry(r*0.97, r*0.07, 6, 18, PI).rotateX(PI/2), 0x2a2420, x, y - r*0.02, z, 0, ry, 0);
 }
 Models.puffling = function(){
   const R = rig("puffling"), b = R.body;
-  P(b, S(0.3, 16, 12), 0xe8dcb8, 0, 0.34, 0);
-  P(b, S(0.24, 12, 8), 0xf4ead0, 0, 0.3, 0.1, 0, 0, 0, 1, 0.8, 0.7);
-  [[0.1, 0.55, 0.12], [-0.14, 0.48, 0.18], [0.2, 0.36, 0.2], [-0.05, 0.6, -0.08], [-0.2, 0.4, -0.12], [0.22, 0.5, -0.1]].forEach(([x, y, z])=> P(b, S(0.04, 6, 4), 0xc8b890, x, y, z));
-  // the puff hole on top, ringed and dusty
-  P(b, TO(0.07, 0.025), 0xb8a880, 0, 0.62, 0, PI/2);
-  glow(R, b, 0.05, 0xc8ff8a, 0, 0.63, 0);
-  eyes(b, 0.09, 0.4, 0.24, 0.05);
-  brows(b, 0.09, 0.47, 0.27, 0x8a7a5a, "angry", 0.07);
-  mouth(b, 0, 0.29, 0.28, 0.05, 0.6);
-  [-1, 1].forEach(s=>{ P(b, S(0.07, 8, 6), 0xc8b890, s*0.13, 0.05, 0.03, 0, 0, 0, 1, 0.6, 1.3); P(b, S(0.05, 8, 6), 0xe0d4b0, s*0.3, 0.32, 0.05, 0, 0, 0, 1.3, 0.8, 0.8); });
+  // a swollen puffball, split with dark fissures, bruised
+  const g = K.sculpt(new THREE.SphereGeometry(0.3, 30, 22), 0.022, 9, 4);
+  K.paint(g, 0xffffff, (c, x, y, z)=>{
+    const n = Math.sin(x*15 + Math.sin(z*9)*1.6)*Math.sin(y*12 + Math.sin(x*7)*1.3);
+    if(Math.abs(n) < 0.07 && y > -0.12) c.setHex(0x2a1a1c);
+    else if(Math.sin(x*6 + 1)*Math.sin(y*5)*Math.sin(z*7 + 2) > 0.2) c.setHex(0x8a7080);
+  });
+  P(b, g, 0xb0a48c, 0, 0.32, 0, 0, 0, 0, 1, 0.92, 1);
+  // spore sacs swelling out of its sides, the pores weeping light
+  [[0.22, 0.24, 0.12, 0.09], [-0.24, 0.3, 0.06, 0.08], [0.12, 0.2, -0.24, 0.085], [-0.15, 0.48, -0.15, 0.07], [0.18, 0.5, -0.04, 0.06]].forEach(([x, y, z, r], i)=>{
+    P(b, blotch(lumpS(r, 12, 9, r*0.15, 18, i), 0x8a7a50, 30, 0.3, i), 0xb8ac80, x, y, z);
+    glow(R, b, 0.012, 0xc8ff8a, x*1.28, y + r*0.4, z*1.28);
+  });
+  // the split on top, torn open, spores breathing out of it
+  for(let i=0;i<7;i++){ const a = i/7*PI*2; P(b, CO(0.045, 0.1, 5), 0x9a8c74, Math.cos(a)*0.07, 0.6, Math.sin(a)*0.07, Math.sin(a)*0.9, 0, -Math.cos(a)*0.9, 1, 1, 0.35); }
+  P(b, S(0.06, 10, 8), 0x0a0606, 0, 0.59, 0, 0, 0, 0, 1, 0.5, 1);
+  glow(R, b, 0.035, 0xc8ff8a, 0, 0.62, 0);
+  halo(R, b, 0x9cff3a, 0.7, 0, 0.72, 0, 0.35);
+  // three eyes sunk in the flesh where a face isn't, and a mouth like a wound
+  [[0.07, 0.43, 0.25, 0.026], [-0.06, 0.39, 0.26, 0.022], [0.0, 0.5, 0.23, 0.018]].forEach(([x, y, z, r])=>{ P(b, S(r*1.3, 8, 6), 0x0a0606, x, y, z, 0, 0, 0, 1, 0.8, 0.5); glow(R, b, r*0.3, 0xd8ff6a, x, y - r*0.1, z + r*0.4); });
+  mouth(b, 0.01, 0.26, 0.27, 0.08, 0.35);
+  teeth(b, 0.285, 0.285, 0.11, 8);
+  // roots for feet: mycelium spreading over the floor
+  mycelium(b, 7, 0, 0.06, 0, 0.5, 0xa89c88, 1);
+  [-1, 1].forEach(s=> P(b, lumpS(0.07, 10, 7, 0.01, 20, s), 0x8a7c66, s*0.13, 0.05, 0.03, 0, 0, 0, 1, 0.55, 1.3));
   R.h = 0.7; return finish(R);
 };
 Models.toadstool = function(){
   const R = rig("toadstool"), b = R.body;
-  P(b, K.lathe([[0.26, 0], [0.24, 0.2], [0.2, 0.45], [0.22, 0.6], [0, 0.62]], 14), 0xf0e8d8);
-  P(b, TO(0.23, 0.04), 0xe0d4c0, 0, 0.5, 0, PI/2);
-  // moss and grass at the foot
-  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(b, CO(0.03, 0.14, 4), 0x5a8a3a, Math.cos(a)*0.28, 0.06, Math.sin(a)*0.28, Math.sin(a)*0.3, 0, -Math.cos(a)*0.3); }
-  const cap = group(b, 0, 0.62, 0); R.parts.head = cap;
-  P(cap, new THREE.SphereGeometry(0.5, 18, 10, 0, PI*2, 0, PI/2), 0xd8302a, 0, 0, 0, 0, 0, 0, 1, 0.75, 1);
-  P(cap, new THREE.CircleGeometry(0.5, 18), 0xd8c8b0, 0, 0.0, 0, PI/2);
-  gills(cap, 0.48, -0.015, 0xb8a890, 16);
-  capSpots(cap, 0.5, 0.02, 9, 0xfaf4ea);
-  eyes(b, 0.08, 0.38, 0.22, 0.045);
-  brows(b, 0.08, 0.45, 0.24, 0x3a1a10, "angry", 0.08);
-  mouth(b, 0, 0.27, 0.23, 0.06, 0.4);
-  teeth(b, 0.29, 0.25, 0.08, 3);
-  [-1, 1].forEach(s=>{ const a = group(b, s*0.24, 0.35, 0); P(a, CY(0.04, 0.045, 0.22, 8), 0xf0e8d8, 0, -0.1, 0, 0, 0, s*0.4); P(a, S(0.05, 8, 6), 0xf0e8d8, s*0.05, -0.2, 0.02); });
+  // a stem of dead-white flesh, bruised, and pushing out of it a ribcage and a face
+  P(b, blotch(K.sculpt(K.slathe([[0.25, 0], [0.21, 0.12], [0.17, 0.3], [0.16, 0.48], [0.19, 0.62], [0, 0.66]], 16, 4), 0.018, 9, 2), 0x7a6070, 8, 0.3, 3), 0xa0927e);
+  [[0.24, 0.158], [0.3, 0.155], [0.36, 0.153]].forEach(([y, r])=> P(b, TO(r, 0.009, PI*0.55), BONEC, 0, y, 0.0, PI/2 + 0.2, 0, PI/2 - PI*0.275, 1, 1, 1));
+  P(b, BX(0.022, 0.15, 0.015), BONEC, 0, 0.3, 0.16, -0.08);
+  brows(b, 0.055, 0.53, 0.15, 0xa0927e, "sad", 0.065);
+  eyes(b, 0.055, 0.5, 0.15, 0.03, 0xc8ff5a, 0, R);
+  mouth(b, 0, 0.4, 0.16, 0.055, 0.95);
+  teeth(b, 0.44, 0.17, 0.07, 6);
+  // withered arms grown into the stem, hanging
+  [-1, 1].forEach(s=>{
+    limb(b, [[s*0.15, 0.44, 0.02], [s*0.24, 0.32, 0.05], [s*0.26, 0.2, 0.1]], 0.024, 0x968874);
+    [-1, 0, 1].forEach(f=> P(b, CO(0.008, 0.07, 5), 0x2a2018, s*0.26 + f*0.014, 0.15, 0.11, PI*0.92, 0, f*0.2));
+    bracket(b, 0.07, s*0.17, 0.2 + (s > 0 ? 0.12 : 0), -0.06, s*(PI/2 + 0.4), 0x6a5444);
+  });
+  // the cap: a dried-blood dome, scabbed with pale warts, the rim drooping and torn, slime hanging off it
+  const cap = group(b, 0, 0.6, 0); R.parts.head = cap;
+  P(cap, capGeo(0.5, 0.36, 0.13, 5, 0x6a4a50), 0x5a2420);
+  underCap(cap, 0.5, -0.06, 0x8a7a6a, 26);
+  warts(cap, 0.5, 0.05, 11, 0xa89a80, 2);
+  for(let i=0;i<9;i++){ const a = i*0.7 + 0.3, l = 0.06 + (i % 3)*0.05; P(cap, CO(0.012, l, 5), 0x7a7a5a, Math.cos(a)*0.46, -0.13 - l/2, Math.sin(a)*0.46, PI); }
+  [0.5, 2.2, 3.9, 5.3].forEach((a, i)=> glow(R, cap, 0.014, 0xc8ff8a, Math.cos(a)*0.32, -0.1 - (i % 2)*0.03, Math.sin(a)*0.32));
+  strands(cap, 10, 0.45, -0.1, 0.18, 0xb0a490, 3);
+  // mycelium over the floor all round it
+  mycelium(b, 9, 0, 0.05, 0, 0.75, 0xa89c88, 2);
   R.h = 1.1; return finish(R);
 };
 function shroomPerson(R, size, capCol, spotCol){
-  const b = R.body;
+  const b = R.body, FLESH = 0x8a7c6c, PALE = 0x9a8e7c, seed = Math.round(size*10);
+  // thin legs, a corpse's, mycelium trailing from the feet
   const legs = [];
-  [-1, 1].forEach(s=>{ const l = group(b, s*0.11, 0.2, 0); P(l, CY(0.06, 0.07, 0.2, 8), 0xe8dcc8, 0, -0.1, 0); P(l, S(0.07, 8, 6), 0x8a6a4a, 0, -0.2, 0.04, 0, 0, 0, 1, 0.5, 1.4); legs.push(l); });
+  [-1, 1].forEach(s=>{
+    const l = group(b, s*0.08, 0.3, 0);
+    limb(l, [[0, 0, 0], [s*0.01, -0.08, 0.04], [0, -0.15, 0.04]], 0.034, FLESH, PALE);
+    limb(l, [[0, -0.15, 0.04], [0, -0.23, 0.0], [0, -0.28, -0.01]], 0.027, PALE);
+    P(l, S(0.042, 8, 6), 0x5a4a3c, 0, -0.29, 0.03, 0, 0, 0, 0.9, 0.4, 1.6);
+    legs.push(l);
+  });
   R.parts.legs = legs;
-  P(b, K.lathe([[0.18, 0], [0.22, 0.15], [0.2, 0.4], [0.16, 0.55], [0, 0.56]], 14), 0xf0e6d4, 0, 0.18, 0);
-  // a belt of leaves
-  for(let i=0;i<9;i++){ const a = i/9*PI*2; P(b, CO(0.05, 0.16, 4), [0x5a9a3a, 0x7ab84a][i % 2], Math.cos(a)*0.22, 0.28, Math.sin(a)*0.22, PI + Math.sin(a)*0.35, 0, Math.cos(a)*0.35, 1, 1, 0.5); }
-  const cap = group(b, 0, 0.72, 0); R.parts.head = cap;
-  P(cap, new THREE.SphereGeometry(0.42, 16, 10, 0, PI*2, 0, PI/2), capCol, 0, -0.04, 0, 0, 0, 0, 1, 0.7, 1);
-  P(cap, new THREE.CircleGeometry(0.42, 16), 0xc8b8a0, 0, -0.04, 0, PI/2);
-  gills(cap, 0.4, -0.055, 0xa89880, 14);
-  P(cap, CO(0.05, 0.12, 6), capCol, 0.05, 0.3, 0, 0, 0, -0.4);
-  capSpots(cap, 0.42, -0.02, 8, spotCol);
-  eyes(b, 0.07, 0.56, 0.18, 0.042);
-  brows(b, 0.07, 0.62, 0.2, 0x5a4a3a, "angry", 0.07);
-  P(b, TO(0.05, 0.01, PI), 0x3a2a1a, 0, 0.47, 0.21, 0, 0, PI);
-  const arm = s=>{ const a = group(b, s*0.22, 0.52, 0.03); P(a, CY(0.04, 0.045, 0.24, 8), 0xe8dcc8, 0, -0.11, 0); P(a, S(0.055, 8, 6), 0xe8dcc8, 0, -0.24, 0.03); return a; };
+  mycelium(b, 6, 0, 0.03, 0, 0.35, 0xa89c88, seed);
+  // a stooped, rotting body: ribs, bruises, a rag at the hips, shelf fungus out of the back
+  const tor = group(b, 0, 0.3, 0); tor.rotation.x = 0.35;
+  P(tor, blotch(K.sculpt(K.slathe([[0, 0], [0.11, 0.01], [0.12, 0.08], [0.1, 0.16], [0.125, 0.26], [0.14, 0.32], [0.09, 0.38], [0, 0.4]], 14, 4), 0.01, 11, seed), 0x6a5068, 10, 0.3, seed), FLESH, 0, 0, 0, 0, 0, 0, 1, 1, 0.8);
+  [[0.2, 0.11], [0.25, 0.122], [0.3, 0.132]].forEach(([y, r])=> P(tor, TO(r, 0.0055, PI*0.6), 0xa89c88, 0, y, 0.005, PI/2 + 0.3, 0, PI/2 - PI*0.3, 1, 0.8, 1));
+  bracket(tor, 0.08, 0.06, 0.26, -0.09, PI + 0.3, new THREE.Color(capCol).multiplyScalar(1.3).getHex());
+  bracket(tor, 0.06, -0.05, 0.18, -0.09, PI - 0.3, new THREE.Color(capCol).multiplyScalar(1.15).getHex());
+  bracket(tor, 0.05, 0.02, 0.33, -0.1, PI, new THREE.Color(capCol).multiplyScalar(1.4).getHex());
+  P(b, K.tatter(K.lathe([[0.13, -0.12], [0.125, -0.04], [0.115, 0.03]], 14), -0.05, 8, 0.1, seed), 0x3a3228, 0, 0.32, 0.0, 0, 0, 0, 1, 1, 0.85);
+  // the cap bursts out where the head was: tilted, gills underneath, threads hanging,
+  // and under it the jaw still hangs open, one eye left
+  const cap = group(b, 0, 0.66, 0.15); cap.rotation.set(0.15, 0, 0.18); R.parts.head = cap;
+  P(cap, K.sculpt(new THREE.CylinderGeometry(0.06, 0.075, 0.1, 14, 3), 0.006, 20, seed), FLESH, 0, -0.03, 0.0);
+  P(cap, capGeo(0.36, 0.26, 0.11, seed, 0x5a4058), capCol, 0, 0.03, 0);
+  underCap(cap, 0.36, -0.03, 0x8a7a6a, 22);
+  warts(cap, 0.36, 0.06, 9, spotCol, seed);
+  strands(cap, 9, 0.32, -0.04, 0.16, 0xb0a490, seed);
+  P(cap, S(0.05, 10, 8), PALE, 0, -0.1, 0.06, 0.3, 0, 0, 1.1, 0.6, 1.1);
+  mouth(cap, 0, -0.1, 0.1, 0.04, 0.9);
+  teeth(cap, -0.075, 0.105, 0.06, 6);
+  P(cap, S(0.022, 8, 6), 0x050304, 0.04, -0.04, 0.09);
+  glow(R, cap, 0.008, 0xd8ff6a, 0.04, -0.045, 0.105);
+  // arms: one a corpse's, one overgrown; a rusted sickle
+  const arm = s=>{
+    const a = group(b, s*0.14, 0.6, 0.12);
+    P(a, S(0.04, 8, 6), FLESH, 0, 0, 0);
+    limb(a, [[0, 0, 0], [s*0.02, -0.1, -0.01], [s*0.02, -0.19, 0.0]], 0.026, FLESH, PALE);
+    limb(a, [[s*0.02, -0.19, 0.0], [s*0.01, -0.28, 0.03], [0, -0.34, 0.05]], 0.021, PALE);
+    [-1, 0, 1].forEach(f=> P(a, CO(0.007, 0.07, 5), 0x2a2018, f*0.016, -0.39, 0.06, PI*0.9, 0, f*0.2));
+    return a;
+  };
   R.parts.armR = arm(1); R.parts.armL = arm(-1);
-  P(R.parts.armR, CY(0.02, 0.02, 0.4, 6), 0x6a4a2a, 0, -0.24, 0.1, PI/2 - 0.3);
-  P(R.parts.armR, CO(0.04, 0.1, 4), 0xb8b8c0, 0, -0.18, 0.31, PI/2 - 0.3);
+  bracket(R.parts.armL, 0.05, -0.03, -0.12, 0.0, -PI/2, new THREE.Color(capCol).multiplyScalar(1.3).getHex());
+  bracket(R.parts.armL, 0.035, -0.025, -0.2, 0.02, -PI/2 + 0.3, new THREE.Color(capCol).multiplyScalar(1.5).getHex());
+  limb(R.parts.armR, [[0, -0.34, -0.08], [0, -0.35, 0.08], [0, -0.36, 0.22]], 0.012, 0x3a2c1e);
+  P(R.parts.armR, blotch(K.sculpt(new THREE.TorusGeometry(0.11, 0.012, 6, 20, PI*0.9), 0.003, 30, 2), 0x8a5a3a, 30, 0.1, 2), 0x5a5048, 0, -0.27, 0.24, 0, PI/2, PI*0.6, 1, 1, 0.35);
   b.scale.setScalar(size); R.h = 1.1*size; R.size = size;
 }
-Models.shroomkin = function(){ const R = rig("shroomkin"); shroomPerson(R, 1.15, 0x8a4ab0, 0xe8d8ff); return finish(R); };
-Models.shroomlet = function(){ const R = rig("shroomlet"); shroomPerson(R, 0.6, 0xb84ad0, 0xfff0ff); return finish(R); };
+Models.shroomkin = function(){ const R = rig("shroomkin"); shroomPerson(R, 1.15, 0x4e3450, 0x9a8a90); return finish(R); };
+Models.shroomlet = function(){ const R = rig("shroomlet"); shroomPerson(R, 0.6, 0x5e3a50, 0xa89aa0); return finish(R); };
 
 /* ================================================================== *
  *  The haunted
