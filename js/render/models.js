@@ -63,7 +63,7 @@ const zs = (r, w, h)=> geo("zs" + r + "," + (w || 8) + "," + (h || 6), ()=> new 
 const zto = (r, t, a)=> geo("zt" + r + "," + t + "," + (a || 0), ()=> new THREE.TorusGeometry(r, t, 6, r > 0.08 ? 28 : 14, a || PI*2));
 const zcy = (rt, rb, h, n)=> geo("zc" + rt + "," + rb + "," + h + "," + (n || 10), ()=> new THREE.CylinderGeometry(rt, rb, h, n || 10));
 const WOOD = 0x7a4a26, WOOD2 = 0x5a3418, BRASS = 0xd8a840, IRON = 0x4a4a58, DARK = 0x2a2a34;
-const GP = { iron:0x232326, iron2:0x38383e, brass:0x8a6a30, brass2:0x6a5228, bone:0xc0b496, bone2:0x9a8c70, wood:0x3a2618, wood2:0x2a1c12,
+const GP = { iron:0x232326, iron2:0x38383e, brass:0x6e5428, brass2:0x54401e, bone:0xc0b496, bone2:0x9a8c70, wood:0x3a2618, wood2:0x2a1c12,
   leather:0x3a2a1e, wax:0xd2c6a8, rust:0x5e3420, rune:0x4a4030 };
 /* a cage of prongs round a crystal at (x, y, z), opening toward +z (or up) */
 function gCage(g, x, y, z, r, n, up){
@@ -113,7 +113,7 @@ const GUN = {
     P(g, BX(0.08, 0.09, 0.2), GP.bone, 0, 0.0, -0.24);
     P(g, CY(0.11, 0.11, 0.1, 22), GP.iron2, 0, -0.12, 0.08, 0, 0, PI/2);
     [-0.04, 0.04].forEach(x=> P(g, zto(0.11, 0.01), GP.brass, x, -0.12, 0.08, 0, PI/2));
-    [-1, 1].forEach(s=>{ P(g, CY(0.045, 0.045, 0.012, 16), GP.bone, s*0.052, -0.12, 0.08, 0, 0, PI/2); [-1, 1].forEach(q=> P(g, zs(0.008), 0x0a0808, s*0.06, -0.11, 0.08 + q*0.016)); });
+    [-1, 1].forEach(s=>{ P(g, CY(0.045, 0.045, 0.012, 16), GP.bone, s*0.052, -0.12, 0.08, 0, 0, PI/2); });
     for(const x of [-0.035, 0.035]){ P(g, CY(0.024, 0.026, 0.26, 10), GP.iron2, x, 0.02, 0.33, PI/2); P(g, zto(0.027, 0.007), GP.brass, x, 0.02, 0.45); }
     gRunes(g, 0.066, 0.0, -0.1, 0.18, 5, 0.03);
     P(g, BX(0.14, 0.025, 0.26), GP.brass2, 0, 0.087, 0.04);
@@ -127,8 +127,8 @@ const GUN = {
     P(g, K.sculpt(new THREE.BoxGeometry(0.1, 0.12, 0.22, 2, 2, 4), 0.005, 25, 3), GP.wood2, 0, -0.1, -0.3, -0.4);
     P(g, BX(0.112, 0.02, 0.2), GP.bone, 0, -0.01, -0.12);
     P(g, BX(0.12, 0.1, 0.12), GP.iron, 0, 0.0, 0.04);
-    P(g, K.lathe([[0.045, 0], [0.05, 0.3], [0.065, 0.42], [0.12, 0.52], [0.115, 0.545], [0.06, 0.5]], 18), GP.brass, 0, 0.03, 0.06, PI/2);
-    [0.12, 0.26, 0.38].forEach(z=> P(g, zto(0.058, 0.013), GP.iron2, 0, 0.03, z));
+    P(g, K.lathe([[0.045, 0], [0.05, 0.3], [0.065, 0.42], [0.12, 0.52], [0.115, 0.545], [0.06, 0.5]], 18), GP.iron2, 0, 0.03, 0.06, PI/2);
+    [0.12, 0.26, 0.38].forEach(z=> P(g, zto(0.058, 0.013), GP.brass, 0, 0.03, z));
     for(let i=0;i<9;i++){ const a = i/9*PI*2; P(g, CO(0.012, 0.045, 5), GP.bone, Math.cos(a)*0.1, 0.03 + Math.sin(a)*0.1, 0.6, PI/2 + 0.3*Math.sin(a), 0, -0.3*Math.cos(a)); }
     gRunes(g, 0, 0.083, 0.12, 0.36, 5);
     gCage(g, 0, 0.12, -0.05, 0.05, 4, true);
@@ -221,7 +221,7 @@ const ZC = { ash:0x8e8a82, ash2:0x6a665e, ash3:0xaaa69a, bone:0xc8bca0, ivory:0x
 /* the dyes: coat and hood, its dark and light shades (light: what his eyes
    glow), the cloak and mantle, and the thread the runes are stitched in */
 const DYE = {
-  arcane:{ robe:0x3e3050, dark:0x221a2c, light:0xb07aff, cape:0x2c2434, stars:0x8a6a30 },
+  arcane:{ robe:0x45385a, dark:0x241c30, light:0xb07aff, cape:0x2c2434, stars:0x8a6a30 },
   fire:  { robe:0x5e2618, dark:0x2e1410, light:0xff7a2a, cape:0x4a1410, stars:0xa8722e },
   frost: { robe:0x34465a, dark:0x1c2834, light:0x8ad8ff, cape:0x26384a, stars:0x9aaab4 },
   poison:{ robe:0x3e4a26, dark:0x222a16, light:0x9cff3a, cape:0x2e3620, stars:0x7a7a3a },
@@ -349,7 +349,7 @@ Models.zippy = function(look){
   zFolds(robe, 11, 0.06, 0.6, 1.1); K.tatter(robe, 0.24, 16, 0.1, 2.7);
   P(b, zHunch(robe), D.dark);
   // the long coat, open at the front, torn at the hem, lined darker
-  const GAP = 0.75, coat = zLathe(ZCOAT, 38, GAP/2, PI*2 - GAP, 3);
+  const GAP = 0.75, coat = zLathe(ZCOAT, 32, GAP/2, PI*2 - GAP, 3);
   zFolds(coat, 9, 0.07, 0.75, 0.4); K.tatter(coat, 0.36, 22, 0.17, 5.1);
   zHunch(coat);
   P(b, coat, D.robe); P(b, zInside(coat), zDim(D.robe, 0.45));
@@ -367,12 +367,12 @@ Models.zippy = function(look){
     zFace(b, BX(0.04, 0.01, 0.006), D.stars, zSurf(a + 0.03, y + (i % 2 ? 0.02 : -0.015), 0.008), a, 0.1, (i % 3)*0.5);
   }
   // a ragged mantle over the shoulders (the cloak's dye)
-  const mant = zLathe(ZMANT, 36, PI, PI*2, 3);
+  const mant = zLathe(ZMANT, 28, PI, PI*2, 3);
   zFolds(mant, 13, 0.06, 1.3, 2.2); K.tatter(mant, 1.06, 15, 0.12, 3.3);
   zHunch(mant); P(b, mant, C.cape);
   // the cloak down his back (the view keeps it moving)
   const capeG = group(b, 0, 1.31, 0.05); R.parts.cape = capeG;
-  const cloak = zLathe([[0.18, 0.02], [0.27, -0.1], [0.33, -0.3], [0.37, -0.6], [0.41, -0.9], [0.45, -1.2]], 26, PI/2 + 0.3, PI - 0.6, 3);
+  const cloak = zLathe([[0.18, 0.02], [0.27, -0.1], [0.33, -0.3], [0.37, -0.6], [0.41, -0.9], [0.45, -1.2]], 22, PI/2 + 0.3, PI - 0.6, 3);
   zFolds(cloak, 8, 0.09, -0.15, 0.9); K.tatter(cloak, -0.9, 11, 0.2, 7.7); zSmooth(cloak);
   P(capeG, cloak, C.cape); P(capeG, zInside(cloak), zDim(C.cape, 0.35));
   // belts: a broad one at the waist, a slung one at the hip, a strap across the chest
@@ -455,7 +455,7 @@ Models.zippy = function(look){
   for(let i=0;i<13;i++){
     const u = (i - 6)/6, x0 = u*0.05, len = 0.3 + (1 - Math.abs(u))*0.28 + ((i*7) % 5)*0.035, w = ((i*5) % 3 - 1)*0.022, w2 = ((i*3) % 4 - 1.5)*0.015;
     const pts = [[x0*0.8, 0.03, 0.0], [x0*1.2, -0.07, 0.12], [x0*1.5 + w, -0.17, 0.19], [x0*1.4 - w2, -0.3, 0.21], [x0*1.2 + w2, -len*0.78, 0.2 + w*0.5], [x0*1.0 - w, -len, 0.16 + w2]];
-    P(beard, zTaper(pts, 0.015 - Math.abs(u)*0.004, 0.002, 18, 5), [0x5e5a54, 0x4a4742, 0x76726a][i % 3]);
+    P(beard, zTaper(pts, 0.015 - Math.abs(u)*0.004, 0.002, 12, 5), [0x5e5a54, 0x4a4742, 0x76726a][i % 3]);
   }
   // a matted mass behind the loose strands
   { const m = zTaper([[0, 0.02, 0.02], [0, -0.12, 0.15], [0, -0.28, 0.19], [0, -0.44, 0.17]], 0.055, 0.012, 16, 10); K.sculpt(m, 0.006, 40, 3); P(beard, m, 0x4e4a44, 0, 0, 0, 0, 0, 0, 1.25, 1, 0.7); }
@@ -473,7 +473,7 @@ Models.zippy = function(look){
       P(head, K.sculpt(new THREE.SphereGeometry(0.07, 16, 12), 0.006, 25, s), 0x4e5230, s*0.1, 0.19, 0.08);
       glow(R, head, 0.04, 0xb8862a, s*0.1, 0.2, 0.115);
       P(head, BX(0.01, 0.05, 0.01), ZC.hole, s*0.1, 0.2, 0.152);
-      P(head, new THREE.SphereGeometry(0.058, 16, 8, 0, PI*2, 0, PI*0.5), 0x3e4226, s*0.1, 0.205, 0.105, 0.75);
+      P(head, new THREE.SphereGeometry(0.058, 16, 8, 0, PI*2, 0, PI*0.5), 0x3e4226, s*0.1, 0.205, 0.105, -0.55);
     });
     const pts = []; for(let i=0;i<=12;i++){ const q = -1.05 + i/12*2.1; pts.push([Math.sin(q)*0.225, 0.12 - Math.pow(q/1.05, 2)*0.05, Math.cos(q)*0.23 + 0.03]); }
     P(head, K.tube(pts, 0.012, 24, 6), 0x1e1a10);
@@ -510,7 +510,7 @@ Models.zippy = function(look){
   const HY = -0.6;
   const arm = (s)=>{
     const a = group(b, s*0.27, 1.22, 0.075);
-    const sl = zLathe([[0.07, 0.03], [0.083, -0.12], [0.092, -0.3], [0.115, -0.45], [0.15, -0.55]], 20, 0, PI*2, 3);
+    const sl = zLathe([[0.07, 0.03], [0.083, -0.12], [0.092, -0.3], [0.115, -0.45], [0.15, -0.55]], 16, 0, PI*2, 3);
     zFolds(sl, 5, 0.08, -0.25, s); K.tatter(sl, -0.47, 9, 0.07, 4 + s); zSmooth(sl);
     P(a, sl, D.robe);
     P(a, CY(0.105, 0.105, 0.01, 16), ZC.hole, 0, -0.5, 0);
@@ -994,7 +994,7 @@ Models.frog = function(twin, buffs){
     for(let i=0;i<5;i++) P(b, zs(0.008), FC.hole, s*(0.2 + (i % 2)*0.03), 0.475, -0.06 + i*0.03);
   });
   // warts all over his back and head
-  for(let i=0;i<46;i++){
+  for(let i=0;i<32;i++){
     const u = PI*0.45 + rnd()*PI*1.1, v = -0.1 + rnd()*1.25, r = 0.02 + rnd()*0.022;
     const x = Math.sin(u)*Math.cos(v)*0.32*1.18, y = 0.26 + Math.sin(v)*0.32*0.76, z = -0.03 + Math.cos(u)*Math.cos(v)*0.32*1.08;
     P(b, K.lump(r, 1, 0.4, i + (twin ? 50 : 0)), i % 3 ? WART : zDim(WART, 0.75), x*1.0, y, z, 0, 0, 0, 1, 0.75, 1);
@@ -1003,11 +1003,11 @@ Models.frog = function(twin, buffs){
   // the eyes: raised, slit-pupilled, glowing dully under heavy lids; the left one scarred half shut
   [-1, 1].forEach(s=>{
     P(b, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
-    P(b, S(0.064, 16, 12), 0x24160a, s*0.15, 0.52, 0.248);
+    P(b, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
     glow(R, b, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
     halo(R, b, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
     P(b, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
-    const lid = P(b, new THREE.SphereGeometry(0.072, 24, 10, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256);
+    const lid = P(b, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256);
     lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35);
     P(b, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
     P(b, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
@@ -1041,7 +1041,7 @@ Models.frog = function(twin, buffs){
       P(b, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(b, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
   });
   // a rag knotted round his neck, a bone charm hung from it
-  { const t = new THREE.TorusGeometry(0.25, 0.04, 12, 48); K.sculpt(t, 0.008, 25, 2);
+  { const t = new THREE.TorusGeometry(0.25, 0.04, 9, 36); K.sculpt(t, 0.008, 25, 2);
     P(b, t, SCARF, 0, 0.27, 0.1, PI/2 - 0.25);
     P(b, K.lump(0.05, 1, 0.3, 3), SCARF, 0.2, 0.27, 0.23);
     [[0.24, 0.18, 0.22, 0.5, 0.15], [0.27, 0.2, 0.15, 0.9, 0.12]].forEach(([x, y, z, r, l])=>{ const g = new THREE.BoxGeometry(0.06, l, 0.02, 2, 6, 1); K.tatter(g, -l*0.2, 3, 0.03, r*7); P(b, g, zDim(SCARF, 0.85), x, y, z, 0, 0, r); });
