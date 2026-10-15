@@ -354,7 +354,7 @@ DG.BOONS = {
   b_haunt:  { name:"Haunting",         desc:"When a room locks, a wisp of your element joins you.", on:{ lock:[{ do:"wisp", n:1, at:"player" }] } },
   b_pulse:  { name:"Dark Pulse",       desc:"Every 6 seconds in a fight, a small nova of your element bursts around you.", on:{ tick:[{ do:"nova", r:2.2, dmg:0.6, every:6, at:"player" }] } },
   b_shatter:{ name:"Shatterstep",      desc:"Blinking throws 3 shards.", on:{ blink:[{ do:"shards", n:3, dmg:0.5, at:"player" }] } },
-  b_wind:   { name:"Second Wind",      desc:"Blinking heals 1.",       on:{ blink:[{ do:"heal", n:1 }] } },
+  b_wind:   { name:"Second Wind",      desc:"1 blink in 4 heals 2.",   on:{ blink:[{ do:"heal", n:2, chance:0.25 }] } },
   b_rburst: { name:"Reload Burst",     desc:"Reloading sets off a small nova.", on:{ reload:[{ do:"nova", r:1.8, dmg:0.5 }] } },
   b_retal:  { name:"Retaliation",      desc:"Getting hurt fires a ring of 6 shots.", on:{ hurt:[{ do:"ring", n:6, dmg:0.7 }] } },
   b_robber: { name:"Grave Robber",     desc:"1 kill in 10 drops a coin.", on:{ kill:[{ do:"gold", n:1, chance:0.1 }] } },
