@@ -906,6 +906,35 @@ SND.transform = ()=>{
   bell(mtof(44), 5, 0.06, { str:3, at:0.8, e:true });
 };
 
+/* ---- the grim items: a toll, the Darksign, the axe, the spear ---- */
+lim("toll", { min:0.6, cap:1, wet:1, jit:0, pri:true });
+SND.toll = (o)=>{
+  bell(mtof(o && o.big ? 33 : 38), o && o.big ? 9 : 6, 0.14, { e:true });
+  thump(55, 25, 0.8, 0.35, { v:false });
+  noise(1.5, "lowpass", 220, 0.2, { buf:"b", att:0.05 });
+};
+lim("darksign", { min:1, cap:1, wet:1, jit:0, pri:true });
+SND.darksign = ()=>{
+  thump(48, 20, 1.6, 0.7, { v:false });
+  noise(2.2, "bandpass", 300, 0.25, { q:1.2, to:60, att:0.05 });
+  choir([38, 41, 45, 50], 3.5, 0.026, { att:0.4, vowel:"u", morph:"o", rasp:0.25, thick:true });
+  bell(mtof(38), 7, 0.1, { at:0.5, e:true });
+};
+lim("darksignLit", { min:1, cap:1, wet:1, jit:0 });
+SND.darksignLit = ()=>{ bell(mtof(62), 3, 0.04, { e:true }); breath(1, 0.03, { f:1800, att:0.4 }); };
+lim("execute", { min:0.06, cap:3, wet:0.5, jit:0.06 });
+SND.execute = ()=>{
+  noise(0.12, "bandpass", 2600, 0.16, { q:2, to:600 });
+  thump(120, 40, 0.22, 0.4, { at:0.03, v:false });
+  metal(rnd(300, 340), 0.25, 0.03, { at:0.02 });
+};
+lim("spear", { min:0.3, cap:1, wet:0.9, jit:0.02 });
+SND.spear = ()=>{
+  noise(0.6, "bandpass", 900, 0.18, { q:1.5, to:3500, att:0.03 });
+  choir([62, 69, 74], 1.2, 0.02, { att:0.05, vowel:"a" });
+  chime(mtof(86), 1.2, 0.03, { at:0.05 });
+};
+
 /* ================================================================== *
  *  Traps and pratfalls, made grim
  * ================================================================== */
