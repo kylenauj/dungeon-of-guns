@@ -65,7 +65,7 @@ const REWORD = {
 const reword = s=>{
   if(REWORD[s]) return REWORD[s];
   const m = /^(.+) is down! A portal opens\.$/.exec(s);
-  if(m) return "A portal yawns open where " + m[1] + " fell.";
+  if(m) return "Where it fell, a portal yawns open.";
   return s;
 };
 
@@ -81,7 +81,7 @@ H.handle = function(ev, G){
     case "msg": H.toast(reword(ev.text), ev.dur); break;
     case "bark": H.barks.push({ id:ev.id, x:ev.x, y:ev.y, text:ev.text, t:0 }); break;
     case "floor": H.area = { floor:ev.floor, name:ev.name, t:0 }; H.banner = null; break;
-    case "clear": { const L = DG.LINES && DG.LINES.clear; H.banner = { kind:"clear", a:L && L.length ? L[Math.floor(Math.random()*L.length)] : "Silence returns.", t:0 }; break; }
+    case "clear": if(H.banner && H.banner.kind !== "clear") break; { const L = DG.LINES && DG.LINES.clear; H.banner = { kind:"clear", a:L && L.length ? L[Math.floor(Math.random()*L.length)] : "Silence returns.", t:0 }; break; }
     case "kill": if(ev.boss){ const B = DG.BOSSES[G.D.theme.boss || "king"] || {}; H.banner = { kind:"felled", a:B.felled || "FOE VANQUISHED", b:G.bossName ? G.bossName() : B.name, t:0 }; } break;
     case "react": H.nums.push({ x:ev.x, y:ev.y, z:2.4, v:ev.name, crit:true, t:-0.1, col:mute(hex(ev.color), 0.15), big:true }); break;
     case "slip": if(!ev.enemy) H.nums.push({ x:p.x, y:p.y, z:2.2, v:"WHEEE", t:0, col:GOLD2, crit:true }); break;
