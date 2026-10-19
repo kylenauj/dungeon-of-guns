@@ -202,3 +202,9 @@ body.cinema #hud{display:none;}
 .sigil.bog.found{color:#a8e88a;border-color:#3a6a2a;}
 .sigils small{font-style:italic;color:var(--dim);font-size:14px;}
 @media (prefers-reduced-motion:reduce){ .lore-lines p,.lorewrap .menu,.lore-title{animation-duration:.01s !important;animation-delay:0s !important;} }
+/* on the title the sigils share the line with the run tally, small */
+.title-foot{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;}
+.title-foot .hint{margin:0;flex:1 1 14em;}
+.title-foot .sigils{margin:0;gap:6px;flex:none;}
+.title-foot .sigil{width:24px;height:24px;font-size:13px;}
+.title-foot .sigils small{font-size:13px;}
