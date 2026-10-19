@@ -163,28 +163,28 @@ UI.bag = function(G){
    His menu rides on the game's "choose" state (the world waits while you
    talk). Mouse: click. Keys: 1-9, arrows and Enter, Esc to leave. */
 const OLM_CSS = `
-.screens.olm{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,rgba(60,38,14,.55) 0%,rgba(8,6,4,.9) 55%,rgba(3,2,2,.96) 100%);}
-.olmp{display:grid;grid-template-columns:150px minmax(0,560px);gap:26px;align-items:start;max-width:780px;width:calc(100% - 32px);}
+.screens.olm{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 45%,rgba(40,26,12,.82) 0%,rgba(8,6,4,.95) 60%,rgba(3,2,2,.98) 100%);}
+.olmp{display:grid;grid-template-columns:150px minmax(0,560px);gap:26px;align-items:start;max-width:780px;width:calc(100% - 32px);padding:22px 26px;background:linear-gradient(180deg,rgba(14,10,7,.94),rgba(8,6,4,.96));border:1px solid rgba(200,164,90,.28);box-shadow:0 0 0 1px #000,0 18px 60px rgba(0,0,0,.7);}
 .olmp .face{width:150px;height:190px;position:relative;}
 .olmp .face svg{width:100%;height:100%;filter:drop-shadow(0 0 18px rgba(255,170,70,.35));}
 .olmp .face .lamp{animation:olmflick 2.6s infinite ease-in-out;}
 @keyframes olmflick{0%,100%{opacity:.95}40%{opacity:.75}55%{opacity:1}70%{opacity:.82}}
 .olmp h2.head{margin:0 0 4px;font-size:26px;letter-spacing:.14em;}
 .olmp .who{color:#b89a6a;font-size:13px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px;}
-.olmp .line{font-size:19px;line-height:1.45;color:#eadcc0;font-style:italic;min-height:58px;margin:0 0 14px;padding:12px 16px;border-left:2px solid #c8a45a;background:linear-gradient(90deg,rgba(40,28,14,.7),rgba(10,8,6,0));animation:olmline .45s ease-out;}
+.olmp .olmline{font-size:19px;line-height:1.45;color:#eadcc0;font-style:italic;min-height:58px;margin:0 0 14px;padding:12px 16px;border-left:2px solid #c8a45a;background:linear-gradient(90deg,rgba(40,28,14,.7),rgba(10,8,6,0));animation:olmline .45s ease-out;}
 @keyframes olmline{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .olmp .purse{color:#c8b48a;font-size:14px;margin-bottom:10px;letter-spacing:.06em;}
 .olmp .purse b{color:#ffd27a;}
 .olmp .opts{display:flex;flex-direction:column;gap:6px;}
-.olmp .item.opt{display:flex;align-items:center;gap:12px;text-align:left;white-space:normal;padding:9px 14px;}
+.olmp .item.opt{display:flex;align-items:center;justify-content:flex-start;gap:12px;text-align:left;white-space:normal;padding:8px 14px 8px 30px;}
 .olmp .item.opt kbd{flex:none;}
-.olmp .item.opt .t{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.olmp .item.opt .t{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}
 .olmp .item.opt b{font-weight:600;color:#e2d2a8;letter-spacing:.05em;}
 .olmp .item.opt small{opacity:.85;font-size:13px;margin:0;color:#c8b898;letter-spacing:.02em;}
 .olmp .item.opt[disabled]{opacity:.38;}
 .olmp .item.opt img{flex:none;}
 .olmp .hint{margin-top:10px;}
-@media (max-width:640px){ .olmp{grid-template-columns:1fr;gap:10px;} .olmp .face{width:90px;height:110px;margin:0 auto;} .olmp .line{font-size:16px;} }`;
+@media (max-width:640px){ .olmp{grid-template-columns:1fr;gap:10px;} .olmp .face{width:90px;height:110px;margin:0 auto;} .olmp .olmline{font-size:16px;} }`;
 function olmStyle(){ if(document.getElementById("olm-css")) return; const s = document.createElement("style"); s.id = "olm-css"; s.textContent = OLM_CSS; document.head.appendChild(s); }
 /* his likeness: a pot helm, a cowl, a lantern held up (drawn, not a photo; he'd never sit for one) */
 const OLM_FACE = `<svg viewBox="0 0 150 190" aria-hidden="true">
@@ -214,7 +214,7 @@ UI.olm = function(G){
       <div>
         <h2 class="head">BROTHER OLM</h2>
         <div class="who">the Lantern Pilgrim${c.page === "trade" ? " · a trade" : ""}</div>
-        <p class="line">“${esc(c.line)}”</p>
+        <p class="olmline">“${esc(c.line)}”</p>
         <div class="purse"><b>${p.gold}</b> gold · <b>${p.keys}</b> ${p.keys === 1 ? "key" : "keys"} · <b>${Math.ceil(p.hp)}</b>/${p.maxHp} health</div>
         <div class="opts">${opts}</div>
         <p class="hint">Click, or press 1-${c.options.length}. Esc to ${c.page === "trade" ? "go back" : "leave"}.</p>
