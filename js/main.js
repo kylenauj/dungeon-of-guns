@@ -18,7 +18,7 @@ const app = DG.app = { G:null, V:null, mode:"boot", acc:0, demo:null };
 
 /* golden flies outlive runs: they unlock Gribbus' rarer tricks */
 const META_KEY = "dungeonofguns.meta";
-function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [] }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[] }; } }
+function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [], endings:m.endings || {} }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[], endings:{} }; } }
 function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
 
 function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.now()); }
@@ -67,6 +67,19 @@ app.end = function(won){
   rememberRun(app.G);
   saveMeta(app.G.meta);
   UI.record(app.G);
+  // a win: the ending plays out (js/render/ending.js), then its lore, then the tally
+  if(won && DG.Ending && app.V && !app.demo){
+    const G = app.G, id = G.ending || "dawn";
+    app.mode = "cine";
+    document.body.classList.remove("playing"); document.body.classList.add("cinema");
+    app.V.cine = DG.Ending.play(G, app.V, id, ()=>{
+      document.body.classList.remove("cinema");
+      if(app.G !== G) return;
+      app.mode = "end";
+      UI.lore(G, id);
+    });
+    return;
+  }
   setTimeout(()=>{ if(app.mode === "end"){ UI.end(app.G, won); document.body.classList.remove("playing"); } }, won ? 400 : 1600);
 };
 
@@ -83,7 +96,8 @@ UI.on({
   bag: ()=> app.openBag(),
   closeBag: ()=> app.resume(),
   abandon: ()=>{ app.G.state = "dead"; app.G.lastHurt = "giving up"; app.end(false); },
-  endless: ()=>{ app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
+  lore: ()=>{ if(app.mode === "end") UI.end(app.G, true); },
+  endless: ()=>{ if(app.V && app.V.cine){ app.V.cine.dispose(); app.V.cine = null; } app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
   ink: b=>{ const on = S.toggleInk(); if(b) b.querySelector("small").textContent = on ? "ink" : "plain"; },
   pixel: b=>{ const on = S.togglePixel(); if(b) b.querySelector("small").textContent = on ? "chunky" : "crisp"; },
   mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
@@ -93,6 +107,7 @@ UI.on({
 /* ---- keys that aren't game controls ---- */
 IN.onKey = function(e){
   AU.start();
+  if(app.mode === "cine"){ if(app.V && app.V.cine) app.V.cine.skip(); return; }
   if(e.code === "KeyM" && !(e.target && e.target.tagName === "INPUT")){ AU.toggleMute(); HUD.toast(AU.muted ? "Sound off" : "Sound on", 1.2); return; }
   if(e.code === "KeyP" && !(e.target && e.target.tagName === "INPUT")){ S.togglePixel(); return; }
   if(e.code === "KeyV" && !(e.target && e.target.tagName === "INPUT")){ HUD.toast(S.toggleInk() ? "Ink look" : "Plain look", 1.2); return; }
@@ -121,7 +136,7 @@ const ONE_SHOTS = ["blink", "use", "active", "swap", "reload"], NO_SHOTS = { bli
 function frame(dt, t){
   const G = app.G, V = app.V;
   if(!G || !V) return;
-  if(app.mode === "play" || app.mode === "title" || app.mode === "end"){
+  if(app.mode === "play" || app.mode === "title" || app.mode === "end" || app.mode === "cine"){
     app.acc = Math.min(app.acc + dt, STEP*5);
     let first = true;
     const live = app.mode === "play";
@@ -160,8 +175,8 @@ function frame(dt, t){
   }
   V.update(dt, t);
   const p = G.player, m = IN.mouse, aim = app.mode === "play" ? S.unproject(m.x, m.y, 0) : null;
-  S.follow(p.x, p.y, aim ? aim.x : p.x, aim ? aim.z : p.y);
-  HUD.draw(G, dt, { hidden:app.mode === "title" || app.mode === "bag" || app.mode === "pause" || app.mode === "choose" || !!app.demo, noCursor:app.mode !== "play" });
+  if(!V.cine) S.follow(p.x, p.y, aim ? aim.x : p.x, aim ? aim.z : p.y);
+  HUD.draw(G, dt, { hidden:app.mode === "title" || app.mode === "cine" || !!V.cine || app.mode === "bag" || app.mode === "pause" || app.mode === "choose" || !!app.demo, noCursor:app.mode !== "play" });
 }
 app.startDemoSoon = function(){
   if(app.mode !== "title") return;
@@ -176,7 +191,7 @@ app.startDemoSoon = function(){
 /* ---- boot ---- */
 function boot(){
   S.init(); DG.FX.init(S.scene); HUD.init(); IN.init();
-  addEventListener("pointerdown", ()=> AU.start());
+  addEventListener("pointerdown", ()=>{ AU.start(); if(app.mode === "cine" && app.V && app.V.cine) app.V.cine.skip(); });
   document.getElementById("loading").remove();
   if(Q.has("gallery")){ DG.Gallery.start(); return; }
   S.onFrame(frame);

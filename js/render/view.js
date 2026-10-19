@@ -103,6 +103,7 @@ proto.dispose = function(){
   V.frogs.forEach(f=> S.scene.remove(f.root));
   S.scene.remove(V.player.root); S.scene.remove(V.lily);
   S.portrait.root.clear(); V.pzZippy = V.pzFrog = null;
+  if(V.cine){ V.cine.dispose(); V.cine = null; }
   FX.clear();
 };
 
@@ -115,6 +116,20 @@ proto.handle = function(ev){
   const play = (n, o)=> au && !V.silent && au.play(n, o);
   switch(ev.type){
     case "floor": if(ev.floor !== V.floor) V.buildFloor(); play("descend"); break;
+    // King of the Bog: Gribbus lunges and swallows the Heart whole
+    case "feast": {
+      V.frogs.forEach(f=>{ f.lick = 0.18; f.lickX = ev.x; f.lickY = ev.y; });
+      play("lick"); setTimeout(()=> play("croak"), 900);
+      S.shake(0.6); FX.burst(ev.x, 1, ev.y, 0x72e050, 40, 6, 0.3, 1, { col2:0x5a0a3a, up:1 });
+      FX.ring(ev.x, ev.y, 3, 0x72e050, 0.9); FX.smoke(ev.x, 0.2, ev.y, 0x2a4a1a, 10, 1, 1.6, { spread:1.4, rise:0.6 });
+      break;
+    }
+    case "quest": {
+      FX.soul(p.x, p.y, 4, 1.6, ev.id === "ember" ? 0xff8a2a : 0x72e050);
+      FX.burst(p.x, 1.4, p.y, ev.id === "ember" ? 0xff8a2a : 0x72e050, 26, 3.5, 0.24, 0.8, { col2:0xffd23d, up:1 });
+      play("godly"); S.shake(0.3);
+      break;
+    }
     case "shoot": {
       if(ev.from === "player" || !ev.from){
         const m = V.player.muzzle, w = new THREE.Vector3(); m.getWorldPosition(w);
@@ -404,7 +419,7 @@ proto.update = function(dt, t){
       if(!first){ FX.burst(p.x, 1.2, p.y, 0xfff27a, 24, 3.5, 0.3, 0.6, { col2:(M.DYE[look.cape] || M.DYE.arcane).light, up:1 }); FX.ring(p.x, p.y, 1.6, 0xfff27a, 0.4); }
     }
   }
-  if(G.state !== "dead") V.player.look.auras.forEach(a=> AURA[a] && AURA[a](p.x, p.y, t));
+  if(G.state !== "dead" && !V.cine) V.player.look.auras.forEach(a=> AURA[a] && AURA[a](p.x, p.y, t));
   const W = V.player;
   W.root.position.set(p.x, 0, p.y);
   W.root.rotation.y = PI/2 - p.aim;
@@ -467,6 +482,8 @@ proto.update = function(dt, t){
   }
   G.traps.forEach(tr=>{ if(tr.kind === "vent" && tr.state === "up" && Math.random() < 0.8) FX.emit(tr.x + 0.5 + (Math.random() - 0.5)*0.5, 0.1, tr.y + 0.5 + (Math.random() - 0.5)*0.5, 0, 4 + Math.random()*2, 0, Math.random() < 0.5 ? 0xff7a1a : 0xffd23d, 0.45, 0.45, 0, 1); });
   V.world.update(G, dt, t);
+  // the ending takes Zippy and Gribbus over (js/render/ending.js)
+  if(V.cine) V.cine.update(dt, t);
   FX.update(dt, G);
 };
 

@@ -67,6 +67,7 @@ UI.title = function(){
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
       </div>
+      ${UI.endingSigils()}
       ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest floor ${b.floor} · foes slain ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound. Something down there is listening.</p>`}
     </div>`, "title");
 };
@@ -170,20 +171,41 @@ UI.choose = function(G){
     </div>`, "choose");
 };
 
+/* the ending's lore, a line at a time, before the tally */
+UI.lore = function(G, id){
+  const E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
+  UI.show(`
+    <div class="lorewrap ending-${id}">
+      <h2 class="lore-title">${esc(E.title)}</h2>
+      <div class="lore-lines">${E.lore.map((l, i)=> `<p style="animation-delay:${(0.8 + i*1.6).toFixed(1)}s">${esc(l)}</p>`).join("")}</div>
+      <div class="menu" style="animation-delay:${(1.2 + E.lore.length*1.6).toFixed(1)}s"><button class="item sel" data-act="lore">CONTINUE</button></div>
+    </div>`, "lore");
+};
+/* which endings this save has seen, as three sigils (dark until found) */
+UI.endingSigils = function(){
+  let m = {}; try{ m = JSON.parse(localStorage.getItem("dungeonofguns.meta") || "{}").endings || {}; }catch(e){}
+  const n = Object.keys(DG.ENDINGS).filter(k=> m[k]).length;
+  return `<div class="sigils" title="Endings found">${Object.keys(DG.ENDINGS).map(k=>
+    `<span class="sigil ${k}${m[k] ? " found" : ""}" title="${m[k] ? esc(DG.ENDINGS[k].title) : "???"}">${{ dawn:"&#9788;", flame:"&#10022;", bog:"&#9819;" }[k] || "?"}</span>`).join("")}<small>${n}/${Object.keys(DG.ENDINGS).length} endings</small></div>`;
+};
+
 UI.end = function(G, won){
   const s = G.stats, m = Math.floor(s.time/60), sec = Math.floor(s.time % 60);
   const killer = { orb:"Grubnok's royal spit", rock:"a thrown rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a goblin bomb", pit:"a pit, and a long fall", brute:"a Brute's embrace", king:"Grubnok's belly", grunt:"a Grunt's rusty blade", sneak:"a Sneak, from behind",
     spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a terrible stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar's price", matriarch:"the Morel Matriarch", bride:"the Weeping Bride", eye:"the Eye Below", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores", "giving up":"despair" };
   const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "the dark";
+  const END = Object.assign({ after:"" }, DG.ENDINGS[G.ending] || DG.ENDINGS.dawn,
+    { after:{ dawn:"Daylight, at last.", flame:"The fire is tended again.", bog:"Long may he croak." }[G.ending] || "" });
   UI.show(`
     <div class="endwrap">
-      <div class="died-band"><h1 class="died ${won ? "win" : ""}">${won ? "YOU ESCAPED" : "YOU DIED"}</h1>
-        <p class="died-sub">${won ? "The dungeon's heart is still. Daylight, at last. Gribbus croaks once, very proudly." : "Slain by " + esc(why) + ", on floor " + G.floor + ", in " + esc(G.D.theme.name) + "."}</p></div>
+      <div class="died-band"><h1 class="died ${won ? "win" : ""}">${won ? esc(END.title) : "YOU DIED"}</h1>
+        <p class="died-sub">${won ? esc(END.sub) + " " + esc(END.after) : "Slain by " + esc(why) + ", on floor " + G.floor + ", in " + esc(G.D.theme.name) + "."}</p></div>
       <div class="after">
       <div class="stats">
         <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>kills</span><span><b>${s.items}</b>powerups</span><span><b>${s.reactions}</b>reactions</span><span><b>${s.rooms}</b>rooms</span>
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
+      ${won ? UI.endingSigils() : ""}
       <p class="hint">Best gun: <b>${esc(G.player.guns.slice().sort((a, b)=> DG.Loot.dps(b, G.mods) - DG.Loot.dps(a, G.mods))[0].name)}</b> · seed <b>${G.seedWord}</b></p>
       <div class="menu">
         ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper, and worse</small></button>` : ""}

@@ -68,7 +68,10 @@ S.resize = function(){
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){
     const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh);
-    const f = S.pixel ? THREE.NearestFilter : THREE.LinearFilter; S.post.rt.texture.minFilter = S.post.rt.texture.magFilter = f; S.post.rt.texture.needsUpdate = true;
+    // a render target's texture can't be flagged needsUpdate (three.js would
+    // upload it like an image and throw); a new filter needs the target rebuilt
+    const f = S.pixel ? THREE.NearestFilter : THREE.LinearFilter, tx = S.post.rt.texture;
+    if(tx.minFilter !== f){ tx.minFilter = tx.magFilter = f; S.post.rt.dispose(); }
   }
   const c = S.renderer.domElement; c.style.width = w + "px"; c.style.height = h + "px";
   c.style.imageRendering = S.pixel ? "pixelated" : "auto";

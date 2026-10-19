@@ -98,6 +98,7 @@ H.handle = function(ev, G){
     case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5, icons:["set:" + ev.id] }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
     case "duo": { const duo = DG.DUOS.find(x=> x.name === ev.name); H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4, icons:duo ? [duo.a, duo.b] : null }; break; }
     case "ascend": { const gun = G.gun && G.gun(); H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5, icons:gun ? [DG.Icons.keyFor(gun)] : null }; break; }
+    case "quest": { const Q = DG.QUESTS[ev.id] || {}; H.card = { title:Q.name || ev.name, sub:Q.desc, flavor:Q.flavor, col:ev.id === "ember" ? "#ff9a4a" : GREEN, tier:"Relic · another ending", t:0, life:5, icons:[DG.Icons.keyFor({ kind:"quest", id:ev.id })] }; break; }
     case "frogbuff": H.card = { title:"Gribbus learned " + ev.name, sub:ev.desc, col:GREEN, tier:"Frog trick", t:0, life:3.6, icons:["frog:" + ev.id] }; break;
     case "boon": H.nums.push({ x:p.x, y:p.y, z:2.6, v:ev.name, t:0, col:XP, crit:true }); break;
     case "fly": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"GOLDEN FLY", t:0, col:GOLD2, crit:true, big:true }); break;
@@ -347,9 +348,13 @@ H.draw = function(G, dt, opts){
   g.beginPath(); g.moveTo(kx + 7.2*k, yr); g.lineTo(kx + 16*k, yr); g.moveTo(kx + 13*k, yr); g.lineTo(kx + 13*k, yr + 3.5*k); g.moveTo(kx + 15.5*k, yr); g.lineTo(kx + 15.5*k, yr + 2.5*k); g.stroke();
   text(g, p.keys + "", x0 + gw - 10, yr + 1, 14*k, kc, "right", "700");
   if(G.meta.flies){ text(g, "✦ " + G.meta.flies, x0 + gw + 12, yr + 1, 13*k, GOLD, "left", "700"); }
+  // the relics of a quest (the Ember, the Crown): the ending you're carrying
+  const quests = Object.keys(p.quests || {}).filter(q=> p.quests[q]), qx = x0 + gw + (G.meta.flies ? 54 : 14)*k;
+  quests.forEach((q, i)=> DG.Icons.draw(g, "offer:" + (q === "ember" ? "ember" : "crown"), qx + (i*28 + 12)*k, yr, 30*k, H.dpr));
+  const qw = quests.length*28*k;
   // the active item
   if(p.active){
-    const Ac = DG.ACTIVES[p.active.id], ax0 = x0 + gw + (G.meta.flies ? 54 : 14)*k, full = p.active.charge >= p.active.max;
+    const Ac = DG.ACTIVES[p.active.id], ax0 = qx + qw, full = p.active.charge >= p.active.max;
     const ax = ax0 + 22*k;
     const aw = Math.max(130*k, measure(g, Ac.name, 12*k, "600", BOOK) + 46*k);
     frame(g, ax, yr - 11*k, aw, 22*k, full ? "rgba(52,40,14,.92)" : null, false);

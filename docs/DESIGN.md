@@ -139,6 +139,42 @@ Costumes also move: the cape flares as he runs; halos, ghosts and gremlins bob; 
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 
+### 3.7 Attunement: building into one element
+Every source of an element counts toward it: the gun in hand, items whose
+`els` carry it, and specials tied to it (`Items.elSources`). At **2, 4 and 6**
+sources (`DG.ATTUNE_AT`) the element attunes a tier (`DG.ATTUNEMENT`), so a
+mono-element build gets stronger the deeper it goes:
+
+| | Tier 1 | Tier 2 | Tier 3 |
+|---|---|---|---|
+| Fire | Kindled | Wildfire | Pyre |
+| Frost | Rimed | Brittle | Deep Winter |
+| Poison | Festering | Plague | Pestilence |
+| Shock | Charged | Conductor | Stormcalled |
+| Arcane | Hexed | Soulbound | Runeborn |
+
+The relics (Ember, Frost, Blight, Storm and Hex Relic) count as two sources
+each, and they stack. The HUD shows a sigil per attuned element.
+
+### 3.8 Builds you can plan, and Risk of Rain stackers
+Items carry **build tags** (`Items.tagsOf`): coin, attack speed, multishot,
+proc, crit, frog, summons, tank, and each element. What you own sets a
+**direction** (`Items.direction`), and offers lean toward it
+(`Items.pull`, up to 2.5x). The first boon of each level-up leans hard toward
+the build; the other two stay wild. A build is a goal you can steer toward,
+but it isn't guaranteed.
+
+**Stackers** (`stack:true`) can be picked up again and again, each copy
+adding its effect, as in Risk of Rain:
+- **Coin:** the Brittle Crown (coins knocked loose on hits, gold spilled when hurt), the Golden Tithe (damage from gold carried), the Roll of Pennies, and the Usurer's Ledger (interest on each clear).
+- **Attack speed:** the Rusty Syringe, the Berserker's Tooth (stacks on kills) and the Predator's Itch (stacks on crits).
+- **Multishot:** the Spare Barrel, the Echoing Skull (volleys fire twice) and the Crow's Nest (a fan every fifth volley).
+- **Proc:** the Cursed Ukulele (chain lightning), the Grave Mortar (homing missiles), the Fractal Fuse (deeper chains) and the Bog Gas Bladder.
+
+### 3.9 Gun mastery
+Kills with a gun rank it up (`DG.Loot.masteryNeed`), +6% power a rank, up to
+five ranks, so the gun you stick with grows with you.
+
 ---
 
 ## 4. Zippy
@@ -190,7 +226,29 @@ Deeper floors are darker. They have more **curses**: Darkness (less light), the 
 
 ---
 
+### 6.1 The three endings
+Two early rooms, rare and locked (each needs a **key**), start a different
+ending:
+- **The Reliquary** (floors 1 and 2) holds the **Ember of the First Flame**.
+- **The Shrine** (floors 2 and 3) holds the **Crown of the Bog**, which Gribbus puts on.
+
+| Ending | How | What happens |
+|---|---|---|
+| **Dawn** | Kill the Gloom Heart and take the portal. | The rot lets go of the Keep; they walk out into the morning. |
+| **The First Flame** | Carry the Ember past floor 5. A sixth floor opens: **the Kiln**, and the **Hollow** (Zippy's master, gone hollow). | Zippy lays him to rest and relights the Flame. |
+| **King of the Bog** | Gribbus wears the Crown when the Gloom Heart dies (and you don't carry the Ember). | Gribbus eats the Heart and becomes king of a bog full of frogs. |
+
+Every ending plays the same transformation: the camera comes down close,
+light gathers out of the floor, the rot recedes, and in a flash Zippy is a
+**grey wizard** and Gribbus a **bright green frog with orange hands**. Each
+ending then plays its own last scene (`js/render/ending.js`), its lore
+(`DG.ENDINGS`), and the tally. The title screen keeps a sigil per ending
+found. A line of lore also plays on arriving at each floor (`DG.LORE_FLOORS`).
+
+---
+
 ## 7. Rooms
+- **Keys:** you start with one. Keys drop from cleared rooms and elites, and shops sell them. A locked door costs a key.
 - **Combat:** normal or **jumbo**, with furniture (pillars, pits, crates, cross walls, ring walls, gardens, graveyards…), **breakable** pots and crates, and **explosive barrels**.
 - **Treasure:** an item pedestal. **Shop:** two items, a gun, soup, and a mystery. **Boss:** an item pedestal and the portal.
 - **Secret:** behind an illusionary wall. Secret-pool items, with better godly odds.

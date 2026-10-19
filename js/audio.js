@@ -906,6 +906,18 @@ SND.transform = ()=>{
   bell(mtof(44), 5, 0.06, { str:3, at:0.8, e:true });
 };
 
+/* the ending: the Gloom lets go. The only major chord in the game. */
+lim("ending", { min:2, cap:1, wet:1, jit:0, pri:true });
+SND.ending = (o)=>{
+  const k = o && o.kind, root = k === "flame" ? 48 : k === "bog" ? 53 : 50;
+  thump(50, 22, 2, 0.6, { v:false });
+  noise(2.5, "bandpass", 300, 0.12, { q:1, to:3000, att:0.3 });
+  bell(mtof(root - 12), 10, 0.12, { e:true });
+  bell(mtof(root + 7), 7, 0.06, { at:0.6 }); bell(mtof(root + 12), 7, 0.05, { at:1.2, e:true });
+  choir([root - 12, root, root + 4, root + 7, root + 12, root + 16], 7, 0.026, { att:1.6, stag:0.18, vowel:"o", morph:"a", thick:true });
+  breath(4, 0.05, { f:2400, att:2 });
+};
+
 /* ---- the grim items: a toll, the Darksign, the axe, the spear ---- */
 lim("toll", { min:0.6, cap:1, wet:1, jit:0, pri:true });
 SND.toll = (o)=>{
