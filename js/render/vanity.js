@@ -180,6 +180,7 @@ proto.buildVanity = function(){
   W.buildCritters(T0);
   W.buildBackdrop();
   W.buildSplats();
+  W.buildRoomsVanity();
 };
 
 /* ---- stone arches over the doorways (short posts on the low south walls, so Zippy never hides) ---- */
@@ -369,6 +370,160 @@ proto.buildCritters = function(T0){
   if(W.fireflyMat){ K.timed.push(W.fireflyMat); W.vanityMats.push(W.fireflyMat); }
 };
 
+/* ================================================================== *
+ *  ROOMS: what the new rooms look like beyond their props
+ *  - locked doors: a padlock and two chains across the bars, a keyhole
+ *    that glows warm; a key drops the lot to the floor
+ *  - secret walls, for whoever looks: a hairline crack on the stone, dust
+ *    drawn out of it by a draught (and a cold whisper of wind close by),
+ *    drag marks running into it, candles or a corpse left at its foot
+ *  - the jungle pond: moss, leaves, green-gold light, fireflies, a little
+ *    waterfall running down the north wall
+ *  - the Red Throne in red, a vault in gold, Olm's room in firelight
+ * ================================================================== */
+proto.buildRoomsVanity = function(){
+  const W = this, D = W.D, rnd = DG.RNG(D.seed ^ 0x700d).next;
+  W.locks = []; W.tells = []; W.falls = [];
+  /* ---- locks ---- */
+  D.doors.forEach(d=>{
+    if(!d.locked) return;
+    const a = W.area[Math.floor(d.y)*D.w + Math.floor(d.x)], g = new THREE.Group();
+    g.position.set(d.x, 0, d.y); if(d.axis === "v") g.rotation.y = PI/2;
+    const chains = new THREE.Group(); g.add(chains);
+    [[-1.35, 1.55, 1.35, 0.2], [1.35, 1.55, -1.35, 0.2]].forEach(([x1, y1, x2, y2], k)=>{
+      const n = 26; for(let i=0;i<n;i++){ const t = i/(n - 1); K.part(chains, new THREE.TorusGeometry(0.05, 0.016, 4, 10), i % 4 === 3 ? 0x5a3420 : 0x3a3a3e, x1 + (x2 - x1)*t, y1 + (y2 - y1)*t - Math.sin(t*PI)*0.12, (k ? -0.1 : 0.1), 0, i % 2 ? PI/2 : 0, Math.atan2(y2 - y1, x2 - x1)); }
+    });
+    K.bake(chains, { w:0.012 });
+    const lock = new THREE.Group(); lock.position.set(0, 0.86, 0.16); g.add(lock);
+    W.decorInto(lock, "padlock", null, { s:2.2 });
+    const back = new THREE.Group(); back.position.set(0, 0.86, -0.16); back.rotation.y = PI; g.add(back);
+    W.decorInto(back, "padlock", null, { s:2.2 });
+    const kh = [K.sprite(0xffc860, 1.6, 0.8), K.sprite(0xffc860, 1.6, 0.8)];
+    kh[0].position.set(0, 0.95, 0.4); kh[1].position.set(0, 0.95, -0.4); kh.forEach(k=>{ k.renderOrder = 8; k.material.depthTest = false; g.add(k); });
+    // a warm glow on the floor in front, on the side you come from: this one wants a key
+    const io = { s:[0, -1], n:[0, 1], e:[-1, 0], w:[1, 0] }[d.side] || [0, 0];
+    const fl = new THREE.Mesh(K.glowPlane, K.glowMat(0xffb040, 0.45)); fl.scale.set(3.2, 1, 2.2); fl.position.set(d.x + io[0]*1.1, 0.04, d.y + io[1]*1.1); if(d.axis === "v") fl.rotation.y = PI/2;
+    W.areaGroup(a >= 0 ? a : d.room).add(g); W.areaGroup(a >= 0 ? a : d.room).add(fl);
+    W.locks.push({ d, g, lock, back, chains, kh, fl, t:-1 });
+  });
+  /* ---- secret walls: the tells ---- */
+  const decals = {}, extra = [];
+  D.fakes.forEach(f=>{
+    if(f.puzzle) return;
+    const r = D.rooms[f.room], [fx, fy] = f.tiles[1];
+    // which face of the wall looks into the room, and which way is "in"
+    let face;
+    if(fy === r.y1 - 1) face = { x:fx + 0.5, z:r.y1 + 0.012, rot:0, ix:0, iz:1 };
+    else if(fy === r.y2 + 1) face = { x:fx + 0.5, z:r.y2 + 0.99, rot:PI, ix:0, iz:-1, low:true };
+    else if(fx === r.x1 - 1) face = { x:r.x1 + 0.012, z:fy + 0.5, rot:PI/2, ix:1, iz:0 };
+    else face = { x:r.x2 + 0.988, z:fy + 0.5, rot:-PI/2, ix:-1, iz:0 };
+    const list = decals[r.id] || (decals[r.id] = []);
+    // a hairline crack, paler than the stone
+    if(!face.low) for(let c=0;c<2;c++) decal(list, CELL.crack, face.x + (face.ix ? 0 : (c - 0.5)*0.9 + (rnd() - 0.5)*0.3), 0.7 + rnd()*0.5, face.z + (face.iz ? 0 : (c - 0.5)*0.9 + (rnd() - 0.5)*0.3), 1.0, 1.3, face.rot, new THREE.Color(0xa49e8c), true);
+    // drag marks running into it, and old dust heaped at its foot
+    decal(list, CELL.drag, face.x + face.ix*1.0, 0.013, face.z + face.iz*1.0, 0.9, 1.5, face.rot + PI, new THREE.Color(0x24201c));
+    decal(list, CELL.stain, face.x + face.ix*0.35, 0.014, face.z + face.iz*0.35, 1.6, 0.9, face.rot, new THREE.Color(0x6a6458));
+    // and something left at its foot: candles for whoever went through, or whoever didn't
+    const k = rnd();
+    if(k < 0.45) extra.push({ kind:"candlecluster", x:face.x + face.ix*0.45 + (face.iz ? 0.9 : 0), y:face.z + face.iz*0.45 + (face.ix ? 0.9 : 0), rot:rnd()*6, area:r.id, room:r.id, s:0.8 });
+    else if(k < 0.75 && !face.low) extra.push({ kind:"slumped", x:face.x + (face.iz ? (rnd() < 0.5 ? -1.2 : 1.2) : 0), y:face.z + (face.ix ? (rnd() < 0.5 ? -1.2 : 1.2) : 0), face:true, rotY:face.rot, area:r.id, room:r.id, s:0.9 });
+    W.tells.push({ f, r, face, t:rnd()*2, snd:rnd()*3 });
+  });
+  const mat = decalMat();
+  for(const a in decals){ if(decals[a].length){ const m = new THREE.Mesh(K.merge(decals[a]), mat); m.renderOrder = 1; W.areaGroup(+a).add(m); } }
+  if(extra.length) W.buildDecor(extra);
+  /* ---- the rooms' own light ---- */
+  D.rooms.forEach(r=>{
+    const cx = (r.x1 + r.x2 + 1)/2, cz = (r.y1 + r.y2 + 1)/2, w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1;
+    const pool = (c, op, sx, sz)=>{ const m = new THREE.Mesh(K.glowPlane, K.glowMat(c, op)); m.scale.set(sx, 1, sz); m.position.set(cx, 0.035, cz); W.areaGroup(r.id).add(m); return m; };
+    if(r.type === "throne"){ W.redPool = pool(0x8a0a06, 0.5, w*1.1, h*1.1); W.lights.push({ x:cx - 3, y:1.6, z:cz + 1, c:0xff2a1a, i:0.7, room:r.id, ph:1 }, { x:cx + 3, y:1.6, z:cz + 1, c:0xff2a1a, i:0.7, room:r.id, ph:2 }); }
+    if(r.type === "vault"){ pool(0xffc04a, 0.28, w*0.9, h*0.9); W.lights.push({ x:cx, y:2.2, z:cz, c:0xffc060, i:0.9, room:r.id, ph:0, small:true }); }
+    if(r.type === "olm") pool(0xff9a40, 0.22, w, h);
+    if(r.jungle) W.buildJungle(r, rnd);
+  });
+};
+/* the pond: moss and leaves over the stone, green-gold light, fireflies, the waterfall's water */
+proto.buildJungle = function(r, rnd){
+  const W = this, D = W.D, list = [], cx = (r.x1 + r.x2 + 1)/2, cz = (r.y1 + r.y2 + 1)/2, w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1;
+  for(let i=0;i<Math.round(w*h/3);i++){
+    const x = r.x1 + 0.4 + rnd()*(w - 0.8), z = r.y1 + 0.4 + rnd()*(h - 0.8);
+    if(D.at(Math.floor(x), Math.floor(z)) !== T.FLOOR) continue;
+    const k = rnd() < 0.6 ? CELL.moss : CELL.leaves, s = 0.9 + rnd()*1.3;
+    decal(list, k, x, 0.013 + i*0.0002, z, s, s, rnd()*6, new THREE.Color(k === CELL.moss ? [0x2e5a22, 0x3a6a26, 0x24481c][i % 3] : [0x4a6a2a, 0x6a7a2a][i % 2]));
+  }
+  // moss creeping up the north wall
+  for(let x=r.x1; x<=r.x2; x++) if(rnd() < 0.6 && D.at(x, r.y1 - 1) === T.SOLID) decal(list, CELL.moss, x + 0.5, 0.35 + rnd()*0.5, r.y1 + 0.01, 1.1, 0.9, 0, new THREE.Color(0x2e5222), true);
+  const m = new THREE.Mesh(K.merge(list), decalMat()); m.renderOrder = 1; W.areaGroup(r.id).add(m);
+  // warm green-gold light over the water, and a glow on it
+  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0x9ad84a, 0.35)); pool.scale.set(w*0.9, 1, h*0.9); pool.position.set(cx, 0.03, cz); W.areaGroup(r.id).add(pool);
+  const sun = new THREE.Mesh(K.glowPlane, K.glowMat(0xffe08a, 0.25)); sun.scale.set(5, 1, 4); sun.position.set(cx, 0.05, cz - 0.5); W.areaGroup(r.id).add(sun);
+  W.lights.push({ x:cx, y:2.4, z:cz, c:0xd8e870, i:1.3, room:r.id, ph:0 }, { x:r.x1 + 2, y:1.2, z:r.y2 - 1, c:0x8ae05a, i:0.6, room:r.id, ph:1, small:true }, { x:r.x2 - 1, y:1.2, z:r.y1 + 2, c:0xc8e070, i:0.6, room:r.id, ph:2, small:true });
+  // fireflies: a cloud of slow gold sparks
+  const n = Math.round(w*h/3), pos = new Float32Array(n*3), ph = new Float32Array(n);
+  for(let i=0;i<n;i++){ pos[i*3] = r.x1 + rnd()*w; pos[i*3 + 1] = 0.3 + rnd()*1.5; pos[i*3 + 2] = r.y1 + rnd()*h; ph[i] = rnd()*6.28; }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aPh", new THREE.BufferAttribute(ph, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms:{ uTime:{ value:0 }, uScale:{ value:300 }, uCol:{ value:new THREE.Color(0xe8ff7a) }, uSp:{ value:0.35 } }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:["attribute float aPh; uniform float uTime, uScale, uSp; varying float vA;",
+      "void main(){ vec3 p = position; float t = uTime*uSp + aPh;",
+      "  p += vec3(sin(t*1.3)*0.9, sin(t*2.1)*0.3, cos(t*1.1)*0.9);",
+      "  vA = pow(0.5 + 0.5*sin(uTime*1.6 + aPh*5.0), 4.0);",
+      "  vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_PointSize = clamp(uScale*0.16/max(1.0, -mv.z), 2.0, 9.0); gl_Position = projectionMatrix*mv; }"].join("\n"),
+    fragmentShader:"uniform vec3 uCol; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); if(d > 0.5) discard; gl_FragColor = vec4(uCol*vA*(1.0 - d*1.8), 1.0); }" });
+  K.timed.push(mat); W.vanityMats.push(mat); W.jungleFlies = (W.jungleFlies || []).concat([mat]);
+  const pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 6; W.areaGroup(r.id).add(pts);
+  // the waterfall: a sheet of falling water down the wall, white where it lands
+  D.decor.filter(d=> d.kind === "waterfall" && d.room === r.id).forEach(d=>{
+    const wm = new THREE.ShaderMaterial({ uniforms:{ uTime:{ value:0 } }, transparent:true, depthWrite:false, side:THREE.DoubleSide,
+      vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position, 1.0); }",
+      fragmentShader:["uniform float uTime; varying vec2 vUv;",
+        "float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+        "void main(){ float x = vUv.x, y = vUv.y; float e = smoothstep(0.0, 0.2, x)*smoothstep(1.0, 0.8, x);",
+        "  float s = 0.5 + 0.5*sin(x*40.0 + h(vec2(floor(x*14.0), 0.0))*6.0)*sin(y*9.0 + uTime*9.0 + x*20.0);",
+        "  vec3 c = mix(vec3(0.25, 0.45, 0.42), vec3(0.85, 0.95, 0.9), s*0.6 + (1.0 - y)*0.25);",
+        "  gl_FragColor = vec4(c, e*(0.55 + 0.3*s)); }"].join("\n") });
+    K.timed.push(wm); W.vanityMats.push(wm);
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.75), wm); sheet.position.set(d.x, 0.9, d.y + 0.16); sheet.renderOrder = 4; W.areaGroup(r.id).add(sheet);
+    const foam = K.sprite(0xd8f8f0, 1.2, 0.5); foam.position.set(d.x, 0.15, d.y + 0.35); W.areaGroup(r.id).add(foam);
+    W.falls.push({ x:d.x, z:d.y + 0.4, room:r.id, foam });
+  });
+};
+proto.updateRoomsVanity = function(G, dt, t){
+  const W = this, D = W.D, p = G.player, FX = DG.FX, live = !(DG.app && DG.app.V && DG.app.V.silent);
+  (W.jungleFlies || []).forEach(m=> m.uniforms.uScale.value = DG.Stage.renderer.domElement.height/2/Math.tan(DG.Stage.camera.fov*PI/360));
+  // locks: the keyhole breathes; a key drops padlocks and chains to the floor
+  W.locks.forEach(L=>{
+    if(L.d.locked){ L.kh.forEach(k=> k.material.opacity = 0.5 + 0.35*Math.sin(t*2.6)); L.fl.material.opacity = 0.32 + 0.14*Math.sin(t*2.6); return; }
+    if(L.t < 0){ L.t = 0; L.kh.forEach(k=> k.visible = false); }
+    L.fl.material.opacity = Math.max(0, 0.45 - L.t*0.4);
+    L.t += dt;
+    const k = L.t;
+    [L.lock, L.back].forEach((o, i)=>{ o.position.y = Math.max(0.12, 0.86 - k*k*5); o.rotation.z = Math.min(1.5, k*4)*(i ? -1 : 1); o.position.z = (i ? -1 : 1)*(0.16 + Math.min(0.5, k*0.7)); });
+    L.chains.position.y = -Math.min(1.6, k*k*3); L.chains.scale.y = Math.max(0.05, 1 - k*0.9);
+    if(k > 2.5){ L.lock.position.y -= (k - 2.5)*dt*0.6; L.back.position.y -= (k - 2.5)*dt*0.6; }
+    if(k > 4) L.g.visible = false;
+  });
+  // the secret walls breathe: dust drawn out through the cracks, a cold whisper close by
+  W.tells.forEach(o=>{
+    if(o.f.revealed || !o.r.seen) return;
+    const d = DG.dist(o.f.x, o.f.y, p.x, p.y);
+    if(d > 10) return;
+    o.t -= dt;
+    if(o.t <= 0 && FX){
+      o.t = 0.5 + Math.random()*0.7;
+      const F = o.face, u = (Math.random() - 0.5)*1.8;
+      const x = F.x + (F.iz ? u : 0) + F.ix*0.15, z = F.z + (F.ix ? u : 0) + F.iz*0.15;
+      FX.smoke(x, 0.2 + Math.random()*(F.low ? 0.4 : 1.1), z, 0xc8c0b0, 1, 0.3, 2.6, { spread:0.1, rise:0.05, speed:0.15, alpha:0.4, tint:0.9, grow:2.4 });
+      FX.emit(x, 0.4 + Math.random()*1.0, z, F.ix*(0.3 + Math.random()*0.3), 0.04, F.iz*(0.3 + Math.random()*0.3), 0xd8d0b8, 0.035, 2.2, 0, 0.4);
+    }
+    o.snd -= dt;
+    if(d < 4.5 && o.snd <= 0 && live){ o.snd = 3 + Math.random()*2; if(DG.Audio) DG.Audio.play("draught", { x:o.f.x, y:o.f.y }); }
+  });
+  // the waterfall's spray
+  W.falls.forEach(f=>{ f.foam.material.opacity = 0.35 + 0.15*Math.sin(t*7) + 0.1*Math.sin(t*13); if(FX && D.rooms[f.room].seen && Math.random() < dt*6) FX.emit(f.x + (Math.random() - 0.5)*0.4, 0.1, f.z, (Math.random() - 0.5)*0.6, 0.8 + Math.random()*0.6, 0.3 + Math.random()*0.3, 0xd8f0f0, 0.04, 0.6, 5, 0.5); });
+  if(W.redPool) W.redPool.material.opacity = 0.42 + 0.1*Math.sin(t*0.8);
+};
+
 /* ---- splats and scorch marks that stay for the floor: one mesh, a ring of quads ---- */
 const SPLATS = 220;
 proto.buildSplats = function(){
@@ -403,6 +558,7 @@ proto.addSplat = function(x, z, color, size, kind){
 /* ---- per frame: rats scurry, bats circle ---- */
 proto.updateVanity = function(G, dt, t){
   const W = this, D = W.D, p = G.player, S = DG.Stage;
+  W.updateRoomsVanity(G, dt, t);
   if(W.runeMat) W.runeMat.opacity = 0.4 + 0.18*Math.sin(t*1.7);
   if(W.fireflyMat) W.fireflyMat.uniforms.uScale.value = S.renderer.domElement.height/2/Math.tan(S.camera.fov*PI/360);
   W.critters.forEach(c=>{

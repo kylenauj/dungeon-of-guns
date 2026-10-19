@@ -839,8 +839,10 @@ proto.addProp = function(p){
   const W = this, g = new THREE.Group(), o = { p, g };
   g.position.set(p.x + 0.5, 0, p.y + 0.5);
   const P = K.part;
-  if(p.kind === "chest"){
-    const col = [0x8a5a2b, 0x8a5a2b, 0x5a6a8a, 0xd8a83a][p.tier] || 0x8a5a2b, band = p.tier >= 3 ? 0xffe680 : p.tier === 2 ? 0x46e4ff : 0xc8a040;
+  const handled = W.roomProp(p, g, o);   // ROOMS: thrones, cages, dice, Olm, messages, padlocks
+  if(handled){}
+  else if(p.kind === "chest"){
+    const col = p.golden ? 0x9a7426 : [0x8a5a2b, 0x8a5a2b, 0x5a6a8a, 0xd8a83a][p.tier] || 0x8a5a2b, band = p.tier >= 3 ? 0xffe680 : p.tier === 2 ? 0x46e4ff : 0xc8a040;
     P(g, new THREE.BoxGeometry(0.82, 0.44, 0.56), col, 0, 0.22, 0);
     P(g, new THREE.BoxGeometry(0.86, 0.07, 0.6), band, 0, 0.4, 0);
     P(g, new THREE.BoxGeometry(0.12, 0.15, 0.05), band, 0, 0.36, 0.3);
@@ -912,6 +914,106 @@ proto.addProp = function(p){
   W.areaGroup(a === null ? p.room : a).add(g);
   W.props[p.id] = o;
   return o;
+};
+
+/* ================================================================== *
+ *  ROOMS: the props of the new rooms
+ *  The Red Throne (the gift floats over its seat), the cage round a
+ *  treasure (it hauls itself up into the dark when the trap springs),
+ *  the dice altar, the blood bowl, Brother Olm himself, the orange
+ *  messages on the floor, and padlocks on golden chests.
+ * ================================================================== */
+/* a decor piece built into g: baked (lit parts glow on their own), glows as sprites, lights into the room */
+proto.decorInto = function(g, kind, p, opts){
+  const W = this, o = DG.Decor.build(kind, W.rnd), grp = o.group;
+  opts = opts || {};
+  if(opts.s) grp.scale.setScalar(opts.s);
+  if(opts.y) grp.position.y = opts.y;
+  if(opts.z) grp.position.z = opts.z;
+  const lit = new THREE.Group();
+  grp.children.slice().forEach(m=>{ if(m.userData.lit){ grp.remove(m); lit.add(m); } });
+  g.add(grp);
+  K.bake(grp, { w:0.018 });
+  if(lit.children.length){ grp.add(lit); K.bake(lit, { mat:W.mats.lit, outline:false }); }
+  o.glows.forEach(gl=>{ const sp = K.sprite(gl.c, gl.s*1.6, 0.75); sp.position.set(gl.x, gl.y, gl.z); grp.add(sp); });
+  const sc = opts.s || 1;
+  if(p) o.lights.forEach(l=> W.lights.push({ x:p.x + 0.5 + l.x*sc, y:l.y*sc + (opts.y || 0), z:p.y + 0.5 + l.z*sc + (opts.z || 0), c:l.c, i:l.i, room:p.room, ph:W.rnd()*6, small:true }));
+  return grp;
+};
+/* an orange message scrawled on the floor: glowing strokes, not quite letters */
+const msgTex = {};
+function messageTex(text){
+  if(msgTex[text]) return msgTex[text];
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d"), r = DG.RNG(text.length*31 + text.charCodeAt(0)).next;
+  g.strokeStyle = "#ffb060"; g.fillStyle = "#ffb060"; g.lineCap = "round"; g.lineJoin = "round";
+  g.font = "italic bold 40px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.shadowColor = "#ff7a1a"; g.shadowBlur = 10;
+  g.save(); g.translate(128, 60); g.rotate(-0.08); g.fillText(text.length > 18 ? text.slice(0, 18) + "…" : text, 0, 0); g.restore();
+  g.lineWidth = 2.5; g.beginPath(); g.moveTo(30, 98); for(let x=30; x<226; x+=14) g.quadraticCurveTo(x + 7, 92 + r()*12, x + 14, 98); g.stroke();
+  return (msgTex[text] = new THREE.CanvasTexture(cv));
+}
+proto.roomProp = function(p, g, o){
+  const W = this, P = K.part, r = W.D.rooms[p.room];
+  if(p.kind === "pedestal" && p.throne){
+    W.decorInto(g, "bonethrone", p, { s:1.25 });
+    g.position.z -= 0.15;
+    const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0xff1a0a, 0.55)); pool.scale.set(5, 1, 4); pool.position.set(0, 0.04, 1.2); g.add(pool); o.pool = pool;
+    o.holder = new THREE.Group(); o.holder.position.set(0, 1.5, 0.1); g.add(o.holder);
+    o.shown = null; o.sink = 0;
+    // a shaft of red light falling on the seat from nowhere, and motes of ash turning in it
+    const beam = new THREE.Group();
+    [[0.55, 0.06], [0.3, 0.1]].forEach(([rad, op])=>{ const m = new THREE.Mesh(new THREE.CylinderGeometry(rad*0.6, rad*1.6, 6, 16, 1, true), new THREE.MeshBasicMaterial({ color:0xff2a14, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false })); m.position.y = 3; beam.add(m); });
+    beam.position.set(0, 0, 0.1); g.add(beam); o.beam = beam;
+    W.lights.push({ x:p.x + 0.5, y:2.6, z:p.y + 2.4, c:0xff2a1a, i:1.2, room:p.room, ph:0 });
+    return true;
+  }
+  if(p.kind === "pedestal" && p.cage){
+    const cg = new THREE.Group(); g.add(cg);
+    W.decorInto(cg, "cage", null, {});
+    o.cage = cg;
+    return false;   // and the pedestal inside it, as usual
+  }
+  if(p.kind === "chest" && p.keyLock){
+    const lg = new THREE.Group(); lg.position.set(0, 0.28, 0.33); g.add(lg);
+    W.decorInto(lg, "padlock", null, { s:0.8 });
+    const kh = K.sprite(0xffc860, 0.35, 0.6); kh.position.set(0, -0.02, 0.06); lg.add(kh);
+    o.padlock = lg; o.keyhole = kh;
+    return false;   // and the chest, as usual
+  }
+  if(p.kind === "dice"){ W.decorInto(g, "dicealtar", p, {}); return true; }
+  if(p.kind === "bloodbowl"){ W.decorInto(g, "bloodbowl", p, {}); return true; }
+  if(p.kind === "olm"){
+    const R = M.olm(); g.add(R.root); o.rig = R;
+    W.lights.push({ x:p.x + 0.2, y:1.4, z:p.y + 1.0, c:0xffa850, i:1.1, room:p.room, ph:0, small:true });
+    const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0xffa040, 0.35)); pool.scale.set(4, 1, 4); pool.position.set(-0.2, 0.04, 0.4); g.add(pool);
+    return true;
+  }
+  if(p.kind === "message"){
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), new THREE.MeshBasicMaterial({ map:messageTex(p.text), transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:0.7 }));
+    m.rotation.x = -PI/2; m.rotation.z = (W.rnd() - 0.5)*0.4; m.position.y = 0.03; m.renderOrder = 3; g.add(m);
+    o.msg = m;
+    return true;
+  }
+  return false;
+};
+proto.updateRoomProp = function(pr, o, G, dt, t){
+  const p = G.player;
+  if(pr.kind === "olm" && o.rig){
+    const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 4;
+    M.olmIdle(o.rig, t, near ? DG.clamp(Math.atan2(p.x - pr.x - 0.5, p.y - pr.y - 0.5), -1, 1) : Math.sin(t*0.2)*0.4);
+  }
+  if(o.msg){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.5 ? 1 : 0; o.msgK = (o.msgK || 0) + (near - (o.msgK || 0))*(1 - Math.exp(-dt*4)); o.msg.material.opacity = 0.55 + 0.15*Math.sin(t*1.7 + pr.x) + 0.3*o.msgK; }
+  if(o.cage){
+    // sprung: the cage hauls itself up into the dark (and stays there)
+    const want = pr.taken ? 3.2 : 0;
+    o.cage.position.y += (want - o.cage.position.y)*(1 - Math.exp(-dt*(pr.taken ? 2.5 : 8)));
+  }
+  if(o.padlock){
+    if(!pr.keyLock){ o.lockT = (o.lockT || 0) + dt; const k = o.lockT; o.padlock.position.y = Math.max(0.05, 0.28 - k*k*4); o.padlock.rotation.z = Math.min(1.4, k*3); o.padlock.position.z = 0.33 + Math.min(0.3, k*0.6); if(o.keyhole) o.keyhole.visible = false; if(k > 2) o.padlock.visible = false; }
+    else if(o.keyhole) o.keyhole.material.opacity = 0.35 + 0.3*Math.sin(t*3);
+  }
+  if(o.pool) o.pool.material.opacity = 0.45 + 0.12*Math.sin(t*1.3);
+  if(o.beam){ o.beam.visible = !pr.taken; o.beam.rotation.y = t*0.2; o.beam.children.forEach((m, i)=> m.material.opacity = (i ? 0.1 : 0.06)*(0.8 + 0.2*Math.sin(t*1.1 + i))); if(!pr.taken && Math.random() < dt*5 && DG.FX) DG.FX.emit(pr.x + 0.5 + (Math.random() - 0.5)*0.8, 0.3, pr.y + 0.5, 0, 0.6 + Math.random()*0.5, 0, 0xff4a2a, 0.04, 2, -0.1, 0.3); }
 };
 
 /* ---- puzzle pieces ---- */
@@ -1066,6 +1168,7 @@ proto.update = function(G, dt, t){
         o.glow.material.opacity = on ? 0.8 : 0.15 + 0.1*Math.sin(t*3);
       }
       if(pr.kind === "resetrune") o.glow.rotation.z = t;
+      W.updateRoomProp(pr, o, G, dt, t);
     });
   });
   // puzzle pieces

@@ -18,7 +18,7 @@ const app = DG.app = { G:null, V:null, mode:"boot", acc:0, demo:null };
 
 /* golden flies outlive runs: they unlock Gribbus' rarer tricks */
 const META_KEY = "dungeonofguns.meta";
-function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [], endings:m.endings || {} }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[], endings:{} }; } }
+function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [], endings:m.endings || {}, olm:m.olm || 0 }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[], endings:{} }; } }
 function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
 
 function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.now()); }
@@ -113,6 +113,7 @@ IN.onKey = function(e){
   if(e.code === "KeyV" && !(e.target && e.target.tagName === "INPUT")){ HUD.toast(S.toggleInk() ? "Ink look" : "Plain look", 1.2); return; }
   if(e.code === "Escape"){
     if(app.mode === "play") app.pause();
+    else if(app.mode === "choose" && app.G.choice && app.G.choice.leave !== undefined) app.pick(app.G.choice.leave);   // Esc walks away from Brother Olm
     else if(app.mode === "pause" || app.mode === "bag") app.resume();
     return;
   }

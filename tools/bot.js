@@ -7,6 +7,7 @@
 "use strict";
 const DG = root.DG;
 
+const revealed = (G, x, y)=> G.D.fakes.some(f=> f.revealed && f.tiles.some(([fx, fy])=> fx === x && fy === y));
 function Bot(G, opts){
   this.G = G; this.path = null; this.repath = 0; this.goal = null; this.t = 0; this.opts = opts || {};
   this.visitedProps = {}; this.rng = DG.RNG(((G.seed || 7) ^ 0x9e3779b9) >>> 0);
@@ -20,7 +21,8 @@ Bot.prototype.bfs = function(sx, sy, tx, ty){
     const x = c % W, y = (c - x)/W;
     for(const [dx, dy] of DG.DIRS4){
       const nx = x + dx, ny = y + dy, n = ny*W + nx;
-      if(prev[n] !== -1 || (G.blocked(nx, ny, "enemy") && G.D.at(nx, ny) !== DG.TILE.WATER)) continue;   // no pits, but water is fine
+      // no pits, but water is fine, and so is a fake wall once it's been found
+      if(prev[n] !== -1 || (G.blocked(nx, ny, "enemy") && G.D.at(nx, ny) !== DG.TILE.WATER && !(G.D.at(nx, ny) === DG.TILE.FAKE && revealed(G, nx, ny)))) continue;
       prev[n] = c; q.push(n);
     }
   }
@@ -37,11 +39,13 @@ Bot.prototype.chooseGoal = function(){
   // a gun is remembered by the gun, not the pickup: a swap drops the old one as a new pickup,
   // and two guns of about the same worth used to get swapped back and forth forever
   const pkey = k=> !k.item ? "k" + k.id : k.item.uid ? "g" + k.item.uid : "i" + k.item.kind + ":" + (k.item.id || k.id);
-  const items = G.pickups.filter(k=> k.kind === "item" && !this.visitedProps[pkey(k)] && (k.item.kind !== "gun" || DG.Loot.dps(k.item, G.mods) > DG.Loot.dps(G.gun(), G.mods)*0.9));
+  const items = G.pickups.filter(k=> k.kind === "item" && !this.visitedProps[pkey(k)] && (k.item.kind !== "gun" || DG.Loot.dps(k.item, G.mods) > DG.Loot.dps(G.gun(), G.mods)*1.05));
   if(items.length) return { x:items[0].x, y:items[0].y, use:true, key:pkey(items[0]) };
   for(const r of G.D.rooms){
     if(r.type === "secret" && !r.found) continue;
-    if(r.doors.some(id=> G.D.doors[id].locked)) continue;      // behind a locked door: not for the bot
+    // behind a locked door (a vault's is on its host's side and points into it; a quest room's
+    // is its own): not for the bot. The host of a vault is still a room to clear.
+    if(G.D.doors.some(d=> d.locked && (d.into === r.id || (d.room === r.id && d.into === undefined)))) continue;
     for(const pr of r.props){
       const key = "p" + pr.id;
       if(this.visitedProps[key]) continue;

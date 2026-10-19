@@ -79,6 +79,7 @@ proto.enterFloor = function(n){
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
   if(p){ p.hollow = 0; p.darksignUsed = false; }
   G.curses = G.D.curses || [];
+  G.applyPacts();
   G.traps = [];
   G.D.rooms.forEach(r=>{
     r.seen = r.type === "start"; r.active = false; r.wave = 0; r.waveDelay = 0;
@@ -121,6 +122,7 @@ proto.initProp = function(r, pr){
 /* what sits on a pedestal: an item from the room's pool, a gun, soup... */
 proto.makeOffer = function(r, pr){
   const G = this, f = G.floor;
+  const sp = G.specialOffer(r, pr); if(sp) return sp;
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
   if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
@@ -478,6 +480,7 @@ proto.offerBoons = function(){
 proto.choose = function(i){
   const G = this, p = G.player, c = G.choice;
   if(!c || G.state !== "choose") return;
+  if(c.kind === "olm"){ G.olmChoose(i); return; }
   const id = c.options[Math.max(0, Math.min(c.options.length - 1, i))];
   if(c.kind === "boon"){
     p.boons.push(id); p.pendingLevels--;
@@ -600,6 +603,7 @@ proto.updateRooms = function(dt){
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
       if(inside.type === "secret" && !inside.found){ inside.found = true; G.emit("secretRoom", { room:inside.id }); }
+      G.enterSpecial(inside);
     }
   }
   D.rooms.forEach(r=>{
@@ -677,6 +681,7 @@ proto.clearRoom = function(r){
   G.player.hollow = 0;
   // the Usurer's Ledger: interest on what you carry
   if(G.mods.special.interest && G.player.gold > 0){ const n = Math.min(30*G.mods.special.interest, Math.round(G.player.gold*0.08*G.mods.special.interest)); if(n > 0){ G.player.gold += n; G.emit("interest", { n }); } }
+  G.clearSpecial(r);
   if(G.mods.special.kindled && G.player.darksignUsed){ G.player.darksignUsed = false; G.emit("darksignLit", { x:G.player.x, y:G.player.y }); }
   G.allies.forEach(a=>{ if(a.kind === "tadpole" || a.kind === "wisp") a.life = Math.min(a.life, 1.5); });
   if(r.type === "boss") return;
@@ -783,12 +788,13 @@ proto.target = function(){
   const r = G.room || G.D.rooms.find(rr=> p.x > rr.x1 - 1 && p.x < rr.x2 + 2 && p.y > rr.y1 - 5 && p.y < rr.y2 + 2);
   if(r) r.props.forEach(pr=>{
     const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y);
-    if(pr.kind === "chest" && !pr.open) consider(pr, d, pr.locked ? "Locked (solve the puzzle)" : "Open chest");
+    if(pr.kind === "chest" && !pr.open) consider(pr, d, pr.locked ? "Locked (solve the puzzle)" : pr.keyLock ? (p.keys > 0 ? "Unlock the golden chest (1 key of " + p.keys + ")" : "A golden chest, locked. It wants a key.") : "Open chest");
     if(pr.kind === "pedestal" && !pr.taken && pr.offer) consider(pr, d, G.offerText(pr.offer));
     if(pr.kind === "lilypad" && !pr.taken && pr.buff && !r.pondDone) consider(pr, d, "Gribbus sits here: " + DG.FROG_BUFFS[pr.buff].name);
     if(pr.kind === "sign") consider(pr, d - 0.2, "Read sign");
     if(pr.kind === "merchant") consider(pr, d - 0.3, "Talk to Snibbit");
   });
+  if(r) G.targetSpecial(r, consider);
   return best;
 };
 /* ---- the end: which ending, remembered between runs ---- */
@@ -809,6 +815,7 @@ proto.unlockDoor = function(d){
   G.emit("unlock", { x:d.x, y:d.y, door:d.id });
 };
 proto.offerText = function(o){
+  if(o.currency === "pact") return "Take " + DG.ITEMS[o.id].name + " — the price: " + DG.PACTS[o.pact].name + " (" + DG.PACTS[o.pact].desc + ")";
   const what = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.name;
   if(o.currency === "gold") return "Buy " + what + " — " + o.price + "g";
   if(o.currency === "hp") return "Take " + what + " — costs " + o.price + " max health";
@@ -819,6 +826,7 @@ proto.interact = function(){
   const G = this, p = G.player, tg = G.target();
   if(!tg) return;
   const o = tg.o;
+  if(G.interactSpecial(o)) return;
   if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }
   if(o.kind === "item"){ G.takeItem(o.item, o); return; }
@@ -881,6 +889,274 @@ proto.takeItem = function(item, pickup){
     p.active = { id:item.id, charge:item.charge === undefined ? DG.ACTIVES[item.id].charge : item.charge, max:DG.ACTIVES[item.id].charge };
     G.emit("pickup", { kind:"active", id:item.id }); G.say(DG.ACTIVES[item.id].name + ": " + DG.ACTIVES[item.id].desc, 3.5);
   } else if(item.kind === "item"){ G.giveItem(item.id); }
+};
+
+/* ================================================================== *
+ *  ROOMS: vaults, golden chests, the Red Throne, the caged treasure,
+ *  the gambler's altar, orange messages and Brother Olm.
+ *  (Each is reached from one hook line in makeOffer, updateRooms,
+ *  clearRoom, target, interact, choose and enterFloor.)
+ * ================================================================== */
+const OLM = ()=> DG.OLM;
+/* an unseen item of tier t (or the nearest tier below with any left) */
+proto.rollTier = function(t){
+  const G = this;
+  for(let k=Math.min(4, t); k>=0; k--){
+    const c = Object.keys(DG.ITEMS).filter(id=> DG.ITEMS[id].tier === k && !G.seenItems[id]);
+    if(c.length){ const id = G.rng.pick(c); Items.offer(G, id); return id; }
+  }
+  return "spinach";
+};
+/* the Red Throne's gift: a godly thing, and the price is shown up front */
+proto.specialOffer = function(r, pr){
+  const G = this;
+  if(!pr.throne) return null;
+  const owned = G.player.pacts || [];
+  const pacts = Object.keys(DG.PACTS).filter(k=> owned.indexOf(k) < 0);
+  const id = G.rollTier(4);
+  return { kind:"item", id, name:DG.ITEMS[id].name, currency:"pact", pact:G.rng.pick(pacts.length ? pacts : Object.keys(DG.PACTS)) };
+};
+proto.addCurse = function(c){ if(this.curses.indexOf(c) < 0) this.curses.push(c); };
+/* what the Red God took, applied to this floor (again on every new floor) */
+proto.applyPacts = function(){
+  const G = this, pacts = (G.player && G.player.pacts) || [];
+  if(!pacts.length) return;
+  if(pacts.indexOf("blind") >= 0) G.addCurse("lost");
+  if(pacts.indexOf("benighted") >= 0){ G.addCurse("dark"); G.addCurse("fog"); }
+  if(pacts.indexOf("hunted") >= 0){
+    const affixes = Object.keys(DG.AFFIXES).filter(a=> a !== "haunted" || G.floor >= 3);
+    G.D.rooms.forEach(r=>{
+      if(r.cleared || r.active || r.hunted) return;
+      r.hunted = true;
+      r.waves.forEach(w=> w.forEach(s=>{ if(!s.elite && G.rng.chance(0.5)) s.elite = G.rng.pick(affixes); }));
+    });
+  }
+};
+proto.takePact = function(o){
+  const G = this, p = G.player, of = o.offer, P = DG.PACTS[of.pact];
+  o.taken = true;
+  G.giveItem(of.id);
+  p.pacts = (p.pacts || []).concat([of.pact]);
+  if(of.pact === "halved"){ p.altarLoss = (p.altarLoss || 0) + Math.floor(p.maxHp/2); G.recalc(); }
+  G.applyPacts();
+  G.emit("pact", { pact:of.pact, name:P.name, desc:P.desc, x:o.x + 0.5, y:o.y + 0.5 });
+  G.say("THE RED GOD TAKES ITS DUE. " + P.name + ": " + P.desc + ".", 5);
+};
+
+/* a caged treasure: take it, and the cage was never for the treasure */
+proto.takeCage = function(o){
+  const G = this, of = o.offer;
+  o.taken = true;
+  if(of.kind === "item") G.giveItem(of.id); else if(of.kind === "gun") G.takeItem(of.gun, null);
+  G.springCage(G.D.rooms[o.room]);
+};
+proto.springCage = function(r){
+  const G = this, p = G.player, S = G.scale;
+  if(r.sprung) return;
+  r.sprung = true;
+  const table = G.D.theme.enemies, types = Object.keys(table).filter(t=> DG.ENEMIES[t].speed > 0);
+  const affixes = Object.keys(DG.AFFIXES).filter(a=> a !== "haunted" || G.floor >= 3);
+  const waves = [];
+  for(let w=0; w<2; w++){
+    const free = G.rng.shuffle(DG.Dungeon.freeTiles(G.D, r, { door:3 }).filter(([x, y])=> DG.dist(x + 0.5, y + 0.5, p.x, p.y) > 3.5));
+    let budget = S.budget*1.25;
+    const wave = [];
+    while(budget > 0.9 && free.length){
+      const id = G.rng.weighted(types, t=> DG.ENEMIES[t].cost <= budget + 0.5 ? table[t] : 0);
+      if(!id || DG.ENEMIES[id].cost > budget + 0.5) break;
+      const [x, y] = free.pop(), elite = G.rng.chance(0.6) ? G.rng.pick(affixes) : null;
+      wave.push({ type:id, x:x + 0.5, y:y + 0.5, elite });
+      budget -= DG.ENEMIES[id].cost*(elite ? 1.6 : 1);
+    }
+    if(wave.length) waves.push(wave);
+  }
+  if(!waves.length) return;
+  r.waves = waves; r.wave = 0; r.waveDelay = 0.7; r.cleared = false; r.active = true;
+  G.setDoors(r, false);
+  G.emit("lock", { room:r.id }); G.emit("sprung", { room:r.id, x:r.cxw, y:r.cyw });
+  G.tickT = {};
+  G.trigger("lock", { x:p.x, y:p.y, depth:0 });
+  G.say(G.rng.pick(DG.LINES.sprung), 3);
+};
+proto.clearSpecial = function(r){
+  const G = this;
+  if(r.sprung && !r.sprungPaid){
+    r.sprungPaid = true;
+    G.say(G.rng.pick(DG.LINES.sprungClear), 3.5);
+    G.dropGold(r.cxw, r.cyw, 15 + 5*G.floor);
+  }
+};
+
+/* the gambler's altar: everything you carry, double or nothing (luck helps a little) */
+proto.gambleGold = function(o){
+  const G = this, p = G.player;
+  if(p.gold < 10){ G.say("The dice want ten gold at least. The house has standards."); G.emit("broke"); return; }
+  const stake = p.gold, win = G.chance(0.47);
+  o.rolls = (o.rolls || 0) + 1;
+  if(win){ p.gold += stake; G.stats.gold += stake; G.say("DOUBLE! The bones roll your way. " + p.gold + " gold.", 3); }
+  else { p.gold = 0; G.say("NOTHING. The house thanks you for your custom.", 3); }
+  G.emit("gamble", { win, stake, x:o.x + 0.5, y:o.y + 0.5 });
+};
+/* the blood bowl: 15 max health on a coin toss to raise the prize beside it a tier */
+proto.wagerTarget = function(o){ const r = this.D.rooms[o.room]; return r.props.find(pr=> pr.kind === "pedestal" && pr.x === o.tx && pr.y === o.ty); };
+proto.bloodWager = function(o){
+  const G = this, p = G.player, ped = G.wagerTarget(o);
+  if(!ped || ped.taken || !ped.offer || ped.offer.kind !== "item"){ G.say("The bowl is dry. There's nothing left to bet on."); return; }
+  const tier = DG.ITEMS[ped.offer.id].tier;
+  if(tier >= 4){ G.say("It can climb no higher. Even gods have ceilings."); return; }
+  if(p.maxHp - 15 < 20){ G.say("The bowl sniffs at you. Too little left to bet."); G.emit("broke"); return; }
+  if(G.chance(0.5)){
+    const id = G.rollTier(tier + 1);
+    ped.offer = { kind:"item", id, name:DG.ITEMS[id].name };
+    G.emit("reroll", { id:ped.id }); G.emit("gamble", { win:true, blood:true, x:o.x + 0.5, y:o.y + 0.5 });
+    G.say("The blood is spared and the prize climbs: " + DG.ITEMS[id].name + " (" + DG.TIERS[DG.ITEMS[id].tier].name + ").", 3.5);
+  } else {
+    p.altarLoss = (p.altarLoss || 0) + 15; G.recalc();
+    G.emit("altar", { x:o.x, y:o.y }); G.emit("gamble", { win:false, blood:true, x:o.x + 0.5, y:o.y + 0.5 });
+    G.say("The bowl drinks deep. The prize is unimpressed. (-15 max health)", 3.5);
+  }
+};
+
+/* a golden chest wants a key of its own */
+proto.unlockChest = function(o){
+  const G = this;
+  if(!G.useKey()){ G.say("A golden chest, locked tight. It wants a key."); G.emit("broke"); return false; }
+  o.keyLock = false;
+  G.emit("chestUnlock", { id:o.id, x:o.x + 0.5, y:o.y + 0.5 });
+  return true;
+};
+
+proto.enterSpecial = function(r){
+  const G = this, say = { vault:"vault", throne:"throne", cage:"cage", gamble:"gamble", olm:"olmRoom" }[r.type];
+  if(!say || r.greeted) return;
+  r.greeted = true;
+  G.say(G.rng.pick(DG.LINES[say]), 3.5);
+  if(r.type === "vault") G.emit("vault", { room:r.id });
+};
+proto.targetSpecial = function(r, consider){
+  const G = this, p = G.player;
+  r.props.forEach(pr=>{
+    const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y);
+    if(pr.kind === "dice") consider(pr, d, p.gold >= 10 ? "Roll the bones: all " + p.gold + " gold, double or nothing" : "Roll the bones (wants 10 gold)");
+    if(pr.kind === "bloodbowl"){ const ped = G.wagerTarget(pr); if(ped && !ped.taken) consider(pr, d, "Bleed in the bowl: 15 max health on a coin toss, to raise the prize a tier"); }
+    if(pr.kind === "olm") consider(pr, d - 0.4, "Talk to Brother Olm");
+    if(pr.kind === "message") consider(pr, d - 0.1, "Read the orange message");
+  });
+};
+proto.interactSpecial = function(o){
+  const G = this;
+  if(o.kind === "pedestal" && o.offer && !o.taken){
+    if(o.offer.currency === "pact"){ G.takePact(o); return true; }
+    if(o.cage){ G.takeCage(o); return true; }
+    return false;
+  }
+  if(o.kind === "chest" && o.keyLock && !o.open) return !G.unlockChest(o);   // unlocked: open it as usual
+  if(o.kind === "dice"){ G.gambleGold(o); return true; }
+  if(o.kind === "bloodbowl"){ G.bloodWager(o); return true; }
+  if(o.kind === "olm"){ G.talkOlm(o); return true; }
+  if(o.kind === "message"){ G.say("Scrawled on the floor in orange: \"" + o.text + "\"", 4); G.emit("read", { message:true }); o.read = true; return true; }
+  return false;
+};
+
+/* ---- Brother Olm, the Lantern Pilgrim ----
+   E opens his menu (G.state "choose", G.choice.kind "olm"). Listening
+   moves his talk on, across visits and floors; each visit he'll bless
+   you, trade with you, mend you and sell you a key, once each. */
+proto.olmState = function(){ return this.olm || (this.olm = { said:{}, visits:0, idle:0 }); };
+proto.olmVisit = function(o){
+  const G = this, r = G.D.rooms[o.room];
+  if(r.olmVisit) return r.olmVisit;
+  const owned = G.player.boons;
+  const boons = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3);
+  return (r.olmVisit = { blessing:G.rng.pick(boons), price:25 + 10*G.floor, keyPrice:20 + 3*G.floor, done:{} });
+};
+proto.olmLine = function(){
+  const G = this, S = G.olmState(), f = G.floor;
+  const fits = DG.OLM.talk.filter(t=> !S.said[t.id] && (!t.floors || (f >= t.floors[0] && f <= t.floors[1])));
+  const t = fits.slice().sort((a, b)=> (b.pri || 0) - (a.pri || 0))[0];
+  if(t){ S.said[t.id] = true; return t.text; }
+  return DG.OLM.idle[S.idle++ % DG.OLM.idle.length];
+};
+proto.talkOlm = function(o){
+  const G = this, S = G.olmState(), V = G.olmVisit(o);
+  let line;
+  if(!V.greeted){
+    V.greeted = true; S.visits++;
+    if(S.visits === 1 && G.meta && G.meta.olm){ line = DG.OLM.remembered; }
+    else line = DG.OLM.greet[Math.min(S.visits - 1, DG.OLM.greet.length - 1)];
+    if(S.visits === 1 && G.meta) G.meta.olm = (G.meta.olm || 0) + 1;
+  } else line = G.rng.pick(DG.OLM.idle);
+  G.openOlm(o, line, "main");
+  G.emit("olmTalk", { x:o.x + 0.5, y:o.y + 0.5 });
+};
+proto.olmTradeable = function(){
+  const p = this.player;
+  return Object.keys(p.items).filter(id=> DG.ITEMS[id] && DG.ITEMS[id].tier < 4 && DG.ITEMS[id].special !== "moons" && DG.ITEMS[id].special !== "shadow")
+    .sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier || DG.ITEMS[a].name.localeCompare(DG.ITEMS[b].name));
+};
+proto.openOlm = function(o, line, page){
+  const G = this, p = G.player, V = G.olmVisit(o), B = DG.BOONS[V.blessing], heal = Math.round(p.maxHp*0.5);
+  let options;
+  if(page === "trade"){
+    options = G.olmTradeable().slice(0, 8).map(id=>{ const t = DG.ITEMS[id].tier; return { act:"give", id, label:DG.ITEMS[id].name, sub:DG.TIERS[t].name + " → a " + DG.TIERS[t + 1].name + " powerup, sight unseen", icon:id }; });
+    options.push({ act:"back", label:"Never mind", sub:"Keep what you carry." });
+  } else {
+    options = [
+      { act:"listen", label:"Listen", sub:"He has things to say. He always has things to say." },
+      { act:"bless", label:"Blessing: " + B.name, sub:B.desc + " · " + V.price + " gold", disabled:!!V.done.bless, price:V.price },
+      { act:"trade", label:"Trade", sub:"Give him a powerup; take one a tier higher.", disabled:!!V.done.trade || !G.olmTradeable().length },
+      { act:"mend", label:"Mend", sub:"Sit by his fire. Heals " + heal + ".", disabled:!!V.done.mend },
+      { act:"key", label:"Buy a key", sub:V.keyPrice + " gold", disabled:!!V.done.key, price:V.keyPrice },
+      { act:"leave", label:"Leave", sub:"Back into the dark." }
+    ];
+  }
+  G.choice = { kind:"olm", prop:o.id, room:o.room, line, page, options, leave:options.length - 1, gold:p.gold, keys:p.keys };
+  G.state = "choose";
+  G.emit("choose", { kind:"olm" });
+};
+proto.olmChoose = function(i){
+  const G = this, p = G.player, c = G.choice, r = G.D.rooms[c.room];
+  const o = r.props.find(pr=> pr.id === c.prop), V = G.olmVisit(o), opt = c.options[i];
+  const pick = list=> G.rng.pick(list);
+  if(!opt) return;
+  if(opt.disabled){ G.openOlm(o, pick(DG.OLM.done), c.page); return; }
+  switch(opt.act){
+    case "listen": G.openOlm(o, G.olmLine(), "main"); G.emit("olmTalk", { x:o.x + 0.5, y:o.y + 0.5 }); return;
+    case "bless": {
+      if(p.gold < V.price){ G.emit("broke"); G.openOlm(o, pick(DG.OLM.broke), "main"); return; }
+      p.gold -= V.price; V.done.bless = true;
+      p.boons.push(V.blessing);
+      const B = DG.BOONS[V.blessing], before = p.maxHp;
+      G.recalc(); if(B.stats && B.stats.wards) G.addWards(B.stats.wards); if(p.maxHp > before) p.hp = Math.min(p.maxHp, p.hp);
+      G.emit("boon", { id:V.blessing, name:B.name }); G.emit("blessing", { x:p.x, y:p.y, name:B.name });
+      G.openOlm(o, pick(DG.OLM.bless), "main"); return;
+    }
+    case "trade": G.openOlm(o, "Hm. Show me what you carry.", "trade"); return;
+    case "back": G.openOlm(o, pick(DG.OLM.idle), "main"); return;
+    case "give": {
+      const id = opt.id, t = DG.ITEMS[id].tier;
+      if(!p.items[id]){ G.openOlm(o, pick(DG.OLM.nothing), "main"); return; }
+      p.items[id]--; if(p.items[id] <= 0) delete p.items[id];
+      G.recalc();
+      const got = G.rollTier(t + 1);
+      V.done.trade = true;
+      G.giveItem(got);
+      G.emit("olmTrade", { gave:id, got });
+      G.openOlm(o, pick(DG.OLM.trade) + " (" + DG.ITEMS[id].name + " for " + DG.ITEMS[got].name + ")", "main"); return;
+    }
+    case "mend": V.done.mend = true; G.heal(Math.round(p.maxHp*0.5)); G.openOlm(o, pick(DG.OLM.mend), "main"); return;
+    case "key": {
+      if(p.gold < V.keyPrice){ G.emit("broke"); G.openOlm(o, pick(DG.OLM.broke), "main"); return; }
+      p.gold -= V.keyPrice; p.keys++; V.done.key = true;
+      G.emit("key", { x:p.x, y:p.y, keys:p.keys });
+      G.openOlm(o, pick(DG.OLM.key), "main"); return;
+    }
+    case "leave":
+      G.choice = null; G.state = "play";
+      G.say("Brother Olm: \"" + pick(DG.OLM.leave) + "\"", 3);
+      G.emit("olmBye", { x:o.x + 0.5, y:o.y + 0.5 });
+      return;
+  }
 };
 
 /* ---- the flow field the enemies walk down, over the room they're in ---- */

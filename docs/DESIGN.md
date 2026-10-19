@@ -255,6 +255,21 @@ found. A line of lore also plays on arriving at each floor (`DG.LORE_FLOORS`).
 - **Frog pond:** a Gribbus buff (pick 1 of 3) and a golden fly.
 - **Cursed altar:** trade 20 max health for an altar-pool item. The pool has better odds of legendary and godly items.
 - **Puzzle:** see section 8.
+- **Frog pond:** an oasis in the rot, done as a jungle: big ferns, lotus flowers on the water, hanging vines, a mossy log, a second frog idol, a little waterfall down the north wall, green-gold light and fireflies. No corpses.
+
+### 7.1 Keys, vaults and the rare rooms (the rooms round)
+New rooms grow off plain goblin rooms into empty cells, one door each (`DG.RARE_ROOMS` in data.js has the odds, `SPECIAL` in dungeon.js builds them, game.js runs them):
+
+| Room | How often | What it is |
+|---|---|---|
+| **Locked vault** | about 55% of floors (2-3 a run) | Behind a door in chains with a brass padlock and a keyhole that glows; the map shows a key. A key drops the padlock and chains to the floor. Inside, one of: two pedestals that are **both** yours, one pedestal from the secret pool, or a golden chest and an item. |
+| **Golden chest** | 20% of floor 1, 35% deeper | In some goblin room, padlocked: it wants a key of its own (tier 2, tier 3 from floor 3). |
+| **The Red Throne** | the weird rooms: about one a run, all three together | A godly item on a throne of bone, in a shaft of red light. Taking it costs a pact, shown before you take it, for the rest of the run: **The Halving** (max health halved), **Hunted** (half of every horde elite, floor after floor), **The Blinding** (no map, ever), **Benighted** (the dark and the fog follow you). From floor 2. |
+| **Caged treasure** | (weird) | An item from the altar pool in an iron cage. Take it and the cage hauls itself up, the doors slam and two waves of mostly elites come out of the floor. Survive and the gold is yours too. |
+| **Gambler's altar** | (weird) | Bone dice: everything you carry, double or nothing (47%, luck helps). A blood bowl beside an item: 15 max health on a coin toss to raise it a tier (lose, and the blood is gone). |
+| **The Wizard's Quarters** | about 30% of floors (20% on floor 1) | A cot, a hearth, a kettle, too many books, and **Brother Olm, the Lantern Pilgrim**, an old friend of Zippy's. Talking (E) pauses the world and opens his menu (mouse, 1-9, arrows, Esc): **Listen** (his talk moves on across visits and floors, what matters on this floor first: keys, secret walls, the Sealed Reliquary, the Drowned Shrine, the Red Throne), **Blessing** (a boon for gold), **Trade** (a powerup for a random one a tier up), **Mend** (half your health, free), **Buy a key**. Each once a visit. He remembers you between runs. |
+
+**Secret walls are findable now**, fairly but not loudly: they favour dead-end rooms (a room with one door is a liar); most have an orange message scrawled on the floor in front ("Try wall", "Hidden path ahead"); the stone shows two hairline cracks, dust is drawn out through them by a draught, a cold whisper of wind plays close by, drag marks run into the wall, and candles or a corpse are left at its foot. None of it opens the wall or puts the corridor on the map: a shot or a step still does. Now and then a joke message ("Praise the frog!") turns up in some other room.
 
 ---
 

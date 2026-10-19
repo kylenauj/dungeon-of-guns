@@ -879,6 +879,38 @@ SND.fly = ()=>{
   chime(mtof(81), 1.4, 0.03, { at:0.4 });
 };
 
+/* ---- ROOMS: a draught through a secret wall, locks, the Red God, the cage, Brother Olm ---- */
+lim("draught", { min:2, cap:1, wet:0.9, jit:0.1 });
+SND.draught = ()=>{
+  // cold air pulled through a crack: a hollow whoosh that swells and dies, and a whisper inside it
+  breath(2.2, 0.05, { f:520, to:900, att:0.9, q:2.5 });
+  noise(2.0, "bandpass", 1800, 0.018, { att:0.8, q:6, to:1300 });
+  whisper(1.4, 0.012, { at:0.4 });
+};
+lim("chestUnlock", { min:0.3, cap:1, wet:0.6 });
+SND.chestUnlock = ()=>{ metal(rnd(900, 1000), 0.25, 0.04); clink(2600, 0.03, 0.12); thump(140, 70, 0.12, 0.2, { at:0.15, v:false }); };
+lim("pact", { min:1, cap:1, wet:1, jit:0, pri:true });
+SND.pact = ()=>{
+  thump(45, 22, 1.6, 0.7, { v:false });
+  choir([33, 39, 40, 46], 4, 0.04, { att:0.4, vowel:"u", morph:"a", rasp:0.35 });
+  bell(mtof(34), 7, 0.08, { at:0.3, e:true });
+  whisper(3, 0.03, { at:0.6 });
+};
+lim("sprung", { min:1, cap:1, wet:0.9, jit:0, pri:true });
+SND.sprung = ()=>{ chains(16, 1.2, 0.03, 0); metal(110, 1.4, 0.05, { at:0.05 }); thump(60, 28, 0.6, 0.6, { at:0.1, v:false }); choir([45, 46], 1.5, 0.03, { at:0.3, vowel:"a", rasp:0.4 }); };
+lim("gambleWin", { min:0.3, cap:1, wet:0.8 }); lim("gambleLose", { min:0.3, cap:1, wet:0.8 });
+SND.gambleWin = ()=>{ for(let i=0;i<3;i++) thump(rnd(300, 400), 150, 0.06, 0.12, { at:i*0.09, v:false }); for(let i=0;i<10;i++) clink(rnd(1800, 3200), 0.02, 0.3 + Math.random()*0.6); chime(mtof(76), 1.5, 0.03, { at:0.35 }); };
+SND.gambleLose = ()=>{ for(let i=0;i<3;i++) thump(rnd(300, 400), 150, 0.06, 0.12, { at:i*0.09, v:false }); osc("sine", 160, 1.2, 0.05, { to:70, at:0.3 }); choir([40, 41], 1.2, 0.02, { at:0.35, vowel:"o", rasp:0.3 }); };
+lim("olmTalk", { min:0.4, cap:1, wet:0.5, jit:0.06 });
+SND.olmTalk = ()=>{
+  // an old man's murmur through a pot helm: low syllables, a hum, the lantern's creak
+  const f = rnd(95, 110);
+  for(let i=0;i<3 + Math.floor(Math.random()*3);i++) voice(f*rnd(0.9, 1.15), rnd(0.12, 0.22), 0.05, pick(["o", "uh", "u", "a"]), { at:i*0.18, att:0.03, rasp:0.3 });
+  metal(rnd(300, 340), 0.3, 0.012, { at:0.1 });
+};
+lim("blessing", { min:0.5, cap:1, wet:1, jit:0, pri:true });
+SND.blessing = ()=>{ bell(mtof(57), 5, 0.06, { e:true }); choir([57, 64, 69], 2.5, 0.022, { att:0.6, vowel:"a", morph:"o" }); chime(mtof(81), 2, 0.025, { at:0.5 }); };
+
 /* ---- the big moments: a bell, a choir, never a fanfare ---- */
 lim("levelup", { min:0.5, cap:1, wet:1, jit:0, pri:true });
 SND.levelup = ()=>{
