@@ -721,6 +721,13 @@ H.guns = function(g, G, x, yb, k, maxW){
    something waits as a faint dashed outline. A room that's just gone on
    the map fades in with a gold flash. Corridors link what you know. */
 H.mapReveal = {};
+/* ROOMS: a little key (bow, shaft, two teeth), for vaults on the map */
+H.keyMark = function(g, x, y, s, col){
+  g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.2, s*0.16); g.lineCap = "round";
+  g.beginPath(); g.arc(x - s*0.32, y, s*0.2, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.moveTo(x - s*0.12, y); g.lineTo(x + s*0.45, y); g.moveTo(x + s*0.3, y); g.lineTo(x + s*0.3, y + s*0.22); g.moveTo(x + s*0.45, y); g.lineTo(x + s*0.45, y + s*0.18); g.stroke();
+  g.restore();
+};
 H.minimap = function(g, G, xr, y, small){
   const D = G.D, cs = small ? 9 : 12, gap = 3, lost = G.curses.indexOf("lost") >= 0;
   const visited = r=> r.visited || (r.type === "secret" && r.found);
@@ -737,7 +744,7 @@ H.minimap = function(g, G, xr, y, small){
   const w = (maxx - minx + 1)*cw + 16, h = (maxy - miny + 1)*ch + 16;
   const x = xr - w;
   frame(g, x, y, w, h, "rgba(8,6,6,.78)");
-  const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"" };
+  const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"", throne:"♚", cage:"!", gamble:"⁂", olm:"☼" };
   const box = r=>{ const rx = x + 8 + (r.c0x - minx)*cw, ry = y + 8 + (r.c0y - miny)*ch; return { rx, ry, rw:(r.c1x - r.c0x + 1)*cw - gap, rh:(r.c1y - r.c0y + 1)*ch - gap }; };
   // corridors between rooms you know
   g.strokeStyle = "rgba(150,132,104,.55)"; g.lineWidth = 2;
@@ -769,7 +776,9 @@ H.minimap = function(g, G, xr, y, small){
     if(age < 0.9 && state !== "b"){ const q = age/0.9; g.globalAlpha = 1 - q; g.strokeStyle = GOLD; g.lineWidth = 2; g.strokeRect(R(rx - q*5), R(ry - q*5), R(rw + q*10), R(rh + q*10)); }
     g.restore();
     const ic = ICON[r.type];
-    if(ic && (v || r.seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : !v ? "#7a6a58" : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" ? "#c05a7a" : GOLD, "center", "700", "Georgia,serif");
+    if(ic && (v || r.seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : !v ? "#7a6a58" : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" || r.type === "throne" ? "#c05a7a" : r.type === "olm" ? "#ffc870" : GOLD, "center", "700", "Georgia,serif");
+    // ROOMS: behind a locked door, a key: you can see the chains from the room next door
+    if(DG.Dungeon.behindLock(D, r)) H.keyMark(g, rx + rw/2, ry + rh/2, cs*0.8, here ? INK : v ? GOLD : "#c8a45a");
   });
   if(lost) text(g, "?", x + w/2, y + h/2, 20, "#c88ab8", "center", "700");
   return h;

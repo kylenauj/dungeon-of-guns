@@ -154,13 +154,94 @@ UI.bag = function(G){
       <h4>Powerups (${ids.length})</h4>${items}
       <h4>Boons</h4><div class="chips">${boons}</div>
       <h4>Gribbus</h4><div class="chips">${frog}</div>
+      ${(p.pacts || []).length ? `<h4>The Red God's due</h4><div class="chips">${p.pacts.map(k=> `<span class="chipx" style="--c:#d0402a" title="${esc(DG.PACTS[k].desc)}">${esc(DG.PACTS[k].name)}: ${esc(DG.PACTS[k].desc)}</span>`).join("")}</div>` : ""}
       <div class="row"><button class="item back" data-act="closeBag">CLOSE <small>TAB</small></button></div>
     </div>`, "bag");
+};
+
+/* ---- ROOMS: Brother Olm, the Lantern Pilgrim ----
+   His menu rides on the game's "choose" state (the world waits while you
+   talk). Mouse: click. Keys: 1-9, arrows and Enter, Esc to leave. */
+const OLM_CSS = `
+.screens.olm{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,rgba(60,38,14,.55) 0%,rgba(8,6,4,.9) 55%,rgba(3,2,2,.96) 100%);}
+.olmp{display:grid;grid-template-columns:150px minmax(0,560px);gap:26px;align-items:start;max-width:780px;width:calc(100% - 32px);}
+.olmp .face{width:150px;height:190px;position:relative;}
+.olmp .face svg{width:100%;height:100%;filter:drop-shadow(0 0 18px rgba(255,170,70,.35));}
+.olmp .face .lamp{animation:olmflick 2.6s infinite ease-in-out;}
+@keyframes olmflick{0%,100%{opacity:.95}40%{opacity:.75}55%{opacity:1}70%{opacity:.82}}
+.olmp h2.head{margin:0 0 4px;font-size:26px;letter-spacing:.14em;}
+.olmp .who{color:#b89a6a;font-size:13px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px;}
+.olmp .line{font-size:19px;line-height:1.45;color:#eadcc0;font-style:italic;min-height:58px;margin:0 0 14px;padding:12px 16px;border-left:2px solid #c8a45a;background:linear-gradient(90deg,rgba(40,28,14,.7),rgba(10,8,6,0));animation:olmline .45s ease-out;}
+@keyframes olmline{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.olmp .purse{color:#c8b48a;font-size:14px;margin-bottom:10px;letter-spacing:.06em;}
+.olmp .purse b{color:#ffd27a;}
+.olmp .opts{display:flex;flex-direction:column;gap:6px;}
+.olmp .item.opt{display:flex;align-items:center;gap:12px;text-align:left;white-space:normal;padding:9px 14px;}
+.olmp .item.opt kbd{flex:none;}
+.olmp .item.opt .t{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.olmp .item.opt b{font-weight:600;color:#e2d2a8;letter-spacing:.05em;}
+.olmp .item.opt small{opacity:.85;font-size:13px;margin:0;color:#c8b898;letter-spacing:.02em;}
+.olmp .item.opt[disabled]{opacity:.38;}
+.olmp .item.opt img{flex:none;}
+.olmp .hint{margin-top:10px;}
+@media (max-width:640px){ .olmp{grid-template-columns:1fr;gap:10px;} .olmp .face{width:90px;height:110px;margin:0 auto;} .olmp .line{font-size:16px;} }`;
+function olmStyle(){ if(document.getElementById("olm-css")) return; const s = document.createElement("style"); s.id = "olm-css"; s.textContent = OLM_CSS; document.head.appendChild(s); }
+/* his likeness: a pot helm, a cowl, a lantern held up (drawn, not a photo; he'd never sit for one) */
+const OLM_FACE = `<svg viewBox="0 0 150 190" aria-hidden="true">
+  <defs><radialGradient id="olmL" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe2a0"/><stop offset=".35" stop-color="#ff9a3a" stop-opacity=".8"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
+  <circle class="lamp" cx="112" cy="104" r="44" fill="url(#olmL)"/>
+  <path d="M18 190 C20 140 36 118 75 112 C114 118 130 140 132 190Z" fill="#3a2e24" stroke="#120c08" stroke-width="2"/>
+  <path d="M30 190 C34 150 50 132 75 128 C100 132 116 150 120 190Z" fill="#5a4a3a" stroke="#120c08" stroke-width="2"/>
+  <path d="M38 132 C40 112 54 104 75 104 C96 104 110 112 112 132 C100 126 50 126 38 132Z" fill="#6a3a22" stroke="#120c08" stroke-width="2"/>
+  <path d="M34 70 C34 30 52 14 75 14 C98 14 116 30 116 70 C116 92 104 106 75 108 C46 106 34 92 34 70Z" fill="#5c5650" stroke="#120c08" stroke-width="2.5"/>
+  <path d="M40 60 C46 40 60 30 75 30 C90 30 104 40 110 60" fill="none" stroke="#7a726a" stroke-width="3"/>
+  <rect x="40" y="62" width="70" height="9" rx="3" fill="#0c0806"/>
+  <circle cx="60" cy="66" r="2" fill="#ffb84a"/><circle cx="90" cy="66" r="2" fill="#ffb84a"/>
+  <path d="M75 72 L75 104" stroke="#3a3430" stroke-width="3"/>
+  <g fill="#7a5a3a">${[48, 58, 68, 82, 92, 102].map(x=> `<circle cx="${x}" cy="88" r="2"/>`).join("")}</g>
+  <path d="M103 86 L120 96" stroke="#2a2420" stroke-width="3"/>
+  <rect x="104" y="96" width="16" height="22" rx="2" fill="#2a2420" stroke="#120c08" stroke-width="1.5"/>
+  <rect x="107" y="99" width="10" height="15" fill="#ffc870"/>
+</svg>`;
+UI.olm = function(G){
+  olmStyle();
+  const c = G.choice, p = G.player;
+  const opts = c.options.map((o, i)=> `<button class="item opt" data-act="olm" data-i="${i}" ${o.disabled ? "disabled" : ""}>
+      <kbd>${i + 1}</kbd>${o.icon ? icon(o.icon, 30) : ""}<span class="t"><b>${esc(o.label)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</span></button>`).join("");
+  UI.show(`
+    <div class="olmp">
+      <div class="face">${OLM_FACE}</div>
+      <div>
+        <h2 class="head">BROTHER OLM</h2>
+        <div class="who">the Lantern Pilgrim${c.page === "trade" ? " · a trade" : ""}</div>
+        <p class="line">“${esc(c.line)}”</p>
+        <div class="purse"><b>${p.gold}</b> gold · <b>${p.keys}</b> ${p.keys === 1 ? "key" : "keys"} · <b>${Math.ceil(p.hp)}</b>/${p.maxHp} health</div>
+        <div class="opts">${opts}</div>
+        <p class="hint">Click, or press 1-${c.options.length}. Esc to ${c.page === "trade" ? "go back" : "leave"}.</p>
+      </div>
+    </div>`, "olm");
+  // keep the keyboard cursor where it was between his answers (a new talk starts at the top)
+  const talk = c.prop + "@" + G.t; if(UI.olmTalk !== talk){ UI.olmTalk = talk; UI.olmSel = undefined; }
+  const items = Array.from(el("screens").querySelectorAll(".item:not([disabled])"));
+  if(UI.olmSel !== undefined){
+    const b = el("screens").querySelector(`[data-i="${UI.olmSel}"]`);
+    if(b && !b.disabled){ items.forEach(x=> x.classList.remove("sel")); b.classList.add("sel"); }
+  }
+};
+UI.on({ olm: b=>{ UI.olmSel = +b.dataset.i; if(DG.app) DG.app.pick(+b.dataset.i); } });
+const baseKey = UI.key;
+UI.key = function(e){
+  if(UI.open && el("screens").classList.contains("olm")){
+    const m = /^(Digit|Numpad)([1-9])$/.exec(e.code);
+    if(m){ const b = el("screens").querySelector(`[data-i="${+m[2] - 1}"]`); if(b && !b.disabled) b.click(); return true; }
+  }
+  return baseKey(e);
 };
 
 /* ---- level up: pick a boon ---- */
 UI.choose = function(G){
   const c = G.choice; if(!c) return;
+  if(c.kind === "olm") return UI.olm(G);
   UI.show(`
     <div class="title-wrap">
       <h2 class="head">LEVEL ${c.level}</h2>
