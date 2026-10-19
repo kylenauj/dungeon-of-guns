@@ -3463,6 +3463,99 @@ Models.offer = function(o){
   return g;
 };
 
+/* ================================================================== *
+ *  ROOMS: Brother Olm, the Lantern Pilgrim. An old knight-monk gone
+ *  round in the middle: a bulbous breastplate rusted the colour of
+ *  tea, a pot helm with a slit and two warm pinpricks behind it, a
+ *  cowl and a tabard worn to threads, a bedroll and a pot on his
+ *  back, and a lantern hung from his staff that has never gone out.
+ * ================================================================== */
+const OLM = { iron:0x5e5248, iron2:0x463c34, rust:0x6a3a22, wool:0x433a30, wool2:0x352e26, tab:0x5a2e22, leather:0x3a2a1e, brass:0x8a6a30, wood:0x3a2618, skin:0x8a6a52 };
+function olmPlate(r, sx, sy, sz, seed){
+  const g = K.sculpt(new THREE.SphereGeometry(r, SEG(16), SEG(12)), r*0.03, 4/r, seed);
+  g.scale(sx, sy, sz);
+  return bsPaint(g, OLM.iron, 0x5a3a26, 3.5/r, seed, (c, x, y)=>{ if(y < -r*0.4*sy) c.multiplyScalar(0.78); });
+}
+Models.olm = function(){
+  const R = rig("olm"), b = R.body;
+  // legs and boots under the robe
+  [-1, 1].forEach(s=>{
+    P(b, S(0.085, 10, 8), OLM.leather, s*0.11, 0.06, 0.04, 0, 0, 0, 1, 0.75, 1.45);
+    P(b, CY(0.066, 0.078, 0.3, 10), OLM.iron2, s*0.11, 0.25, 0);
+    P(b, TO(0.07, 0.012), OLM.rust, s*0.11, 0.33, 0, PI/2);
+  });
+  // the robe, to the shins, torn at the hem
+  P(b, K.tatter(K.slathe([[0.2, 0.78], [0.26, 0.6], [0.29, 0.4], [0.31, 0.2]], 18, 4), 0.32, 13, 0.06, 2.1), OLM.wool, 0, 0, 0);
+  // the tabard: a strip of faded red down the front and back, a brass lantern stitched on it
+  [1, -1].forEach(s=>{ const t = new THREE.PlaneGeometry(0.22, 0.6, 2, 6); const a = t.attributes.position; for(let i=0;i<a.count;i++) a.setZ(i, Math.sin(a.getY(i)*9)*0.008); K.tatter(t, -0.22, 4, 0.05, 3); P(b, t, OLM.tab, 0, 0.58, s*0.305, 0, s > 0 ? 0 : PI, 0); });
+  P(b, CY(0.04, 0.04, 0.012, 10), OLM.brass, 0, 0.66, 0.312, PI/2); P(b, BX(0.03, 0.05, 0.01), 0xd8a050, 0, 0.66, 0.318);
+  // the breastplate: round as an onion, rusted the colour of tea
+  P(b, olmPlate(0.28, 1, 0.95, 0.86, 2.2), 0xffffff, 0, 0.92, 0);
+  P(b, TO(0.265, 0.014), OLM.iron2, 0, 0.82, 0, PI/2, 0, 0, 1, 1, 0.87);
+  P(b, BX(0.03, 0.42, 0.03), OLM.iron2, 0, 0.94, 0.235, -0.15);
+  for(let i=0;i<10;i++){ const a = i/10*PI*2; P(b, zs(0.012), OLM.brass, Math.sin(a)*0.265, 0.82, Math.cos(a)*0.265*0.87); }
+  // belt, pouches, a book on a chain, a tin cup
+  belt(b, 0.25, 0.72, OLM.leather, OLM.brass);
+  P(b, BX(0.1, 0.12, 0.06), OLM.leather, 0.2, 0.66, 0.14, 0, -0.5); P(b, BX(0.1, 0.12, 0.06), OLM.leather, -0.24, 0.66, 0.06, 0, 0.9);
+  P(b, BX(0.12, 0.15, 0.04), 0x4a1a14, 0.24, 0.55, -0.1, 0, 1.2, 0.1); chain(b, [0.24, 0.7, -0.05], [0.24, 0.63, -0.1], 3, OLM.iron2);
+  P(b, CY(0.04, 0.035, 0.07, 10), 0x8a8a90, -0.2, 0.6, -0.17);
+  // pauldrons, layered
+  [-1, 1].forEach(s=>{
+    P(b, olmPlate(0.14, 1, 0.75, 1, 3 + s), 0xffffff, s*0.29, 1.08, 0);
+    P(b, new THREE.SphereGeometry(0.15, 16, 8, 0, PI*2, PI*0.35, PI*0.25), OLM.iron2, s*0.3, 1.0, 0, 0, 0, 0, 1, 0.8, 1);
+  });
+  // the cowl round his shoulders and up under the helm
+  P(b, K.sculpt(new THREE.TorusGeometry(0.14, 0.075, 10, 22), 0.012, 14, 5), OLM.wool2, 0, 1.17, -0.01, PI/2);
+  P(b, K.tatter(K.slathe([[0.12, 1.22], [0.2, 1.12], [0.24, 0.95], [0.22, 0.8]], 16, 3), 0.86, 9, 0.06, 4), OLM.wool2, 0, 0, -0.06, 0, 0, 0, 1, 1, 0.8);
+  // a bedroll and a pot on his back
+  P(b, CY(0.085, 0.085, 0.46, 12), 0x5a4a34, 0, 1.08, -0.3, 0, 0, PI/2);
+  [-0.15, 0.15].forEach(x=> P(b, TO(0.088, 0.01), OLM.leather, x, 1.08, -0.3, 0, PI/2));
+  P(b, K.slathe([[0, 0], [0.09, 0.01], [0.11, 0.08], [0.1, 0.14], [0, 0.14]], 12, 2), 0x2a2a2e, 0, 0.82, -0.31, PI/2 - 0.2, 0, 0);
+  // the head: a pot helm, bulbous, a slit, a nasal, rivets, a little spike on top
+  const head = R.parts.head = group(b, 0, 1.2, 0.01);
+  P(head, olmPlate(0.17, 1, 1.08, 1, 6.1), 0xffffff, 0, 0.13, 0);
+  P(head, TO(0.168, 0.018), OLM.iron2, 0, 0.04, 0, PI/2);
+  P(head, CO(0.03, 0.08, 8), OLM.iron2, 0, 0.33, 0); P(head, S(0.022, 8, 6), OLM.brass, 0, 0.3, 0);
+  P(head, BX(0.23, 0.032, 0.05), 0x0a0706, 0, 0.13, 0.145); P(head, BX(0.032, 0.13, 0.03), OLM.iron2, 0, 0.1, 0.17);
+  for(let i=0;i<6;i++){ const x = (i % 3 - 1)*0.035 + (i < 3 ? -0.075 : 0.075); P(head, zs(0.008), 0x0a0706, x, 0.06 + Math.floor((i % 3)/2)*0.01, 0.16); }
+  for(let i=0;i<12;i++){ const a = i/12*PI*2; P(head, zs(0.011), OLM.brass, Math.sin(a)*0.17, 0.2, Math.cos(a)*0.17); }
+  [-1, 1].forEach(s=>{ glow(R, head, 0.012, 0xffb84a, s*0.05, 0.13, 0.17); halo(R, head, 0xffb84a, 0.1, s*0.05, 0.13, 0.18, 0.5); });
+  // the right arm hangs, gauntlet resting on the belt; the left holds the staff
+  const armR = R.parts.armR = group(b, 0.3, 1.04, 0);
+  P(armR, K.tube([[0, 0, 0], [0.04, -0.17, 0.04], [-0.02, -0.3, 0.12]], 0.06, 8, 8), OLM.wool2);
+  P(armR, S(0.065, 10, 8), OLM.iron2, -0.03, -0.33, 0.14, 0, 0, 0, 1, 0.85, 1.1);
+  const armL = R.parts.armL = group(b, -0.3, 1.04, 0);
+  P(armL, K.tube([[0, 0, 0], [-0.06, -0.13, 0.08], [-0.05, -0.2, 0.22]], 0.06, 8, 8), OLM.wool2);
+  P(armL, S(0.065, 10, 8), OLM.iron2, -0.05, -0.2, 0.26, 0, 0, 0, 1, 0.9, 1);
+  // the staff: knotted wood, a crook at the top, and the lantern hung from it
+  const staff = R.parts.staff = group(b, -0.35, 0, 0.27);
+  P(staff, K.sculpt(new THREE.CylinderGeometry(0.022, 0.03, 1.72, 8, 8), 0.006, 20, 3), OLM.wood, 0, 0.86, 0);
+  P(staff, K.tube([[0, 1.7, 0], [0.02, 1.84, 0.05], [0.1, 1.88, 0.12], [0.17, 1.82, 0.14]], 0.022, 10, 6), OLM.wood);
+  [0.6, 1.2].forEach(y=> P(staff, TO(0.028, 0.008), OLM.brass, 0, y, 0, PI/2));
+  const lamp = R.parts.lamp = group(staff, 0.17, 1.78, 0.14);
+  chain(lamp, [0, 0.02, 0], [0, -0.12, 0], 3, OLM.iron2);
+  const L0 = group(lamp, 0, -0.26, 0);
+  P(L0, CY(0.07, 0.08, 0.03, 10), 0x26262a, 0, -0.1, 0); P(L0, CY(0.06, 0.07, 0.03, 10), 0x26262a, 0, 0.09, 0); P(L0, CO(0.07, 0.06, 10), 0x26262a, 0, 0.13, 0);
+  for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(L0, BX(0.012, 0.18, 0.012), 0x3a3a40, Math.cos(a)*0.06, 0, Math.sin(a)*0.06); }
+  const flame = glow(R, L0, 0.035, 0xffc870, 0, -0.01, 0); flame.scale.set(1, 1.6, 1);
+  glow(R, L0, 0.05, 0xff8a3a, 0, -0.02, 0).material.opacity = 0.6;
+  R.lampHalo = halo(R, L0, 0xffa050, 1.4, 0, 0, 0, 0.7);
+  R.lampFlame = flame;
+  R.h = 1.6; R.size = 1;
+  (R.anim = []).push({ o:lamp, sway:0.06, speed:1.3 });
+  return finish(R, { w:0.018 });
+};
+/* he breathes, he nods, he turns his helm to the visitor; the lantern swings and gutters */
+Models.olmIdle = function(R, t, look){
+  const P = R.parts, br = Math.sin(t*1.4);
+  R.body.scale.set(1 + br*0.006, 1 + br*0.01, 1 + br*0.006);
+  P.head.rotation.y += ((look || 0)*0.6 - P.head.rotation.y)*0.08;
+  P.head.rotation.x = 0.08 + Math.sin(t*0.37)*0.05 + Math.max(0, Math.sin(t*0.11) - 0.9)*1.2;   // now and then he nods off
+  P.lamp.rotation.z = Math.sin(t*1.3)*0.08; P.lamp.rotation.x = Math.sin(t*0.9)*0.05;
+  const f = 0.85 + 0.15*Math.sin(t*13) + 0.08*Math.sin(t*29);
+  R.lampFlame.scale.set(f, 1.6*f, f); R.lampHalo.material.opacity = 0.55 + 0.15*f;
+};
+
 /* a Gribbus buff on a lily pad: a mossy bronze token with its letter */
 Models.frogBuffIcon = function(id){
   const d = DG.FROG_BUFFS[id], g = new THREE.Group(), R = rig("fb"), root = group(g, 0, 0, 0);
