@@ -598,8 +598,9 @@ const SPECIAL = {
   gamble(D, rng, r){
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
     r.props.push({ kind:"dice", x:cx - 3, y:cy });
-    r.props.push({ kind:"pedestal", x:cx + 3, y:cy - 1, pool:"t", wager:true });
-    r.props.push({ kind:"bloodbowl", x:cx + 3, y:cy + 1, tx:cx + 3, ty:cy - 1 });
+    // the bowl stands beside the prize, not in front of it, so E at the prize takes the prize
+    r.props.push({ kind:"pedestal", x:cx + 2, y:cy, pool:"t", wager:true });
+    r.props.push({ kind:"bloodbowl", x:cx + 4, y:cy, tx:cx + 2, ty:cy });
     r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE GAMBLER'S ALTAR. DOUBLE OR NOTHING. THE HOUSE IS VERY OLD, AND HAS NEVER LOST." });
     deco(D, r, "candlecluster", cx - 4.2, cy - 1, { rot:1, s:1 }); deco(D, r, "candlecluster", cx + 4.4, cy + 2, { rot:2, s:1 });
   },
