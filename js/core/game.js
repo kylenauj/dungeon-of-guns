@@ -76,6 +76,7 @@ proto.enterFloor = function(n){
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
   if(p){ p.hollow = 0; p.darksignUsed = false; }
   G.curses = G.D.curses || [];
+  G.applyPacts();
   G.traps = [];
   G.D.rooms.forEach(r=>{
     r.seen = r.type === "start"; r.active = false; r.wave = 0; r.waveDelay = 0;
@@ -111,6 +112,7 @@ proto.initProp = function(r, pr){
 /* what sits on a pedestal: an item from the room's pool, a gun, soup... */
 proto.makeOffer = function(r, pr){
   const G = this, f = G.floor;
+  const sp = G.specialOffer(r, pr); if(sp) return sp;
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
   if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
@@ -465,6 +467,7 @@ proto.offerBoons = function(){
 proto.choose = function(i){
   const G = this, p = G.player, c = G.choice;
   if(!c || G.state !== "choose") return;
+  if(c.kind === "olm"){ G.olmChoose(i); return; }
   const id = c.options[Math.max(0, Math.min(c.options.length - 1, i))];
   if(c.kind === "boon"){
     p.boons.push(id); p.pendingLevels--;
@@ -587,6 +590,7 @@ proto.updateRooms = function(dt){
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
       if(inside.type === "secret" && !inside.found){ inside.found = true; G.emit("secretRoom", { room:inside.id }); }
+      G.enterSpecial(inside);
     }
   }
   D.rooms.forEach(r=>{
@@ -662,6 +666,7 @@ proto.clearRoom = function(r){
   G.chargeActive(1);
   G.trigger("clear", { x:G.player.x, y:G.player.y, depth:0 });
   G.player.hollow = 0;
+  G.clearSpecial(r);
   if(G.mods.special.kindled && G.player.darksignUsed){ G.player.darksignUsed = false; G.emit("darksignLit", { x:G.player.x, y:G.player.y }); }
   G.allies.forEach(a=>{ if(a.kind === "tadpole" || a.kind === "wisp") a.life = Math.min(a.life, 1.5); });
   if(r.type === "boss") return;
@@ -758,12 +763,13 @@ proto.target = function(){
   const r = G.room || G.D.rooms.find(rr=> p.x > rr.x1 - 1 && p.x < rr.x2 + 2 && p.y > rr.y1 - 5 && p.y < rr.y2 + 2);
   if(r) r.props.forEach(pr=>{
     const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y);
-    if(pr.kind === "chest" && !pr.open) consider(pr, d, pr.locked ? "Locked (solve the puzzle)" : "Open chest");
+    if(pr.kind === "chest" && !pr.open) consider(pr, d, pr.locked ? "Locked (solve the puzzle)" : pr.keyLock ? (p.keys > 0 ? "Unlock the golden chest (1 key of " + p.keys + ")" : "A golden chest, locked. It wants a key.") : "Open chest");
     if(pr.kind === "pedestal" && !pr.taken && pr.offer) consider(pr, d, G.offerText(pr.offer));
     if(pr.kind === "lilypad" && !pr.taken && pr.buff && !r.pondDone) consider(pr, d, "Gribbus sits here: " + DG.FROG_BUFFS[pr.buff].name);
     if(pr.kind === "sign") consider(pr, d - 0.2, "Read sign");
     if(pr.kind === "merchant") consider(pr, d - 0.3, "Talk to Snibbit");
   });
+  if(r) G.targetSpecial(r, consider);
   return best;
 };
 /* ---- keys ---- */
@@ -776,6 +782,7 @@ proto.unlockDoor = function(d){
   G.emit("unlock", { x:d.x, y:d.y, door:d.id });
 };
 proto.offerText = function(o){
+  if(o.currency === "pact") return "Take " + DG.ITEMS[o.id].name + " — the price: " + DG.PACTS[o.pact].name + " (" + DG.PACTS[o.pact].desc + ")";
   const what = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.name;
   if(o.currency === "gold") return "Buy " + what + " — " + o.price + "g";
   if(o.currency === "hp") return "Take " + what + " — costs " + o.price + " max health";
@@ -786,6 +793,7 @@ proto.interact = function(){
   const G = this, p = G.player, tg = G.target();
   if(!tg) return;
   const o = tg.o;
+  if(G.interactSpecial(o)) return;
   if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }
   if(o.kind === "item"){ G.takeItem(o.item, o); return; }
