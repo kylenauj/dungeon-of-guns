@@ -115,7 +115,7 @@ function tryGenerate(rng, floor, seed){
   for(let cy=0; cy<GH; cy++) for(let cx=0; cx<GW; cx++){
     if(roomAt(cx, cy)) continue;
     const ns = DG.DIRS4.map(([dx, dy])=> ({ r:roomAt(cx + dx, cy + dy), c:[cx + dx, cy + dy] })).filter(o=> o.r && (o.r.type === "combat" || o.r.type === "start" || o.r.type === "treasure"));
-    if(ns.length) cand.push({ cx, cy, ns, w:ns.length*ns.length*(ns.some(o=> isDeadEnd(o.r)) ? 3 : 1) });
+    if(ns.length) cand.push({ cx, cy, ns, w:ns.length*ns.length*(ns.some(o=> isDeadEnd(o.r)) ? 10 : 1) });
   }
   if(cand.length){
     const c = rng.weighted(cand);
@@ -537,7 +537,9 @@ function specialRooms(D, rng, floor, C){
       const ns = DG.DIRS4.map(([dx, dy])=> ({ r:C.roomAt(cx + dx, cy + dy), c:[cx + dx, cy + dy] })).filter(o=> o.r && o.r.type === "combat" && o.r.dist >= 1);
       // a cell that touches only its host keeps the new room a clean dead end; the weird ones like to be far away
       const others = DG.DIRS4.filter(([dx, dy])=> C.roomAt(cx + dx, cy + dy)).length - ns.length;
-      if(ns.length) cand.push({ cx, cy, ns, w:(others ? 0.3 : 1)*(type === "vault" || type === "olm" ? 1 : 1 + Math.max(...ns.map(o=> o.r.dist))) });
+      // (and leave the room hiding a secret wall looking like a dead end)
+      const hidesSecret = ns.some(o=> o.r.links.some(id=> D.rooms[id].type === "secret"));
+      if(ns.length) cand.push({ cx, cy, ns, w:(others ? 0.3 : 1)*(hidesSecret ? 0.15 : 1)*(type === "vault" || type === "olm" ? 1 : 1 + Math.max(...ns.map(o=> o.r.dist))) });
     }
     if(!cand.length) return;
     const c = rng.weighted(cand), host = rng.pick(c.ns);
