@@ -246,6 +246,7 @@ const DYE = {
   shadow:{ robe:0x1c1820, dark:0x0e0c10, light:0xb36bff, cape:0x0c0a0e, stars:0x4a3a5a },
   star:  { robe:0x2e2a46, dark:0x1a1828, light:0xc8d8ff, cape:0x181c34, stars:0xa89a6a },
   leaf:  { robe:0x34422a, dark:0x3a2a1a, light:0xb8d86a, cape:0x2a3620, stars:0x8a6a6a },
+  grey:  { robe:0x9a9aa4, dark:0x6c6c78, light:0xdcdce6, cape:0x82828e, stars:0xf2f2ff },   // the ending: a grey wizard again
   clown: { robe:0x7a4a30, dark:0x2e4a5a, light:0xffd23d, cape:0x3a6a70, stars:0x8a3a4a }
 };
 Models.DYE = DYE;
@@ -1021,14 +1022,16 @@ function fSkin(r, ws, hs, amt, freq, seed, c1, c2, belly){
   g.setAttribute("color", new THREE.BufferAttribute(col, 3));
   return g;
 }
-Models.frog = function(twin, buffs){
-  buffs = buffs || [];
+Models.frog = function(twin, buffs, opts){
+  buffs = buffs || []; opts = opts || {};
+  const shine = !!opts.redeemed;   // the ending: the Gloom lets go, and he's a bright green frog with orange hands again
   const has = id=> buffs.indexOf(id) >= 0;
   const R = rig("frog"), b = R.body;
   R.anim = [];
   // Gribbus: ditch-water olive and mud; Grobbus: the grey-green of an old pond
-  const G1 = twin ? 0x404a42 : 0x54522c, G2 = twin ? 0x262e28 : 0x34301c, BELLY = twin ? 0x8a9482 : 0xa8986a;
-  const WART = twin ? 0x56625a : 0x6e6438, IRIS = twin ? 0x9ab890 : 0xc8902a;
+  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : 0x54522c, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : 0x34301c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : 0xa8986a;
+  const WART = shine ? 0x72e050 : twin ? 0x56625a : 0x6e6438, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : 0xc8902a;
+  const HAND = shine ? 0xff8a2a : G2;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
   // the rig: a pivot for each moving bit, with an inner group set back by the
@@ -1092,18 +1095,18 @@ Models.frog = function(twin, buffs){
   [-1, 1].forEach(s=>{
     const ti = thighs[s < 0 ? 0 : 1].userData.inner, fi = feet[s < 0 ? 0 : 1].userData.inner, ai = front[s < 0 ? 0 : 1].userData.inner;
     P(ti, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
-    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, G2, zDim(G2, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
+    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, HAND, zDim(HAND, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
     // the shin, folded away inside the haunch until the leg straightens in a kick
     P(fi, zTaper([[s*0.3, 0.06, -0.02], [s*0.27, 0.15, -0.14], [s*0.25, 0.22, -0.24]], 0.04, 0.05, 8, 8), G1);
     [-0.5, -0.15, 0.2, 0.55].forEach((a, k)=>{ const ang = a + s*0.25, l = 0.12 + (k % 2)*0.03; const x0 = s*0.31, z0 = 0.1;
       const tip = [x0 + Math.sin(ang)*l, 0.018, z0 + Math.cos(ang)*l];
-      P(fi, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), G2);
-      P(fi, zs(0.016), zDim(G2, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
+      P(fi, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), HAND);
+      P(fi, zs(0.016), zDim(HAND, 0.8), tip[0], tip[1], tip[2], 0, 0, 0, 1, 0.7, 1); });
     // front legs, splayed hands
     P(ai, zTaper([[s*0.16, 0.24, 0.24], [s*0.2, 0.12, 0.29], [s*0.2, 0.04, 0.31]], 0.048, 0.034, 10, 10), G1);
-    P(ai, zs(0.045), G2, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
+    P(ai, zs(0.045), HAND, s*0.2, 0.025, 0.33, 0, 0, 0, 1.2, 0.4, 1.1);
     [-0.6, -0.1, 0.4].forEach((a, k)=>{ const ang = a + s*0.4, tip = [s*0.2 + Math.sin(ang)*0.08, 0.014, 0.34 + Math.cos(ang)*0.08];
-      P(ai, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), G2); P(ai, zs(0.012), zDim(G2, 0.8), tip[0], tip[1], tip[2]); });
+      P(ai, zTaper([[s*0.2, 0.025, 0.34], tip], 0.014, 0.01, 6, 6), HAND); P(ai, zs(0.012), zDim(HAND, 0.8), tip[0], tip[1], tip[2]); });
   });
   // a rag knotted round his neck, a bone charm hung from it
   { const t = new THREE.TorusGeometry(0.25, 0.04, 9, 36); K.sculpt(t, 0.008, 25, 2);
@@ -1126,6 +1129,7 @@ Models.frog = function(twin, buffs){
   tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; H.add(tongue); R.parts.tongue = tongue;
   R.h = 0.75;
   finish(R, { w:0.022 });
+  if(shine){ R.root.traverse(o=>{ if(o.userData.baked){ o.material = o.material.clone(); o.material.emissive = new THREE.Color(0x183a10); } }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
   return R;
 };
 
@@ -2188,6 +2192,15 @@ const bsTooth = ()=> bsPrefab("tooth", g=>{ P(g, bsJitter(new THREE.ConeGeometry
 /* ---- floor 1, the Castle Keep: Grubnok, a hollow tyrant on a throne lashed
    to a starved hog-beast. Crown rusted into his skull, mantle in rags, a
    great cleaver, a flail, and the heads of everyone who disagreed ---- */
+/* the Hollow Wizard: Zippy's master, what the dark made of him. Zippy's own
+   rig, grown tall, in shadow, with a lich's face and horns of old soot */
+Models.hollow = function(){
+  const R = Models.zippy({ robe:"shadow", cape:"shadow", parts:["lichmask", "horns", "spikepauldrons", "cracks"], auras:[] });
+  R.kind = "hollow"; R.root.scale.setScalar(1.75); R.h = (R.h || 2.1)*1.75;
+  if(R.parts.head) halo(R, R.parts.head, 0x8ad8ff, 0.9, 0, 0.05, 0.2, 0.55);
+  halo(R, R.body, 0x4a6aa8, 2.4, 0, 0.9, 0, 0.25);
+  return R;
+};
 Models.king = function(){
   const R = rig("king"), b = R.body;
   const HIDE = 0x5a5046, HIDE2 = 0x2a221e, SKIN = 0x56603e, SKIN2 = 0x262a1c, RIB = 0x7e7866;
@@ -3393,6 +3406,23 @@ Models.powerup = function(id){
 };
 Models.item = function(it){
   if(it.kind === "item") return Models.powerup(it.id);
+  if(it.kind === "quest"){
+    // the Ember: a coal in an iron cage that will not go out; the Crown: reeds and river-gold
+    const g2 = new THREE.Group(), R = rig("quest");
+    if(it.id === "ember"){
+      for(let i=0;i<6;i++){ const a = i/6*PI*2; P(g2, BX(0.02, 0.36, 0.02), 0x2a2a30, Math.cos(a)*0.12, 0, Math.sin(a)*0.12); }
+      P(g2, TO(0.13, 0.02), 0x3a3a40, 0, 0.18, 0, PI/2); P(g2, TO(0.13, 0.02), 0x3a3a40, 0, -0.18, 0, PI/2);
+      K.bake(g2, { w:0.01 });
+      const c = glow(R, g2, 0.08, 0xff8a2a); c.scale.set(1, 1.3, 1); glow(R, g2, 0.045, 0xfff0b0);
+      halo(R, g2, 0xff7a2a, 1.4, 0, 0, 0, 0.7);
+    } else {
+      P(g2, CY(0.15, 0.17, 0.08, 16), 0x8a7a2a, 0, 0, 0);
+      for(let i=0;i<7;i++){ const a = i/7*PI*2; P(g2, CO(0.025, 0.18 + (i % 2)*0.08, 5), 0x4a7a3a, Math.cos(a)*0.15, 0.1, Math.sin(a)*0.15, 0, 0, 0); }
+      K.bake(g2, { w:0.01 });
+      halo(R, g2, 0x9cff6a, 1.1, 0, 0.05, 0, 0.5);
+    }
+    g2.scale.setScalar(1.4); g2.userData.rig = R; return g2;
+  }
   if(it.kind === "key"){ const k = Models.pickup({ kind:"key" }); k.scale.setScalar(1.6); return k; }
   const g = new THREE.Group();
   if(it.kind === "gun"){

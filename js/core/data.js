@@ -160,6 +160,9 @@ DG.BOSSES = {
   eye:       { name:"The Eye Below",           hp:1700, speed:0.8, radius:1.5, dmg:19, ai:"eye",       model:"eye",
                lines:["I SEE YOU.", "BLINK, LITTLE WIZARD. I NEVER DO.", "LOOK UPON ME."],
                felled:"THE EYE IS SHUT" },
+  hollow:    { name:"The Hollow Wizard",       hp:3000, speed:2.2, radius:0.9, dmg:22, ai:"hollow",    model:"hollow",
+               lines:["I was you, once. I came down for the same fire.", "The Ember is mine. It was always mine.", "Look at me, Zippy. Look at what the dark makes of us."],
+               felled:"THE HOLLOW IS FILLED" },
   heart:     { name:"The Gloom Heart",         hp:2300, speed:0,   radius:1.6, dmg:20, ai:"heart",     model:"heart",
                lines:["ba-dum.", "the forest is mine. the forest is me.", "rot with me, little wizard."],
                felled:"HEART STILLED" }
@@ -187,6 +190,52 @@ DG.FLOOR_SCALE = f=>({
   curse: Math.min(0.8, 0.12*(f - 1))
 });
 DG.FINAL_FLOOR = 5;
+
+/* ---- the endings, and the lore they pay off ----
+   Long before the Gloom, the Keep was built around a fire: the First Flame,
+   which kept the dark of the deep forest out. Its keepers grew old and few;
+   the last of them, a wizard, went down into the Kiln to tend it, and never
+   came back up. The Flame guttered, the Gloom (rot, mould, cordyceps: a
+   hunger that grows in the dark) crept up through the cellars, and the
+   forest swallowed the castle floor by floor. Zippy was that wizard's
+   apprentice. Gribbus was the Keep's frog, who sat on the well and ate the
+   flies, and who followed Zippy down because nobody told him not to. */
+DG.QUESTS = {
+  ember:{ name:"Ember of the First Flame", desc:"A coal that will not go out. It wants to go home, down to the Kiln.", flavor:"Warm as a hand on your shoulder." },
+  crown:{ name:"Crown of the Bog",         desc:"A crown of reeds and river-gold. Gribbus put it on before you could stop him.", flavor:"He looks taller. He isn't." }
+};
+/* the Kiln: a sixth floor that only the Ember opens */
+DG.KILN = { name:"The Kiln of the First Flame", boss:"hollow", gloom:0, floor:0x3a2a22, floor2:0x30221c, wall:0x4a3a30, top:0x5a4a3a, torch:0xff8a3a, fog:0x0a0402, water:0x6a2a10,
+  ambient:0xc8885a, light:0.95, decor:"castle", motes:"dust", ink:0x140804, rim:0xff9a5a, shaft:0xffb070, mist:0.18, shade:0x2a1408, high:0xffd8a0, weird:0.15,
+  enemies:{ skeleton:2, banshee:1, brute:1, husk:1, ghost:1.5 } };
+DG.ENDINGS = {
+  dawn:{ title:"DAWN", sub:"The Gloom Heart is still.", lore:[
+    "The Heart stopped, and the rot let go of the stone.",
+    "Room by room, the Keep remembered it was a castle.",
+    "Somewhere far below, the First Flame still gutters, untended. But the forest has drawn back, and that is enough, for now.",
+    "Zippy came back up into the morning a grey wizard again, as his master had been.",
+    "Gribbus went back to the well. The flies have never been so afraid."] },
+  flame:{ title:"THE FIRST FLAME", sub:"The Kiln is lit.", lore:[
+    "In the Kiln, Zippy found what was left of his master: hollow, burning cold, still guarding a fire he had let go out.",
+    "He laid him to rest, and set the Ember in the hearth where it belonged.",
+    "The First Flame woke. Its light ran up every stair of the Keep and out through the forest, and the Gloom had nowhere left to hide.",
+    "There is a keeper in the Kiln again. He is grey, and he is patient, and he talks to his frog.",
+    "Gribbus has his own chair by the fire. It is a very good chair."] },
+  bog:{ title:"KING OF THE BOG", sub:"Gribbus ate the Heart.", lore:[
+    "The Gloom Heart was a hunger, and it met a bigger one.",
+    "Gribbus swallowed it whole, crown and all, and the rot inside it became his.",
+    "The forest did not die. It became a bog, green and loud and full of frogs, and every frog in it bows to him.",
+    "Zippy is his royal wizard now, by decree. He was not consulted.",
+    "Long live the King of the Bog. Croak."] }
+};
+/* a line on arriving at each floor, so the story seeps in as you go down */
+DG.LORE_FLOORS = [
+  "The Keep was built around a fire. The fire is very far down now.",
+  "The cellars flooded when the Flame guttered. The water hasn't forgotten.",
+  "The keepers are buried here. Not all of them stayed buried.",
+  "The forest came in through the walls. It was always waiting.",
+  "The Gloom has a heart. You can hear it from here."
+];
 
 /* ---- floors: a dead castle that the Gloom (rot, mould, cordyceps, from
    Gloom Shooter) eats a little more of every floor, until floor 5 is no

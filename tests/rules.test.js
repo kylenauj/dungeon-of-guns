@@ -1103,3 +1103,61 @@ test("a pile of proc items can't run away: shots and depth stay bounded", ()=>{
   assert.ok(peak <= 170, "shots stay under the hard cap: " + peak);
   assert.ok(Date.now() - t0 < 8000, "and four seconds of it simulate quickly");
 });
+
+/* ================================================================== *
+ *  Endings: Dawn, the First Flame (the Ember, the Kiln, the Hollow
+ *  Wizard), King of the Bog (the Crown, and a frog with an appetite)
+ * ================================================================== */
+function killBoss(G){
+  const r = G.D.rooms.find(x=> x.type === "boss");
+  const s = G.freeSpot(r, r.cxw, r.cyw + 2); G.player.x = s.x; G.player.y = s.y; G.god = true;
+  step(G, 1);
+  const b = G.enemies.find(e=> e.boss && !e.dead);
+  assert.ok(b, "a boss in the boss room");
+  G.killEnemy(b, {}); step(G, 0.2);
+  return { r, b };
+}
+function takePortal(G){ G.player.x = G.portal.x; G.player.y = G.portal.y; G.interact(); }
+
+test("the quest rooms turn up early, behind a locked door, with their relic", ()=>{
+  const seen = { reliquary:0, shrine:0 };
+  for(let s=1; s<=60; s++) for(const floor of [1, 2, 3]){
+    const D = DG.Dungeon.generate(s*7349 >>> 0, floor);
+    D.rooms.filter(r=> r.type === "reliquary" || r.type === "shrine").forEach(r=>{
+      seen[r.type]++;
+      assert.ok(r.type === "reliquary" ? floor <= 2 : floor >= 2, r.type + " on floor " + floor);
+      assert.ok(r.doors.length && r.doors.every(id=> D.doors[id].locked && !D.doors[id].open), "locked");
+      assert.ok(r.props.some(p=> p.kind === "pedestal" && p.quest === (r.type === "reliquary" ? "ember" : "crown")));
+    });
+  }
+  assert.ok(seen.reliquary > 5 && seen.shrine > 5, JSON.stringify(seen));
+});
+
+test("Dawn: kill the Gloom Heart, take the way out", ()=>{
+  const G = game("DAWNEND", 5);
+  killBoss(G);
+  assert.ok(G.portal, "the way out opens");
+  takePortal(G);
+  assert.equal(G.state, "won"); assert.equal(G.ending, "dawn");
+  assert.ok(G.meta.endings.dawn, "remembered");
+});
+
+test("King of the Bog: with the Crown, Gribbus eats the Heart", ()=>{
+  const G = game("BOGEND", 5); G.player.quests.crown = true;
+  killBoss(G);
+  assert.ok(G.drain().length >= 0);
+  step(G, 4);
+  assert.equal(G.state, "won"); assert.equal(G.ending, "bog");
+});
+
+test("The First Flame: the Ember opens the Kiln, and the Hollow Wizard waits there", ()=>{
+  const G = game("FLAMEEND", 5); G.player.quests.ember = true;
+  killBoss(G); takePortal(G);
+  assert.equal(G.state, "play", "not over yet");
+  assert.equal(G.floor, DG.FINAL_FLOOR + 1); assert.equal(G.D.theme, DG.KILN);
+  const { b } = killBoss(G);
+  assert.equal(b.type, "hollow");
+  takePortal(G);
+  assert.equal(G.ending, "flame");
+  assert.ok(G.meta.endings.flame);
+});

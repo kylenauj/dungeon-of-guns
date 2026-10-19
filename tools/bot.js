@@ -34,10 +34,14 @@ Bot.prototype.chooseGoal = function(){
   const live = G.enemies.filter(e=> !e.dead && e.spawn <= 0 && !e.untargetable);
   if(live.length){ let b = live[0]; live.forEach(e=>{ if(DG.dist(e.x, e.y, p.x, p.y) < DG.dist(b.x, b.y, p.x, p.y)) b = e; }); return { x:b.x, y:b.y, enemy:b }; }
   if(G.enemies.some(e=> !e.dead && G.room && e.room === G.room.id)) return { x:p.x, y:p.y };
-  const items = G.pickups.filter(k=> k.kind === "item" && !this.visitedProps["k" + k.id] && (k.item.kind !== "gun" || DG.Loot.dps(k.item, G.mods) > DG.Loot.dps(G.gun(), G.mods)*0.9));
-  if(items.length) return { x:items[0].x, y:items[0].y, use:true, key:"k" + items[0].id };
+  // a gun is remembered by the gun, not the pickup: a swap drops the old one as a new pickup,
+  // and two guns of about the same worth used to get swapped back and forth forever
+  const pkey = k=> !k.item ? "k" + k.id : k.item.uid ? "g" + k.item.uid : "i" + k.item.kind + ":" + (k.item.id || k.id);
+  const items = G.pickups.filter(k=> k.kind === "item" && !this.visitedProps[pkey(k)] && (k.item.kind !== "gun" || DG.Loot.dps(k.item, G.mods) > DG.Loot.dps(G.gun(), G.mods)*0.9));
+  if(items.length) return { x:items[0].x, y:items[0].y, use:true, key:pkey(items[0]) };
   for(const r of G.D.rooms){
     if(r.type === "secret" && !r.found) continue;
+    if(r.doors.some(id=> G.D.doors[id].locked)) continue;      // behind a locked door: not for the bot
     for(const pr of r.props){
       const key = "p" + pr.id;
       if(this.visitedProps[key]) continue;

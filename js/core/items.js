@@ -711,7 +711,7 @@ Items.rollBoons = function(G, n){
   while(pick.length < n && cand.length){
     // once a build has a direction, the first boon offered usually follows it
     const lead = !pick.length && Object.keys(dir).length;
-    const c = G.rng.weighted(cand, o=> o.w*(lead ? (o.pull ? 1 + 2*o.pull : 0.25) : 1)); pick.push(c.id); cand.splice(cand.indexOf(c), 1);
+    const c = G.rng.weighted(cand, o=> o.w*(lead ? (o.pull ? 1 + 3*o.pull : 0.15) : 1)); pick.push(c.id); cand.splice(cand.indexOf(c), 1);
   }
   p.boonOffers = [pick].concat(p.boonOffers || []).slice(0, 2);
   return pick;

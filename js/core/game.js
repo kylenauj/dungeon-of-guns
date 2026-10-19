@@ -32,7 +32,7 @@ const Game = DG.Game = function(opts){
   const P = DG.PLAYER;
   G.player = {
     x:0, y:0, r:P.radius, vx:0, vy:0, hp:P.hp, maxHp:P.hp, mana:P.mana, maxMana:P.mana, wards:0,
-    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, keys:1, xp:0, level:1, pendingLevels:0,
+    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, keys:1, quests:{}, xp:0, level:1, pendingLevels:0,
     active:null, blinkT:0, blinkCd:0, bdx:0, bdy:0, iframes:0, slip:0, sdx:0, sdy:0, stun:0, chill:0,
     fireCd:0, reloadT:0, aim:0, safeX:0, safeY:0, bonkCd:0, alive:true, moving:false, lastShot:0, volleys:0
   };
@@ -73,7 +73,7 @@ proto.chance = function(p){ return this.rng.next() < this.luck(p); };
 proto.enterFloor = function(n){
   const G = this, p = G.player;
   G.floor = n;
-  G.D = DG.Dungeon.generate((G.seed + n*104729) >>> 0, n);
+  G.D = DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, G.kiln && n === DG.FINAL_FLOOR + 1 ? { theme:DG.KILN } : null);
   G.scale = DG.FLOOR_SCALE(n);
   G.enemies = []; G.bullets = []; G.pickups = []; G.bombs = []; G.marks = []; G.hazards = []; G.allies = []; G.pending = []; G.beams = [];
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
@@ -92,11 +92,18 @@ proto.enterFloor = function(n){
   G.flow = null;
   G.emit("floor", { floor:n, name:G.D.theme.name, curses:G.curses.slice() });
   G.curses.forEach(c=> G.say(DG.CURSES[c].name + ": " + DG.CURSES[c].desc, 4));
+  if(G.kiln && n === DG.FINAL_FLOOR + 1) G.say("The Kiln. It's warm down here. It shouldn't be.", 4);
+  else if(DG.LORE_FLOORS[n - 1] && !G.endless) G.pending.push({ t:4.5, fn:()=> G.say(DG.LORE_FLOORS[n - 1], 4.5) });
 };
 proto.descend = function(){
   const G = this, p = G.player;
   G.stats.floors++;
-  if(G.floor >= DG.FINAL_FLOOR && !G.endless){ G.state = "won"; G.emit("won"); return; }
+  // the end of the road: the Kiln, if the Ember asked for it; otherwise out into the dawn
+  if(G.kiln && G.floor === DG.FINAL_FLOOR + 1){ G.finish("flame"); return; }
+  if(G.floor >= DG.FINAL_FLOOR && !G.endless){
+    if(G.player.quests.ember && !G.kiln){ G.kiln = true; G.enterFloor(DG.FINAL_FLOOR + 1); G.say("The Ember pulls you down. Down to the Kiln.", 3.5); return; }
+    if(!G.kiln){ G.finish("dawn"); return; }
+  }
   p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp*0.3));   // a snack on the stairs
   G.enterFloor(G.floor + 1);
 };
@@ -118,6 +125,7 @@ proto.makeOffer = function(r, pr){
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
   if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
+  if(pr.quest){ const Q = DG.QUESTS[pr.quest]; return { kind:"quest", id:pr.quest, name:Q.name }; }
   if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
   if(pr.sell === "ward") return { kind:"ward", n:2, price:L.price({ kind:"ward" }, f), currency:"gold", name:"Two Wards" };
   if(pr.sell === "active"){ const id = G.rng.pick(Object.keys(DG.ACTIVES)); return { kind:"active", id, price:L.price({ kind:"active" }, f), currency:"gold", name:DG.ACTIVES[id].name }; }
@@ -704,7 +712,17 @@ proto.bossDown = function(e){
   if(G.chance(0.35)) G.addPickup("fly", r.cxw + 2, r.cyw, 1);
   G.dropGold(e.x, e.y, 25 + 10*G.floor);
   G.emit("portal", G.portal);
-  G.say(G.floor >= DG.FINAL_FLOOR && !G.endless ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
+  const p = G.player;
+  if(e.type === "hollow") G.say("The Hollow Wizard is still. The hearth is cold, and waiting.", 4);
+  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && p.quests.crown && !p.quests.ember){
+    // the Crown: Gribbus doesn't let a good meal go to waste
+    G.portal = null;
+    G.emit("feast", { x:e.x, y:e.y });
+    G.say("Gribbus looks at the Heart. The Heart looks at Gribbus.", 3);
+    G.pending.push({ t:3.2, fn:()=> G.finish("bog") });
+  }
+  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && p.quests.ember) G.say("The Gloom Heart is still. The Ember is burning a hole in your pocket. It wants to go down.", 4);
+  else G.say(G.floor >= DG.FINAL_FLOOR && !G.endless ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
 };
 
 /* ---- things on the floor ---- */
@@ -773,6 +791,14 @@ proto.target = function(){
   });
   return best;
 };
+/* ---- the end: which ending, remembered between runs ---- */
+proto.finish = function(id){
+  const G = this;
+  if(G.state === "won") return;
+  G.state = "won"; G.ending = id;
+  G.meta.endings = G.meta.endings || {}; G.meta.endings[id] = true;
+  G.emit("won", { ending:id });
+};
 /* ---- keys ---- */
 proto.useKey = function(){ const p = this.player; if(p.keys <= 0) return false; p.keys--; this.emit("keyUsed", { left:p.keys }); return true; };
 proto.unlockDoor = function(d){
@@ -816,6 +842,7 @@ proto.interact = function(){
     else if(of.kind === "gun") G.takeItem(of.gun, null);
     else if(of.kind === "heal"){ G.heal(of.amount); G.say("Tastes like boots. You feel better."); }
     else if(of.kind === "ward") G.addWards(of.n);
+    else if(of.kind === "quest"){ p.quests[of.id] = true; G.emit("quest", { id:of.id, name:of.name }); G.say(of.id === "ember" ? "The Ember is warm in your hand. Far below, something answers it." : "Gribbus puts on the Crown. He does not take it off.", 3.5); }
     else if(of.kind === "key"){ p.keys += of.n; G.emit("key", { x:o.x + 0.5, y:o.y + 0.5, keys:p.keys }); }
     else if(of.kind === "active") G.giveActive(of.id);
     // a treasure room's choice: the other pedestals sink

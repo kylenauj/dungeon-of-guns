@@ -27,20 +27,20 @@ const CW = 28, CH = 22, GW = 7, GH = 7, M = 3;
 const Dungeon = DG.Dungeon = {};
 Dungeon.CW = CW; Dungeon.CH = CH; Dungeon.M = M;
 
-Dungeon.generate = function(seed, floor){
+Dungeon.generate = function(seed, floor, opts){
   const rng = DG.RNG(seed);
   for(let attempt=0; attempt<60; attempt++){
-    const d = tryGenerate(rng, floor, seed);
+    const d = tryGenerate(rng, floor, seed, opts || {});
     if(d) return d;
   }
   throw new Error("dungeon: no layout for seed " + seed);
 };
 
-function tryGenerate(rng, floor, seed){
+function tryGenerate(rng, floor, seed, opts){
   const S = DG.FLOOR_SCALE(floor);
   const W = CW*GW, H = CH*GH;
   const D = { seed, floor, w:W, h:H, tiles:new Uint8Array(W*H), rooms:[], doors:[], corridors:[], painted:[], fakes:[], breakables:[], decor:[], ver:0,
-              theme:DG.FLOORS[(floor - 1) % DG.FLOORS.length] };
+              theme:opts.theme || DG.FLOORS[(floor - 1) % DG.FLOORS.length] };
   D.at = (x, y)=> (x < 0 || y < 0 || x >= W || y >= H) ? T.SOLID : D.tiles[y*W + x];
   D.set = (x, y, v)=>{ if(x >= 0 && y >= 0 && x < W && y < H) D.tiles[y*W + x] = v; };
 
@@ -79,6 +79,13 @@ function tryGenerate(rng, floor, seed){
   const plain = rooms.filter(r=> r.type === "combat" && r.dist >= 2);
   if(plain.length < 2) return null;
   rng.pick(plain).type = "puzzle";
+
+  /* ---- the quest rooms: rare, early, behind a locked door. The Sealed
+     Reliquary (floors 1-2) holds the Ember of the First Flame; the Drowned
+     Shrine (floors 2-3) the Crown of the Bog. Each starts an alternative ending. ---- */
+  const quest = (floor === 1 && rng.chance(0.25)) || (floor === 2 && rng.chance(0.2)) ? "reliquary"
+    : (floor === 2 && rng.chance(0.25)) || (floor === 3 && rng.chance(0.25)) ? "shrine" : null;
+  if(quest && !opts.theme){ const qr = rest.filter(r=> r.type === "combat")[0] || plainFar()[0]; if(qr) qr.type = quest; }
 
   /* ---- 2. jumbo rooms: plain rooms grow into empty neighbour cells ---- */
   let jumbos = 0;
@@ -135,7 +142,8 @@ function tryGenerate(rng, floor, seed){
     } else {
       const size = {
         start:[13, 11, 13, 11], boss:[21, 15, 22, 16], treasure:[11, 9, 13, 11], shop:[15, 11, 15, 11], pond:[15, 11, 17, 13],
-        altar:[11, 9, 13, 11], puzzle:[15, 11, 17, 12], secret:[9, 7, 11, 9], combat:[11, 9, 22, 16]
+        altar:[11, 9, 13, 11], puzzle:[15, 11, 17, 12], secret:[9, 7, 11, 9], combat:[11, 9, 22, 16],
+        reliquary:[11, 9, 13, 11], shrine:[13, 11, 15, 12]
       }[r.type];
       const w = rng.int(size[0], size[2]), h = rng.int(size[1], size[3]);
       const top = r.type === "puzzle" ? 6 : M;
@@ -188,6 +196,11 @@ function tryGenerate(rng, floor, seed){
       sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - (n - 1) + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
     }
     if(r.type === "pond") makePond(D, rng, r);
+    if(r.type === "reliquary" || r.type === "shrine"){
+      r.props.push({ kind:"pedestal", x:cx, y:cy, quest:r.type === "reliquary" ? "ember" : "crown" });
+      r.props.push({ kind:"sign", x:cx, y:r.y1, text:r.type === "reliquary" ? "SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME." : "THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS." });
+      r.doors.forEach(id=>{ D.doors[id].locked = true; D.doors[id].open = false; });
+    }
     if(r.type === "boss") r.boss = { x:r.cxw, y:r.y1 + 3.5 };
     if(r.type === "puzzle") DG.Puzzles.generate(D, rng, r, floor);
   });

@@ -479,6 +479,59 @@ const BEHAVIOUR = {
     if(pick === "children") G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"Come, my darlings!" });
   },
 
+  /* ---- The Hollow Wizard (the Kiln, the First Flame ending): Zippy's master,
+     hollowed by the dark. Hex volleys, a blink and a ring, falling fire,
+     and in his rage the dead come when he calls ---- */
+  hollow(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE HOLLOW WIZARD: \"I WAS YOU, ONCE. YOU WILL BE ME.\"", 3); }
+    switch(A.state){
+      case "volley":
+        A.t -= dt; A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0 && A.n < (rage ? 5 : 3)){ A.fire = 0.38; A.n++; shoot(G, e, aimAt(e, p), rage ? 8 : 7, rage ? 7 : 5, 34, "hex", { dmg:e.dmg*0.55 }); }
+        if(A.t <= 0) A.state = "walk";
+        return;
+      case "blink":
+        A.t -= dt; e.untargetable = true; e.hidden = true;
+        if(A.t <= 0){
+          const s = spotNear(G, e, p.x, p.y, 4.5);
+          e.x = s.x; e.y = s.y; e.untargetable = false; e.hidden = false;
+          G.ring(e.x, e.y, rage ? 18 : 12, 5, e.dmg*0.5, G.rng.next(), "hex");
+          G.emit("appear", { id:e.id, x:e.x, y:e.y });
+          A.state = "walk";
+        }
+        return;
+      case "rain":
+        A.t -= dt;
+        if(A.t <= 0){
+          for(let k=0;k<(rage ? 10 : 7);k++){ const s = spotNear(G, e, p.x, p.y, 5); slam(G, s.x, s.y, 1, e.dmg*0.9, 0.8 + k*0.1, "meteor"); }
+          A.state = "walk";
+        }
+        return;
+      case "summon":
+        A.t -= dt;
+        if(A.t <= 0){
+          const r = G.D.rooms[e.room];
+          for(let k=0;k<2;k++){ const s = spotNear(G, e, e.x, e.y, 4); const g = G.spawnEnemy(r, { type:G.rng.pick(["ghost", "skeleton"]), x:s.x, y:s.y }); g.spawn = 0.6; }
+          G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"Rise. Serve." });
+          A.state = "walk";
+        }
+        return;
+    }
+    A.state = "walk";
+    A.ph = (A.ph || 0) + dt;
+    const a = aimAt(e, p) + Math.PI/2*Math.sin(A.ph*0.7);
+    if(DG.dist(e.x, e.y, p.x, p.y) > 3.5) walk(G, e, Math.cos(a), Math.sin(a), 1, dt); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const minions = G.enemies.filter(o=> !o.dead && !o.boss && o.room === e.room).length;
+    const order = ["volley", "blink", "rain", rage && minions < 3 ? "summon" : "volley"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = rage ? 1.3 : 1.9; A.n = 0; A.fire = 0;
+    const tl = { volley:0.6, blink:0.4, rain:0.7, summon:0.8 }[pick];
+    tell(G, e, pick, tl); A.state = pick; A.t = (pick === "volley" ? 1.9 : pick === "blink" ? 0.7 : 0) + tl;
+    if(pick === "blink"){ e.untargetable = true; e.hidden = true; }
+  },
+
   /* ---- The Weeping Bride: copies, a wail that sweeps, tears from above, she vanishes ---- */
   bride(G, e, dt, p){
     const A = e.ai, rage = e.hp/e.maxHp < 0.5;
