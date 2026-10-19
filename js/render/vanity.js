@@ -254,15 +254,18 @@ proto.buildShafts = function(){
   const W = this, th = W.th;
   const col = new THREE.Color(th.shaft || 0xffe2a8);
   const m = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{ value:0 }, uCol:{ value:col } }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
+    uniforms:{ uTime:{ value:0 }, uCol:{ value:col }, uEtch:K.INK.uEtch }, extensions:{ derivatives:true }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
     vertexShader:"varying vec2 vUv; varying float vPh; attribute float aPh; void main(){ vUv = uv; vPh = aPh; gl_Position = projectionMatrix*modelViewMatrix*vec4(position, 1.0); }",
     fragmentShader:[
-      "uniform float uTime; uniform vec3 uCol; varying vec2 vUv; varying float vPh;",
+      "uniform float uTime, uEtch; uniform vec3 uCol; varying vec2 vUv; varying float vPh;",
       "void main(){ float e = 1.0 - abs(vUv.x*2.0 - 1.0); e = pow(e, 1.6);",
       "  float v = smoothstep(0.0, 0.25, vUv.y)*(1.0 - smoothstep(0.7, 1.0, vUv.y));",
       "  float dust = 0.75 + 0.25*sin(vUv.y*30.0 - uTime*1.5 + vPh*7.0)*sin(vUv.x*9.0 + uTime*0.7);",
       "  float fl = 0.8 + 0.2*sin(uTime*0.9 + vPh);",
-      "  gl_FragColor = vec4(uCol*e*v*dust*fl*0.26, 1.0); }"].join("\n")
+      // etched, light is drawn as an engraver draws it: ruled lines running down the beam
+      "  float rx = vUv.x*11.0 + sin(vUv.y*3.0 + vPh)*0.15, rl = abs(fract(rx) - 0.5), rw = 0.12 + 0.1*e;",
+      "  float ruled = clamp((rw - rl)/max(fwidth(rx), 0.001) + 0.5, 0.0, 1.0)*(0.75 + 0.25*sin(vUv.y*5.0 - uTime*0.8 + vPh*3.0));",
+      "  gl_FragColor = vec4(uCol*e*v*fl*mix(dust*0.26, ruled*0.55, uEtch), 1.0); }"].join("\n")
   });
   K.timed.push(m); W.vanityMats.push(m);
   const byRoom = {};

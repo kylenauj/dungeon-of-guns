@@ -48,6 +48,8 @@ S.init = function(){
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
 
   try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
+  try{ S.etch = localStorage.getItem("dungeonofguns.etch") !== "0"; }catch(e){ S.etch = true; }
+  K.INK.uEtch.value = S.fancy && S.etch ? 1 : 0; K.INK.uOutK.value = K.INK.uEtch.value ? 2 : 1;
   S.initPost();
   // closer and a little lower than a straight top-down: characters read as
   // standing figures, not squashed lids
@@ -78,10 +80,17 @@ S.resize = function(){
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
   K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uScale) m.uniforms.uScale.value = h/k/2; });
 };
+/* the look: etched (ink lines on paper, colour only in the light), ink (the
+   older grim look), or plain (no post pass). V and the menu cycle them. */
+S.lookName = ()=> !S.fancy ? "plain" : S.etch ? "etched" : "ink";
 S.toggleInk = function(){
-  S.fancy = !S.fancy;
-  try{ localStorage.setItem("dungeonofguns.ink", S.fancy ? "1" : "0"); }catch(e){}
-  return S.fancy;
+  if(S.fancy && S.etch) S.etch = false;
+  else if(S.fancy) S.fancy = false;
+  else { S.fancy = true; S.etch = true; }
+  K.INK.uEtch.value = S.fancy && S.etch ? 1 : 0; K.INK.uOutK.value = K.INK.uEtch.value ? 2 : 1;
+  if(S.lastTheme) S.theme(S.lastTheme[0], S.lastTheme[1]);
+  try{ localStorage.setItem("dungeonofguns.ink", S.fancy ? "1" : "0"); localStorage.setItem("dungeonofguns.etch", S.etch ? "1" : "0"); }catch(e){}
+  return S.lookName();
 };
 S.initPost = function(){
   const rt = new THREE.WebGLRenderTarget(16, 16, { minFilter:THREE.NearestFilter, magFilter:THREE.NearestFilter });
@@ -90,12 +99,14 @@ S.initPost = function(){
     uniforms:{ tCol:{ value:rt.texture }, tDep:{ value:rt.depthTexture }, uRes:{ value:new THREE.Vector2(16, 16) }, uNear:{ value:S.camera.near }, uFar:{ value:S.camera.far },
       uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
       uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x2a1838) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
-      uDesat:{ value:0.42 }, uBloom:{ value:0.6 } },
+      uDesat:{ value:0.42 }, uBloom:{ value:0.6 }, uEtch:K.INK.uEtch, uPaper:K.INK.uPaper },
     depthTest:false, depthWrite:false,
     vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
     fragmentShader:[
       "uniform sampler2D tCol, tDep; uniform vec2 uRes; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom;",
-      "uniform vec3 uInk, uShade, uHigh, uFog; varying vec2 vUv;",
+      "uniform vec3 uInk, uShade, uHigh, uFog, uPaper; uniform float uEtch; varying vec2 vUv;",
+      "float ph(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+      "float pn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(ph(i), ph(i + vec2(1, 0)), f.x), mix(ph(i + vec2(0, 1)), ph(i + vec2(1, 1)), f.x), f.y); }",
       "float lin(vec2 uv){ float z = texture2D(tDep, uv).r*2.0 - 1.0; return 2.0*uNear*uFar/(uFar + uNear - z*(uFar - uNear)); }",
       "void main(){",
       "  vec2 uv = vUv, c = uv - 0.5; float r2 = dot(c, c);",
@@ -107,7 +118,7 @@ S.initPost = function(){
       "  vec2 px = 1.0/uRes; float d0 = lin(uv);",
       "  float dn = lin(uv - vec2(px.x, 0.0)) + lin(uv + vec2(px.x, 0.0)) + lin(uv + vec2(0.0, px.y)) + lin(uv - vec2(0.0, px.y));",
       "  float e = max(0.0, dn - 4.0*d0)/d0;",
-      "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*0.45);",
+      "  col = mix(col, uInk, smoothstep(uEdge, uEdge*2.2, e)*mix(0.45, 0.85, uEtch));",
       // bloom: what burns bright (candles, eyes, spells) bleeds into the dark around it
       "  vec3 bl = vec3(0.0); float bw = 0.0;",
       "  for(int i=0;i<8;i++){ float a = float(i)*2.39996 + 0.5, rr = 2.5 + float(i)*2.4;",
@@ -117,16 +128,29 @@ S.initPost = function(){
       // the grade: colours drained toward grey, blacks crushed, shadows sunk in the
       // floor's shade colour, lights a little warm; an S-curve for weight
       "  float l = dot(col, vec3(0.299, 0.587, 0.114));",
-      "  col = mix(col, vec3(l), uDesat*(1.0 - smoothstep(0.55, 1.1, l)*0.5));",
-      "  col = mix(col, col*0.5 + uShade*0.4, (1.0 - smoothstep(0.0, 0.3, l))*0.55);",
+      "  col = mix(col, vec3(l), uDesat*(1.0 - smoothstep(0.55, 1.1, l)*0.5)*(1.0 - 0.6*uEtch));",
+      "  vec3 sh = mix(uShade, uInk*0.6 + uPaper*0.12, uEtch);",                     // the etching sinks into ink, not purple
+      "  col = mix(col, col*0.5 + sh*0.4, (1.0 - smoothstep(0.0, 0.3, l))*0.55);",
       "  col = mix(col, col*0.85 + uHigh*0.25*l, smoothstep(0.45, 1.0, l)*0.5);",
       "  col = max(col - 0.012, 0.0)*1.04; col = col*col*(3.0 - 2.0*col)*0.35 + col*0.65;",
       // corners sink into the dark (and pulse, deep down)
       "  float v = smoothstep(0.1, 0.6, r2*(1.6 + uWeird*0.25*sin(uTime*1.1)));",
-      "  col = mix(col, uFog*0.3, v*uVig);",
+      "  col = mix(col, uFog*0.3, v*uVig*(1.0 - 0.55*uEtch));",
+      "  if(uEtch > 0.0){",
+      // the page: paper laid under everything, still, not crawling: a soft mottle and long fibres
+      "    vec2 sp = gl_FragCoord.xy*(540.0/uRes.y);",
+      "    float pap = pn(sp*0.035)*0.5 + pn(sp*0.11 + 3.0)*0.3 + pn(sp*vec2(0.9, 0.06) + 7.0)*0.2;",
+      "    col *= 1.0 + (pap - 0.5)*0.16*uEtch;",
+      "    col += uPaper*(pap - 0.5)*0.025*uEtch;",
+      // and its edge: ink washed in from the border, ragged, never a clean oval
+      "    vec2 eu = vUv*vec2(uRes.x/uRes.y, 1.0); float ew = min(min(vUv.x, 1.0 - vUv.x)*uRes.x/uRes.y, min(vUv.y, 1.0 - vUv.y));",
+      "    float er = ew + (pn(eu*9.0) - 0.5)*0.05 + (pn(eu*40.0) - 0.5)*0.015;",
+      "    col = mix(col, uInk*0.5, (1.0 - smoothstep(0.0, 0.14, er))*0.88*uEtch);",
+      "  }",
       "  col = mix(col, vec3(0.45, 0.0, 0.02), uHurt*smoothstep(0.05, 0.45, r2));",
-      "  float n = fract(sin(dot(floor(gl_FragCoord.xy) + floor(uTime*24.0)*vec2(17.3, 41.9), vec2(12.9898, 78.233)))*43758.5453);",
-      "  col += (n - 0.5)*0.045*(0.6 + 0.4*(1.0 - l));",
+      // grain: the old look's film grain dances; the etching's is printed and holds still
+      "  float n = fract(sin(dot(floor(gl_FragCoord.xy) + floor(uTime*24.0)*(1.0 - uEtch)*vec2(17.3, 41.9), vec2(12.9898, 78.233)))*43758.5453);",
+      "  col += (n - 0.5)*mix(0.045, 0.03, uEtch)*(0.6 + 0.4*(1.0 - l));",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
   });
@@ -169,13 +193,17 @@ S.togglePixel = function(){
 S.theme = function(th, curses){
   curses = curses || [];
   const dark = curses.indexOf("dark") >= 0, fog = curses.indexOf("fog") >= 0;
+  S.lastTheme = [th, curses];
+  // etched, the room is lit by its lights, not by a flat wash: the ambient drops,
+  // the lantern and torches carry the picture, and shadow becomes hatching (never black)
+  const amb = S.fancy && S.etch ? 0.42 : 1;
   S.scene.background = new THREE.Color(th.fog);
   S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);
-  S.hemi.intensity = 1.0*(th.light || 1)*(dark ? 0.55 : 1);
-  S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1);
-  S.playerLight.distance = dark ? 9 : 13;
-  S.playerLight.intensity = dark ? 2.4 : 2.2;
+  S.hemi.intensity = 1.0*(th.light || 1)*(dark ? 0.55 : 1)*amb;
+  S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1)*(amb < 1 ? 0.6 : 1);
+  S.playerLight.distance = (dark ? 9 : 13)*(amb < 1 ? 1.1 : 1);
+  S.playerLight.intensity = (dark ? 2.4 : 2.2)*(amb < 1 ? 1.25 : 1);
   // the ink: line colour, rim colour, grade, and how weird the picture gets
   K.INK.uInk.value.setHex(th.ink || 0x0a0612);
   K.INK.uRim.value.setHex(th.rim || 0x8a7aff);

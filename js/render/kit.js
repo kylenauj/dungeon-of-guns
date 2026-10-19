@@ -133,12 +133,22 @@ K.INK = {
   uHatch:{ value:0.45 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.45 },
   // the grim look: light falls off smoothly (uSoft blends the bands away),
   // and characters wear grime: mottled, darker in the creases and lower down
-  uSoft:{ value:0.72 }, uGrime:{ value:0.55 }
+  uSoft:{ value:0.72 }, uGrime:{ value:0.55 },
+  // the etching (K.ETCH below): 0 off, 1 on; the paper's tone; hatch lines per unit
+  uEtch:{ value:1 }, uOutK:{ value:1 }, uPaper:{ value:new THREE.Color(0xe2d6b8) }, uHatchF:{ value:3.6 }
 };
 /* outlines are a thin contour now, not a cartoon line */
 K.OUTLINE = 0.4;
 const INK_PARS = [
-  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime; uniform vec3 uInk, uRim;",
+  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF; uniform vec3 uInk, uRim, uPaper;",
+  "varying vec3 vHP; varying vec3 vHN;",
+  "float inkPoche = 0.0;",
+  "float in2h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+  "float in2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(in2h(i), in2h(i + vec2(1, 0)), f.x), mix(in2h(i + vec2(0, 1)), in2h(i + vec2(1, 1)), f.x), f.y); }",   // set by the walls' tops: solid ink, like the walls on a drawn map
+  // one stroke of a hatch: a line at every whole step of c, w its half-width (0..0.5),
+  // antialiased over a pixel; thin lines fade instead of breaking into dots
+  "float inkLine(float c, float w){ float d = abs(fract(c) - 0.5), aa = max(fwidth(c), 0.0001); w = clamp(w, 0.0, 0.5);",
+  "  return clamp((w - d)/aa + 0.5, 0.0, 1.0)*clamp(w/(aa*0.6), 0.0, 1.0); }",
   "float igh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7)))*43758.5453); }",
   "float ign(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);",
   "  return mix(mix(mix(igh(i), igh(i + vec3(1,0,0)), f.x), mix(igh(i + vec3(0,1,0)), igh(i + vec3(1,1,0)), f.x), f.y),",
@@ -154,9 +164,39 @@ const INK_MAIN = [
   "float inkB = inkBayer(gl_FragCoord.xy);",
   "float inkQ = max(mix(floor(inkL*uSteps + inkB*0.92 + 0.04)/uSteps, clamp(inkL*(0.35 + 0.75*inkL), 0.0, 1.15), uSoft), uLift);",
   "vec3 inkLit = (outgoingLight - totalEmissiveRadiance)*(inkQ/max(inkL, 0.0001)) + totalEmissiveRadiance;",
-  // the darkest band: diagonal lines of ink
-  "float inkHatch = (1.0 - step(0.99, mod(gl_FragCoord.x + gl_FragCoord.y, 4.0)))*step(inkQ, uHatchAt)*uHatch;",
+  // the darkest band: diagonal lines of ink (the old look)
+  "float inkHatch = (1.0 - step(0.99, mod(gl_FragCoord.x + gl_FragCoord.y, 4.0)))*step(inkQ, uHatchAt)*uHatch*(1.0 - uEtch);",
   "inkLit = mix(inkLit, uInk, inkHatch*0.75);",
+  // the etching: colour only where light falls; elsewhere the surface is the
+  // paper's tone, shaded by hatching that thickens and crosses as it darkens.
+  // The lines lie on the surface (world space; a character's own space), on
+  // whichever plane it faces most, so they hold still as the camera moves.
+  "if(uEtch > 0.0){",
+  "  vec3 eN = normalize(vHN), aN = abs(eN);",
+  "  vec2 hp = (aN.y > max(aN.x, aN.z) ? vHP.xz : aN.x > aN.z ? vHP.zy : vHP.xy)*uHatchF;",
+  "  float wob = (in2(hp*0.64) - 0.5)*0.3 + (in2(hp*2.5) - 0.5)*0.1;",          // a hand that wavers
+  "  float eD = clamp(1.0 - inkQ/0.85, 0.0, 1.0);",                                  // how dark, 0..1
+  "  float eK = inkLine(hp.x + hp.y + wob, eD*0.62 - 0.02);",
+  "  eK = max(eK, inkLine(hp.x - hp.y + wob*1.4 + 0.31, (eD - 0.4)*0.6));",
+  "  eK = max(eK, inkLine(hp.x*1.41 + wob*0.8 + 0.67, (eD - 0.72)*0.9));",
+  "  eK *= 0.55 + 0.45*in2(hp*0.36 + 7.0);",                                         // the ink lies heavier here and there
+  "  vec3 eLit = outgoingLight - totalEmissiveRadiance;",
+  "  float eAL = dot(inkAlb, vec3(0.299, 0.587, 0.114));",
+  "  vec3 eMono = uPaper*(0.35 + 0.65*eAL);",                                         // the surface, uncoloured
+  "  float eSat = smoothstep(0.2, 0.8, inkQ);",
+  "  vec3 eFill = mix(eMono*(0.24 + 0.5*min(inkQ, 1.0)), eLit, eSat);",
+  "  eFill = mix(eFill, uInk, eK*0.95);",
+  // the tops of walls, as a hand-drawn dungeon map draws them: clusters of short
+  // strokes, each cluster at its own angle, on the bare paper
+  "  if(inkPoche > 0.0){",
+  "    vec2 pc = vHP.xz*2.4 + vec2(in2(vHP.xz*1.7), in2(vHP.xz*1.9 + 4.0))*0.6, pi = floor(pc);",
+  "    float pa = igh(vec3(pi, 3.0))*3.1416; vec2 pd = vec2(cos(pa), sin(pa));",
+  "    float pl = inkLine(dot(vHP.xz, pd)*13.0 + igh(vec3(pi, 5.0))*3.0, 0.2 + 0.08*igh(vec3(pi, 7.0)));",
+  "    vec3 poche = mix(uPaper*0.42, uInk, max(pl, 0.25));",
+  "    eFill = mix(eFill, poche, inkPoche);",
+  "  }",
+  "  inkLit = mix(inkLit, eFill + totalEmissiveRadiance, uEtch);",
+  "}",
   "#ifdef INK_RIM",
   // characters sink into a soft contact shadow near the floor, so all of them sit in the world the same way
   "  inkLit *= mix(0.4, 1.0, smoothstep(0.0, 0.6, vInkY));",
@@ -187,12 +227,16 @@ const GLOOM_COMMON = [
 const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surface at vGW.xz
   "float gn1 = gfbm(vGW.xz*0.35), gn2 = gfbm(vGW.xz*1.7 + 9.0);",
   "float gCover = smoothstep(1.0 - uGloom*1.25, 1.12 - uGloom*1.25, mix(gn1, gn2, 0.3));",
-  "vec3 gMoss = mix(vec3(0.075, 0.13, 0.13), vec3(0.12, 0.2, 0.16), gn2)*2.3*gShade;",
+  "vec3 gMoss = mix(mix(vec3(0.075, 0.13, 0.13), vec3(0.12, 0.2, 0.16), gn2), mix(vec3(0.1, 0.11, 0.07), vec3(0.15, 0.15, 0.09), gn2), uEtch)*2.3*gShade;",
   "vec3 gc = mix(gBase, gMoss, gCover);",
   "float gTh = abs(sin(vGW.x*0.9 + sin(vGW.z*0.7)*2.4 + gn1*5.0))*abs(sin(vGW.z*1.1 + sin(vGW.x*0.6)*2.0));",
   "gc = mix(gc, vec3(0.62, 0.7, 0.74)*gShade, smoothstep(0.035, 0.0, gTh)*0.45*gCover);",
   "float gR = smoothstep(1.0 - gRot, 1.08 - gRot, gfbm(vGW.xz*0.22 + 17.0));",
   "gc = mix(gc, mix(vec3(0.14, 0.05, 0.13), vec3(0.21, 0.07, 0.17), gn2)*1.45*gShade, gR);",
+  // etched, every patch of moss and rot gets an ink contour, like a drawn map's shading
+  "float gEdge = smoothstep(0.03, 0.0, abs(mix(gn1, gn2, 0.3) - (1.06 - uGloom*1.25)))*step(0.01, uGloom);",
+  "gEdge = max(gEdge, smoothstep(0.025, 0.0, abs(gfbm(vGW.xz*0.22 + 17.0) - (1.04 - gRot)))*step(0.01, gRot));",
+  "gc = mix(gc, uInk, gEdge*uEtch*0.8);",
   "float gVein = smoothstep(0.035, 0.0, abs(gfbm(vGW.xz*0.8 + 4.0) - 0.5));",
   "gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.2*(0.6 + 0.4*sin(uGTime*2.0 + vGW.x))*gR;",
   "float gSp = step(0.955, gh(floor(vGW.xz*2.6)))*smoothstep(0.4, 0.15, length(fract(vGW.xz*2.6) - 0.5));",
@@ -201,7 +245,7 @@ const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surfa
 const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND, "diffuseColor.rgb = gc;"].join("\n");
 const GLOOM_WALL = [GLOOM_COMMON,
   "float gShade = clamp(dot(vColor, vec3(0.333))/uWallLum, 0.35, 1.3);",
-  "if(vGN.y > 0.5){", GLOOM_GROUND, "diffuseColor.rgb = gc; } else {",
+  "if(vGN.y > 0.5){", GLOOM_GROUND, "diffuseColor.rgb = gc; inkPoche = step(1.2, vGW.y)*uEtch; } else {",
   // bark and roots, climbing from the floor; rot veins up the lower wall
   "  vec2 wp = vec2(vGW.x + vGW.z, vGW.y);",
   "  float gB = smoothstep(1.0 - uGloom*1.35, 1.1 - uGloom*1.35, gfbm(wp*vec2(0.5, 0.8) + 2.0) + (1.0 - clamp(vGW.y/1.7, 0.0, 1.0))*0.3);",
@@ -238,6 +282,9 @@ K.inkify = function(mat, opts){
         .replace("#include <color_fragment>", "#include <color_fragment>\n" + (opts.gloom === "wall" ? GLOOM_WALL : GLOOM_FLOOR))
         .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += gloomGlow;");
     }
+    // where the hatching lies: world space for the dungeon, a character's own space for characters
+    sh.vertexShader = (opts.rim ? "#define INK_RIM\n" : "") + "varying vec3 vHP; varying vec3 vHN;\n" + sh.vertexShader.replace("#include <project_vertex>",
+      "#include <project_vertex>\n vec4 inkHP = vec4(transformed, 1.0); vec3 inkHN = objectNormal;\n#ifndef INK_RIM\n#ifdef USE_INSTANCING\n inkHP = instanceMatrix*inkHP; inkHN = mat3(instanceMatrix)*inkHN;\n#endif\n inkHP = modelMatrix*inkHP; inkHN = mat3(modelMatrix)*inkHN;\n#endif\n vHP = inkHP.xyz; vHN = inkHN;");
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
@@ -247,7 +294,8 @@ K.inkify = function(mat, opts){
         "#include <project_vertex>\n vInkO = transformed;\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
-  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "");
+  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + "-etch";
+  mat.extensions = Object.assign({}, mat.extensions, { derivatives:true });
   return mat;
 };
 /* the material: vertex colours by default; { rim:true } for characters,
@@ -261,8 +309,8 @@ K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));
 K.vlambert = opts=> K.ink(opts);
 K.outlineMat = (w)=> new THREE.ShaderMaterial({
-  uniforms:{ uW:{ value:(w || 0.028)*K.OUTLINE }, uA:{ value:1 }, uInk:K.INK.uInk }, side:THREE.BackSide, transparent:true,
-  vertexShader:"uniform float uW; void main(){ vec3 p = position + normal*uW; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
+  uniforms:{ uW:{ value:(w || 0.028)*K.OUTLINE }, uA:{ value:1 }, uInk:K.INK.uInk, uOutK:K.INK.uOutK }, side:THREE.BackSide, transparent:true,
+  vertexShader:"uniform float uW, uOutK; void main(){ vec3 p = position + normal*uW*uOutK; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
   fragmentShader:"uniform float uA; uniform vec3 uInk; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(uInk, 1.0); }"
 });
 /* a part: geometry + a colour, to be baked */

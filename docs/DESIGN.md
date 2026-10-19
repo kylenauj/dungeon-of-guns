@@ -304,6 +304,25 @@ Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are ho
 
 Dark Souls, Bloodborne, Blasphemous and Darkest Dungeon, in one look across everything, so no model or room looks pasted in from somewhere else.
 
+### 10.0 Etched: a look of its own
+
+**What makes a game read as generic low-poly (and what we saw in our own frames):**
+1. **Grey soup.** A flat ambient wash lights the whole room to the same mid-grey; the hero's light barely matters, so nothing leads the eye.
+2. **The stock "moody" stack:** bloom, a round vignette and film grain that crawls every frame. Almost every quick 3D game wears exactly these three.
+3. **Shader noise as texture.** Smooth fBm blobs and glowing sine veins (our floors 3–5) read as "a noise function", not a place.
+4. **Primitive props.** Boxes with a texture on every face, floating, with nothing grounding them.
+5. **Characters lost in the floor.** Dark figures on a dark floor, separated by nothing.
+6. **A world that doesn't match its UI.** Our menus are an old grim book; the 3D was not.
+
+**What we do instead** (default; **V** cycles etched → ink → plain):
+- **An etching that light colours in.** Colour exists only where light falls: the lantern, torches, spells, glowing things. Everywhere else a surface is the paper's tone, shaded by **hatching** that thickens and crosses as it darkens (one, two, then three layers). The lines lie on the surfaces (world space for the dungeon, a character's own space for characters), so they never swim as the camera moves, and they waver a little, like a hand. Shadow is drawn, never a black fill (`K.INK.uEtch` in `kit.js`).
+- **The room is lit by its lights.** Etched, the flat ambient drops to about 40% and the lantern grows, so every frame has one warm, coloured pool and a drawn dark around it.
+- **Wall tops as a hand-drawn dungeon map draws them:** clusters of short strokes, each cluster at its own angle (`inkPoche`).
+- **Moss and rot patches get ink contours,** like the coastlines on an old map; the moss goes olive instead of noise-teal.
+- **Light shafts are ruled lines** running down the beam, as an engraver draws light (`vanity.js`).
+- **Bold silhouettes:** character outlines are twice as heavy (`K.INK.uOutK`), so figures pop off the page like woodcuts. Their lit faces stay clean, for readability in a fight.
+- **A page, not a lens:** the grain is printed and holds still; paper mottle and long fibres sit under everything; the edge of the screen is a ragged ink wash, never a clean oval; the grade sinks shadow into ink and sepia, not purple (`stage.js`).
+
 - **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`), but light now falls off smoothly (`uSoft` blends the old toon bands away), with a faint ordered dither for grit and ink hatching only in the deepest shadow.
 - **Characters** wear grime in their own space (mottled stains, fine grain, dirt rising from the feet, colours pulled toward grey), get a faint cold rim light and a contact shadow, and a thin contour instead of a cartoon outline (`K.OUTLINE`).
 - **Full resolution** by default; **P** brings back the chunky pixels.

@@ -63,7 +63,7 @@ UI.title = function(){
         <div class="seed-row"><input id="seed" maxlength="12" placeholder="SEED (optional)" spellcheck="false" autocomplete="off"><button class="item small" data-act="seeded">PLAY SEED</button></div>
         <button class="item" data-act="how">HOW TO PLAY</button>
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
-        <button class="item" data-act="ink">LOOK <small>${DG.Stage.fancy ? "ink" : "plain"}</small></button>
+        <button class="item" data-act="ink">LOOK <small>${DG.Stage.lookName()}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
       </div>
@@ -110,7 +110,7 @@ UI.pause = function(G){
         <button class="item" data-act="bag">SATCHEL <small>guns and powerups</small></button>
         <button class="item" data-act="howPause">HOW TO PLAY</button>
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
-        <button class="item" data-act="ink">LOOK <small>${DG.Stage.fancy ? "ink" : "plain"}</small></button>
+        <button class="item" data-act="ink">LOOK <small>${DG.Stage.lookName()}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
         <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
