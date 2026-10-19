@@ -577,7 +577,7 @@ Object.assign(B, {
   },
   /* the throne itself: a seat of femurs and skulls, a back of ribs and spine, a crown of horns */
   bonethrone(o, rnd){
-    const g = o.group;
+    const g = o.group, BONE = 0xa08e76, BONE2 = 0x7e6e5c;
     P(g, BX(1.7, 0.16, 1.2), 0x241c1c, 0, 0.08, -0.05); P(g, BX(1.5, 0.12, 1.0), 0x2e2424, 0, 0.22, -0.08);
     for(let i=0;i<7;i++){ const x = -0.6 + i*0.2; bone(g, [x, 0.36, 0.38], [x + (rnd() - 0.5)*0.05, 0.62, 0.32], 0.035, i % 2 ? BONE : BONE2); }
     P(g, BX(1.2, 0.22, 0.7), 0x3a2e28, 0, 0.6, -0.05);
@@ -607,7 +607,8 @@ Object.assign(B, {
     P(g, CY(r + 0.05, r + 0.08, 0.08, 20), IRON, 0, 0.04, 0);
     for(let i=0;i<n;i++){ const a = i/n*PI*2; P(g, CY(0.022, 0.022, h, 6), i % 3 ? IRON : RUST, Math.cos(a)*r, h/2, Math.sin(a)*r); }
     [0.7, 1.4].forEach(y=> P(g, TO(r, 0.025, PI*2, 4, 28), IRON2, 0, y, 0, PI/2));
-    P(g, new THREE.SphereGeometry(r, 16, 6, 0, PI*2, 0, PI/2), IRON, 0, h, 0, 0, 0, 0, 1, 0.45, 1);
+    for(let i=0;i<n/2;i++) P(g, TO(r, 0.02, PI, 4, 20), i % 3 ? IRON : RUST, 0, h, 0, 0, i/(n/2)*PI, 0, 1, 0.45, 1);
+    P(g, TO(r, 0.03, PI*2, 4, 28), IRON2, 0, h, 0, PI/2);
     P(g, TO(0.08, 0.02, PI*2, 4, 12), IRON2, 0, h + 0.33, 0);
     for(let k=0;k<10;k++) P(g, TO(0.04, 0.012, PI*2, 3, 8), IRON2, 0, h + 0.42 + k*0.08, 0, 0, k % 2 ? PI/2 : 0);
     for(let k=0;k<3;k++) bone(g, [Math.cos(k*2)*0.4, 0.1, Math.sin(k*2)*0.4], [Math.cos(k*2 + 0.5)*0.3, 0.1, Math.sin(k*2 + 0.5)*0.3], 0.02, BONE2);

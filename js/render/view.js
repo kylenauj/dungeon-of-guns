@@ -303,6 +303,14 @@ proto.handle = function(ev){
     case "beat": S.shake(0.25); play("beat"); FX.ring(ev.x, ev.y, 3, 0xff2a3a, 0.4); break;
     case "summon": play("tellBig"); break;
     case "beam": play("laserTell"); break;
+    /* ROOMS */
+    case "chestUnlock": FX.burst(ev.x, 0.4, ev.y, 0xffc860, 12, 2.5, 0.15, 0.5); play("chestUnlock"); break;
+    case "pact": S.shake(0.7); FX.ring(ev.x, ev.y, 7, 0xff2a1a, 1.4); FX.soul(ev.x, ev.y, 3, 2.2, 0x6a0a06); FX.burst(p.x, 1, p.y, 0xff2a1a, 50, 5, 0.35, 1.2, { up:1.5, col2:0x2a0404 }); S.theme(G.D.theme, G.curses); play("pact"); break;
+    case "sprung": S.shake(0.5); FX.ring(ev.x, ev.y, 6, 0xff4a2a, 0.8); play("sprung"); break;
+    case "gamble": FX.burst(ev.x, 1, ev.y, ev.win ? 0xffd23d : ev.blood ? 0x8a0a06 : 0x6a6058, ev.win ? 28 : 14, ev.win ? 4 : 2, 0.25, 0.7, { up:1.5, grav:ev.win ? 6 : 0 }); if(ev.win && !ev.blood) S.shake(0.2); play(ev.win ? "gambleWin" : "gambleLose"); break;
+    case "olmTalk": play("olmTalk", { x:ev.x, y:ev.y }); break;
+    case "olmBye": play("olmTalk", { x:ev.x, y:ev.y }); break;
+    case "blessing": FX.rise(ev.x, ev.y, 0xffc870, 30, 0.7, { v:3 }); FX.ring(ev.x, ev.y, 2.5, 0xffc870, 0.8); play("blessing"); break;
   }
 };
 

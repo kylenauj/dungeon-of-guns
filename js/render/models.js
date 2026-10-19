@@ -3533,13 +3533,13 @@ Models.olm = function(){
   P(staff, K.tube([[0, 1.7, 0], [0.02, 1.84, 0.05], [0.1, 1.88, 0.12], [0.17, 1.82, 0.14]], 0.022, 10, 6), OLM.wood);
   [0.6, 1.2].forEach(y=> P(staff, TO(0.028, 0.008), OLM.brass, 0, y, 0, PI/2));
   const lamp = R.parts.lamp = group(staff, 0.17, 1.78, 0.14);
-  chain(lamp, [0, 0.02, 0], [0, -0.12, 0], 3, OLM.iron2);
-  const L0 = group(lamp, 0, -0.26, 0);
+  for(let k=0;k<5;k++) P(lamp, zto(0.016, 0.005), OLM.iron2, 0, -k*0.028, 0, 0, k % 2 ? PI/2 : 0, 0);
+  const L0 = group(lamp, 0, -0.27, 0); L0.scale.setScalar(1.35);
   P(L0, CY(0.07, 0.08, 0.03, 10), 0x26262a, 0, -0.1, 0); P(L0, CY(0.06, 0.07, 0.03, 10), 0x26262a, 0, 0.09, 0); P(L0, CO(0.07, 0.06, 10), 0x26262a, 0, 0.13, 0);
   for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(L0, BX(0.012, 0.18, 0.012), 0x3a3a40, Math.cos(a)*0.06, 0, Math.sin(a)*0.06); }
-  const flame = glow(R, L0, 0.035, 0xffc870, 0, -0.01, 0); flame.scale.set(1, 1.6, 1);
-  glow(R, L0, 0.05, 0xff8a3a, 0, -0.02, 0).material.opacity = 0.6;
-  R.lampHalo = halo(R, L0, 0xffa050, 1.4, 0, 0, 0, 0.7);
+  const flame = glow(R, L0, 0.035, 0xfff0b0, 0, -0.01, 0); flame.scale.set(1, 1.6, 1);
+  glow(R, L0, 0.055, 0xffa040, 0, -0.02, 0).material.opacity = 0.75;
+  R.lampHalo = halo(R, L0, 0xffb060, 2.2, 0, 0, 0, 0.85);
   R.lampFlame = flame;
   R.h = 1.6; R.size = 1;
   (R.anim = []).push({ o:lamp, sway:0.06, speed:1.3 });

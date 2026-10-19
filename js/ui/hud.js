@@ -272,7 +272,7 @@ H.draw = function(G, dt, opts){
       if(H.nearOffer === pr) return;   // the card at the bottom says it all
       const o = pr.offer, x = pr.x + 0.5, z = pr.y + 0.5, top = S.project(x + up.x*0.72, 2.5 + up.y*0.72, z + up.z*0.72);
       let y = top.y - 7*k;
-      if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : "−" + o.price + " max HP", top.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
+      if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : o.currency === "pact" ? "the price: " + DG.PACTS[o.pact].name : "−" + o.price + " max HP", top.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
       if(pr === named){
         const name = o.kind === "item" ? DG.ITEMS[o.id].name : o.kind === "gun" ? o.gun.name : o.kind === "active" ? DG.ACTIVES[o.id].name : o.name;
         const col = o.kind === "item" ? DG.TIERS[DG.ITEMS[o.id].tier].color : o.kind === "gun" ? DG.RARITY[o.gun.rarity].color : BONE;
