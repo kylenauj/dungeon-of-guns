@@ -454,13 +454,14 @@ function junglePond(D, rng, r, x0, y0, pw, ph){
   r.jungle = true;
   const cx = Math.floor(r.cxw);
   const ferns = [[r.x1 + 0.8, r.y1 + 0.8], [r.x2 + 0.2, r.y1 + 0.8], [r.x1 + 0.8, r.y2 + 0.2], [r.x2 + 0.2, r.y2 + 0.2], [r.x1 + 0.6, (r.y1 + r.y2)/2 + 0.5], [r.x2 + 0.4, (r.y1 + r.y2)/2 + 0.5], [x0 - 1, y0 - 0.5], [x0 + pw + 0.6, y0 + ph + 0.3]];
-  ferns.forEach(([x, y])=> D.decor.push({ kind:"bigfern", x, y, room:r.id, rot:rng.next()*6.28, s:0.9 + rng.next()*0.5 }));
+  ferns.forEach(([x, y])=> D.decor.push({ kind:"bigfern", x, y, room:r.id, rot:rng.next()*6.28, s:1.4 + rng.next()*0.6 }));
   for(let k=0;k<5;k++){ const x = x0 + 0.6 + rng.next()*(pw - 1.2), y = y0 + 0.4 + rng.next()*(ph - 1.8); D.decor.push({ kind:"lotus", x, y, room:r.id, rot:rng.next()*6.28, s:0.8 + rng.next()*0.5 }); }
   D.decor.push({ kind:"mossylog", x:r.x1 + 2.2, y:r.y2 - 0.2, room:r.id, rot:0.3, s:1 });
   D.decor.push({ kind:"frogstatue", x:x0 - 1.5, y:y0 + ph - 0.5, room:r.id, rot:0.5, s:0.7 });
   D.decor.push({ kind:"reeds", x:x0 + 1, y:y0 - 0.2, room:r.id, s:1.2 }, { kind:"reeds", x:x0 + pw - 1, y:y0 + ph + 0.1, room:r.id, s:1.1 });
-  D.decor.push({ kind:"waterfall", x:cx + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:1 });
-  for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(Math.abs(x - cx) > 1) D.decor.push({ kind:"junglevines", x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
+  const wx = cx + 3;   // (the sign hangs over the middle of the north wall)
+  D.decor.push({ kind:"waterfall", x:wx + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:1 });
+  for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(Math.abs(x - cx) > 1 && Math.abs(x - wx) > 1) D.decor.push({ kind:"junglevines", x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
 }
 const JUNGLE = { floor:["bigfern", "fern", "toadstools", "lotusbud", "mossylog", "fern"], wall:["junglevines", "glowmoss", "junglevines"] };
 

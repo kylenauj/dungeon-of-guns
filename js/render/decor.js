@@ -521,15 +521,15 @@ const B = {
  *  the blood bowl and the padlock (on vault doors and golden chests).
  * ================================================================== */
 const GOLD = 0xb8902e, GOLD2 = 0xd8b048, GOLD3 = 0x8a6a22, REDWAX = 0x6a1410, CRIMSON = 0x5a1210,
-      LEAF = [0x2e5a24, 0x3a6a2a, 0x48742e, 0x2a4e22], MOSSG = 0x2e4a24, BARK = 0x3a2c1e;
+      LEAF = [0x4a8a34, 0x5a9a3a, 0x6aa840, 0x3e7a2c], MOSSG = 0x2e4a24, BARK = 0x3a2c1e;
 /* a frond: a curved rib with leaflets down both sides (ferns, vines) */
 function frond(g, a, len, lean, droop, col, n){
   const pts = []; for(let k=0;k<=4;k++){ const t = k/4, r = len*t, h = Math.sin(lean)*len*t - droop*t*t*len; pts.push([Math.cos(a)*r*Math.cos(lean*0.4), 0.02 + Math.max(0, h), Math.sin(a)*r*Math.cos(lean*0.4)]); }
   P(g, K.tube(pts, 0.008, 6, 3), 0x2a3a1a);
   for(let k=1;k<n;k++){
     const t = k/n, i = Math.min(3, Math.floor(t*4)), f = t*4 - i, p0 = pts[i], p1 = pts[i + 1];
-    const x = p0[0] + (p1[0] - p0[0])*f, y = p0[1] + (p1[1] - p0[1])*f, z = p0[2] + (p1[2] - p0[2])*f, w = 0.11*(1 - t*0.7)*len;
-    [-1, 1].forEach(s=> P(g, BX(w, 0.006, 0.035*len), col, x + Math.cos(a + s*1.2)*w*0.45, y, z + Math.sin(a + s*1.2)*w*0.45, 0, -(a + s*1.2), s*0.25));
+    const x = p0[0] + (p1[0] - p0[0])*f, y = p0[1] + (p1[1] - p0[1])*f, z = p0[2] + (p1[2] - p0[2])*f, w = 0.17*(1 - t*0.65)*len;
+    [-1, 1].forEach(s=> P(g, BX(w, 0.008, 0.06*len), col, x + Math.cos(a + s*1.2)*w*0.45, y, z + Math.sin(a + s*1.2)*w*0.45, 0, -(a + s*1.2), s*0.25));
   }
 }
 function coins(g, rnd, n, r, y){ for(let i=0;i<n;i++){ const a = rnd()*PI*2, d = Math.sqrt(rnd())*r; P(g, CY(0.035, 0.035, 0.008, 8), [GOLD, GOLD2, GOLD3][i % 3], Math.cos(a)*d, (y || 0) + 0.005 + rnd()*0.02, Math.sin(a)*d, (rnd() - 0.5)*0.6, 0, (rnd() - 0.5)*0.6); } }
@@ -638,7 +638,7 @@ Object.assign(B, {
   /* a padlock: an iron body, a shackle, and a keyhole that glows (the world adds the glow) */
   padlock(o){
     const g = o.group;
-    P(g, BX(0.3, 0.26, 0.1), 0x4a3a2a, 0, 0, 0); P(g, BX(0.32, 0.04, 0.11), 0x2a2420, 0, 0.11, 0); P(g, BX(0.32, 0.04, 0.11), 0x2a2420, 0, -0.11, 0);
+    P(g, BX(0.3, 0.26, 0.1), 0x8a6a30, 0, 0, 0); P(g, BX(0.32, 0.04, 0.11), 0x2a2420, 0, 0.11, 0); P(g, BX(0.32, 0.04, 0.11), 0x2a2420, 0, -0.11, 0);
     P(g, TO(0.1, 0.025, PI, 6, 14), 0x3a3a3e, 0, 0.13, 0);
     [-1, 1].forEach(s=> P(g, BX(0.02, 0.02, 0.115), 0x6a5a3a, s*0.12, 0, 0));
     P(g, S(0.03, 8, 6), 0x0a0604, 0, 0.02, 0.05, 0, 0, 0, 1, 1, 0.4); P(g, BX(0.02, 0.06, 0.02), 0x0a0604, 0, -0.03, 0.05);
@@ -732,7 +732,7 @@ Object.assign(B, {
   /* the waterfall: mossy rocks down the wall and a basin at its foot (vanity.js runs the water) */
   waterfall(o, rnd){
     const g = o.group;
-    for(let i=0;i<9;i++){ const y = 0.1 + rnd()*1.6, x = (rnd() < 0.5 ? -1 : 1)*(0.32 + rnd()*0.25), r = 0.12 + rnd()*0.12; P(g, K.lump(r, 1, 0.3, rnd()*9), [0x4a4a44, 0x3a3e36][i % 2], x, y, 0.08, 0, 0, 0, 1, 0.8, 0.7); P(g, K.sculpt(new THREE.SphereGeometry(r*1.02, 10, 4, 0, PI*2, 0, PI/2), r*0.08, 9, i), MOSSG, x, y + r*0.2, 0.08, 0, 0, 0, 1, 0.5, 0.75); }
+    for(let i=0;i<9;i++){ const y = 0.1 + rnd()*1.6, x = (rnd() < 0.5 ? -1 : 1)*(0.45 + rnd()*0.25), r = 0.12 + rnd()*0.12; P(g, K.lump(r, 1, 0.3, rnd()*9), [0x4a4a44, 0x3a3e36][i % 2], x, y, 0.08, 0, 0, 0, 1, 0.8, 0.7); P(g, K.sculpt(new THREE.SphereGeometry(r*1.02, 10, 4, 0, PI*2, 0, PI/2), r*0.08, 9, i), MOSSG, x, y + r*0.2, 0.08, 0, 0, 0, 1, 0.5, 0.75); }
     P(g, K.lump(0.2, 1, 0.3, 7), 0x3e3e38, 0, 1.75, 0.15, 0, 0, 0, 1.6, 0.6, 1);
     P(g, TO(0.5, 0.1, PI, 6, 18), 0x4a4a44, 0, 0.06, 0.25, PI/2, 0, PI);
     frond(g, 0.3, 0.45, 0.6, 0.4, LEAF[0], 8); frond(g, 2.8, 0.45, 0.6, 0.4, LEAF[2], 8);

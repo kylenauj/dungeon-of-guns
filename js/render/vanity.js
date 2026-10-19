@@ -398,10 +398,13 @@ proto.buildRoomsVanity = function(){
     W.decorInto(lock, "padlock", null, { s:2.2 });
     const back = new THREE.Group(); back.position.set(0, 0.86, -0.16); back.rotation.y = PI; g.add(back);
     W.decorInto(back, "padlock", null, { s:2.2 });
-    const kh = [K.sprite(0xffc860, 0.9, 0.7), K.sprite(0xffc860, 0.9, 0.7)];
-    kh[0].position.set(0, 0.82, 0.32); kh[1].position.set(0, 0.82, -0.32); kh.forEach(k=> g.add(k));
-    W.areaGroup(a >= 0 ? a : d.room).add(g);
-    W.locks.push({ d, g, lock, back, chains, kh, t:-1 });
+    const kh = [K.sprite(0xffc860, 1.6, 0.8), K.sprite(0xffc860, 1.6, 0.8)];
+    kh[0].position.set(0, 0.95, 0.4); kh[1].position.set(0, 0.95, -0.4); kh.forEach(k=>{ k.renderOrder = 8; k.material.depthTest = false; g.add(k); });
+    // a warm glow on the floor in front, on the side you come from: this one wants a key
+    const io = { s:[0, -1], n:[0, 1], e:[-1, 0], w:[1, 0] }[d.side] || [0, 0];
+    const fl = new THREE.Mesh(K.glowPlane, K.glowMat(0xffb040, 0.45)); fl.scale.set(3.2, 1, 2.2); fl.position.set(d.x + io[0]*1.1, 0.04, d.y + io[1]*1.1); if(d.axis === "v") fl.rotation.y = PI/2;
+    W.areaGroup(a >= 0 ? a : d.room).add(g); W.areaGroup(a >= 0 ? a : d.room).add(fl);
+    W.locks.push({ d, g, lock, back, chains, kh, fl, t:-1 });
   });
   /* ---- secret walls: the tells ---- */
   const decals = {}, extra = [];
@@ -480,7 +483,7 @@ proto.buildJungle = function(r, rnd){
         "  vec3 c = mix(vec3(0.25, 0.45, 0.42), vec3(0.85, 0.95, 0.9), s*0.6 + (1.0 - y)*0.25);",
         "  gl_FragColor = vec4(c, e*(0.55 + 0.3*s)); }"].join("\n") });
     K.timed.push(wm); W.vanityMats.push(wm);
-    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 1.65), wm); sheet.position.set(d.x, 0.95, d.y + 0.14); sheet.renderOrder = 4; W.areaGroup(r.id).add(sheet);
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.75), wm); sheet.position.set(d.x, 0.9, d.y + 0.16); sheet.renderOrder = 4; W.areaGroup(r.id).add(sheet);
     const foam = K.sprite(0xd8f8f0, 1.2, 0.5); foam.position.set(d.x, 0.15, d.y + 0.35); W.areaGroup(r.id).add(foam);
     W.falls.push({ x:d.x, z:d.y + 0.4, room:r.id, foam });
   });
@@ -490,8 +493,9 @@ proto.updateRoomsVanity = function(G, dt, t){
   (W.jungleFlies || []).forEach(m=> m.uniforms.uScale.value = DG.Stage.renderer.domElement.height/2/Math.tan(DG.Stage.camera.fov*PI/360));
   // locks: the keyhole breathes; a key drops padlocks and chains to the floor
   W.locks.forEach(L=>{
-    if(L.d.locked){ L.kh.forEach(k=> k.material.opacity = 0.45 + 0.35*Math.sin(t*2.6)); return; }
+    if(L.d.locked){ L.kh.forEach(k=> k.material.opacity = 0.5 + 0.35*Math.sin(t*2.6)); L.fl.material.opacity = 0.32 + 0.14*Math.sin(t*2.6); return; }
     if(L.t < 0){ L.t = 0; L.kh.forEach(k=> k.visible = false); }
+    L.fl.material.opacity = Math.max(0, 0.45 - L.t*0.4);
     L.t += dt;
     const k = L.t;
     [L.lock, L.back].forEach((o, i)=>{ o.position.y = Math.max(0.12, 0.86 - k*k*5); o.rotation.z = Math.min(1.5, k*4)*(i ? -1 : 1); o.position.z = (i ? -1 : 1)*(0.16 + Math.min(0.5, k*0.7)); });
