@@ -791,6 +791,9 @@ Icons.ITEMS = {
   shatterglass:"shards+bounce", mirrorblink:"mirror", trailblazer:"prints+flame", spite:"nova+droplet", spikyhat:"hat+thorn", leech:"fang+droplet",
   siphon:"jar+wisp", papershield:"shield", lunchbox:"box", fireworks:"burst+star", tictoc:"clock", fizzlepop:"flask+burst", staticcling:"chain@shock",
   coldshoulder:"nova@frost", rotbloom:"flower@poison", popsicle:"icicle@frost", hotswap:"cycle+burst", spellecho:"tome+waves", midaspocket:"pouch", membercard:"scroll+coin",
+  brittlecrown:"crown~", tithe:"coin+chalice", pennyroll:"coin*2", interest:"tome+coin", syringe:"syringe+bolt", frenzy:"fang+bolt", itch:"claw+reticle",
+  sparebarrel:"gun+bullet", doubletap:"skull+waves", crowsnest:"bird+fan", ukulele:"bolt+chain", mortar:"bone+rocket", fractal:"spiral+burst", gasbag:"cloud@fire",
+  emberrelic:"jar@fire", frostrelic:"jar@frost", blightrelic:"jar@poison", stormrelic:"jar@shock", hexrelic:"jar@arcane",
   tadpact:"tadpole", froglock:"tadpole*3", lantern:"lantern@arcane", swampfeet:"prints+droplet", overkill:"skull*2", graverise:"tomb",
   /* element combos */
   plague:"beak@poison", wildfire:"flame*2@fire", brittle:"snowflake~@frost", conductor:"bolt*2@shock", thermal:"flame+snowflake",

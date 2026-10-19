@@ -70,6 +70,8 @@ const reword = s=>{
 };
 
 /* ---- events that put something on screen ---- */
+const ATTUNE_COL = { fire:"#e0703a", frost:"#8ad0ff", poison:"#9cd84a", shock:"#f0d84a", arcane:"#b88aff" };
+const ATTUNE_GLYPH = { fire:"♨", frost:"❄", poison:"☣", shock:"ϟ", arcane:"✶" };
 H.handle = function(ev, G){
   const p = G.player;
   switch(ev.type){
@@ -92,6 +94,7 @@ H.handle = function(ev, G){
     case "nocharge": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"not charged", t:0, col:DIM }); break;
     case "levelup": H.nums.push({ x:p.x, y:p.y, z:2.6, v:"LEVEL UP", t:0, col:XP, crit:true, big:true }); break;
     case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6, icons:[ev.id] }; break;
+    case "attune": H.card = { title:"Attunement " + ["", "I", "II", "III"][ev.tier] + " · " + ev.name, sub:ev.desc, col:ATTUNE_COL[ev.el] || GOLD, tier:"Your " + ev.el + " answers", t:0, life:4.5 }; break;
     case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5, icons:["set:" + ev.id] }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
     case "duo": { const duo = DG.DUOS.find(x=> x.name === ev.name); H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4, icons:duo ? [duo.a, duo.b] : null }; break; }
     case "ascend": { const gun = G.gun && G.gun(); H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5, icons:gun ? [DG.Icons.keyFor(gun)] : null }; break; }
@@ -366,7 +369,24 @@ H.draw = function(G, dt, opts){
     chip(g, cx, cy, cs, id, p.items[id]);
   });
   const fy = cy0 + Math.ceil(ids.length/perRow)*(cs + gap) - cs/2 + (ids.length ? 10*k : -4);
+  // attunement: a sigil per element you're building into, with its tier as pips
+  const att = (G.mods && G.mods.attuneSrc) || {};
+  const els = Object.keys(att).filter(e=> att[e] >= 1 && DG.ATTUNEMENT[e]).sort((a, b)=> att[b] - att[a]);
+  let ay = fy;
+  if(els.length){
+    els.forEach((e, i)=>{
+      const ax = x0 + 8*k + i*58*k, tier = (G.mods.attune || {})[e] || 0, col = ATTUNE_COL[e];
+      g.fillStyle = "rgba(10,8,8,.8)"; g.beginPath(); g.arc(ax, ay + 2, 8*k, 0, Math.PI*2); g.fill();
+      g.strokeStyle = col; g.lineWidth = tier ? 2 : 1; g.globalAlpha = tier ? 1 : 0.5; g.stroke(); g.globalAlpha = 1;
+      text(g, ATTUNE_GLYPH[e], ax, ay + 3, 10*k, col, "center", "700");
+      // the pips: filled for tiers reached, the next one shows how close you are
+      for(let t=0; t<3; t++){ const px = ax + 13*k + t*9*k, on = t < tier; g.fillStyle = on ? col : "rgba(90,80,70,.7)"; g.beginPath(); g.arc(px, ay + 2, 3*k, 0, Math.PI*2); g.fill(); }
+      text(g, att[e] + "", ax + 42*k, ay + 3, 9*k, DIM, "left", "600", BOOK);
+    });
+    ay += 20*k;
+  }
   if(G.gribbus && G.gribbus.buffs.length){
+    const fy = ay;
     text(g, "GRIBBUS", x0, fy + 2, 10*k, GREEN, "left", "700", SERIF, 1.5);
     G.gribbus.buffs.forEach((b, i)=> chip(g, x0 + 70*k + i*(cs*0.8 + gap), fy + 2, cs*0.8, "frog:" + b));
   }

@@ -200,6 +200,33 @@ DG.ITEMS = {
   lastrites:  I({ name:"Last Rites",         tier:2, pools:"bx",   desc:"Bosses take 25% more damage from everything.", flavor:"Read aloud over the not-yet-dead.", special:"bossbane" }),
   bloodmoon:  I({ name:"Blood Moon",         tier:3, pools:"bxa",  desc:"+15% crit, crits hit 50% harder, and a third of crits heal 1.", flavor:"The hunt is on tonight.", stats:{ crit:0.15, critMul:0.5 }, on:{ crit:[{ do:"heal", n:1, chance:0.33 }] } }),
 
+  /* ---------------- the stackers (Risk of Rain's): find them again and again,
+     every copy adds more. stack:true items can come back after they've been offered ---------------- */
+  // coin
+  brittlecrown:I({ name:"Brittle Crown",     tier:1, pools:"tsx",  stack:true, desc:"1 hit in 16 knocks a coin loose (more per copy). Getting hurt spills 5% of your gold.", flavor:"Heavy is the head. Heavier the purse.", on:{ hit:[{ do:"gold", n:1, chance:0.06 }] }, special:"brittlecrown" }),
+  tithe:      I({ name:"Golden Tithe",       tier:1, pools:"tsx",  stack:true, desc:"+1% damage for every 15 gold you carry (per copy), up to +100%.", flavor:"Faith is expensive.", special:"mortgage" }),
+  pennyroll:  I({ name:"Roll of Pennies",    tier:0, pools:"ts",   stack:true, desc:"Getting hurt spills 6 coins out of you (per copy).", flavor:"Cushioned the blow. Mostly.", on:{ hurt:[{ do:"gold", n:6, at:"player" }] } }),
+  interest:   I({ name:"Usurer's Ledger",    tier:1, pools:"tsx",  stack:true, desc:"Clearing a room pays you 8% of the gold you carry (per copy, at most 30 a room).", flavor:"The dead pay interest too.", special:"interest" }),
+  // attack speed
+  syringe:    I({ name:"Rusty Syringe",      tier:0, pools:"tsb",  stack:true, desc:"+12% fire rate (per copy).", flavor:"Don't ask what was in it before.", stats:{ rate:0.12 } }),
+  frenzy:     I({ name:"Berserker's Tooth",  tier:1, pools:"tsb",  stack:true, desc:"Each kill gives +5% fire rate for 3 seconds, stacking up to 6 times (6 more per copy).", flavor:"It's still biting.", special:"frenzy" }),
+  itch:       I({ name:"Predator's Itch",    tier:1, pools:"ts",   stack:true, desc:"Crits give +4% fire rate for 2 seconds, stacking up to 8 times (8 more per copy). +5% crit.", flavor:"Can't stop. Won't stop.", stats:{ crit:0.05 }, special:"itch" }),
+  // multishot
+  sparebarrel:I({ name:"Spare Barrel",       tier:1, pools:"tsb",  stack:true, desc:"+1 shot per volley (per copy). -12% damage (per copy).", flavor:"Bolted on with optimism.", shot:{ extra:1 }, stats:{ dmg:-0.12 } }),
+  doubletap:  I({ name:"Echoing Skull",      tier:1, pools:"tb",   stack:true, desc:"15% chance a volley fires twice (more per copy).", flavor:"It repeats everything you say. And shoot.", special:"doubletap" }),
+  crowsnest:  I({ name:"Crow's Nest",        tier:1, pools:"ts",   stack:true, desc:"Every 5th volley throws a fan of 3 extra shots (3 more per copy).", flavor:"The crows help. Sort of.", special:"fan" }),
+  // chain procs
+  ukulele:    I({ name:"Cursed Ukulele",     tier:1, pools:"tsb",  stack:true, desc:"1 hit in 5 throws lightning to 3 goblins (more often per copy).", flavor:"One string. All of them out of tune.", on:{ hit:[{ do:"chain", jumps:3, dmg:0.6, chance:0.2, el:"shock" }] } }),
+  mortar:     I({ name:"Grave Mortar",       tier:2, pools:"tbx",  stack:true, desc:"1 hit in 10 launches a homing bone missile for triple damage (more often per copy).", flavor:"It fires the dead. Respectfully.", on:{ hit:[{ do:"missile", dmg:3, chance:0.1 }] } }),
+  fractal:    I({ name:"Fractal Fuse",       tier:2, pools:"bx",   stack:true, desc:"What your items make can set off your items once more (one level deeper per copy, three at most).", flavor:"Each spark lights two more.", special:"fractal" }),
+  gasbag:     I({ name:"Bog Gas Bladder",    tier:0, pools:"ts",   stack:true, desc:"Kills burst into a small cloud of fire (bigger per copy).", flavor:"Do not puncture. Too late.", on:{ kill:[{ do:"nova", r:1.4, dmg:0.5, el:"fire" }] } }),
+  // the reliquaries: each counts as two sources of its element towards attunement
+  emberrelic: I({ name:"Ember Reliquary",    tier:1, pools:"tsb",  stack:true, desc:"Counts as 2 sources of fire for attunement. +10% damage while your shots carry fire.", flavor:"A finger bone that won't stop smouldering.", attune:{ fire:2 }, special:"relic_fire" }),
+  frostrelic: I({ name:"Hoarfrost Reliquary",tier:1, pools:"tsb",  stack:true, desc:"Counts as 2 sources of frost for attunement. +10% damage while your shots carry frost.", flavor:"Cold enough to keep a saint fresh.", attune:{ frost:2 }, special:"relic_frost" }),
+  blightrelic:I({ name:"Blight Reliquary",   tier:1, pools:"tsb",  stack:true, desc:"Counts as 2 sources of poison for attunement. +10% damage while your shots carry poison.", flavor:"The jar is sweating.", attune:{ poison:2 }, special:"relic_poison" }),
+  stormrelic: I({ name:"Storm Reliquary",    tier:1, pools:"tsb",  stack:true, desc:"Counts as 2 sources of shock for attunement. +10% damage while your shots carry shock.", flavor:"Your hair stands up near it. So does Gribbus'.", attune:{ shock:2 }, special:"relic_shock" }),
+  hexrelic:   I({ name:"Hex Reliquary",      tier:1, pools:"tsb",  stack:true, desc:"Counts as 2 sources of arcane for attunement. +10% damage while your shots carry arcane.", flavor:"It hums a hymn nobody taught it.", attune:{ arcane:2 }, special:"relic_arcane" }),
+
   /* ---------------- legendary ---------------- */
   hydra:      I({ name:"Hydra Wand",         tier:3, pools:"bxa",  desc:"Shots split into three on every bounce. +2 bounces.", shot:{ bounces:2, bounceSplit:1 } }),
   stormcaller:I({ name:"Stormcaller",        tier:3, pools:"bxa",  desc:"Every 2.5 seconds in a fight, lightning strikes and leaps 4 times.", on:{ tick:[{ do:"chain", jumps:4, dmg:1.6, every:2.5, target:"random" }] } }),
@@ -490,8 +517,81 @@ function addDef(M, d, n){
   if(d.special) M.special[d.special] = (M.special[d.special] || 0) + n;
 }
 
+/* ---- attunement: build into one element and it answers. Sources of an element
+   are items that put it on your shots or are made of it, its reliquaries
+   (two each), boons that work with it, a transformation of it, and the gun in
+   your hand. At 2, 4 and 6 sources you reach Attunement I, II and III, and
+   each tier adds the next row below on top of the last. ---- */
+DG.ATTUNE_AT = [2, 4, 6];
+DG.ATTUNEMENT = {
+  fire:[
+    { name:"Kindled",        desc:"Burns last 25% longer; 1 hit in 12 flares up.", stats:{ statusDur:0.25 }, on:{ hit:[{ do:"nova", r:1.1, dmg:0.35, el:"fire", chance:0.08 }] } },
+    { name:"Wildfire",       desc:"Burning goblins explode into flames when they die.", special:"wildfire" },
+    { name:"Pyre",           desc:"+15% damage, and every 4 seconds in a fight a ring of fire bursts around you.", stats:{ dmg:0.15 }, on:{ tick:[{ do:"nova", r:3.2, dmg:1.2, el:"fire", every:4, at:"player" }] } }],
+  frost:[
+    { name:"Rimed",          desc:"Chills last 25% longer; 1 hit in 10 chills outright.", stats:{ statusDur:0.25 }, on:{ hit:[{ do:"status", st:"chill", t:1.5, chance:0.1 }] } },
+    { name:"Brittle",        desc:"Chilled and frozen goblins take 35% more damage.", special:"brittle" },
+    { name:"Deep Winter",    desc:"+15% damage; kills shatter into ice; a frost nova every 4.5 seconds.", stats:{ dmg:0.15 }, on:{ kill:[{ do:"shards", n:5, dmg:0.4 }], tick:[{ do:"nova", r:3.2, dmg:1, el:"frost", every:4.5, at:"player" }] } }],
+  poison:[
+    { name:"Festering",      desc:"Poison lasts 30% longer; kills leave a toxic puddle 1 time in 4.", stats:{ statusDur:0.3 }, on:{ kill:[{ do:"byproduct", el:"poison", chance:0.25 }] } },
+    { name:"Plague",         desc:"Poison jumps from goblin to goblin.", special:"plague" },
+    { name:"Pestilence",     desc:"+15% damage, and you leave a trail of poison in a fight.", stats:{ dmg:0.15 }, on:{ tick:[{ do:"byproduct", el:"poison", at:"player", every:1.2, moving:true }] } }],
+  shock:[
+    { name:"Charged",        desc:"1 hit in 10 arcs to 2 more goblins.", on:{ hit:[{ do:"chain", jumps:2, dmg:0.5, chance:0.1, el:"shock" }] } },
+    { name:"Conductor",      desc:"Arcs jump twice more.", special:"conductor" },
+    { name:"Stormcalled",    desc:"+15% damage, and lightning strikes a goblin every 3 seconds in a fight.", stats:{ dmg:0.15 }, on:{ tick:[{ do:"chain", jumps:3, dmg:1.2, every:3, target:"random", el:"shock" }] } }],
+  arcane:[
+    { name:"Hexed",          desc:"+8% damage; 1 hit in 8 marks a goblin.", stats:{ dmg:0.08 }, on:{ hit:[{ do:"status", st:"marked", t:3, chance:0.12 }] } },
+    { name:"Soulbound",      desc:"A third of kills rise as an arcane wisp.", on:{ kill:[{ do:"wisp", n:1, el:"arcane", chance:0.33 }] } },
+    { name:"Runeborn",       desc:"+15% damage, and every 4 seconds in a fight a ring of 8 arcane bolts flies out.", stats:{ dmg:0.15 }, on:{ tick:[{ do:"ring", n:8, dmg:0.8, el:"arcane", every:4 }] } }]
+};
+/* which element a special or a payload belongs to, for counting sources */
+const SPECIAL_EL = { wildfire:"fire", brittle:"frost", plague:"poison", conductor:"shock", static:"shock", plaguestorm:"poison", fireice:"frost",
+  relic_fire:"fire", relic_frost:"frost", relic_poison:"poison", relic_shock:"shock", relic_arcane:"arcane", wispcraft:"arcane" };
+Items.elSources = function(d){
+  if(d._els) return d._els;
+  const out = {};
+  const add = (e, n)=>{ if(DG.ELEMENTS && !DG.ELEMENTS[e]) return; out[e] = Math.max(out[e] || 0, n); };
+  (d.els || []).forEach(e=> add(e, 1));
+  if(d.special && SPECIAL_EL[d.special]) add(SPECIAL_EL[d.special], 1);
+  for(const k in d.on || {}) d.on[k].forEach(pl=>{ if(pl.el) add(pl.el, 1); });
+  for(const e in d.attune || {}) out[e] = d.attune[e];
+  return d._els = out;
+};
+/* build archetypes, read off what a thing does (plus any it names itself) */
+Items.tagsOf = function(d){
+  if(d._tags) return d._tags;
+  const t = {}, st = d.stats || {}, sh = d.shot || {}, sp = d.special || "", on = d.on || {};
+  const pls = []; for(const k in on) on[k].forEach(pl=> pls.push([k, pl]));
+  const has = f=> pls.some(([k, pl])=> f(k, pl));
+  if(st.gold > 0 || st.magnet > 0 || has((k, pl)=> pl.do === "gold") || /midas|penny|member|mortgage|interest|brittlecrown/.test(sp)) t.coin = 1;
+  if(st.rate > 0 || st.reload > 0 || sh.burst || /frenzy|itch|patience/.test(sp)) t.attackspeed = 1;
+  if(sh.extra > 0 || sh.side || sh.back || sh.kaleido || sh.split || sh.echo || sh.orbit || sh.bounceSplit || /doubletap|fan|dualwield|shadow/.test(sp)) t.multishot = 1;
+  if(has((k)=> k === "hit" || k === "crit" || k === "bounce" || k === "wall") || has((k, pl)=> pl.do === "chain" || pl.do === "missile") || /conductor|overkill|fractal|recursion|chainreaction/.test(sp)) t.proc = 1;
+  if(st.crit > 0 || st.critMul > 0 || on.crit) t.crit = 1;
+  if(st.frogDmg > 0 || st.frogRate > 0 || has((k, pl)=> pl.do === "tadpole") || /twister|frogsona|frogswarm/.test(sp)) t.frog = 1;
+  if(has((k, pl)=> pl.do === "wisp" || pl.do === "bee" || pl.do === "ghoul" || pl.do === "tadpole") || /moons|shadow|haunted|wisplord/.test(sp)) t.summons = 1;
+  if(st.hp > 0 || st.wards > 0 || has((k, pl)=> pl.do === "heal" || pl.do === "ward") || /darksign|lifesteal|briar/.test(sp)) t.tank = 1;
+  for(const e in Items.elSources(d)) t["el:" + e] = 1;
+  (d.tags || []).forEach(x=> t[x] = 1);
+  return d._tags = Object.keys(t);
+};
+/* where a build is heading: tag counts over what you own (2+ makes a direction) */
+Items.direction = function(items, boons){
+  const n = {};
+  for(const id in items || {}) if(DG.ITEMS[id]) Items.tagsOf(DG.ITEMS[id]).forEach(t=> n[t] = (n[t] || 0) + items[id]);
+  (boons || []).forEach(id=>{ if(DG.BOONS[id]) Items.tagsOf(DG.BOONS[id]).forEach(t=> n[t] = (n[t] || 0) + 1); });
+  for(const t in n) if(n[t] < 2) delete n[t];
+  return n;
+};
+/* how much a thing pulls toward a direction: 0 for nothing in common */
+Items.pull = function(d, dir){
+  let k = 0; Items.tagsOf(d).forEach(t=>{ if(dir[t]) k += Math.min(4, dir[t]); });
+  return k;
+};
+
 /* items: { id: count }, boons: [ids], extra: item ids active right now (the held gun's innate ones) */
-Items.build = function(items, boons, extra){
+Items.build = function(items, boons, extra, gunEl){
   const M = Items.blank();
   for(const id in items) if(DG.ITEMS[id]) addDef(M, DG.ITEMS[id], items[id]);
   (boons || []).forEach(id=> DG.BOONS[id] && addDef(M, DG.BOONS[id], 1));
@@ -501,7 +601,22 @@ Items.build = function(items, boons, extra){
   M.sets = [];
   DG.SETS.forEach(s=>{ if(s.items.filter(id=> items[id]).length >= s.need){ M.sets.push(s.id); addDef(M, s, 1); } });
   if(M.special.prismheart) DG.ELEMENT_ORDER.forEach(e=>{ if(M.els.indexOf(e) < 0) M.els.push(e); });
-  M.maxDepth = 1 + (M.special.recursion ? 2 : 0);
+  // attunement: count each element's sources, then add its tiers
+  const src = {};
+  const count = (d, n)=>{ const e = Items.elSources(d); for(const k in e) src[k] = (src[k] || 0) + e[k]*(n || 1); };
+  for(const id in items) if(DG.ITEMS[id]) count(DG.ITEMS[id], items[id]);
+  (boons || []).forEach(id=> DG.BOONS[id] && count(DG.BOONS[id], 1));
+  (extra || []).forEach(id=> DG.ITEMS[id] && count(DG.ITEMS[id], 1));
+  DG.SETS.forEach(s=>{ if(M.sets.indexOf(s.id) >= 0) (s.els || []).forEach(e=> src[e] = (src[e] || 0) + 1); });
+  if(gunEl) src[gunEl] = (src[gunEl] || 0) + 1;
+  M.attuneSrc = src; M.attune = {};
+  for(const e in src){
+    const tier = DG.ATTUNE_AT.filter(n=> src[e] >= n).length;
+    if(!tier || !DG.ATTUNEMENT[e]) continue;
+    M.attune[e] = tier;
+    for(let t=0; t<tier; t++) addDef(M, DG.ATTUNEMENT[e][t], 1);
+  }
+  M.maxDepth = 1 + (M.special.recursion ? 2 : 0) + Math.min(2, M.special.fractal || 0);
   return M;
 };
 
@@ -543,8 +658,8 @@ Items.roll = function(G, pool){
   const tierW = w.map((x, i)=> x*Math.pow(push, i));
   for(let tries=0; tries<6; tries++){
     const tier = rng.weighted(tierW.map((x, i)=> ({ i, w:x }))).i;
-    const cand = P.filter(id=> DG.ITEMS[id].tier === tier && !G.seenItems[id]);
-    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id)*fresh(G, id) }))).id; Items.offer(G, id); return id; }
+    const cand = P.filter(id=> DG.ITEMS[id].tier === tier && (!G.seenItems[id] || DG.ITEMS[id].stack));
+    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id)*fresh(G, id)*buildPull(G, id)*stackW(G, id) }))).id; Items.offer(G, id); return id; }
   }
   // the pool's run dry at those tiers: anything left, anywhere
   const any = Object.keys(DG.ITEMS).filter(id=> !G.seenItems[id] && DG.ITEMS[id].tier < 4);
@@ -555,6 +670,15 @@ Items.offer = function(G, id){ G.seenItems[id] = true; };
 /* what you carried in your last runs turns up less, so one run's build isn't
    the next run's too (G.meta.recent: item ids from the last two runs) */
 const STALE = 0.3;
+/* a stacker you already carry turns up less with each copy */
+function stackW(G, id){ const d = DG.ITEMS[id]; if(!d.stack) return 1; const n = (G.player && G.player.items[id]) || 0; return (G.seenItems[id] ? 0.6 : 1)*Math.pow(0.6, n); }
+/* things that fit where your build is heading turn up more (never always) */
+const BUILD_PULL = 0.3, BUILD_PULL_MAX = 2.5;
+function buildPull(G, id){
+  if(!G.player) return 1;
+  const dir = Items.direction(G.player.items, G.player.boons);
+  return Math.min(BUILD_PULL_MAX, 1 + BUILD_PULL*Items.pull(DG.ITEMS[id], dir));
+}
 function fresh(G, id){ const r = G.meta && G.meta.recent; return r && r.indexOf(id) >= 0 ? STALE : 1; }
 /* at the end of a run: remember what it carried (this run, then the one before) */
 Items.remember = function(G){
@@ -578,13 +702,16 @@ function setPull(G, id){
    choices keep changing */
 Items.rollBoons = function(G, n){
   const p = G.player, owned = p.boons, recent = (p.boonOffers || []).flat();
+  const dir = Items.direction(p.items, owned);
   const cand = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3).map(id=>{
     const have = owned.filter(x=> x === id).length, b = DG.BOONS[id];
-    return { id, w:(b.rare ? 0.45 : 1)*(have ? 0.5/have : 1)*(recent.indexOf(id) >= 0 ? 0.15 : 1) };
+    return { id, w:(b.rare ? 0.45 : 1)*(have ? 0.5/have : 1)*(recent.indexOf(id) >= 0 ? 0.15 : 1), pull:Items.pull(b, dir) };
   });
   const pick = [];
   while(pick.length < n && cand.length){
-    const c = G.rng.weighted(cand); pick.push(c.id); cand.splice(cand.indexOf(c), 1);
+    // once a build has a direction, the first boon offered usually follows it
+    const lead = !pick.length && Object.keys(dir).length;
+    const c = G.rng.weighted(cand, o=> o.w*(lead ? (o.pull ? 1 + 2*o.pull : 0.25) : 1)); pick.push(c.id); cand.splice(cand.indexOf(c), 1);
   }
   p.boonOffers = [pick].concat(p.boonOffers || []).slice(0, 2);
   return pick;

@@ -187,6 +187,9 @@ proto.handle = function(ev){
     case "cloud": FX.disc(ev.x, ev.y, ev.r, 0x7dff3a, 0.5); play("cloud"); break;
     case "fizzle": FX.burst(ev.x, 0.8, ev.y, 0xfff04a, 6, 2, 0.2, 0.3); play("error"); break;
     case "healBeam": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x5aff8a, 0.3); FX.rise(ev.x2, ev.y2, 0x5aff8a, 8, 0.4); play("heal"); break;
+    case "attune": { const c = { fire:0xff7a3a, frost:0x8ad8ff, poison:0x9cff3a, shock:0xfff04a, arcane:0xb36bff }[ev.el] || 0xffd27a; FX.rise(G.player.x, G.player.y, c, 18 + ev.tier*6, 0.8); FX.ring(G.player.x, G.player.y, 2 + ev.tier, c, 0.7); play("duo"); break; }
+    case "goldLost": FX.burst(ev.x, 0.8, ev.y, 0xc8a050, 8, 2.5, 0.12, 0.5); break;
+    case "interest": play("coin"); break;
     case "mastery": FX.rise(ev.x, ev.y, 0xffd27a, 16, 0.7); FX.ring(ev.x, ev.y, 1.8, 0xc8a050, 0.6); play("duo"); break;
     case "key": if(DG.HUD) DG.HUD.keyT = 0.8; play("pickup"); break;
     case "unlock": FX.burst(ev.x, 1, ev.y, 0xd8a060, 14, 2.5, 0.15, 0.5); S.shake(0.2); play("doorOpen"); break;

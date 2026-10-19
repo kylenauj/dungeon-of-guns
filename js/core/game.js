@@ -53,7 +53,10 @@ proto.drain = function(){ const e = this.events; this.events = []; return e; };
 proto.recalc = function(){
   const G = this, p = G.player, g = p.guns[p.cur];
   const extra = g ? (g.innate || []) : [];
-  const M = G.mods = Items.build(p.items, p.boons, extra);
+  const was = G.mods && G.mods.attune ? G.mods.attune : {};
+  const M = G.mods = Items.build(p.items, p.boons, extra, g ? g.element : null);
+  // reaching a new tier of attunement is worth announcing
+  for(const e in M.attune) if(M.attune[e] > (was[e] || 0) && G.player.ready !== false){ const T = DG.ATTUNEMENT[e][M.attune[e] - 1]; G.emit("attune", { el:e, tier:M.attune[e], name:T.name, desc:T.desc }); }
   const hpBefore = p.maxHp;
   p.maxHp = Math.max(20, DG.PLAYER.hp + M.hp - (p.altarLoss || 0));
   p.maxMana = DG.PLAYER.mana + M.mana;
@@ -402,6 +405,8 @@ proto.hurtPlayer = function(amt, why, force){
     p.hp -= amt;
     G.emit("hurt", { amt, why, x:p.x, y:p.y });
     if(G.mods.special.vengeance) p.vengeT = G.t + 4;
+    // the Brittle Crown: getting hurt spills your gold
+    if(G.mods.special.brittlecrown && p.gold > 0){ const lost = Math.max(1, Math.round(p.gold*0.05)); p.gold -= lost; G.emit("goldLost", { x:p.x, y:p.y, n:lost }); }
   }
   G.trigger("hurt", { x:p.x, y:p.y, depth:0 });
   // the Darksign: once a floor, death doesn't take
@@ -662,6 +667,8 @@ proto.clearRoom = function(r){
   G.chargeActive(1);
   G.trigger("clear", { x:G.player.x, y:G.player.y, depth:0 });
   G.player.hollow = 0;
+  // the Usurer's Ledger: interest on what you carry
+  if(G.mods.special.interest && G.player.gold > 0){ const n = Math.min(30*G.mods.special.interest, Math.round(G.player.gold*0.08*G.mods.special.interest)); if(n > 0){ G.player.gold += n; G.emit("interest", { n }); } }
   if(G.mods.special.kindled && G.player.darksignUsed){ G.player.darksignUsed = false; G.emit("darksignLit", { x:G.player.x, y:G.player.y }); }
   G.allies.forEach(a=>{ if(a.kind === "tadpole" || a.kind === "wisp") a.life = Math.min(a.life, 1.5); });
   if(r.type === "boss") return;

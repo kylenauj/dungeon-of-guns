@@ -44,7 +44,17 @@ proto.dmgBonus = function(){
   if(M.special.vengeance && G.t < (p.vengeT || 0)) m *= 1.5;
   if(M.special.hollowing) m *= 1 + 0.05*Math.min(12, p.hollow || 0);
   if(G.t < (p.tollT || 0)) m *= 1.3;
+  // Golden Tithe: your purse is your power
+  if(M.special.mortgage) m *= 1 + Math.min(1, 0.01*M.special.mortgage*Math.floor(p.gold/15));
+  // the reliquaries: +10% each while your shots carry their element
+  RELICS.forEach(([sp, el])=>{ if(M.special[sp] && (M.els.indexOf(el) >= 0 || (G.gun() && G.gun().element === el))) m *= 1 + 0.1*M.special[sp]; });
   return m;
+};
+const RELICS = [["relic_fire", "fire"], ["relic_frost", "frost"], ["relic_poison", "poison"], ["relic_shock", "shock"], ["relic_arcane", "arcane"]];
+/* fire rate from the stacking frenzies (Berserker's Tooth, Predator's Itch) */
+proto.rateBonus = function(){
+  const p = this.player, t = this.t;
+  return 1 + (t < (p.frenzyT || 0) ? 0.05*(p.frenzy || 0) : 0) + (t < (p.itchT || 0) ? 0.04*(p.itch || 0) : 0);
 };
 
 /* ================================================================== *
@@ -52,12 +62,20 @@ proto.dmgBonus = function(){
  * ================================================================== */
 proto.fireGun = function(g, s){
   const G = this, p = G.player;
-  g.ammo--; p.fireCd = 1/s.rate;
+  g.ammo--; p.fireCd = 1/(s.rate*G.rateBonus());
   let mul = G.dmgBonus();
   if(G.mods.special.patience) mul *= 1 + Math.min(1, (G.t - (p.lastShot || 0))/1.5);
   p.lastShot = G.t; p.volleys++;
   const disco = !!G.mods.special.disco && p.volleys % 5 === 0;
   G.fireVolley(p.x, p.y, p.aim, g, s, { mul, from:"player", disco });
+  const M = G.mods;
+  // Echoing Skull: sometimes the volley comes again
+  if(M.special.doubletap && G.chance(Math.min(0.6, 0.15*M.special.doubletap))) G.pending.push({ t:0.09, fn:()=>{ if(G.player.alive !== false) G.fireVolley(p.x, p.y, p.aim, g, s, { mul:mul*0.8, from:"player" }); } });
+  // Crow's Nest: every 5th volley, a fan
+  if(M.special.fan && p.volleys % 5 === 0){
+    const n = 3*M.special.fan;
+    for(let i=0;i<n;i++){ const a = p.aim + (i - (n - 1)/2)*0.16; G.addShot({ x:p.x, y:p.y, a, speed:s.speed, r:0.12, dmg:s.dmg*0.6*mul, range:s.range*0.8, els:G.shotEls(g), power:s.power, depth:0, crit:s.crit, critMul:s.critMul }); }
+  }
   // Thunder Socks: a charged shot throws lightning too
   if(G.mods.special.static && p.static >= 1){
     const t = G.nearestEnemy(p.x, p.y, 10);
@@ -336,7 +354,10 @@ proto.damageEnemy = function(e, amt, src){
   if(M.special.bossbane && e.boss) m *= 1.25;
   if(M.special.firsthit && !src.dot && !e.firstHit){ e.firstHit = true; m *= 3; }
   let crit = false;
-  if(!src.dot && src.crit && G.chance(src.crit)){ m *= src.critMul || 2; crit = true; }
+  if(!src.dot && src.crit && G.chance(src.crit)){
+    m *= src.critMul || 2; crit = true;
+    if(M.special.itch){ const p = G.player; p.itch = Math.min(8*M.special.itch, (G.t < (p.itchT || 0) ? p.itch || 0 : 0) + 1); p.itchT = G.t + 2; }
+  }
   const d = amt*m;
   e.hp -= d; e.flash = 0.1;
   G.stats.dmg += d;
@@ -481,6 +502,7 @@ proto.killEnemy = function(e, src, fell){
   if(e.decoy){ G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, decoy:true }); return; }
   G.stats.kills++;
   if(M.special.hollowing) p.hollow = Math.min(12, (p.hollow || 0) + (e.executed && M.special.reaper ? 2 : 1));
+  if(M.special.frenzy){ p.frenzy = Math.min(6*M.special.frenzy, (G.t < (p.frenzyT || 0) ? p.frenzy || 0 : 0) + 1); p.frenzyT = G.t + 3; }
   G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, boss:!!e.boss, fell:!!fell, midas:!!M.special.midas });
   p.mana = Math.min(p.maxMana, p.mana + DG.PLAYER.manaOnKill + M.killMana);
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
@@ -646,6 +668,12 @@ proto.payload = function(pl, ctx){
       break;
     }
     case "candy": G.addPickup("flyheal", x, y, 1); break;
+    case "missile": {
+      // a homing bone missile off the hit
+      const a = rng.next()*TAU;
+      G.addShot({ x, y, a, speed:10, r:0.16, dmg:P*(pl.dmg || 3)*0.6, range:14, els, power:s.power, depth, kind:"missile", homing:2.5 });
+      break;
+    }
     case "toll":
       G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, pl.t || 1.5); });
       G.emit("toll", { x:p.x, y:p.y });

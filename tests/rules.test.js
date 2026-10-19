@@ -806,7 +806,7 @@ test("blocks standing in a 2x2 square are drawn as one big obstacle", ()=>{
  * ================================================================== */
 test("every item is well formed: real payloads, real tiers and pools, a description", ()=>{
   const PAYLOADS = ["byproduct", "shards", "wisp", "burst", "chain", "nova", "ring", "tadpole", "heal", "mana", "ward", "gold", "blackhole",
-    "status", "shrink", "stickybomb", "gum", "bee", "ghoul", "hiccup", "shove", "candy", "dice", "toll"];
+    "status", "shrink", "stickybomb", "gum", "bee", "ghoul", "hiccup", "shove", "candy", "dice", "toll", "missile"];
   const check = (d, who)=>{ for(const k in d.on || {}) d.on[k].forEach(pl=> assert.ok(PAYLOADS.indexOf(pl.do) >= 0, who + ": unknown payload " + pl.do)); };
   for(const id in DG.ITEMS){
     const d = DG.ITEMS[id];
@@ -1032,4 +1032,74 @@ test("keys: you start with one, find more, and a locked door wants one", ()=>{
   assert.ok(d.locked && !d.open, "no key, no entry");
   p.keys = 1; G.unlockDoor(d);
   assert.ok(!d.locked && d.open && p.keys === 0, "a key opens it, and is spent");
+});
+
+/* ================================================================== *
+ *  Builds you can plan: attunement, guided offers, the stackers
+ * ================================================================== */
+test("attunement: sources of one element unlock its tiers", ()=>{
+  const none = DG.Items.build({}, [], [], "fire");
+  assert.ok(!none.attune.fire, "the gun alone isn't enough");
+  const one = DG.Items.build({ emberrounds:1 }, [], [], "fire");
+  assert.equal(one.attune.fire, 1, "gun + Ember Rounds: Attunement I");
+  const two = DG.Items.build({ emberrounds:1, emberrelic:1, wildfire:1 }, [], [], "fire");
+  assert.equal(two.attune.fire, 2);
+  assert.ok(two.special.wildfire >= 2, "II brings Wildfire on top of the item");
+  const three = DG.Items.build({ emberrounds:1, emberrelic:2, inferno:1 }, [], [], "fire");
+  assert.equal(three.attune.fire, 3, "III");
+  assert.ok(three.on.tick.some(pl=> pl.el === "fire" && pl.do === "nova"), "the Pyre");
+  const G = game("ATTUNE"); G.giveItem("frostrounds", true);
+  G.player.guns[0].element = "frost"; G.recalc(); G.drain();
+  G.giveItem("frostrelic", true);
+  assert.ok(G.drain().some(e=> e.type === "attune" && e.el === "frost"), "reaching a tier is announced");
+});
+
+test("offers lean toward where your build is heading, but not always", ()=>{
+  const coinish = id=> DG.Items.tagsOf(DG.ITEMS[id]).indexOf("coin") >= 0;
+  const count = withBuild=>{
+    let hits = 0, n = 0;
+    for(let s=0; s<80; s++){
+      const G = game("LEAN" + s);
+      if(withBuild){ ["midaspocket", "magnet", "tithe"].forEach(id=> G.player.items[id] = 1); }
+      for(let k=0;k<6;k++){ const id = DG.Items.roll(G, "t"); n++; if(coinish(id)) hits++; }
+    }
+    return hits/n;
+  };
+  const base = count(false), lean = count(true);
+  assert.ok(lean > base*1.3, "a coin build sees more coin items: " + lean.toFixed(2) + " vs " + base.toFixed(2));
+  assert.ok(lean < 0.7, "but it's still a roll");
+  // boons: the first of three usually follows the build
+  let follow = 0;
+  for(let s=0; s<60; s++){
+    const G = game("BOONLEAN" + s); ["syringe", "frenzy", "coffee"].forEach(id=> G.player.items[id] = 1);
+    const o = DG.Items.rollBoons(G, 3);
+    if(DG.Items.tagsOf(DG.BOONS[o[0]]).indexOf("attackspeed") >= 0) follow++;
+  }
+  assert.ok(follow > 30 && follow < 60, "the lead boon follows the build most of the time: " + follow + "/60");
+});
+
+test("stackers can turn up again, and stack", ()=>{
+  const G = game("STACK");
+  let again = false;
+  for(let k=0; k<400 && !again; k++){ const id = DG.Items.roll(G, "t"); if(DG.ITEMS[id].stack){ if(G.player.items[id]) again = true; G.giveItem(id, true); } }
+  assert.ok(again, "a stacker was offered a second time");
+  const one = DG.Items.build({ syringe:1 }), three = DG.Items.build({ syringe:3 });
+  assert.ok(Math.abs(three.rate - one.rate*3) < 1e-9, "three syringes, three times the speed");
+});
+
+test("a pile of proc items can't run away: shots and depth stay bounded", ()=>{
+  const G = game("PROCS"), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.room = r; r.active = true; G.god = true;
+  ["ukulele", "ukulele", "ukulele", "mortar", "mortar", "mortar", "fractal", "fractal", "fractal", "doubletap", "doubletap", "sparebarrel", "sparebarrel", "crowsnest", "staticcling", "shrapnel", "stickybomb"].forEach(id=> G.giveItem(id, true));
+  assert.equal(G.mods.maxDepth, 3, "depth capped");
+  G.enemies = [];
+  for(let i=0;i<10;i++){ const e = addEnemy(G, r, spot.x + 2 + (i % 3), spot.y - 1 + Math.floor(i/3)*0.7); e.hp = e.maxHp = 1e6; e.speed = 0; e.ai.cd = 99; }
+  let peak = 0;
+  const t0 = Date.now();
+  for(let i=0;i<60*4;i++){
+    G.update(1/60, { fire:true, ax:spot.x + 3, ay:spot.y, mx:0, my:0 }); G.drain();
+    peak = Math.max(peak, G.bullets.filter(b=> b.team === "p").length);
+  }
+  assert.ok(peak <= 170, "shots stay under the hard cap: " + peak);
+  assert.ok(Date.now() - t0 < 8000, "and four seconds of it simulate quickly");
 });
