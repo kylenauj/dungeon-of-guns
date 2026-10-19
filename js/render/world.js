@@ -842,7 +842,7 @@ proto.addProp = function(p){
   const handled = W.roomProp(p, g, o);   // ROOMS: thrones, cages, dice, Olm, messages, padlocks
   if(handled){}
   else if(p.kind === "chest"){
-    const col = p.golden ? 0xd8a83a : [0x8a5a2b, 0x8a5a2b, 0x5a6a8a, 0xd8a83a][p.tier] || 0x8a5a2b, band = p.tier >= 3 ? 0xffe680 : p.tier === 2 ? 0x46e4ff : 0xc8a040;
+    const col = p.golden ? 0x9a7426 : [0x8a5a2b, 0x8a5a2b, 0x5a6a8a, 0xd8a83a][p.tier] || 0x8a5a2b, band = p.tier >= 3 ? 0xffe680 : p.tier === 2 ? 0x46e4ff : 0xc8a040;
     P(g, new THREE.BoxGeometry(0.82, 0.44, 0.56), col, 0, 0.22, 0);
     P(g, new THREE.BoxGeometry(0.86, 0.07, 0.6), band, 0, 0.4, 0);
     P(g, new THREE.BoxGeometry(0.12, 0.15, 0.05), band, 0, 0.36, 0.3);
@@ -946,7 +946,7 @@ function messageTex(text){
   if(msgTex[text]) return msgTex[text];
   const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d"), r = DG.RNG(text.length*31 + text.charCodeAt(0)).next;
   g.strokeStyle = "#ffb060"; g.fillStyle = "#ffb060"; g.lineCap = "round"; g.lineJoin = "round";
-  g.font = "italic 34px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = "italic bold 40px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
   g.shadowColor = "#ff7a1a"; g.shadowBlur = 10;
   g.save(); g.translate(128, 60); g.rotate(-0.08); g.fillText(text.length > 18 ? text.slice(0, 18) + "…" : text, 0, 0); g.restore();
   g.lineWidth = 2.5; g.beginPath(); g.moveTo(30, 98); for(let x=30; x<226; x+=14) g.quadraticCurveTo(x + 7, 92 + r()*12, x + 14, 98); g.stroke();
@@ -989,7 +989,7 @@ proto.roomProp = function(p, g, o){
     return true;
   }
   if(p.kind === "message"){
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.75), new THREE.MeshBasicMaterial({ map:messageTex(p.text), transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:0.6 }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), new THREE.MeshBasicMaterial({ map:messageTex(p.text), transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:0.7 }));
     m.rotation.x = -PI/2; m.rotation.z = (W.rnd() - 0.5)*0.4; m.position.y = 0.03; m.renderOrder = 3; g.add(m);
     o.msg = m;
     return true;
@@ -1002,7 +1002,7 @@ proto.updateRoomProp = function(pr, o, G, dt, t){
     const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 4;
     M.olmIdle(o.rig, t, near ? DG.clamp(Math.atan2(p.x - pr.x - 0.5, p.y - pr.y - 0.5), -1, 1) : Math.sin(t*0.2)*0.4);
   }
-  if(o.msg){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.5 ? 1 : 0; o.msgK = (o.msgK || 0) + (near - (o.msgK || 0))*(1 - Math.exp(-dt*4)); o.msg.material.opacity = 0.35 + 0.12*Math.sin(t*1.7 + pr.x) + 0.45*o.msgK; }
+  if(o.msg){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.5 ? 1 : 0; o.msgK = (o.msgK || 0) + (near - (o.msgK || 0))*(1 - Math.exp(-dt*4)); o.msg.material.opacity = 0.55 + 0.15*Math.sin(t*1.7 + pr.x) + 0.3*o.msgK; }
   if(o.cage){
     // sprung: the cage hauls itself up into the dark (and stays there)
     const want = pr.taken ? 3.2 : 0;

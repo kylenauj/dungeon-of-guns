@@ -419,7 +419,7 @@ proto.buildRoomsVanity = function(){
     else face = { x:r.x2 + 0.988, z:fy + 0.5, rot:-PI/2, ix:-1, iz:0 };
     const list = decals[r.id] || (decals[r.id] = []);
     // a hairline crack, paler than the stone
-    if(!face.low) decal(list, CELL.crack, face.x + (face.ix ? 0 : (rnd() - 0.5)*0.6), 0.75 + rnd()*0.4, face.z + (face.iz ? 0 : (rnd() - 0.5)*0.6), 0.9, 1.1, face.rot, new THREE.Color(0x8a8678), true);
+    if(!face.low) for(let c=0;c<2;c++) decal(list, CELL.crack, face.x + (face.ix ? 0 : (c - 0.5)*0.9 + (rnd() - 0.5)*0.3), 0.7 + rnd()*0.5, face.z + (face.iz ? 0 : (c - 0.5)*0.9 + (rnd() - 0.5)*0.3), 1.0, 1.3, face.rot, new THREE.Color(0xa49e8c), true);
     // drag marks running into it, and old dust heaped at its foot
     decal(list, CELL.drag, face.x + face.ix*1.0, 0.013, face.z + face.iz*1.0, 0.9, 1.5, face.rot + PI, new THREE.Color(0x24201c));
     decal(list, CELL.stain, face.x + face.ix*0.35, 0.014, face.z + face.iz*0.35, 1.6, 0.9, face.rot, new THREE.Color(0x6a6458));
@@ -513,7 +513,7 @@ proto.updateRoomsVanity = function(G, dt, t){
       o.t = 0.5 + Math.random()*0.7;
       const F = o.face, u = (Math.random() - 0.5)*1.8;
       const x = F.x + (F.iz ? u : 0) + F.ix*0.15, z = F.z + (F.ix ? u : 0) + F.iz*0.15;
-      FX.smoke(x, 0.2 + Math.random()*(F.low ? 0.4 : 1.1), z, 0xb8b0a0, 1, 0.22, 2.4, { spread:0.1, rise:0.05, speed:0.15, alpha:0.32, tint:0.85, grow:2.2 });
+      FX.smoke(x, 0.2 + Math.random()*(F.low ? 0.4 : 1.1), z, 0xc8c0b0, 1, 0.3, 2.6, { spread:0.1, rise:0.05, speed:0.15, alpha:0.4, tint:0.9, grow:2.4 });
       FX.emit(x, 0.4 + Math.random()*1.0, z, F.ix*(0.3 + Math.random()*0.3), 0.04, F.iz*(0.3 + Math.random()*0.3), 0xd8d0b8, 0.035, 2.2, 0, 0.4);
     }
     o.snd -= dt;
