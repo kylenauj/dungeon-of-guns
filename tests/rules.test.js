@@ -1268,3 +1268,16 @@ test("the frog pond is a jungle: ferns, lotus, vines, a waterfall, and no grim c
     ["bones", "skullpile", "myceliumcorpse", "cordyceps", "fungalcorpse", "deadknight"].forEach(k=> assert.ok(kinds.indexOf(k) < 0, "no " + k + " in the pond"));
   }
 });
+
+test("the bot doesn't swap two equal guns back and forth forever (it once stood in a treasure room for 25 minutes)", ()=>{
+  const G = game("SWAPPER"); G.god = true; park(G);
+  const p = G.player;
+  // three guns already: taking another drops the one in hand at Zippy's feet
+  while(p.guns.length < DG.PLAYER.maxGuns) p.guns.push(Object.assign({}, p.guns[0], { uid:G.nextId++ }));
+  const twin = Object.assign({}, p.guns[0], { uid:G.nextId++, name:"Twin of Old Faithful" });
+  G.dropItem(p.x + 0.5, p.y, twin);
+  const bot = new DG.Bot(G);
+  let swaps = 0;
+  for(let i=0;i<60*8;i++){ G.update(1/60, bot.input(1/60)); swaps += G.drain().filter(e=> e.type === "pickup" && e.kind === "gun").length; }
+  assert.ok(swaps <= 1, swaps + " swaps");
+});
