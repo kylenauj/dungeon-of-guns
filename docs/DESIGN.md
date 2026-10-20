@@ -304,6 +304,8 @@ Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are ho
 
 Dark Souls, Bloodborne, Blasphemous and Darkest Dungeon, in one look across everything, so no model or room looks pasted in from somewhere else.
 
+The next step for the look ("Ash & Ember": why it still reads cozy, the rules, and a phased plan) is in [ART_DIRECTION.md](ART_DIRECTION.md).
+
 ### 10.0 Etched: a look of its own
 
 **What makes a game read as generic low-poly (and what we saw in our own frames):**
