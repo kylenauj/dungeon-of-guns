@@ -1075,6 +1075,20 @@ proto.buildPuzzle = function(r){
 /* ================================================================== *
  *  Per frame
  * ================================================================== */
+/* what stands on each pedestal (an item, a gun, a key, a relic), built when its
+   room is seen; with all, built now for every room (the floor's warm-up does
+   this, so the models and their medallions are ready before anyone walks in) */
+proto.showOffers = function(all){
+  const W = this, D = W.D;
+  D.rooms.forEach(r=>{
+    if(!all && !r.seen && r.type !== "secret") return;
+    r.props.forEach(pr=>{
+      const o = W.props[pr.id]; if(!o || pr.kind !== "pedestal") return;
+      const key = pr.offer ? (pr.offer.id || (pr.offer.gun && pr.offer.gun.uid) || pr.offer.kind) : null;
+      if(!pr.taken && !o.shown && pr.offer){ try{ o.shown = M.offer(pr.offer); o.holder.add(o.shown); o.key = key; }catch(e){} }
+    });
+  });
+};
 proto.update = function(G, dt, t){
   const W = this, D = W.D, p = G.player, S = DG.Stage;
   // fog of war
@@ -1127,6 +1141,7 @@ proto.update = function(G, dt, t){
     if(o.peel) o.peel.visible = !tr.gone;
   });
   // props
+  W.showOffers(false);
   D.rooms.forEach(r=>{
     if(!r.seen && r.type !== "secret") return;
     r.props.forEach(pr=>{
@@ -1138,8 +1153,8 @@ proto.update = function(G, dt, t){
       if(pr.kind === "merchant" && o.rig) M.idle(o.rig, t, 0);
       if(pr.kind === "pedestal"){
         const key = pr.offer ? (pr.offer.id || (pr.offer.gun && pr.offer.gun.uid) || pr.offer.kind) : null;
-        if(o.key !== key || (pr.taken && o.shown)){ if(o.shown) o.holder.remove(o.shown); o.shown = null; o.key = key; }
-        if(!pr.taken && !o.shown && pr.offer){ o.shown = M.offer(pr.offer); o.holder.add(o.shown); }
+        if(o.key !== key || (pr.taken && o.shown)){ if(o.shown){ o.holder.remove(o.shown); K.release(o.shown); } o.shown = null; o.key = key; }
+
         if(o.shown){
           const tok = o.shown.userData.token || o.shown, ic = o.shown.userData.icon;
           tok.rotation.y = t*1.2; o.shown.position.y = Math.sin(t*2)*0.06;
@@ -1159,7 +1174,7 @@ proto.update = function(G, dt, t){
         }
         if(o.icon && o.icon.parent && (!o.shown || pr.taken || pr.sunk)){ o.holder.remove(o.icon); o.icon = null; }
         if(o.icon) o.icon.position.y = 0.75 + Math.sin(t*1.4 + pr.slot)*0.06;
-        if((pr.taken || pr.sunk) && o.shown && !pr.chosen){ o.holder.remove(o.shown); o.shown = null; }
+        if((pr.taken || pr.sunk) && o.shown && !pr.chosen){ o.holder.remove(o.shown); K.release(o.shown); o.shown = null; }
         if(o.shown){ o.shown.rotation.y = t*1.5; o.shown.position.y = Math.sin(t*2 + pr.slot)*0.08; }
         o.g.position.y = Math.sin(t*1.5 + pr.slot)*0.03 - (pr.sunk ? (o.sink = Math.min(1, o.sink + dt)) : 0)*0.5;
       }

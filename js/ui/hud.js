@@ -75,7 +75,7 @@ const ATTUNE_GLYPH = { fire:"♨", frost:"❄", poison:"☣", shock:"ϟ", arcane
 H.handle = function(ev, G){
   const p = G.player;
   switch(ev.type){
-    case "hit": H.nums.push({ x:ev.x + (Math.random() - 0.5)*0.4, y:ev.y, z:1.4, v:Math.round(ev.amt), crit:ev.crit, t:0, col:ev.el ? mute(hex(DG.ELEMENTS[ev.el].color), 0.15) : BONE }); break;
+    case "hit": H.nums.push({ x:ev.x + (Math.random() - 0.5)*0.4, y:ev.y, z:1.4, v:Math.round(ev.amt), crit:ev.crit, t:0, col:ev.el && DG.ELEMENTS[ev.el] ? mute(hex(DG.ELEMENTS[ev.el].color), 0.15) : BONE }); break;
     case "hurt": H.nums.push({ x:p.x, y:p.y, z:2, v:"-" + Math.round(ev.amt), crit:true, t:0, col:HP2 }); H.hurtT = 0.5; break;
     case "wardBreak": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"WARD SHATTERED", crit:true, t:0, col:WARD }); break;
     case "heal": H.nums.push({ x:ev.x, y:ev.y, z:2, v:"+" + Math.round(ev.amt), t:0, col:"#8ac88a" }); break;

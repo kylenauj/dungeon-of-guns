@@ -40,3 +40,4 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 - **Every logic bug that gets fixed gets a regression test** in `tests/rules.test.js`.
 - **Balance is tuned one knob at a time**, with `npm run balance` numbers quoted before and after.
 - **Don't edit `vendor/`.**
+- **Nothing is built or compiled mid-fight.** Anything new that can appear in play gets a sample in `View.warmUp` (view.js), so its shader compiles behind the floor card. Enemies are copies of a per-floor template (`Models.cloneRig`). A model that leaves the scene goes through `drop()` / `K.release`, or its GPU buffers leak.

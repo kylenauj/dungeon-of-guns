@@ -1427,3 +1427,19 @@ test("the bot doesn't swap two equal guns back and forth forever (it once stood 
   for(let i=0;i<60*8;i++){ G.update(1/60, bot.input(1/60)); swaps += G.drain().filter(e=> e.type === "pickup" && e.kind === "gun").length; }
   assert.ok(swaps <= 1, swaps + " swaps");
 });
+
+// regression: learning a trick added every stat as a number, so Toxic Spit's
+// element became "0poison": the spit lost its poison and the HUD threw on the hit
+test("Toxic Spit's globs are poison, and every frog shot's element is a real one", ()=>{
+  const G = game("SPITTER", 1);
+  DG.Gribbus.giveBuff(G, "spit");
+  assert.equal(G.gribbus.g.spitEl, "poison");
+  const r = combatRoom(G); park(G);
+  G.player.x = r.cxw; G.player.y = r.cyw; G.room = r; r.active = true; G.god = true;
+  const f = G.gribbus; f.x = r.cxw - 2; f.y = r.cyw;
+  const e = addEnemy(G, r, r.cxw + 3, r.cyw); e.hp = e.maxHp = 1e6; e.speed = 0; e.ai.cd = 99;
+  const els = [];
+  for(let i=0;i<60*6;i++){ G.update(1/60, {}); G.bullets.forEach(b=>{ if(b.from === "gribbus") els.push(...(b.els || [])); }); G.drain(); }
+  assert.ok(els.indexOf("poison") >= 0, "a poison glob: " + JSON.stringify(els.slice(0, 5)));
+  assert.ok(els.every(x=> DG.ELEMENTS[x]), JSON.stringify(els.filter(x=> !DG.ELEMENTS[x]).slice(0, 3)));
+});

@@ -43,17 +43,21 @@ const proto = View.prototype;
 /* Zippy wears what he carries: rebuilt whenever his costume changes */
 proto.dressPlayer = function(look){
   const V = this, old = V.player, R = M.zippy(look);
-  if(old){ S.scene.remove(old.root); R.root.position.copy(old.root.position); R.root.rotation.copy(old.root.rotation); }
+  if(old){ drop(old.root); R.root.position.copy(old.root.position); R.root.rotation.copy(old.root.rotation); }
   R.root.scale.set(HERO, HERO*STRETCH, HERO);
   R.ring = new THREE.Mesh(K.glowPlane, K.glowMat(0xb36bff, 0.35)); R.ring.scale.set(2.2, 1, 2.2); R.ring.position.y = 0.04;
   R.root.add(R.ring); R.root.add(shadowBlob(0.35));
   S.scene.add(R.root);
   V.player = R; V.lookKey = look.key;
-  // and the close-up in the corner
-  const P = S.portrait;
-  if(V.pzZippy) P.root.remove(V.pzZippy.root);
-  V.pzZippy = M.zippy(look); V.pzZippy.gunKey = null; V.pzZippy.root.position.set(-0.38, -0.1, 0); P.root.add(V.pzZippy.root);
+  // and the close-up in the corner (a frame later, so the two builds don't land in one frame)
+  V.later(()=>{
+    const P = S.portrait;
+    if(V.pzZippy){ P.root.remove(V.pzZippy.root); K.release(V.pzZippy.root); }
+    V.pzZippy = M.zippy(look); V.pzZippy.gunKey = null; V.pzZippy.root.position.set(-0.38, -0.1, 0); P.root.add(V.pzZippy.root);
+  }, !old);
 };
+/* work for a later frame, one job a frame (now: do it at once) */
+proto.later = function(fn, now){ if(now) return fn(); (this.queue = this.queue || []).push(fn); };
 /* the camera looks down at an angle, which squashes anything standing up:
    characters are drawn a little taller to make up for it */
 const STRETCH = 1.16, HERO = 0.92;
@@ -75,37 +79,129 @@ const AURA = {
 proto.buildFloor = function(){
   const V = this, G = V.G;
   if(V.world){ S.scene.remove(V.world.group); V.world.dispose(); }
-  for(const id in V.rigs) S.scene.remove(V.rigs[id].root); V.rigs = {};
-  V.dying.forEach(d=> S.scene.remove(d.R.root)); V.dying = [];
-  for(const id in V.pickups) S.scene.remove(V.pickups[id]); V.pickups = {};
-  for(const id in V.allies) S.scene.remove(V.allies[id].g); V.allies = {};
-  for(const id in V.hazards) S.scene.remove(V.hazards[id].g); V.hazards = {};
-  for(const id in V.beams) S.scene.remove(V.beams[id]); V.beams = {};
-  if(V.portal){ S.scene.remove(V.portal); V.portal = null; }
+  for(const id in V.rigs) drop(V.rigs[id].root); V.rigs = {};
+  V.dying.forEach(d=> drop(d.R.root)); V.dying = [];
+  for(const id in V.pickups) drop(V.pickups[id]); V.pickups = {};
+  for(const id in V.allies) drop(V.allies[id].g); V.allies = {};
+  for(const id in V.hazards) drop(V.hazards[id].g); V.hazards = {};
+  for(const id in V.beams) drop(V.beams[id]); V.beams = {};
+  if(V.portal){ drop(V.portal); V.portal = null; }
   FX.clear();
   V.world = new DG.World(G.D);
   S.scene.add(V.world.group);
   S.theme(G.D.theme, G.curses);
   V.floor = G.floor;
   S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true);
+  V.warmUp();
+};
+
+/* ---- no hitches mid-fight ----------------------------------------------
+   Two things used to stall a frame the first time they happened: a shader
+   compiling for something new on screen (a pickup, a thrown bomb, a room's
+   light shafts coming into view), and every enemy of a wave having its model
+   built the instant the wave spawned. So, while the floor's title card is up,
+   build one of everything that can turn up and compile every shader at once
+   (hidden rooms too), and keep the floor's enemy models built ahead in a pool
+   that a wave takes from, topped up whenever a frame has time to spare. */
+const WARM_PICKUPS = ["gold", "heart", "flyheal", "mana", "ward", "key", "fly"];
+const WARM_ALLIES = ["wisp", "tadpole", "turret", "bee", "hat", "moon"];
+const WARM_HAZARDS = ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum"];
+/* the floor's foes, as model -> how often it spawns */
+/* what bosses call up mid-fight (ai.js), so their templates are ready too */
+const SUMMONS = { king:["grunt", "slinger"], matriarch:["puffling", "shroomkin"], bride:["ghost", "skeleton"], eye:["blob", "tentacle", "ghost", "watcher"], heart:["rotling"], hollow:["skeleton", "ghost"] };
+proto.floorFoes = function(){
+  const th = this.G.D.theme, w = Object.assign({}, th.enemies || {}), out = {};
+  (SUMMONS[th.boss || "king"] || []).forEach(t=> w[t] = w[t] || 0.1);
+  // and what splits off them when they die (bloblings, shroomlets)
+  Object.keys(w).forEach(t=>{ const d = DG.ENEMIES[t]; if(d && d.splits) w[d.splits] = w[d.splits] || 0.1; });
+  for(const t in w){ const d = DG.ENEMIES[t], m = d && d.model || t; out[m] = (out[m] || 0) + w[t]; }
+  return out;
+};
+/* an enemy's model: a copy of its kind's template (built once a floor) */
+proto.takeRig = function(model){
+  const V = this;
+  V.rigTpl = V.rigTpl || {};
+  try{
+    const T = V.rigTpl[model] || (V.rigTpl[model] = M.enemy(model));
+    return M.cloneRig(T);
+  }catch(e){ return M.enemy(model); }
+};
+proto.dropTemplates = function(){
+  const V = this;
+  for(const k in V.rigTpl || {}) K.release(V.rigTpl[k].root);
+  V.rigTpl = {};
+};
+proto.warmUp = function(){
+  const V = this, G = V.G, g = new THREE.Group(), temp = [];
+  V.dropTemplates();
+  const foes = V.floorFoes(), B = DG.BOSSES[G.D.theme.boss || "king"];
+  const add = f=>{ try{ const o = f(); if(o){ g.add(o); temp.push(o); } }catch(e){} };
+  // a template of each of the floor's foes and its boss, and a copy of each on show
+  const models = Object.keys(foes);
+  if(B) models.push(B.model || G.D.theme.boss || "king");
+  const copies = [];
+  models.forEach(m=>{ try{ const R = V.takeRig(m); copies.push(R); g.add(R.root); }catch(e){} });
+  // every kind of pickup, ally, hazard and bomb
+  WARM_PICKUPS.forEach(kind=> add(()=> M.pickup({ id:-1, kind, value:5 })));
+  add(()=> M.pickup({ id:-1, kind:"item", item:G.gun() }));
+  const itemId = Object.keys(DG.ITEMS)[0], activeId = Object.keys(DG.ACTIVES)[0];
+  add(()=> M.pickup({ id:-1, kind:"item", item:{ kind:"item", id:itemId } }));
+  add(()=> M.pickup({ id:-1, kind:"item", item:{ kind:"active", id:activeId } }));
+  add(()=> M.powerup(itemId));
+  WARM_ALLIES.forEach(kind=> add(()=> allyMesh({ kind, el:"fire" })));
+  WARM_HAZARDS.forEach(kind=> add(()=> hazardMesh({ kind, r:1, x:0, y:0 })));
+  add(()=>{ const b = new THREE.Group(); b.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), K.lambert(0x22222a))); b.add(K.sprite(0xff9a3a, 0.5, 1)); return b; });
+  add(()=>{ const p = new THREE.Group(); p.add(new THREE.Mesh(new THREE.CircleGeometry(1, 8), new THREE.MeshBasicMaterial({ color:0x2a0a4a }))); return p; });
+  S.scene.add(g);
+  // one of each effect, far out of sight; they live their short lives and go
+  const far = -900;
+  try{
+    FX.ring(far, far, 1, 0xffffff, 0.05); FX.disc(far, far, 1, 0xffffff, 0.05); FX.warn(far, far, 1, 0.05, 0xff3a2a);
+    FX.lane(far, far, 0, 2, 1, 0.05); FX.arc(far, far, far + 1, far, 0xffffff, 0.05); FX.soul(far, far, 2, 0.05, 0xffffff);
+    FX.ash(far, far, 0.5, 1, 2, { embers:1 }); FX.smoke(far, 0.1, far, 0x2a2420, 2, 0.3, 0.05, { spread:0.2, rise:0.1 });
+    FX.burst(far, 0.5, far, 0xffffff, 2, 1, 0.2, 0.05, { up:1 }); FX.rise(far, far, 0xffffff, 2, 0.5);
+  }catch(e){}
+  // compile every shader now, including what sits in rooms not yet seen
+  if(V.world && V.world.showOffers) V.world.showOffers(true);
+  const hidden = [];
+  S.scene.traverse(o=>{ if(!o.visible){ hidden.push(o); o.visible = true; } });
+  try{ S.renderer.compile(S.scene, S.camera); if(S.portrait) S.renderer.compile(S.portrait.scene, S.portrait.cam); }catch(e){}
+  // and draw it all once into a tiny target, culling off, so every room's buffers
+  // and textures go up to the card now and not the first time a room is entered
+  const culled = [];
+  S.scene.traverse(o=>{ if(o.frustumCulled && !o.isLight){ culled.push(o); o.frustumCulled = false; } });
+  try{
+    const R = S.renderer, was = R.getRenderTarget();
+    V.warmRT = V.warmRT || new THREE.WebGLRenderTarget(4, 4);
+    R.setRenderTarget(V.warmRT); R.render(S.scene, S.camera); R.setRenderTarget(was);
+  }catch(e){}
+  culled.forEach(o=> o.frustumCulled = true);
+  hidden.forEach(o=> o.visible = false);
+  S.scene.remove(g);
+  copies.forEach(R=> g.remove(R.root));
+  temp.forEach(o=> K.release(o, true));
 };
 
 proto.dispose = function(){
   const V = this;
   if(V.world){ S.scene.remove(V.world.group); V.world.dispose(); }
-  for(const id in V.rigs) S.scene.remove(V.rigs[id].root);
-  V.dying.forEach(d=> S.scene.remove(d.R.root));
-  for(const id in V.pickups) S.scene.remove(V.pickups[id]);
-  for(const id in V.allies) S.scene.remove(V.allies[id].g);
-  for(const id in V.hazards) S.scene.remove(V.hazards[id].g);
-  for(const id in V.beams) S.scene.remove(V.beams[id]);
-  if(V.portal) S.scene.remove(V.portal);
-  V.frogs.forEach(f=> S.scene.remove(f.root));
-  S.scene.remove(V.player.root); S.scene.remove(V.lily);
+  for(const id in V.rigs) drop(V.rigs[id].root);
+  V.dying.forEach(d=> drop(d.R.root));
+  for(const id in V.pickups) drop(V.pickups[id]);
+  for(const id in V.allies) drop(V.allies[id].g);
+  for(const id in V.hazards) drop(V.hazards[id].g);
+  for(const id in V.beams) drop(V.beams[id]);
+  if(V.portal) drop(V.portal);
+  V.frogs.forEach(f=> drop(f.root));
+  drop(V.player.root); S.scene.remove(V.lily);
   S.portrait.root.clear(); V.pzZippy = V.pzFrog = null;
+  V.disposed = true; V.dropTemplates();
   if(V.cine){ V.cine.dispose(); V.cine = null; }
   FX.clear();
 };
+
+/* take a model out of the scene for good, and free its buffers */
+const drop = (o, all)=>{ if(!o) return; S.scene.remove(o); K.release(o, all); };
 
 /* sounds from the per-frame side (footfalls, voices); quiet in the attract mode */
 proto.play = function(n, o){ const au = A(); if(au && !this.silent) au.play(n, o); };
@@ -262,7 +358,7 @@ proto.handle = function(ev){
     case "gulp": play("gulp"); break;
     case "frogbuff": play("frog"); FX.rise(G.gribbus.x, G.gribbus.y, 0x9cff6a, 20, 0.5, { v:3 }); break;
     case "item": {
-      if(V.hold) S.scene.remove(V.hold.g);
+      if(V.hold) drop(V.hold.g);
       const g = M.powerup(ev.id); S.scene.add(g);
       V.hold = { t:1.4, g };
       FX.burst(p.x, 2.6, p.y, DG.TIERS[ev.tier] ? new THREE.Color(DG.TIERS[ev.tier].color).getHex() : 0xffffff, 14, 2.5, 0.25, 0.5, { up:1 });
@@ -416,6 +512,7 @@ function hazardMesh(h){
  * ================================================================== */
 proto.update = function(dt, t){
   const V = this, G = V.G, p = G.player;
+  if(V.queue && V.queue.length) V.queue.shift()();
   // Zippy, dressed in whatever he's carrying
   const ids = Object.keys(p.items).join(",") + "|" + G.mods.sets.join(",");
   if(ids !== V.itemIds){
@@ -439,7 +536,7 @@ proto.update = function(dt, t){
     const k = V.hold.t, up = Math.min(1, (1.4 - k)*6, k*5);
     W.parts.armL.rotation.x = -1.0 - 1.9*up; W.parts.armL.rotation.z = -0.3 + 0.25*up;
     V.hold.g.position.set(p.x, 2.95 + 0.25*up + Math.sin(t*4)*0.05, p.y); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
-    if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
+    if(k <= 0){ drop(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
   const dead = G.state === "dead";
@@ -520,10 +617,13 @@ proto.updateFrogs = function(dt, t){
   // Gribbus wears his tricks: rebuild the frogs whenever he learns one
   const fk = G.gribbus.buffs.join(",");
   if(fk !== V.frogKey){
-    V.frogKey = fk; V.frogs.forEach(R=> S.scene.remove(R.root)); V.frogs = [];
-    const P = S.portrait;
-    if(V.pzFrog) P.root.remove(V.pzFrog.root);
-    V.pzFrog = M.frog(false, G.gribbus.buffs); V.pzFrog.root.position.set(0.72, 0, 0.7); V.pzFrog.root.scale.setScalar(1.15); P.root.add(V.pzFrog.root);
+    const first = V.frogKey === undefined;
+    V.frogKey = fk; V.frogs.forEach(R=> drop(R.root)); V.frogs = [];
+    V.later(()=>{
+      const P = S.portrait, buffs = G.gribbus.buffs.slice();
+      if(V.pzFrog){ P.root.remove(V.pzFrog.root); K.release(V.pzFrog.root); }
+      V.pzFrog = M.frog(false, buffs); V.pzFrog.root.position.set(0.72, 0, 0.7); V.pzFrog.root.scale.setScalar(1.15); P.root.add(V.pzFrog.root);
+    }, first);
   }
   while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
   G.frogs.forEach((f, i)=>{
@@ -587,7 +687,12 @@ proto.updateEnemies = function(dt, t){
     live[e.id] = 1;
     let R = V.rigs[e.id];
     if(!R){
-      R = V.rigs[e.id] = M.enemy(e.def.model || e.type);
+      // a kind with no template yet (a summon from another floor) is built in full,
+      // one a frame at most; the rest turn up a frame later (still rising from the ground)
+      const model = e.def.model || e.type, pooled = V.rigTpl && V.rigTpl[model];
+      if(!pooled && (V.builtNow = (V.builtFrame === t ? V.builtNow : 0)) >= 1) return;
+      if(!pooled){ V.builtFrame = t; V.builtNow++; }
+      R = V.rigs[e.id] = V.takeRig(model);
       if(e.affix){
         const a = DG.AFFIXES[e.affix], sz = a.size || 1;
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
@@ -644,7 +749,7 @@ proto.updateEnemies = function(dt, t){
     if(e.st.shocked > 0 && Math.random() < 0.15) FX.emit(e.x + (Math.random() - 0.5)*0.6, 0.6 + Math.random(), e.y, (Math.random() - 0.5)*3, 0, (Math.random() - 0.5)*3, 0xfff04a, 0.15, 0.15, 0, 3);
     if(stunned && !e.st.trapped && Math.random() < 0.3) FX.emit(e.x + Math.cos(t*9)*0.4, R.h + 0.6, e.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.22, 0.2, 0, 0);
   });
-  for(const id in V.rigs) if(!live[id]){ S.scene.remove(V.rigs[id].root); delete V.rigs[id]; }
+  for(const id in V.rigs) if(!live[id]){ drop(V.rigs[id].root); delete V.rigs[id]; }
   V.updateMoans(dt);
   V.dying = V.dying.filter(d=>{
     d.t += dt;
@@ -654,10 +759,10 @@ proto.updateEnemies = function(dt, t){
       else if(d.midas){ M.tint(R, 0xffc83a, 0.9); R.body.scale.setScalar(1 + d.t*0.3); }
       else { R.body.rotation.x = Math.min(PI/2, d.t*6); M.tint(R, 0x000000, 1); }
       M.fade(R, Math.max(0, 1 - Math.max(0, d.t - 0.5)*2));
-      if(d.t > 1.1){ S.scene.remove(R.root); return false; }
+      if(d.t > 1.1){ drop(R.root); return false; }
       return true;
     }
-    if(!V.dissolve(d, dt, t)){ S.scene.remove(R.root); return false; }
+    if(!V.dissolve(d, dt, t)){ drop(R.root); return false; }
     return true;
   });
 };
@@ -725,7 +830,7 @@ proto.updateLoot = function(dt, t){
     o.position.set(k.x + (o.userData.buzz ? Math.sin(t*7 + k.id)*0.15 : 0), (o.userData.hover || 0.3) + Math.sin(t*3 + k.id)*0.08, k.y);
     o.rotation.y = t*(o.userData.spin || 1);
   });
-  for(const id in V.pickups) if(!pk[id]){ S.scene.remove(V.pickups[id]); delete V.pickups[id]; }
+  for(const id in V.pickups) if(!pk[id]){ drop(V.pickups[id]); delete V.pickups[id]; }
 };
 
 proto.updateAllies = function(dt, t){
@@ -744,7 +849,7 @@ proto.updateAllies = function(dt, t){
     if(a.kind === "ghoul"){ M.idle(o.g.userData.rig, t, Math.hypot(a.vx, a.vy)); o.g.position.y = 0.15 + Math.sin(t*3 + a.id)*0.08; if(Math.random() < 0.2) FX.emit(a.x, 0.6, a.y, 0, 0.6, 0, 0x6aff9a, 0.25, 0.4, 0, 1); }
     if(a.kind === "hat"){ o.g.rotation.y = t*14; o.g.rotation.z = 0.35; if(Math.random() < 0.6) FX.emit(a.x, 0.9, a.y, 0, 0, 0, 0xb36bff, 0.3, 0.3, 0, 1); }
   });
-  for(const id in V.allies) if(!live[id]){ FX.burst(V.allies[id].g.position.x, 0.8, V.allies[id].g.position.z, 0xffffff, 5, 2, 0.2, 0.3); S.scene.remove(V.allies[id].g); delete V.allies[id]; }
+  for(const id in V.allies) if(!live[id]){ FX.burst(V.allies[id].g.position.x, 0.8, V.allies[id].g.position.z, 0xffffff, 5, 2, 0.2, 0.3); drop(V.allies[id].g); delete V.allies[id]; }
 };
 
 proto.updateHazards = function(dt, t){
@@ -764,7 +869,7 @@ proto.updateHazards = function(dt, t){
     if(u.wave){ const r = h.r*(1 - k); u.wave.scale.setScalar(Math.max(0.01, r)); u.wave.material.opacity = 0.85*k; }
     o.g.children.forEach(c=>{ if(c.material && c.material.transparent && !u.wave && h.kind !== "icicle"){ c.material.opacity = Math.min(c.userData.op0 === undefined ? (c.userData.op0 = c.material.opacity) : c.userData.op0, k*3*(c.userData.op0)); } });
   });
-  for(const id in V.hazards) if(!live[id]){ S.scene.remove(V.hazards[id].g); delete V.hazards[id]; }
+  for(const id in V.hazards) if(!live[id]){ drop(V.hazards[id].g); delete V.hazards[id]; }
 };
 
 proto.updateBeams = function(dt, t){
@@ -792,7 +897,7 @@ proto.updateBeams = function(dt, t){
       m.userData.white.scale.set(L, 0.02, 1); m.userData.white.material.opacity = 0.3;
     }
   });
-  for(const id in V.beams) if(!live[id]){ S.scene.remove(V.beams[id]); delete V.beams[id]; }
+  for(const id in V.beams) if(!live[id]){ drop(V.beams[id], true); delete V.beams[id]; }
 };
 
 })();

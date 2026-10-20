@@ -344,6 +344,14 @@ Dark Souls, Bloodborne, Blasphemous and Darkest Dungeon, in one look across ever
 
 ## 11. Architecture
 
+**Smooth frames.** A profile of a bot-played run found three kinds of hitch, all now gone from fights:
+- **Shader compiles** the first time something new showed up (a pickup, a thrown bomb, a room's light shafts): 200–450 ms each. Now `View.warmUp` builds one of everything that can appear and compiles every shader while the floor's title card is up, hidden rooms included. It also draws the whole floor once off-screen, so geometry and textures are uploaded then too, and pedestals are dressed up front.
+- **Enemy models built on spawn:** about 100 ms a wave. Now each kind is built once a floor as a template, and a spawn is a copy (`Models.cloneRig`): shared geometry, its own materials, about a millisecond.
+- **Adaptive-resolution resizes:** about 200 ms each, which could flip-flop. Now it drops straight to the size that fits, goes back up only after 8 s of headroom, and never flip-flops.
+
+Also: models leaving the scene used to keep their GPU buffers (about 1.6M vertices a minute of fighting); `drop()` and `K.release` free them now.
+
+
 ```
 js/core/        no THREE, no DOM: runs under Node
   core.js         namespace DG, seeded RNG, helpers

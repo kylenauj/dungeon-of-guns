@@ -3176,6 +3176,43 @@ Models.idle = function(R, t, speed){
   Models.creep(R, { speed }, t);
 };
 const _c = new THREE.Color();
+/* a copy of a finished model: the same geometry (shared on the card, so a copy
+   costs about a millisecond and no memory to speak of), its own materials (so
+   one goblin's hit flash or death fade isn't every goblin's), and every part,
+   glow and handle in R pointing into the copy. Built models are templates. */
+Models.cloneRig = function(T){
+  const root = T.root.clone(true), map = new Map(), mats = new Map();
+  const a = [], b = []; T.root.traverse(o=> a.push(o)); root.traverse(o=> b.push(o));
+  if(a.length !== b.length) throw new Error("clone mismatch");
+  a.forEach((o, i)=> map.set(o, b[i]));
+  const matOf = m=>{
+    if(!m || !m.isMaterial) return m;
+    if(mats.has(m)) return mats.get(m);
+    let c;
+    if(m.isShaderMaterial && m.uniforms && m.uniforms.uW && m.uniforms.uA){ c = K.outlineMat(); c.uniforms.uW.value = m.uniforms.uW.value; c.uniforms.uA.value = m.uniforms.uA.value; }
+    else { c = m.clone(); if(m.userData && m.userData.inkOpts) K.inkify(c, m.userData.inkOpts); }
+    mats.set(m, c); return c;
+  };
+  b.forEach(o=>{
+    if(o.material) o.material = Array.isArray(o.material) ? o.material.map(matOf) : matOf(o.material);
+    // the geometry is the template's: never freed with the copy
+    if(o.isMesh){ o.userData.baked = false; o.userData.outline = false; o.userData.shared = true; }
+  });
+  const conv = (v, d)=>{
+    if(v === null || typeof v !== "object") return v;
+    if(v.isObject3D) return map.get(v) || v;
+    if(v.isMaterial) return matOf(v);
+    if(v.isBufferGeometry || v.isTexture) return v;
+    if(d > 3) return v;
+    if(Array.isArray(v)) return v.map(x=> conv(x, d + 1));
+    if(Object.getPrototypeOf(v) === Object.prototype){ const o = {}; for(const k in v) o[k] = conv(v[k], d + 1); return o; }
+    return typeof v.clone === "function" ? v.clone() : v;    // vectors, colours
+  };
+  const R = {};
+  for(const k in T){ if(k === "mo" || k === "lastFade") continue; R[k] = conv(T[k], 0); }
+  return R;
+};
+
 Models.tint = function(R, hex, k){
   if(R.mat && R.mat.emissive){ R.mat.emissive.setHex(hex); R.mat.emissive.multiplyScalar(k); }
   if(R.gunMats) R.gunMats.forEach(m=>{ if(m.emissive){ m.emissive.setHex(hex); m.emissive.multiplyScalar(k); } });

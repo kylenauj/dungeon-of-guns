@@ -242,8 +242,12 @@ S.adapt = function(raw){
   S.adaptT = (S.adaptT || 0) + raw;
   if(S.adaptT < 1.5) return;
   const was = S.dyn;
-  if(S.ft > 1/45) S.dyn = Math.max(0.6, S.dyn - 0.1);
-  else if(S.ft < 1/58 && S.dyn < 1) S.dyn = Math.min(1, S.dyn + 0.05);
+  // each change rebuilds the screen's buffers (a hitch of its own), so: down
+  // quickly when frames run slow, back up only after 8 s of headroom, and
+  // never again once it has gone down, up and down (no flip-flopping)
+  // (straight to the size that should fit: the pixels drawn scale with dyn squared)
+  if(S.ft > 1/45 && S.dyn > 0.6){ S.dyn = Math.max(0.6, Math.min(S.dyn - 0.1, Math.round(S.dyn*Math.sqrt((1/52)/S.ft)*20)/20)); if(S.wentUp) S.noUp = true; }
+  else if(S.ft < 1/58 && S.dyn < 1 && S.adaptT > 8 && !S.noUp){ S.dyn = Math.min(1, S.dyn + 0.1); S.wentUp = true; }
   if(S.dyn !== was){ S.adaptT = 0; S.resize(); }
 };
 S.loop = function(){

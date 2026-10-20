@@ -54,7 +54,9 @@ Gr.spawnPermanents = function(G){
 Gr.giveBuff = function(G, id){
   const f = G.gribbus, B = DG.FROG_BUFFS[id];
   f.buffs.push(id);
-  for(const k in B.g) f.g[k] = (f.g[k] || 0) + B.g[k];
+  // numbers stack; anything else (Toxic Spit's element) is set, not added:
+  // adding it to 0 once made "0poison", which was no element at all
+  for(const k in B.g) f.g[k] = typeof B.g[k] === "number" ? (f.g[k] || 0) + B.g[k] : B.g[k];
   if(id === "twin" && G.frogs.length < 2){ const t = frog("Grobbus"); t.x = f.x; t.y = f.y; t.twin = true; G.frogs.push(t); }
   G.emit("frogbuff", { id, name:B.name, desc:B.desc });
 };

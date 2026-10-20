@@ -391,7 +391,7 @@ FX.update = function(dt, G){
     if(Math.random() < 0.5) emit(o.g.position.x, o.g.position.y + 0.2, o.g.position.z, (Math.random() - 0.5)*0.6, 0.6, (Math.random() - 0.5)*0.6, 0xffa040, 0.15, 0.3, 0, 1);
     if(Math.random() < (b.meteor ? 0.8 : 0.3)) dark(o.g.position.x, o.g.position.y + 0.15, o.g.position.z, 0, 0.4, 0, b.spore ? 0x2a3418 : 0x16120f, b.meteor ? 0.7 : 0.25, b.meteor ? 1.2 : 0.7, 0.4, 1.8, 0, 1);
   });
-  for(const id in FX.bombs) if(!seen[id]){ FX.scene.remove(FX.bombs[id].g); delete FX.bombs[id]; }
+  for(const id in FX.bombs) if(!seen[id]){ FX.scene.remove(FX.bombs[id].g); K.release(FX.bombs[id].g, true); delete FX.bombs[id]; }
   // warnings on the floor: landings, slams, tentacles, tears
   G.marks.forEach(m=>{ if(!m.fx){ m.fx = FX.warn(m.x, m.y, m.r, m.t, MARK[m.kind] || 0xff3a2a); } });
 };

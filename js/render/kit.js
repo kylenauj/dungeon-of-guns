@@ -272,6 +272,7 @@ const GRIME = [
 ].join("\n");
 K.inkify = function(mat, opts){
   opts = opts || {};
+  mat.userData.inkOpts = { rim:!!opts.rim, gloom:opts.gloom || null };   // so a copy can be inked the same way
   mat.onBeforeCompile = sh=>{
     for(const k in K.INK) sh.uniforms[k] = K.INK[k];
     if(opts.gloom){
@@ -405,6 +406,19 @@ K.sculpt = function(g, amt, freq, seed){
 };
 /* a tube along points */
 K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), Math.round((seg || 12)*1.5), r, Math.max(8, rseg || 6), false); };
+
+/* free what a model holds on the GPU once it leaves the scene for good. Baked
+   parts (and their outline, which shares the geometry) are always the model's
+   own; with all, every mesh's geometry goes (shared bits like the glow plane are
+   kept, and sprites share three's own quad, so they're left alone). Without this,
+   every dead goblin left ~10k vertices behind on the card. */
+K.release = function(root, all){
+  if(!root) return;
+  root.traverse(o=>{
+    if(!o.isMesh || !o.geometry || o.geometry === K.glowPlane) return;
+    if(all || o.userData.baked || o.userData.outline) o.geometry.dispose();
+  });
+};
 
 K.timed = [];
 K.tick = t=>{ K.GLOOM.uGTime.value = t; K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t; }); };
