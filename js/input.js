@@ -19,7 +19,8 @@ I.init = function(){
     if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
     const k = MAP[e.code];
     if(k){ if(!I.keys[k]) I.edge[k] = true; I.keys[k] = true; }
-    if(e.code === "Tab" || e.code === "Space") e.preventDefault();
+    // (arrows too: embedded in a web page, they would scroll the page round the game)
+    if(e.code === "Tab" || e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
     I.usingPad = false;
     if(I.onKey) I.onKey(e);
   });
@@ -29,7 +30,14 @@ I.init = function(){
   addEventListener("mousedown", e=>{ if(e.button === 0) I.mouse.l = true; if(e.button === 2) I.mouse.r = true; });
   addEventListener("mouseup", e=>{ if(e.button === 0) I.mouse.l = false; if(e.button === 2) I.mouse.r = false; });
   addEventListener("contextmenu", e=> e.preventDefault());
-  addEventListener("wheel", e=>{ I.wheel += Math.sign(e.deltaY); }, { passive:true });
+  // the wheel swaps guns; over the game it mustn't also scroll a page the game is
+  // embedded in (an iframe that can't scroll hands the wheel to its parent).
+  // Over the menus it still scrolls them.
+  addEventListener("wheel", e=>{
+    I.wheel += Math.sign(e.deltaY);
+    const menu = e.target && e.target.closest && e.target.closest("#screens");
+    if(!menu) e.preventDefault();
+  }, { passive:false });
 };
 
 /* one frame's input for the game, given where the wizard is */
@@ -41,7 +49,10 @@ I.sample = function(G){
   const w = S.unproject(I.mouse.x, I.mouse.y, 0.75);
   if(w){ out.ax = w.x; out.ay = w.z; }
   // a gamepad, if one's plugged in and being used
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  // (inside an iframe whose page doesn't allow "gamepad", getGamepads throws; that
+  // used to abort every frame of an embedded game, so it is caught and treated as none)
+  let pads = [];
+  try{ pads = navigator.getGamepads ? navigator.getGamepads() : []; }catch(e){ pads = []; }
   const gp = pads && Array.from(pads).find(x=> x && x.connected);
   if(gp){
     const dz = v=> Math.abs(v) < 0.2 ? 0 : v;

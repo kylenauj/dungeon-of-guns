@@ -208,3 +208,17 @@ body.cinema #hud{display:none;}
 .title-foot .sigils{margin:0;gap:6px;flex:none;}
 .title-foot .sigil{width:24px;height:24px;font-size:13px;}
 .title-foot .sigils small{font-size:13px;}
+
+/* short screens (a laptop, or the game embedded in a web page): the title and
+   pause menus compact, and if they still don't fit they scroll from the top
+   instead of losing it (centred flex content overflows both ways; auto margins
+   only overflow downward) */
+.screens.title,.screens.pause{align-items:flex-start;}
+.screens.title>*,.screens.pause>*{margin-top:auto;margin-bottom:auto;}
+@media (max-height:640px){
+  .logo span{font-size:clamp(34px,min(6.4vw,10vh),64px);}
+  .logo .of{font-size:18px;}
+  .tag-line{font-size:15px;}
+  .title-wrap{gap:6px;}
+  .menu .item{padding-top:5px;padding-bottom:4px;}
+}
