@@ -98,9 +98,6 @@ UI.on({
   abandon: ()=>{ app.G.state = "dead"; app.G.lastHurt = "giving up"; app.end(false); },
   lore: ()=>{ if(app.mode === "end") UI.end(app.G, true); },
   endless: ()=>{ if(app.V && app.V.cine){ app.V.cine.dispose(); app.V.cine = null; } app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
-  ink: b=>{ const look = S.toggleInk(); if(b) b.querySelector("small").textContent = look; },
-  pixel: b=>{ const on = S.togglePixel(); if(b) b.querySelector("small").textContent = on ? "chunky" : "crisp"; },
-  shadows: b=>{ const on = S.toggleShadows(); if(b) b.querySelector("small").textContent = on ? "on" : "off"; },
   mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
   boon: b=> app.pick(+b.dataset.i)
 });
@@ -110,8 +107,6 @@ IN.onKey = function(e){
   AU.start();
   if(app.mode === "cine"){ if(app.V && app.V.cine) app.V.cine.skip(); return; }
   if(e.code === "KeyM" && !(e.target && e.target.tagName === "INPUT")){ AU.toggleMute(); HUD.toast(AU.muted ? "Sound off" : "Sound on", 1.2); return; }
-  if(e.code === "KeyP" && !(e.target && e.target.tagName === "INPUT")){ S.togglePixel(); return; }
-  if(e.code === "KeyV" && !(e.target && e.target.tagName === "INPUT")){ HUD.toast({ etched:"Etched look", ink:"Ink look", plain:"Plain look" }[S.toggleInk()], 1.2); return; }
   if(e.code === "Escape"){
     if(app.mode === "play") app.pause();
     else if(app.mode === "choose" && app.G.choice && app.G.choice.leave !== undefined) app.pick(app.G.choice.leave);   // Esc walks away from Brother Olm

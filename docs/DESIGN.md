@@ -316,7 +316,7 @@ The next step for the look ("Ash & Ember": why it still reads cozy, the rules, a
 5. **Characters lost in the floor.** Dark figures on a dark floor, separated by nothing.
 6. **A world that doesn't match its UI.** Our menus are an old grim book; the 3D was not.
 
-**What we do instead** (default; **V** cycles etched → ink → plain):
+**What we do instead** (the one look: there are no graphics options):
 - **An etching that light colours in.** Colour exists only where light falls: the lantern, torches, spells, glowing things. Everywhere else a surface is the paper's tone, shaded by **hatching** that thickens and crosses as it darkens (one, two, then three layers). The lines lie on the surfaces (world space for the dungeon, a character's own space for characters), so they never swim as the camera moves, and they waver a little, like a hand. Shadow is drawn, never a black fill (`K.INK.uEtch` in `kit.js`).
 - **The room is lit by its lights.** Etched, the flat ambient drops to about 40% and the lantern grows, so every frame has one warm, coloured pool and a drawn dark around it.
 - **Wall tops as a hand-drawn dungeon map draws them:** clusters of short strokes, each cluster at its own angle (`inkPoche`).
@@ -328,14 +328,13 @@ The next step for the look ("Ash & Ember": why it still reads cozy, the rules, a
 - **Ash & Ember** ([ART_DIRECTION.md](ART_DIRECTION.md)): no surface is more saturated than `K.INK.uSatCap`; colour comes from light and from things that glow (loot opts out with `{ vivid:true }`). Each floor has one accent hue in its torches. `npm run look` measures it.
 - **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`), but light now falls off smoothly (`uSoft` blends the old toon bands away), with a faint ordered dither for grit and ink hatching only in the deepest shadow.
 - **Characters** wear grime in their own space (mottled stains, fine grain, dirt rising from the feet, colours pulled toward grey), get a faint cold rim light and a contact shadow, and a thin contour instead of a cartoon outline (`K.OUTLINE`).
-- **Full resolution** by default; **P** brings back the chunky pixels.
+- **Full resolution**, dropping a little when frames run slow; no pixel mode.
 - **One post pass** (`stage.js`):
   - soft ink where depth jumps
   - bloom on what burns bright: candles, eyes, spells
   - a grade that drains colour, crushes the blacks and leans shadows to the floor's shade colour
   - a heavy vignette, film grain, and on deeper floors edges that swim and split
-  - **V** toggles the plain picture.
-- **Light:** a faint cold moon from one side, a pale guttering lantern on Zippy that casts the only shadows (walls, columns, enemies and props throw them away from him; the pause menu can turn them off), and torches, braziers and candles in small pools of the floor's one accent colour.
+- **Light:** a faint cold moon from one side, a pale guttering lantern on Zippy that casts the only shadows (walls, columns, enemies and props throw them away from him), and torches, braziers and candles in small pools of the floor's one accent colour.
 - **Scale:** walls stand 2.6 high, the camera looks down at about 48° from close in and eases back in a fight; a wall between Zippy and the camera dithers open around him.
 - **Silhouettes** (`?gallery&sil` draws them flat black): no sphere as a primary form, adult proportions (small heads, long limbs), and something angular breaking every outline (`K.shard`: horns, spines, stakes, splinters of bone). Zippy is a witch-hunter in a wide torn brim; the Gloom are what's left of people.
 - **The detail standard for every model:** no chibi proportions or cartoon eyes; gaunt, hunched, worn silhouettes; sunken sockets with small glowing pinpricks; layered cloth, rust, bone, straps, scars and tatters (`K.slathe` smooth profiles, `K.tatter` ragged hems, `K.sculpt` sculpted flesh and bark). Budgets: about 25k triangles for an enemy, 35k for Zippy, 70k for a boss. `?gallery` lines every model up side by side to check it.

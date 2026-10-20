@@ -84,7 +84,7 @@ Each phase stands alone and can be judged in `?gallery` and on floors 1, 3 and 5
 - **Pillars and buttresses** along long walls, and broken floor that drops into black pits.
 
 ### Phase 3: Shadows (about 1 day, the scariest change) — done
-**Done:** Zippy's lantern casts (a 512 cube shadow, PCF). Every ink surface takes its shadow; walls, columns, enemies, Gribbus and every baked prop throw one; Zippy and his gun don't. If frames stay slow at the lowest adaptive resolution the shadows switch themselves off, and the pause menu has a SHADOWS toggle (remembered).
+**Done:** Zippy's lantern casts (a 512 cube shadow, PCF). Every ink surface takes its shadow; walls, columns, enemies, Gribbus and every baked prop throw one; Zippy and his gun don't. If frames stay slow at the lowest adaptive resolution, the shadow map is redrawn every 2nd or 3rd frame instead (switching a shadow off would rebuild every shader, a freeze). There are no graphics options: one look for everyone.
 
 - **One shadow-casting light: Zippy's lantern** (a point-light cube shadow at low resolution, 256–512), plus the boss arena's main light. Everything else stays unshadowed. Shadows of enemies stretching toward you from the edge of the light are the single most Souls moment we can add.
 - If the cube shadow costs too much on low-end machines, fall back to **projected stretched blob shadows** that point away from the lantern.

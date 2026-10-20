@@ -1,9 +1,8 @@
 /* ------------------------------------------------------------------ *
  *  The stage: renderer, lights and the camera.
  *
- *  Pine Hollow's trick: draw the game at a low resolution and scale it
- *  up with hard pixel edges, so the whole thing reads as chunky pixel
- *  art. P toggles it off.
+ *  There is one look and no graphics options: etched, at full resolution
+ *  (dropping a little when frames run slow), with lantern shadows.
  *
  *  The camera hangs above and behind the wizard, looking down at about
  *  48°, close enough that the walls show their faces, and leans a little
@@ -18,7 +17,6 @@
  *  outlined like the characters), each floor grades the colours its own
  *  way, the corners sink into the floor's fog, a little grain moves over
  *  everything, and the deeper floors make the picture swim at its edges.
- *  V toggles back to the plain picture.
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -32,7 +30,8 @@ S.init = function(){
   r.setPixelRatio(1);
   document.getElementById("view").appendChild(r.domElement);
   // full resolution by default now (P still gives the old chunky pixels)
-  try{ S.pixel = localStorage.getItem("dungeonofguns.pixel2") === "1"; }catch(e){ S.pixel = false; }
+  // one look, no options: etched, crisp, lantern shadows on (old saved choices are ignored)
+  S.pixel = false;
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
@@ -50,7 +49,7 @@ S.init = function(){
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
   // the shadow map is redrawn every S.shadowEvery frames (more apart when frames run slow)
   r.shadowMap.autoUpdate = false; S.shadowEvery = 1; S.frameN = 0;
-  try{ S.shadows = localStorage.getItem("dungeonofguns.shadows") !== "0"; }catch(e){ S.shadows = true; }
+  S.shadows = true;
   const sh = S.playerLight.shadow; sh.mapSize.set(512, 512); sh.camera.near = 0.25; sh.camera.far = 16; sh.bias = -0.004; sh.normalBias = 0.03;
   S.playerLight.castShadow = S.shadows;
   S.torches = [];
@@ -61,8 +60,7 @@ S.init = function(){
   // shader in the scene, which is a long freeze. So the lights never change.
   S.spare = new THREE.PointLight(0xff8a2a, 0, 14, 1.6); scene.add(S.spare);
 
-  try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
-  try{ S.etch = localStorage.getItem("dungeonofguns.etch") !== "0"; }catch(e){ S.etch = true; }
+  S.fancy = true; S.etch = true;
   K.INK.uEtch.value = S.fancy && S.etch ? 1 : 0; K.INK.uOutK.value = K.INK.uEtch.value ? 2 : 1;
   S.initPost();
   // closer and a little lower than a straight top-down: characters read as
@@ -96,18 +94,6 @@ S.resize = function(){
   c.style.imageRendering = S.pixel ? "pixelated" : "auto";
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
   K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uScale) m.uniforms.uScale.value = h/k/2; });
-};
-/* the look: etched (ink lines on paper, colour only in the light), ink (the
-   older grim look), or plain (no post pass). V and the menu cycle them. */
-S.lookName = ()=> !S.fancy ? "plain" : S.etch ? "etched" : "ink";
-S.toggleInk = function(){
-  if(S.fancy && S.etch) S.etch = false;
-  else if(S.fancy) S.fancy = false;
-  else { S.fancy = true; S.etch = true; }
-  K.INK.uEtch.value = S.fancy && S.etch ? 1 : 0; K.INK.uOutK.value = K.INK.uEtch.value ? 2 : 1;
-  if(S.lastTheme) S.theme(S.lastTheme[0], S.lastTheme[1]);
-  try{ localStorage.setItem("dungeonofguns.ink", S.fancy ? "1" : "0"); localStorage.setItem("dungeonofguns.etch", S.etch ? "1" : "0"); }catch(e){}
-  return S.lookName();
 };
 S.initPost = function(){
   const rt = new THREE.WebGLRenderTarget(16, 16, { minFilter:THREE.NearestFilter, magFilter:THREE.NearestFilter });
@@ -199,18 +185,6 @@ S.renderPortrait = function(){
   R.render(P.scene, P.cam);
   R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height);
 };
-S.toggleShadows = function(){
-  S.shadows = !S.shadows; S.playerLight.castShadow = S.shadows;
-  try{ localStorage.setItem("dungeonofguns.shadows", S.shadows ? "1" : "0"); }catch(e){}
-  return S.shadows;
-};
-S.togglePixel = function(){
-  S.pixel = !S.pixel;
-  try{ localStorage.setItem("dungeonofguns.pixel2", S.pixel ? "1" : "0"); }catch(e){}
-  S.resize();
-  return S.pixel;
-};
-
 /* each floor's mood: darker and foggier the deeper you go, and darker still if cursed */
 S.theme = function(th, curses){
   curses = curses || [];

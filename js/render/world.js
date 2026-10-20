@@ -1134,7 +1134,11 @@ proto.update = function(G, dt, t){
   D.rooms.forEach(r=>{
     if(!r.seen && r.type !== "secret") return;
     r.props.forEach(pr=>{
-      const o = W.props[pr.id]; if(!o) return;
+      // props the game adds mid-floor (a boss's pedestal, a chest's spilled pedestal)
+      // are built the first frame they're seen; before, they never were, and only
+      // the item's name plate showed
+      let o = W.props[pr.id];
+      if(!o){ o = W.addProp(pr); if(!o) return; }
       if(pr.kind === "chest"){
         o.lid.rotation.x += ((pr.open ? -1.9 : 0) - o.lid.rotation.x)*(1 - Math.exp(-dt*10));
         o.glow.material.opacity = pr.open ? 0 : pr.locked ? 0.08 : 0.3 + 0.1*Math.sin(t*3);

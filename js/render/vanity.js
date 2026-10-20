@@ -99,6 +99,16 @@ proto.buildVanity = function(){
   D.rooms.forEach(r=>{
     const list = byArea[r.id] = byArea[r.id] || [], glowList = glowByArea[r.id] = glowByArea[r.id] || [];
     const w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1, area = w*h;
+    // nothing is laid over a hole: a rug or a stain must not hide a pit, a block's
+    // footing or a trap (they are hazards you need to see). (x, y) the centre, hw/hh half sizes
+    const traps = new Set((r.traps || []).map(t=> t.x + "," + t.y));
+    const clear = (x, y, hw, hh)=>{
+      for(let ty = Math.floor(y - hh); ty <= Math.floor(y + hh - 0.001); ty++) for(let tx = Math.floor(x - hw); tx <= Math.floor(x + hw - 0.001); tx++){
+        const t = D.at(tx, ty);
+        if((t !== T.FLOOR && t !== T.DOOR) || traps.has(tx + "," + ty)) return false;
+      }
+      return true;
+    };
     // floor decals
     const n = Math.round(area/9);
     for(let i=0;i<n;i++){
@@ -106,13 +116,15 @@ proto.buildVanity = function(){
       if(!floorAt(x, y)) continue;
       const [kind, , col] = pickW(rnd, T0.decals), s = kind === "grate" ? 1 : 0.8 + rnd()*1.1;
       const c = new THREE.Color(col).multiplyScalar(0.8 + rnd()*0.4);
+      if(!clear(x, y, kind === "rune" ? 1.1 : s*0.42, kind === "rune" ? 1.1 : s*0.42)) continue;
       if(kind === "rune") decal(glowList, CELL.rune, x, 0.025, y, 2.2, 2.2, rnd()*6, c);
       else decal(list, CELL[kind], x, 0.012 + i*0.0004, y, s, s, kind === "grate" || kind === "tiles" ? 0 : rnd()*6, c);
     }
     // a rug down the middle of the room
     if(T0.rug[0] && rnd() < T0.rug[0] && w >= 7 && h >= 6 && r.type !== "pond"){
       const rx = (r.x1 + r.x2 + 1)/2, ry = (r.y1 + r.y2 + 1)/2, long = w > h;
-      decal(list, CELL.rug, rx, 0.01, ry, long ? Math.min(w - 4, 9) : 3, long ? 3 : Math.min(h - 3, 8), 0, new THREE.Color(T0.rug[1]));
+      const rw = long ? Math.min(w - 4, 9) : 3, rh = long ? 3 : Math.min(h - 3, 8);
+      if(clear(rx, ry, rw/2, rh/2)) decal(list, CELL.rug, rx, 0.01, ry, rw, rh, 0, new THREE.Color(T0.rug[1]));
     }
     // drips and cracks down the north wall's face
     for(let x=r.x1; x<=r.x2; x++){

@@ -62,8 +62,6 @@ UI.title = function(){
         <button class="item" data-act="new">NEW RUN <small>a fresh descent</small></button>
         <div class="seed-row"><input id="seed" maxlength="12" placeholder="SEED (optional)" spellcheck="false" autocomplete="off"><button class="item small" data-act="seeded">PLAY SEED</button></div>
         <button class="item" data-act="how">HOW TO PLAY</button>
-        <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
-        <button class="item" data-act="ink">LOOK <small>${DG.Stage.lookName()}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
       </div>
@@ -92,7 +90,7 @@ UI.how = function(back){
         <p><kbd>F</kbd> use your active item</p>
         <p><kbd>Q</kbd> / <kbd>wheel</kbd> / <kbd>1-3</kbd> switch guns</p>
         <p><kbd>TAB</kbd> satchel: everything you carry</p>
-        <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>P</kbd> pixels &nbsp; <kbd>V</kbd> look</p>
+        <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound</p>
         <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, B active, Y swap, RB satchel.</p>
       </div>
       </div>
@@ -109,9 +107,6 @@ UI.pause = function(G){
         <button class="item" data-act="resume">RESUME</button>
         <button class="item" data-act="bag">SATCHEL <small>guns and powerups</small></button>
         <button class="item" data-act="howPause">HOW TO PLAY</button>
-        <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
-        <button class="item" data-act="ink">LOOK <small>${DG.Stage.lookName()}</small></button>
-        <button class="item" data-act="shadows">SHADOWS <small>${DG.Stage.playerLight.castShadow ? "on" : "off"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
         <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
