@@ -142,6 +142,8 @@ const World = DG.World = function(D){
   W.buildVanity();
   D.rooms.forEach(r=> r.props.forEach(p=> W.addProp(p)));
   D.rooms.forEach(r=>{ if(r.puzzle) W.buildPuzzle(r); });
+  // the lantern's shadows: every ink surface takes them; walls, columns and baked props throw them
+  W.group.traverse(o=>{ if(!o.isMesh || !o.material || !o.material.onBeforeCompile) return; o.receiveShadow = true; if(o.material === W.mats.wall || o.userData.baked) o.castShadow = true; });
 };
 const proto = World.prototype;
 World.stone = stone; World.wuv = wuv; World.stoneTex = stoneTex;
@@ -1077,6 +1079,8 @@ proto.buildPuzzle = function(r){
  * ================================================================== */
 proto.update = function(G, dt, t){
   const W = this, D = W.D, p = G.player, S = DG.Stage;
+  // the see-through: any wall between Zippy and the camera opens around him
+  K.GLOOM.uSeeP.value.set(p.x, 0.9, p.y); K.GLOOM.uSeeC.value.copy(S.camera.position);
   // fog of war
   for(const id in W.areas){
     const A = W.areas[id], i = +id;

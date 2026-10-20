@@ -100,6 +100,7 @@ UI.on({
   endless: ()=>{ if(app.V && app.V.cine){ app.V.cine.dispose(); app.V.cine = null; } app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
   ink: b=>{ const look = S.toggleInk(); if(b) b.querySelector("small").textContent = look; },
   pixel: b=>{ const on = S.togglePixel(); if(b) b.querySelector("small").textContent = on ? "chunky" : "crisp"; },
+  shadows: b=>{ const on = S.toggleShadows(); if(b) b.querySelector("small").textContent = on ? "on" : "off"; },
   mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
   boon: b=> app.pick(+b.dataset.i)
 });
@@ -177,6 +178,9 @@ function frame(dt, t){
   V.update(dt, t);
   const p = G.player, m = IN.mouse, aim = app.mode === "play" ? S.unproject(m.x, m.y, 0) : null;
   if(!V.cine) S.follow(p.x, p.y, aim ? aim.x : p.x, aim ? aim.z : p.y);
+  // the camera eases back in a fight (more for a big arena or a boss), and in close to explore
+  const rm = G.room, big = rm && (rm.x2 - rm.x1 > 16 || rm.y2 - rm.y1 > 12);
+  S.rig.zoomWant = V.cine || !(rm && rm.active) ? 1 : G.bossRef && !G.bossRef.dead ? 1.22 : big ? 1.15 : 1.08;
   HUD.draw(G, dt, { hidden:app.mode === "title" || app.mode === "cine" || !!V.cine || app.mode === "bag" || app.mode === "pause" || app.mode === "choose" || !!app.demo, noCursor:app.mode !== "play" });
 }
 app.startDemoSoon = function(){

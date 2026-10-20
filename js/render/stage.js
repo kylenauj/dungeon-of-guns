@@ -6,7 +6,9 @@
  *  art. P toggles it off.
  *
  *  The camera hangs above and behind the wizard, looking down at about
- *  60°, and leans a little toward the cursor (so you see where you aim).
+ *  48°, close enough that the walls show their faces, and leans a little
+ *  toward the cursor (so you see where you aim). It eases back in a fight.
+ *  Zippy's lantern is the one light that casts shadows.
  *  Lights: a dim cave fill, the wizard's own glow, and a small pool of
  *  point lights that move to the torches nearest the wizard (a fixed
  *  number of lights, so the shaders never recompile).
@@ -34,7 +36,7 @@ S.init = function(){
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
-  S.camera = new THREE.PerspectiveCamera(36, 1, 0.5, 200);
+  S.camera = new THREE.PerspectiveCamera(34, 1, 0.5, 200);
 
   S.hemi = new THREE.HemisphereLight(0x8a90a8, 0x1a140e, 0.7);
   scene.add(S.hemi);
@@ -43,6 +45,12 @@ S.init = function(){
   // Zippy carries a warm, guttering lantern light
   S.playerLight = new THREE.PointLight(0xffdcb4, 1.5, 10, 1.8);
   scene.add(S.playerLight);
+  // the one light that casts (Ash & Ember phase 3): everything near Zippy throws
+  // a hard shadow away from his lantern, into the dark. Other lights stay cheap.
+  r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
+  try{ S.shadows = localStorage.getItem("dungeonofguns.shadows") !== "0"; }catch(e){ S.shadows = true; }
+  const sh = S.playerLight.shadow; sh.mapSize.set(512, 512); sh.camera.near = 0.25; sh.camera.far = 16; sh.bias = -0.004; sh.normalBias = 0.03;
+  S.playerLight.castShadow = S.shadows;
   S.torches = [];
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 8, 1.8); scene.add(l); S.torches.push(l); }
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
@@ -53,7 +61,10 @@ S.init = function(){
   S.initPost();
   // closer and a little lower than a straight top-down: characters read as
   // standing figures, not squashed lids
-  S.rig = { x:0, z:0, tx:0, tz:0, dist:19, pitch:0.93, shake:0, lead:0.22 };
+  // lower and closer than before (Ash & Ember phase 2): figures are bigger, walls
+  // show their faces, and the room stops looking like a board seen from above;
+  // zoom eases out a little in a fight (main.js), so an arena still fits
+  S.rig = { x:0, z:0, tx:0, tz:0, dist:15.5, pitch:0.84, shake:0, lead:0.22, zoom:1, zoomWant:1 };
   S.initPortrait();
   S.clock = new THREE.Clock();
   S.updaters = [];
@@ -182,6 +193,11 @@ S.renderPortrait = function(){
   R.render(P.scene, P.cam);
   R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height);
 };
+S.toggleShadows = function(){
+  S.shadows = !S.shadows; S.playerLight.castShadow = S.shadows;
+  try{ localStorage.setItem("dungeonofguns.shadows", S.shadows ? "1" : "0"); }catch(e){}
+  return S.shadows;
+};
 S.togglePixel = function(){
   S.pixel = !S.pixel;
   try{ localStorage.setItem("dungeonofguns.pixel2", S.pixel ? "1" : "0"); }catch(e){}
@@ -228,8 +244,10 @@ S.shake = function(n){ S.rig.shake = Math.min(1.2, Math.max(S.rig.shake, n)); };
 S.updateCamera = function(dt){
   const R = S.rig, k = 1 - Math.exp(-dt*8);
   R.x += (R.tx - R.x)*k; R.z += (R.tz - R.z)*k;
+  R.zoom += ((R.zoomWant || 1) - R.zoom)*(1 - Math.exp(-dt*1.5));
+  const dist = R.dist*R.zoom;
   const sx = (Math.random() - 0.5)*R.shake, sz = (Math.random() - 0.5)*R.shake; R.shake *= Math.exp(-dt*10);
-  S.camera.position.set(R.x + sx, Math.sin(R.pitch)*R.dist, R.z + Math.cos(R.pitch)*R.dist + sz);
+  S.camera.position.set(R.x + sx, Math.sin(R.pitch)*dist, R.z + Math.cos(R.pitch)*dist + sz);
   S.camera.lookAt(R.x + sx*0.5, 0, R.z + sz*0.5);
 };
 
@@ -242,6 +260,7 @@ S.adapt = function(raw){
   S.adaptT = (S.adaptT || 0) + raw;
   if(S.adaptT < 1.5) return;
   const was = S.dyn;
+  if(S.ft > 1/45 && S.dyn <= 0.6 && S.playerLight.castShadow){ S.playerLight.castShadow = false; S.adaptT = 0; return; }
   if(S.ft > 1/45) S.dyn = Math.max(0.6, S.dyn - 0.1);
   else if(S.ft < 1/58 && S.dyn < 1) S.dyn = Math.min(1, S.dyn + 0.05);
   if(S.dyn !== was){ S.adaptT = 0; S.resize(); }

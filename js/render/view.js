@@ -469,6 +469,8 @@ proto.update = function(dt, t){
   // wards: little blue orbs circling
   if(p.wards > 0 && Math.random() < 0.3*p.wards){ const a = t*3 + Math.random(); FX.emit(p.x + Math.cos(a)*0.6, 1.1, p.y + Math.sin(a)*0.6, 0, 0.2, 0, 0x8ad8ff, 0.2, 0.3, 0, 1); }
   S.playerLight.position.set(p.x, 2.2, p.y + 0.3);
+  // the lantern is his: he and his gun never throw its shadow (it would fill the room)
+  W.root.traverse(o=>{ o.castShadow = false; });
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
 
   V.updateFrogs(dt, t);

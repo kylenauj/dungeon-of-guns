@@ -13,7 +13,9 @@
 const DG = window.DG;
 const K = DG.Kit = {};
 
-K.WALL_H = 1.7;
+// walls stand well over Zippy's head, so rooms read as halls, not boxes; where
+// one stands between him and the camera, it opens (K.GLOOM.uSeeP, below)
+K.WALL_H = 2.6;
 
 K.lump = function(r, det, amt, seed){
   const g = new THREE.IcosahedronGeometry(r, det === undefined ? 1 : det), a = g.attributes.position;
@@ -196,7 +198,7 @@ const INK_MAIN = [
   "    vec2 pc = vHP.xz*2.4 + vec2(in2(vHP.xz*1.7), in2(vHP.xz*1.9 + 4.0))*0.6, pi = floor(pc);",
   "    float pa = igh(vec3(pi, 3.0))*3.1416; vec2 pd = vec2(cos(pa), sin(pa));",
   "    float pl = inkLine(dot(vHP.xz, pd)*13.0 + igh(vec3(pi, 5.0))*3.0, 0.2 + 0.08*igh(vec3(pi, 7.0)));",
-  "    vec3 poche = mix(uInk, uPaper*0.16, pl*0.5);",
+  "    vec3 poche = mix(uInk, uPaper*0.1, pl*0.35);",
   "    eFill = mix(eFill, poche, inkPoche);",
   "  }",
   "  inkLit = mix(inkLit, eFill + totalEmissiveRadiance, uEtch);",
@@ -216,9 +218,11 @@ const INK_MAIN = [
    middle floors violet rot with bile-green veins that glow. On walls: bark
    and roots creeping up from the floor, rot veins, moss on top. Shared
    uniforms, set per floor by the stage. */
-K.GLOOM = { uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWallLum:{ value:0.4 } };
+K.GLOOM = { uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWallLum:{ value:0.4 },
+  // the see-through: Zippy's chest and the camera; wall between them dithers away
+  uSeeP:{ value:new THREE.Vector3(0, -99, 0) }, uSeeC:{ value:new THREE.Vector3(0, 10, 10) } };
 const GLOOM_PARS = [
-  "uniform float uGloom, uGTime, uFloorLum, uWallLum; varying vec3 vGW; varying vec3 vGN;",
+  "uniform float uGloom, uGTime, uFloorLum, uWallLum; uniform vec3 uSeeP, uSeeC; varying vec3 vGW; varying vec3 vGN;",
   "float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
   "float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(gh(i), gh(i + vec2(1, 0)), f.x), mix(gh(i + vec2(0, 1)), gh(i + vec2(1, 1)), f.x), f.y); }",
   "float gfbm(vec2 p){ return gn(p)*0.55 + gn(p*2.1 + 3.7)*0.28 + gn(p*4.3 + 1.3)*0.17; }"
@@ -248,6 +252,9 @@ const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surfa
 ].join("\n");
 const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND, "diffuseColor.rgb = gc;"].join("\n");
 const GLOOM_WALL = [GLOOM_COMMON,
+  "{ vec3 sd = uSeeC - uSeeP; float sL = length(sd); vec3 sn = sd/sL, sq = vGW - uSeeP; float st = dot(sq, sn);",
+  "  if(st > 0.25 && st < sL && vGW.y > 0.62){ float sr = length(sq - sn*st), sR = 1.15 + st*0.03;",
+  "    if(inkBayer(gl_FragCoord.xy) < smoothstep(sR, sR*0.6, sr)*0.92) discard; } }",
   "float gShade = clamp(dot(vColor, vec3(0.333))/uWallLum, 0.35, 1.3);",
   "if(vGN.y > 0.5){", GLOOM_GROUND, "diffuseColor.rgb = gc; inkPoche = step(1.2, vGW.y)*uEtch; } else {",
   // bark and roots, climbing from the floor; rot veins up the lower wall
@@ -362,6 +369,7 @@ K.bake = function(root, opts){
     parts.forEach(m=>{ o.remove(m); m.geometry.dispose(); m.material.dispose(); });
     const merged = K.merge(geos);
     const mesh = new THREE.Mesh(merged, mat); mesh.userData.baked = true;
+    mesh.castShadow = mesh.receiveShadow = true;   // in the lantern's shadow (stage.js)
     o.add(mesh);
     if(out){ const ol = new THREE.Mesh(merged, out); ol.userData.outline = true; o.add(ol); }
   });

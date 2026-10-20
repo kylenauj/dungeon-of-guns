@@ -75,13 +75,17 @@ Each phase stands alone and can be judged in `?gallery` and on floors 1, 3 and 5
 - **Kill the motes.** Replace `motes` with falling ash (grey, unlit, slow, downward, a few at a time). Keep embers only near braziers.
 - **Remove the purple shadow tint** (`uShade 0x2a1838`) and use a cold near-black instead.
 
-### Phase 2: Camera, scale and architecture (about 2 days)
+### Phase 2: Camera, scale and architecture (about 2 days) — mostly done
+**Done:** walls 1.7 → 2.6 (`K.WALL_H`); the camera is lower and closer (`dist` 19 → 15.5, `pitch` 0.93 → 0.84, FOV 36 → 34), so figures are about 30% bigger, and it eases back in a fight (×1.08, ×1.15 in a big arena, ×1.22 for a boss) so the arena still fits; any wall or column between Zippy and the camera opens in an ordered dither around him (`K.GLOOM.uSeeP`), keeping its plinth so the line of the wall still reads. `npm run look`: near-black 60.8% → 44.1% only because the room now fills more of the frame; strongly coloured pixels stay at 1.3%. **Not yet:** foreground chains and arches, pits into black.
+
 - **Taller walls:** `K.WALL_H` from 1.7 to about 3.2, with wall tops lost in darkness (no top cap visible, so the hatched "map" tops go away). Rooms become halls, not boxes.
 - **Lower, closer camera:** `dist` 19 → about 14, `pitch` 0.93 → about 0.78, FOV 36 → about 30. Figures get bigger and the miniature read goes away. Check the full room still fits for gameplay. If not, have the camera pull back only in fights.
 - **Foreground occluders:** pillars, arches, hanging chains and cages between the camera and the floor, faded out near the player (a dither fade, so they never block a fight). Depth in the foreground is the quickest way to make a top-down view feel like a place.
 - **Pillars and buttresses** along long walls, and broken floor that drops into black pits.
 
-### Phase 3: Shadows (about 1 day, the scariest change)
+### Phase 3: Shadows (about 1 day, the scariest change) — done
+**Done:** Zippy's lantern casts (a 512 cube shadow, PCF). Every ink surface takes its shadow; walls, columns, enemies, Gribbus and every baked prop throw one; Zippy and his gun don't. If frames stay slow at the lowest adaptive resolution the shadows switch themselves off, and the pause menu has a SHADOWS toggle (remembered).
+
 - **One shadow-casting light: Zippy's lantern** (a point-light cube shadow at low resolution, 256–512), plus the boss arena's main light. Everything else stays unshadowed. Shadows of enemies stretching toward you from the edge of the light are the single most Souls moment we can add.
 - If the cube shadow costs too much on low-end machines, fall back to **projected stretched blob shadows** that point away from the lantern.
 

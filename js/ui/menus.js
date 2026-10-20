@@ -111,6 +111,7 @@ UI.pause = function(G){
         <button class="item" data-act="howPause">HOW TO PLAY</button>
         <button class="item" data-act="pixel">PIXELS <small>${DG.Stage.pixel ? "chunky" : "crisp"}</small></button>
         <button class="item" data-act="ink">LOOK <small>${DG.Stage.lookName()}</small></button>
+        <button class="item" data-act="shadows">SHADOWS <small>${DG.Stage.playerLight.castShadow ? "on" : "off"}</small></button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
         <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
