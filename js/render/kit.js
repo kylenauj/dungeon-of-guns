@@ -135,12 +135,15 @@ K.INK = {
   // and characters wear grime: mottled, darker in the creases and lower down
   uSoft:{ value:0.72 }, uGrime:{ value:0.55 },
   // the etching (K.ETCH below): 0 off, 1 on; the paper's tone; hatch lines per unit
-  uEtch:{ value:1 }, uOutK:{ value:1 }, uPaper:{ value:new THREE.Color(0xe2d6b8) }, uHatchF:{ value:3.6 }
+  uEtch:{ value:1 }, uOutK:{ value:1 }, uPaper:{ value:new THREE.Color(0xd4cec2) }, uHatchF:{ value:3.6 },
+  // Ash & Ember (docs/ART_DIRECTION.md): no surface is more coloured than this
+  // (HSV saturation); colour comes from light and from things that glow
+  uSatCap:{ value:0.24 }
 };
 /* outlines are a thin contour now, not a cartoon line */
 K.OUTLINE = 0.4;
 const INK_PARS = [
-  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF; uniform vec3 uInk, uRim, uPaper;",
+  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF, uSatCap; uniform vec3 uInk, uRim, uPaper;",
   "varying vec3 vHP; varying vec3 vHN;",
   "float inkPoche = 0.0;",
   "float in2h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
@@ -186,13 +189,14 @@ const INK_MAIN = [
   "  float eSat = smoothstep(0.2, 0.8, inkQ);",
   "  vec3 eFill = mix(eMono*(0.24 + 0.5*min(inkQ, 1.0)), eLit, eSat);",
   "  eFill = mix(eFill, uInk, eK*0.95);",
+  "  eFill = mix(eFill, uInk, smoothstep(0.62, 0.92, eD));",
   // the tops of walls, as a hand-drawn dungeon map draws them: clusters of short
   // strokes, each cluster at its own angle, on the bare paper
   "  if(inkPoche > 0.0){",
   "    vec2 pc = vHP.xz*2.4 + vec2(in2(vHP.xz*1.7), in2(vHP.xz*1.9 + 4.0))*0.6, pi = floor(pc);",
   "    float pa = igh(vec3(pi, 3.0))*3.1416; vec2 pd = vec2(cos(pa), sin(pa));",
   "    float pl = inkLine(dot(vHP.xz, pd)*13.0 + igh(vec3(pi, 5.0))*3.0, 0.2 + 0.08*igh(vec3(pi, 7.0)));",
-  "    vec3 poche = mix(uPaper*0.42, uInk, max(pl, 0.25));",
+  "    vec3 poche = mix(uInk, uPaper*0.16, pl*0.5);",
   "    eFill = mix(eFill, poche, inkPoche);",
   "  }",
   "  inkLit = mix(inkLit, eFill + totalEmissiveRadiance, uEtch);",
@@ -226,21 +230,21 @@ const GLOOM_COMMON = [
 ].join("\n");
 const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surface at vGW.xz
   "float gn1 = gfbm(vGW.xz*0.35), gn2 = gfbm(vGW.xz*1.7 + 9.0);",
-  "float gCover = smoothstep(1.0 - uGloom*1.25, 1.12 - uGloom*1.25, mix(gn1, gn2, 0.3));",
-  "vec3 gMoss = mix(mix(vec3(0.075, 0.13, 0.13), vec3(0.12, 0.2, 0.16), gn2), mix(vec3(0.1, 0.11, 0.07), vec3(0.15, 0.15, 0.09), gn2), uEtch)*2.3*gShade;",
+  "float gCover = smoothstep(0.96 - uGloom*1.25, 1.24 - uGloom*1.25, mix(gn1, gn2, 0.45));",
+  "vec3 gMoss = mix(mix(vec3(0.075, 0.13, 0.13), vec3(0.12, 0.2, 0.16), gn2), mix(vec3(0.095, 0.105, 0.09), vec3(0.14, 0.15, 0.125), gn2), uEtch)*2.3*gShade;",
   "vec3 gc = mix(gBase, gMoss, gCover);",
   "float gTh = abs(sin(vGW.x*0.9 + sin(vGW.z*0.7)*2.4 + gn1*5.0))*abs(sin(vGW.z*1.1 + sin(vGW.x*0.6)*2.0));",
-  "gc = mix(gc, vec3(0.62, 0.7, 0.74)*gShade, smoothstep(0.035, 0.0, gTh)*0.45*gCover);",
-  "float gR = smoothstep(1.0 - gRot, 1.08 - gRot, gfbm(vGW.xz*0.22 + 17.0));",
-  "gc = mix(gc, mix(vec3(0.14, 0.05, 0.13), vec3(0.21, 0.07, 0.17), gn2)*1.45*gShade, gR);",
+  "gc = mix(gc, vec3(0.42, 0.42, 0.38)*gShade, smoothstep(0.03, 0.0, gTh)*0.16*gCover);",
+  "float gR = smoothstep(0.96 - gRot, 1.2 - gRot, gfbm(vGW.xz*0.22 + 17.0) + (gn2 - 0.5)*0.12);",
+  "gc = mix(gc, mix(vec3(0.07, 0.065, 0.06), vec3(0.12, 0.11, 0.1), gn2)*1.45*gShade, gR);",
   // etched, every patch of moss and rot gets an ink contour, like a drawn map's shading
   "float gEdge = smoothstep(0.03, 0.0, abs(mix(gn1, gn2, 0.3) - (1.06 - uGloom*1.25)))*step(0.01, uGloom);",
   "gEdge = max(gEdge, smoothstep(0.025, 0.0, abs(gfbm(vGW.xz*0.22 + 17.0) - (1.04 - gRot)))*step(0.01, gRot));",
-  "gc = mix(gc, uInk, gEdge*uEtch*0.8);",
+  "gc = mix(gc, uInk, gEdge*uEtch*0.3);",
   "float gVein = smoothstep(0.035, 0.0, abs(gfbm(vGW.xz*0.8 + 4.0) - 0.5));",
   "gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.2*(0.6 + 0.4*sin(uGTime*2.0 + vGW.x))*gR;",
   "float gSp = step(0.955, gh(floor(vGW.xz*2.6)))*smoothstep(0.4, 0.15, length(fract(vGW.xz*2.6) - 0.5));",
-  "gloomGlow += vec3(0.25, 0.75, 1.0)*gSp*0.55*(0.7 + 0.3*sin(uGTime*1.3 + gh(floor(vGW.xz*2.6))*20.0))*gCover*(1.0 - gR);"
+  "gloomGlow += vec3(0.25, 0.75, 1.0)*gSp*0.14*(0.7 + 0.3*sin(uGTime*1.3 + gh(floor(vGW.xz*2.6))*20.0))*gCover*(1.0 - gR);"
 ].join("\n");
 const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND, "diffuseColor.rgb = gc;"].join("\n");
 const GLOOM_WALL = [GLOOM_COMMON,
@@ -250,16 +254,24 @@ const GLOOM_WALL = [GLOOM_COMMON,
   "  vec2 wp = vec2(vGW.x + vGW.z, vGW.y);",
   "  float gB = smoothstep(1.0 - uGloom*1.35, 1.1 - uGloom*1.35, gfbm(wp*vec2(0.5, 0.8) + 2.0) + (1.0 - clamp(vGW.y/1.7, 0.0, 1.0))*0.3);",
   "  float st = abs(sin(wp.x*7.0 + gfbm(wp*vec2(2.0, 0.4))*7.0));",
-  "  vec3 bark = mix(vec3(0.15, 0.1, 0.11), vec3(0.27, 0.18, 0.15), st)*1.7*gShade;",
+  "  vec3 bark = mix(vec3(0.12, 0.11, 0.1), vec3(0.22, 0.2, 0.17), st)*1.7*gShade;",
   "  float gm = smoothstep(0.55, 0.0, vGW.y)*gB*uGloom;",
   "  bark = mix(bark, vec3(0.12, 0.2, 0.16)*2.0*gShade, gm);",
   "  vec3 gc = mix(gBase, bark, gB);",
   "  float gR = smoothstep(1.0 - gRot, 1.08 - gRot, gfbm(wp*0.6 + 3.0))*smoothstep(1.7, 0.1, vGW.y);",
-  "  gc = mix(gc, vec3(0.24, 0.07, 0.2)*1.6*gShade, gR*0.85);",
+  "  gc = mix(gc, vec3(0.09, 0.08, 0.075)*1.6*gShade, gR*0.85);",
   "  float gVein = smoothstep(0.07, 0.0, abs(gfbm(wp*vec2(1.2, 0.7) + 4.0) - 0.5));",
   "  gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.25*(0.6 + 0.4*sin(uGTime*2.0 + wp.x))*gR;",
   "  diffuseColor.rgb = gc;",
   "}"].join("\n");
+/* the colour cap: every surface is pulled toward its own grey until it is no
+   more saturated than uSatCap. After the Gloom and the grime, before the light,
+   so torchlight and spells still colour it and emissive glows are untouched. */
+const SATCAP = [
+  "{ float scMx = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b), scMn = min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b);",
+  "  float scS = (scMx - scMn)/max(scMx, 0.0001), scL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));",
+  "  diffuseColor.rgb = mix(vec3(scL), diffuseColor.rgb, min(1.0, uSatCap/max(scS, 0.0001))); }"
+].join("\n");
 /* grime on characters, in their own space so it rides along with them:
    mottled stains at two scales, a fine grain, and dirt that rises from the feet */
 const GRIME = [
@@ -287,6 +299,7 @@ K.inkify = function(mat, opts){
       "#include <project_vertex>\n vec4 inkHP = vec4(transformed, 1.0); vec3 inkHN = objectNormal;\n#ifndef INK_RIM\n#ifdef USE_INSTANCING\n inkHP = instanceMatrix*inkHP; inkHN = mat3(instanceMatrix)*inkHN;\n#endif\n inkHP = modelMatrix*inkHP; inkHN = mat3(modelMatrix)*inkHN;\n#endif\n vHP = inkHP.xyz; vHN = inkHN;");
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
+      .replace("#include <lights_toon_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_toon_fragment>")
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
     if(opts.rim){
       sh.fragmentShader = "#define INK_RIM\nvarying float vInkY; varying vec3 vInkO;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" + GRIME);
@@ -294,16 +307,17 @@ K.inkify = function(mat, opts){
         "#include <project_vertex>\n vInkO = transformed;\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
-  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + "-etch";
+  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + (opts.vivid ? "-vivid" : "") + "-etch";
   mat.extensions = Object.assign({}, mat.extensions, { derivatives:true });
   return mat;
 };
 /* the material: vertex colours by default; { rim:true } for characters,
-   { gloom:"floor" | "wall" } for the dungeon's own floors and walls */
+   { gloom:"floor" | "wall" } for the dungeon's own floors and walls,
+   { vivid:true } for the few things allowed their full colour (loot) */
 K.ink = (opts)=>{
   opts = Object.assign({}, opts);
-  const rim = opts.rim, gloom = opts.gloom; delete opts.rim; delete opts.gloom;
-  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim, gloom });
+  const rim = opts.rim, gloom = opts.gloom, vivid = opts.vivid; delete opts.rim; delete opts.gloom; delete opts.vivid;
+  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim, gloom, vivid });
 };
 K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));

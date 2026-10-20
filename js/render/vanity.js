@@ -352,7 +352,8 @@ proto.buildCritters = function(T0){
     c.g = c.kind === "rat" ? ratMesh() : batMesh();
     W.areaGroup(c.room).add(c.g);
   });
-  // a cloud of small glowing things per room: fireflies, spores, motes, blood cells
+  // ash, falling: grey flakes drift down through the room and settle, then fall
+  // again from above (Ash & Ember: particles fall, they don't float; no glowing motes)
   const m = T0.motes;
   if(!m.n) return;
   D.rooms.forEach(r=>{
@@ -360,13 +361,15 @@ proto.buildCritters = function(T0){
     for(let i=0;i<n;i++){ pos[i*3] = r.x1 + W.rnd()*(r.x2 - r.x1 + 1); pos[i*3 + 1] = 0.4 + W.rnd()*1.6; pos[i*3 + 2] = r.y1 + W.rnd()*(r.y2 - r.y1 + 1); ph[i] = W.rnd()*6.28; }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aPh", new THREE.BufferAttribute(ph, 1));
     const mat = W.fireflyMat || (W.fireflyMat = new THREE.ShaderMaterial({
-      uniforms:{ uTime:{ value:0 }, uScale:{ value:300 }, uCol:{ value:new THREE.Color(m.c) }, uSp:{ value:m.sp } }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+      uniforms:{ uTime:{ value:0 }, uScale:{ value:300 }, uCol:{ value:new THREE.Color(0x857d72) }, uSp:{ value:m.sp } }, transparent:true, depthWrite:false,
       vertexShader:["attribute float aPh; uniform float uTime, uScale, uSp; varying float vA;",
         "void main(){ vec3 p = position; float t = uTime*uSp + aPh;",
-        "  p += vec3(sin(t*1.3)*0.8, sin(t*2.1)*0.25, cos(t*1.1)*0.8);",
-        "  vA = 0.35 + 0.65*pow(0.5 + 0.5*sin(uTime*2.0 + aPh*5.0), 3.0);",
-        "  vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_PointSize = clamp(uScale*0.11/max(1.0, -mv.z), 1.5, 7.0); gl_Position = projectionMatrix*mv; }"].join("\n"),
-      fragmentShader:"uniform vec3 uCol; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); if(d > 0.5) discard; gl_FragColor = vec4(uCol*vA*(1.0 - d*1.6), 1.0); }" }));
+        "  float fall = fract(aPh*0.159 + uTime*(0.025 + uSp*0.06));",
+        "  p.y = 2.8 - fall*2.8;",
+        "  p.x += sin(t*0.9)*0.3 + fall*0.5; p.z += cos(t*0.7)*0.3;",
+        "  vA = smoothstep(0.0, 0.12, fall)*smoothstep(1.0, 0.88, fall);",
+        "  vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_PointSize = clamp(uScale*0.06/max(1.0, -mv.z), 1.0, 3.5); gl_Position = projectionMatrix*mv; }"].join("\n"),
+      fragmentShader:"uniform vec3 uCol; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); if(d > 0.5) discard; gl_FragColor = vec4(uCol, vA*0.5*(1.0 - d*1.4)); }" }));
     const p = new THREE.Points(g, mat); p.frustumCulled = false; p.renderOrder = 6;
     W.areaGroup(r.id).add(p);
   });

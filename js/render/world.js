@@ -859,7 +859,7 @@ proto.addProp = function(p){
     P(g, new THREE.BoxGeometry(0.08, 0.9, 0.08), 0x4a3020, 0, 0.45, 0);
     K.bake(g, { w:0.015 });
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.06), [K.lambert(0x6a4a2a), K.lambert(0x6a4a2a), K.lambert(0x6a4a2a), K.lambert(0x6a4a2a),
-      K.ink({ vertexColors:false, map:K.textTex([p.riddle ? "RIDDLE" : "READ ME"], 64, 36, { size:13 }) }), K.lambert(0x6a4a2a)]);
+      K.ink({ vertexColors:false, map:K.textTex([p.riddle ? "RIDDLE" : "READ ME"], 64, 36, { size:13, bg:"#2a241e", fg:"#c8bca0" }) }), K.lambert(0x6a4a2a)]);
     board.position.y = 0.95; board.rotation.x = -0.25; g.add(board);
     g.position.z += 0.2;
   } else if(p.kind === "merchant"){
@@ -1109,9 +1109,9 @@ proto.update = function(G, dt, t){
   S.torches.forEach((l, i)=>{
     const o = near[i];
     if(!o){ l.intensity = 0; return; }
-    l.color.setHex(o.c); l.distance = o.small ? 6 : 11;
+    l.color.setHex(o.c); l.distance = o.small ? 5 : 8;   // pools of light, with dark between them
     const gust = o.small ? 0 : Math.max(0, Math.sin(t*0.7 + o.ph*3))**12, fl = o.small ? 0.88 + 0.12*Math.sin(t*11 + o.ph) : (0.78 + 0.13*Math.sin(t*9 + o.ph) + 0.09*Math.sin(t*23 + o.ph*2))*(1 - gust*0.4);
-    l.position.set(o.x + (o.small ? 0 : Math.sin(t*7 + o.ph)*0.06), o.y, o.z + (o.small ? 0 : Math.cos(t*5 + o.ph)*0.04)); l.intensity = o.i*dark*fl;
+    l.position.set(o.x + (o.small ? 0 : Math.sin(t*7 + o.ph)*0.06), o.y, o.z + (o.small ? 0 : Math.cos(t*5 + o.ph)*0.04)); l.intensity = o.i*dark*fl*1.3;
   });
   if(W.glowMats) W.glowMats.forEach(m=> m.uniforms.uScale.value = S.renderer.domElement.height/2/Math.tan(S.camera.fov*PI/360)*0.4);
   // traps

@@ -41,10 +41,10 @@ S.init = function(){
   // a cold, low moon from one side, so every shape has a lit face and a dark one
   S.fill = new THREE.DirectionalLight(0x8a98c0, 0.55); S.fill.position.set(-0.7, 1, 0.35); scene.add(S.fill);
   // Zippy carries a warm, guttering lantern light
-  S.playerLight = new THREE.PointLight(0xffc890, 1.5, 10, 1.8);
+  S.playerLight = new THREE.PointLight(0xffdcb4, 1.5, 10, 1.8);
   scene.add(S.playerLight);
   S.torches = [];
-  for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 11, 1.4); scene.add(l); S.torches.push(l); }
+  for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 8, 1.8); scene.add(l); S.torches.push(l); }
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
 
   try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
@@ -98,7 +98,7 @@ S.initPost = function(){
   const mat = new THREE.ShaderMaterial({
     uniforms:{ tCol:{ value:rt.texture }, tDep:{ value:rt.depthTexture }, uRes:{ value:new THREE.Vector2(16, 16) }, uNear:{ value:S.camera.near }, uFar:{ value:S.camera.far },
       uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
-      uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x2a1838) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
+      uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x0c0c10) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
       uDesat:{ value:0.42 }, uBloom:{ value:0.6 }, uEtch:K.INK.uEtch, uPaper:K.INK.uPaper },
     depthTest:false, depthWrite:false,
     vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
@@ -196,20 +196,20 @@ S.theme = function(th, curses){
   S.lastTheme = [th, curses];
   // etched, the room is lit by its lights, not by a flat wash: the ambient drops,
   // the lantern and torches carry the picture, and shadow becomes hatching (never black)
-  const amb = S.fancy && S.etch ? 0.42 : 1;
+  const amb = S.fancy && S.etch ? 0.24 : 1;
   S.scene.background = new THREE.Color(th.fog);
   S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);
   S.hemi.intensity = 1.0*(th.light || 1)*(dark ? 0.55 : 1)*amb;
-  S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1)*(amb < 1 ? 0.6 : 1);
+  S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1)*(amb < 1 ? 0.22 : 1);
   S.playerLight.distance = (dark ? 9 : 13)*(amb < 1 ? 1.1 : 1);
-  S.playerLight.intensity = (dark ? 2.4 : 2.2)*(amb < 1 ? 1.25 : 1);
+  S.playerLight.intensity = (dark ? 2.4 : 2.2)*(amb < 1 ? 1.4 : 1);
   // the ink: line colour, rim colour, grade, and how weird the picture gets
   K.INK.uInk.value.setHex(th.ink || 0x0a0612);
   K.INK.uRim.value.setHex(th.rim || 0x8a7aff);
   K.INK.uLift.value = dark ? 0.018 : 0.028;
   const u = S.post.mat.uniforms;
-  u.uShade.value.setHex(th.shade || 0x2a1838); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
+  u.uShade.value.setHex(th.shade || 0x0c0c10); u.uHigh.value.setHex(th.high || 0xffe2b0); u.uFog.value.setHex(th.fog);
   u.uWeird.value = th.weird || 0; u.uVig.value = dark ? 0.95 : 0.72;
   // the Gloom: how far it has taken the floors and walls
   const lum = c=>{ const k = new THREE.Color(c); return (k.r + k.g + k.b)/3; };

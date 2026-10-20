@@ -8,6 +8,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 |---|---|
 | `npm test` | Rules tests under `node --test`. Run before and after every change. |
 | `npm run balance` | A bot plays full runs, no cheats. Quote it before and after any balance change. |
+| `npm run look` | Screenshots floors 1, 3 and 5 and two gallery rows headless and measures them against the look contract (docs/ART_DIRECTION.md). Quote it before and after any change to the look. |
 | `npm run power` | Rolls floor-4 builds and reports their power spread and peak shot count. Quote it before and after any change to items or combat numbers. |
 | `npm start` | Serves the game on http://localhost:8080. Shortcuts: `?play&seed=WORD&floor=3&god`. |
 

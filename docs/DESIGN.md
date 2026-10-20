@@ -325,6 +325,7 @@ The next step for the look ("Ash & Ember": why it still reads cozy, the rules, a
 - **Bold silhouettes:** character outlines are twice as heavy (`K.INK.uOutK`), so figures pop off the page like woodcuts. Their lit faces stay clean, for readability in a fight.
 - **A page, not a lens:** the grain is printed and holds still; paper mottle and long fibres sit under everything; the edge of the screen is a ragged ink wash, never a clean oval; the grade sinks shadow into ink and sepia, not purple (`stage.js`).
 
+- **Ash & Ember** ([ART_DIRECTION.md](ART_DIRECTION.md)): no surface is more saturated than `K.INK.uSatCap`; colour comes from light and from things that glow (loot opts out with `{ vivid:true }`). Each floor has one accent hue in its torches. `npm run look` measures it.
 - **One material.** Characters, props, walls and floors all use one patched toon material (`K.ink` in `kit.js`), but light now falls off smoothly (`uSoft` blends the old toon bands away), with a faint ordered dither for grit and ink hatching only in the deepest shadow.
 - **Characters** wear grime in their own space (mottled stains, fine grain, dirt rising from the feet, colours pulled toward grey), get a faint cold rim light and a contact shadow, and a thin contour instead of a cartoon outline (`K.OUTLINE`).
 - **Full resolution** by default; **P** brings back the chunky pixels.

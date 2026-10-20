@@ -66,7 +66,9 @@ These turn taste into checkable numbers. Put them in DESIGN.md §10 once agreed.
 
 Each phase stands alone and can be judged in `?gallery` and on floors 1, 3 and 5 before going on.
 
-### Phase 1: Palette lock and true dark (biggest win, about a day)
+### Phase 1: Palette lock and true dark (biggest win, about a day) — done
+**Done.** `npm run look`, rooms average, before → after: strongly coloured pixels **6.4% → 1.7%** (floor 3: 6.5 → 0.3, floor 5: 3.5 → 0.4), mean saturation 34.9 → 28.4, near-black 53.5% → 60.8%. What changed: `K.INK.uSatCap` (0.24) caps every ink surface, with `{ vivid:true }` for loot; past the light's edge the etching is solid ink; wall tops are dark; the moon fill and ambient dropped and torch reach went from 11 to 8, so rooms are pools of light; the lantern is pale, so the torches carry each floor's one accent (ember, sodium, soul blue, moon white, bile green); rot and bark are black and grey-brown, not violet and salmon; moss edges are soft, not map coastlines; motes are falling ash; Zippy's arcane robe is ash with faded runes, Gribbus bog-umber, the bloater and blobs dead grey-green.
+
 - **Clamp albedo saturation in the ink material**, not by hand: in `INK_MAIN` (`kit.js`), desaturate `diffuseColor` toward its luminance down to the 25% cap, unless the fragment is emissive. That one line drains every robe, toad and bloater at once. Then fix the few models that need a real hue by hand.
 - **Recolour the worst offenders:** Zippy's arcane robe goes to ash-grey with soot-black and **no stars**. The purple lives only in the staff's glow and the spell. Gribbus becomes mottled olive-umber with one wet sheen, and the gold goes into his eyes. Bloater: grey-green dead flesh. Floors 3 and 5: the rot goes to desaturated olive-black and violet-black, without the bright fills.
 - **Make the dark black:** drop the hemisphere light to about 0.15 on etched, set `scene.background` and fog to pure `0x000000`-ish, and stop the etching's "paper" tone in shadow. Hatching then only appears in the **band between light and dark** (the terminator), and full shadow is solid ink. That's how a woodcut works, and it gets rid of the zebra look.

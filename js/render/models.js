@@ -4,7 +4,7 @@
  *  (head, arms, legs, hat tip) so they can waddle, wind up and fall
  *  over. Every model faces +z and stands on the ground at its origin.
  *
- *  Zippy: a small wizard in a purple robe with stars on it, a beard
+ *  Zippy: a small wizard in an ash-grey robe with faded runes on it, a beard
  *  you could lose a goblin in, and a hat that's given up on standing
  *  straight. Gribbus: a round green frog with a lot of opinions.
  * ------------------------------------------------------------------ */
@@ -237,7 +237,7 @@ const ZC = { ash:0x8e8a82, ash2:0x6a665e, ash3:0xaaa69a, bone:0xc8bca0, ivory:0x
 /* the dyes: coat and hood, its dark and light shades (light: what his eyes
    glow), the cloak and mantle, and the thread the runes are stitched in */
 const DYE = {
-  arcane:{ robe:0x45385a, dark:0x241c30, light:0xb07aff, cape:0x2c2434, stars:0x8a6a30 },
+  arcane:{ robe:0x4a4741, dark:0x24221e, light:0xb07aff, cape:0x2c2a26, stars:0x3e3b35 },
   fire:  { robe:0x5e2618, dark:0x2e1410, light:0xff7a2a, cape:0x4a1410, stars:0xa8722e },
   frost: { robe:0x34465a, dark:0x1c2834, light:0x8ad8ff, cape:0x26384a, stars:0x9aaab4 },
   poison:{ robe:0x3e4a26, dark:0x222a16, light:0x9cff3a, cape:0x2e3620, stars:0x7a7a3a },
@@ -1029,8 +1029,8 @@ Models.frog = function(twin, buffs, opts){
   const R = rig("frog"), b = R.body;
   R.anim = [];
   // Gribbus: ditch-water olive and mud; Grobbus: the grey-green of an old pond
-  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : 0x54522c, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : 0x34301c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : 0xa8986a;
-  const WART = shine ? 0x72e050 : twin ? 0x56625a : 0x6e6438, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : 0xc8902a;
+  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : 0x45432f, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : 0x2a281c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : 0x847a64;
+  const WART = shine ? 0x72e050 : twin ? 0x56625a : 0x5a553e, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : 0xc8902a;
   const HAND = shine ? 0xff8a2a : G2;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
@@ -1920,7 +1920,7 @@ Models.watcher = function(){
 };
 function blob(R, r, col){
   const b = R.body;
-  const goo = new THREE.Mesh(sculptW(new THREE.SphereGeometry(r, 30, 22), r*0.05, 2/r, 3), new THREE.MeshPhongMaterial({ color:col, transparent:true, opacity:0.64, shininess:60, specular:0x2a3a1a, emissive:new THREE.Color(col).multiplyScalar(0.08) }));
+  const goo = new THREE.Mesh(sculptW(new THREE.SphereGeometry(r, 30, 22), r*0.05, 2/r, 3), new THREE.MeshPhongMaterial({ color:col, transparent:true, opacity:0.6, shininess:70, specular:0x3a3a34, emissive:new THREE.Color(col).multiplyScalar(0.04) }));
   goo.position.y = r*0.8; goo.scale.set(1.1, 0.8, 1.1); b.add(goo); R.parts.goo = goo; R.glows.push(goo);
   // inside: what it ate. A skull, a hand, a sword, ribs, an eye or two still looking, gut in coils
   const inner = group(b, 0, r*0.85, 0); R.parts.head = inner;
@@ -1938,8 +1938,8 @@ function blob(R, r, col){
   for(let i=0;i<6;i++){ const a = i/6*PI*2 + 0.5; P(b, S(r*0.12, 8, 6), new THREE.Color(col).multiplyScalar(0.6).getHex(), Math.cos(a)*r*1.05, r*0.02, Math.sin(a)*r*1.05, 0, 0, 0, 1.4, 0.25, 1); }
   R.h = r*1.8;
 }
-Models.blob = function(){ const R = rig("blob"); blob(R, 0.55, 0x5a6826); return finish(R); };
-Models.blobling = function(){ const R = rig("blobling"); blob(R, 0.32, 0x66742a); return finish(R); };
+Models.blob = function(){ const R = rig("blob"); blob(R, 0.55, 0x4a5040); return finish(R); };
+Models.blobling = function(){ const R = rig("blobling"); blob(R, 0.32, 0x525a46); return finish(R); };
 Models.tentacle = function(){
   const R = rig("tentacle"), b = R.body, FL = 0x5a2a36, SU = 0xb89090;
   const segs = []; let parent = b;
@@ -2069,20 +2069,20 @@ Models.spitter = function(){
 Models.bloater = function(){
   const R = rig("bloater"), b = R.body;
   const belly = group(b, 0, 0.82, 0); R.parts.head = belly;
-  P(belly, rotFlesh(0.75, 0.04, 4, 0x5b4a5e, 0x7a6a3a, 0x2a1020), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  P(belly, rotFlesh(0.75, 0.04, 4, 0x54564a, 0x6a6448, 0x1e1a14), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
   // stretched so far the skin has split and been stitched, veins standing up all over it
-  for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.7 + j*0.35, aa = a + Math.sin(j*1.7 + i)*0.2; pts.push([Math.cos(aa)*Math.cos(e)*0.74, Math.sin(e)*0.665, Math.sin(aa)*Math.cos(e)*0.74]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x3a1a3a); }
+  for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.7 + j*0.35, aa = a + Math.sin(j*1.7 + i)*0.2; pts.push([Math.cos(aa)*Math.cos(e)*0.74, Math.sin(e)*0.665, Math.sin(aa)*Math.cos(e)*0.74]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x2a2420); }
   const seam = group(belly, 0, 0, 0); seam.rotation.set(0.3, 0.4, 0.2);
   for(let i=0;i<9;i++){ const e = -0.7 + i*0.17; P(seam, BX(0.012, 0.01, 0.09), 0x1a0a10, 0, Math.sin(e)*0.68, Math.cos(e)*0.745, -e); }
   P(seam, sculptW(new THREE.TorusGeometry(0.73, 0.012, 6, 40, 1.45), 0.003, 30, 1), 0x7a2a2a, 0, 0, 0, 0, -PI/2, -0.7);
   pustules(R, belly, 14, 0.74, 0.05, 1, 0.9, 1);
   // a small head sunk into the top of it, jaw hanging, and two useless arms
   const hd = group(belly, 0, 0.55, 0.45);
-  P(hd, rotFlesh(0.14, 0.012, 7, 0x6a5a6a, 0x4a3a4a), 0xffffff, 0, 0, 0, 0, 0, 0, 0.9, 1, 1);
+  P(hd, rotFlesh(0.14, 0.012, 7, 0x5e5c52, 0x403e36), 0xffffff, 0, 0, 0, 0, 0, 0, 0.9, 1, 1);
   eyes(hd, 0.05, 0.02, 0.11, 0.03, 0xffe14a, 0, R);
   mouth(hd, 0, -0.08, 0.11, 0.05, 1.2);
   teeth(hd, -0.04, 0.12, 0.07, 6);
-  [-1, 1].forEach(s=>{ limb(belly, [[s*0.5, 0.25, 0.45], [s*0.62, 0.12, 0.55], [s*0.6, -0.02, 0.62]], 0.03, 0x5b4a5e); [-1, 0, 1].forEach(f=> P(belly, CO(0.008, 0.05, 5), 0x1a0a14, s*0.6 + f*0.015, -0.06, 0.63, PI*0.9, 0, f*0.2)); });
+  [-1, 1].forEach(s=>{ limb(belly, [[s*0.5, 0.25, 0.45], [s*0.62, 0.12, 0.55], [s*0.6, -0.02, 0.62]], 0.03, 0x54564a); [-1, 0, 1].forEach(f=> P(belly, CO(0.008, 0.05, 5), 0x1a0a14, s*0.6 + f*0.015, -0.06, 0.63, PI*0.9, 0, f*0.2)); });
   for(let i=0;i<3;i++) P(belly, CY(0.04, 0.09, 0.25, 8), 0x3a2a3e, (i - 1)*0.25, 0.68, -0.25, -0.3, 0, (i - 1)*0.3);
   for(let i=0;i<3;i++) glow(R, belly, 0.04, ROT.bile, (i - 1)*0.25*1.5, 0.82, -0.3);
   cordyceps(R, belly, 3, -0.3, 0.55, -0.35, 0.25, 0.05, 2);
@@ -3196,7 +3196,7 @@ Models.fade = function(R, a){
    vertex-coloured geometry and shared; a little self-glow (and the light
    it gives off) keeps it findable in the dark. */
 const lootMats = {};
-const lootMat = em=> lootMats[em] || (lootMats[em] = K.ink({ emissive:em }));
+const lootMat = em=> lootMats[em] || (lootMats[em] = K.ink({ emissive:em, vivid:true }));
 const lootGlass = (c, op)=> new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, depthWrite:false });
 /* a worn old coin: a crowned skull struck on one face, a cross on the other */
 const coinGeo = ()=> bsPrefab("coin", g=>{
