@@ -425,6 +425,24 @@ K.sculpt = function(g, amt, freq, seed){
   g.computeVertexNormals();
   return g;
 };
+/* a shard: the anti-lump. A faceted spike that tapers from r at its foot to a
+   point at len (+y), bent toward +z by `bend` (a fraction of its length), its
+   facets jittered so no two are alike. For horns, spines, claws, splinters of
+   bone and the plates of armour: hard, angular forms that never read as soft. */
+K.shard = function(len, r, bend, sides, seed){
+  const s = seed === undefined ? 1 : seed, b = bend || 0;
+  const g = new THREE.CylinderGeometry(r*0.06, r, len, sides || 5, 4, false).toNonIndexed();
+  g.translate(0, len/2, 0);
+  const a = g.attributes.position;
+  for(let i=0;i<a.count;i++){
+    const x = a.getX(i), y = a.getY(i), z = a.getZ(i), t = y/len;
+    const h = Math.sin((Math.round(x*1e3)*12.9898 + Math.round(y*1e3)*78.233 + Math.round(z*1e3)*37.719)*0.001 + s)*43758.5453;
+    const j = 1 + ((h - Math.floor(h)) - 0.5)*0.4;
+    a.setXYZ(i, x*j, y, z*j + b*len*t*t);
+  }
+  g.computeVertexNormals();
+  return g;
+};
 /* a tube along points */
 K.tube = function(pts, r, seg, rseg){ return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=> new THREE.Vector3(p[0], p[1], p[2]))), Math.round((seg || 12)*1.5), r, Math.max(8, rseg || 6), false); };
 

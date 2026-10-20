@@ -62,6 +62,14 @@ Gallery.start = function(){
   fl.rotation.x = -Math.PI/2; fl.position.set(0, 0, z/2 - 3); root.add(fl);
   Gallery.floor = 0; Gallery.cam = { x:0, z:2, dist:13 };
   Gallery.setFloor(0);
+  // ?gallery&sil: every model as a flat black shape on bone, no post pass. If a
+  // model reads as cute here, no shader will save it (docs/ART_DIRECTION.md)
+  if(/[?&]sil\b/.test(location.search)){
+    const ink = new THREE.MeshBasicMaterial({ color:0x0a0806 });
+    rigs.forEach(R=> R.root.traverse(o=>{ if(o.isSprite || (o.isMesh && o.material && o.material.blending === THREE.AdditiveBlending)) o.visible = false; else if(o.isMesh) o.material = ink; }));
+    fl.material = new THREE.MeshBasicMaterial({ color:0xd8d0bc });
+    S.fancy = false; S.scene.background = new THREE.Color(0xd8d0bc); S.scene.fog = null;
+  }
   addEventListener("keydown", e=>{ const n = +e.key; if(n >= 1 && n <= 5) Gallery.setFloor(n - 1); Gallery.keys[e.code] = true; });
   addEventListener("keyup", e=>{ Gallery.keys[e.code] = false; });
   addEventListener("wheel", e=>{ Gallery.cam.dist = Math.max(5, Math.min(40, Gallery.cam.dist*(e.deltaY > 0 ? 1.1 : 0.9))); }, { passive:true });

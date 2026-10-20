@@ -350,6 +350,25 @@ function zInterp(p, y){
 const zRad = y=> y >= 0.98 ? zInterp(ZMANT, y) : zInterp(ZCOAT, y);
 /* a point on him at angle a (0 = front, + = his left... no: + = toward +x), height y, `out` beyond the cloth */
 function zSurf(a, y, out){ const r = zRad(y) + (out || 0), z = Math.cos(a)*r; return [Math.sin(a)*r, y, z + zLean(y) + zHump(y, z)]; }
+/* the brim of his hat: a disc drooping at the edge, its front pinned up, torn
+   in notches; angle 0 is his front */
+function zBrimGeo(){
+  return geo("zbrim", ()=>{
+    const g = new THREE.CylinderGeometry(0.41, 0.41, 0.018, 64, 1, false), a = g.attributes.position;
+    for(let i=0;i<a.count;i++){
+      let x = a.getX(i), y = a.getY(i), z = a.getZ(i); const r = Math.hypot(x, z);
+      if(r < 0.001) continue;
+      const ang = Math.atan2(x, z), u = Math.max(0, (r - 0.15)/0.26), front = Math.max(0, Math.min(1, (1.15 - Math.abs(ang))/0.8));
+      const sec = Math.floor((ang + PI)/(PI*2)*13), hsh = Math.sin(sec*12.9898 + 4.1)*43758.5453, tear = r > 0.39 && (hsh - Math.floor(hsh)) > 0.55 ? 0.035 + (hsh - Math.floor(hsh))*0.04 : 0;
+      const k = (r - tear - front*0.07*u)/r;
+      x *= k; z *= k;
+      y += -0.075*u*u*(1 - front) + front*0.15*Math.pow(u, 1.4) + Math.sin(ang*5 + 1.3)*0.008*u;
+      a.setXYZ(i, x, y, z);
+    }
+    g.computeVertexNormals();
+    return g;
+  });
+}
 /* his hood, as a turned shape with the face pressed in: a deep, dark cowl */
 function zHoodGeo(){
   const g = zLathe([[0.245, -0.3], [0.232, -0.21], [0.214, -0.12], [0.205, -0.02], [0.2, 0.07], [0.17, 0.16], [0.1, 0.225], [0.001, 0.245]], 44, PI, PI*2, 4);
@@ -524,21 +543,23 @@ Models.zippy = function(look){
     P(hat, zTaper([[0, -0.08, 0], [0, 0.06, -0.01], [0, 0.18, 0]], 0.13, 0.1, 10, 16), D.robe);
     tip = group(hat, 0, 0.62, 0);
   } else {
-    P(hat, zTaper([[0, -0.1, 0.015], [0, 0.04, -0.005], [0.005, 0.17, -0.025], [0, 0.3, -0.02]], 0.15, 0.068, 18, 18), D.robe);
-    P(hat, zto(0.12, 0.016), D.dark, 0, 0.03, 0, PI/2 + 0.08);
-    let up = group(hat, 0, 0.29, -0.02);
-    if(has("tallhat")){
-      const tx = group(up, 0, 0, 0); tx.rotation.z = 0.25;
-      P(tx, zTaper([[0, -0.02, 0], [0, 0.12, 0.01], [0, 0.26, 0]], 0.072, 0.06, 10, 14), D.robe);
-      P(tx, zto(0.066, 0.014), ZC.brass, 0, 0.03, 0, PI/2);
-      up = group(tx, 0, 0.25, 0);
-    }
-    const t2 = group(up, 0, 0, 0); t2.rotation.z = -0.5; R.parts.tip = t2;
-    P(t2, zTaper([[0, -0.03, 0], [0.0, 0.1, 0.01], [0.02, 0.2, 0.05], [0.06, 0.25, 0.1], [0.1, 0.24, 0.14]], 0.072, 0.01, 22, 12), D.robe);
-    P(t2, zto(0.06, 0.012), D.dark, 0, 0.06, 0.004, PI/2);
+    // a witch-hunter's hat over the cowl: a wide brim gone soft with rain, pinned
+    // up at the front so the eyes still show, torn round its edge; a low, dented
+    // crown. (The curling wizard's peak is gone: Ash & Ember, phase 4.)
+    hat.position.set(0, 0.15, 0.01); hat.rotation.set(0.12, 0, -0.07);
+    const crownH = has("tallhat") ? 0.3 : 0.17, FELT = zDim(D.robe, 0.62);
+    P(hat, zBrimGeo(), FELT);
+    P(hat, K.sculpt(zLathe([[0.152, -0.01], [0.15, 0.06], [0.138, crownH*0.75], [0.115, crownH], [0.06, crownH*0.97], [0.001, crownH*0.9]], 28), 0.004, 18, 3), FELT);
+    P(hat, zto(0.153, 0.02), ZC.leather, 0, 0.03, 0, PI/2);
+    if(has("tallhat")) P(hat, zto(0.142, 0.012), ZC.brass, 0, 0.2, 0, PI/2);
+    zFace(hat, BX(0.045, 0.04, 0.012), ZC.iron2, [Math.sin(1.3)*0.16, 0.03, Math.cos(1.3)*0.16], 1.3);
+    // the brim's front edge is pinned up by an iron hook
+    P(hat, zto(0.018, 0.005), ZC.iron2, 0, 0.13, 0.25, 0.4);
+    // costume pieces that sat on the old peak's point sit on the crown now
+    const t2 = group(hat, -0.1, crownH - 0.22, -0.14); R.parts.tip = t2;
     if(!has("flamehat") && !has("voidtip") && !has("discoball") && !has("bombtip")){
-      // a pilgrim's charm hung from the point: a little iron cage with a candle stub in it
-      const lg = group(t2, 0.1, 0.22, 0.15); R.anim.push({ o:lg, sway:0.15, speed:3.1 });
+      // a pilgrim's charm hung from the brim: a little iron cage with a candle stub in it
+      const lg = group(hat, 0.33, -0.02, -0.12); R.anim.push({ o:lg, sway:0.15, speed:3.1 });
       P(lg, zcy(0.003, 0.003, 0.06, 5), 0x2a2420, 0, -0.03, 0);
       P(lg, CY(0.018, 0.022, 0.006, 10), ZC.iron2, 0, -0.065, 0); P(lg, CY(0.022, 0.018, 0.006, 10), ZC.iron2, 0, -0.115, 0);
       for(let i=0;i<4;i++){ const a = i/4*PI*2 + 0.4; P(lg, zcy(0.003, 0.003, 0.05, 5), ZC.iron2, Math.cos(a)*0.02, -0.09, Math.sin(a)*0.02); }
@@ -1047,10 +1068,24 @@ Models.frog = function(twin, buffs, opts){
     const [ap, ai] = pivot(b, s*0.16, 0.25, 0.22); front.push(ap); ap.userData.inner = ai;
   });
   R.parts.hind = hind; R.parts.thighs = thighs; R.parts.feet = feet; R.parts.front = front; R.parts.lids = lids;
-  // the body: heavy and squat, belly sagging
-  P(b, fSkin(0.32, 34, 26, 0.02, 15, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
-  // the head: wide and flat, a pale throat under it
-  P(H, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
+  // the body: long, low and heavy, belly sagging (not a ball: Ash & Ember, phase 4)
+  P(b, fSkin(0.32, 34, 26, 0.02, 15, 1.3, G1, G2, BELLY), 0xffffff, 0, 0.24, -0.07, 0, 0, 0, 1.06, 0.62, 1.34);
+  // the head: wide, flat and wedge-browed, a pale throat under it
+  P(H, fSkin(0.25, 36, 26, 0.014, 18, 2.1, G1, G2, BELLY), 0xffffff, 0, 0.36, 0.17, 0, 0, 0, 1.3, 0.66, 1.0);
+  // bone shows through: a ridge of spines down his back, hips and shoulder blades like knuckles
+  for(let i=0;i<9;i++){
+    const t = i/8, z = 0.1 - t*0.52, e = Math.max(0, 1 - Math.pow((z + 0.07)/0.43, 2)), y = 0.24 + 0.198*Math.sqrt(e);
+    P(b, K.shard(0.08 + 0.1*Math.sin(t*PI*0.9 + 0.2), 0.035 + 0.015*Math.sin(t*PI), -0.6, 5, i + (twin ? 9 : 0)), i % 2 ? G2 : zDim(G2, 0.75), 0, y - 0.015, z, -0.25 - t*0.3);
+  }
+  // and horns down his flanks, like a thorny devil's, so he never sits as a round lump
+  for(let i=0;i<4;i++) [-1, 1].forEach(s=>{
+    const z = 0.08 - i*0.13, y = 0.3 - Math.abs(i - 1.2)*0.02;
+    P(b, K.shard(0.16 - Math.abs(i - 1.5)*0.03, 0.032, -0.35, 5, 40 + i*2 + s), i % 2 ? G2 : zDim(G2, 0.8), s*0.29, y, z, -0.35, 0, -s*(1.05 + i*0.08));
+  });
+  [-1, 1].forEach(s=>{
+    P(b, K.shard(0.08, 0.05, -0.3, 5, 20 + s), G2, s*0.2, 0.33, -0.33, -0.7, 0, s*0.6);
+    P(b, K.shard(0.06, 0.05, -0.4, 5, 30 + s), G2, s*0.17, 0.38, 0.06, -0.3, 0, s*0.7);
+  });
   P(TH, fSkin(0.2, 28, 20, 0.006, 15, 3.3, BELLY, zDim(BELLY, 0.8)), 0xffffff, 0, 0.245, 0.2, 0, 0, 0, 1.1, 0.55, 0.92);
   // poison glands behind the eyes, pitted
   [-1, 1].forEach(s=>{
@@ -1060,7 +1095,7 @@ Models.frog = function(twin, buffs, opts){
   // warts all over his back and head
   for(let i=0;i<32;i++){
     const u = PI*0.45 + rnd()*PI*1.1, v = -0.1 + rnd()*1.25, r = 0.02 + rnd()*0.022;
-    const x = Math.sin(u)*Math.cos(v)*0.32*1.18, y = 0.26 + Math.sin(v)*0.32*0.76, z = -0.03 + Math.cos(u)*Math.cos(v)*0.32*1.08;
+    const x = Math.sin(u)*Math.cos(v)*0.32*1.06, y = 0.24 + Math.sin(v)*0.32*0.62, z = -0.07 + Math.cos(u)*Math.cos(v)*0.32*1.34;
     P(b, K.lump(r, 1, 0.4, i + (twin ? 50 : 0)), i % 3 ? WART : zDim(WART, 0.75), x*1.0, y, z, 0, 0, 0, 1, 0.75, 1);
   }
   for(let i=0;i<10;i++){ const x = (rnd() - 0.5)*0.4, z = 0.1 + rnd()*0.2; if(Math.abs(Math.abs(x) - 0.15) < 0.07 && z > 0.17) continue; P(H, K.lump(0.014 + rnd()*0.012, 1, 0.4, 90 + i), WART, x, 0.37 + 0.16*Math.sqrt(Math.max(0, 1 - (x/0.32)*(x/0.32) - ((z - 0.17)/0.245)*((z - 0.17)/0.245))), z); }
@@ -1082,7 +1117,7 @@ Models.frog = function(twin, buffs, opts){
     pts.push([-0.12, 0.37, 0.4]);
     P(H, K.tube(pts, 0.005, 14, 5), FC.scar);
     [1, 2].forEach(i=> P(H, zcy(0.003, 0.003, 0.03, 4), 0x2a2018, pts[i][0], pts[i][1] + 0.003, pts[i][2], 0.5, 0, 1.2)); }
-  { const pts = []; for(let i=0;i<=8;i++){ const u = PI*0.75 + i*0.08, v = 0.35 + i*0.06; pts.push([Math.sin(u)*Math.cos(v)*0.39, 0.26 + Math.sin(v)*0.25, -0.03 + Math.cos(u)*Math.cos(v)*0.355]); }
+  { const pts = []; for(let i=0;i<=8;i++){ const u = PI*0.75 + i*0.08, v = 0.35 + i*0.06; pts.push([Math.sin(u)*Math.cos(v)*0.35, 0.24 + Math.sin(v)*0.205, -0.07 + Math.cos(u)*Math.cos(v)*0.44]); }
     P(b, K.tube(pts, 0.008, 16, 5), FC.scar);
     pts.forEach((p, i)=>{ if(i % 2) P(b, BX(0.004, 0.035, 0.006), 0x2a2018, p[0], p[1], p[2], 0.6, 0.8, 0.3); }); }
   // the mouth: wide, down at the corners, a rusty ring through one side
@@ -1129,7 +1164,9 @@ Models.frog = function(twin, buffs, opts){
   tongue.position.set(0, 0.33, 0.3); tongue.scale.set(1, 1, 0.01); tongue.visible = false; H.add(tongue); R.parts.tongue = tongue;
   R.h = 0.75;
   finish(R, { w:0.022 });
-  if(shine){ R.root.traverse(o=>{ if(o.userData.baked){ o.material = o.material.clone(); o.material.emissive = new THREE.Color(0x183a10); } }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
+  // the redeemed glow: a material of its own (made the same way, so no new shader
+  // compiles at the moment he appears), not a clone (a clone loses the ink)
+  if(shine){ const m2 = K.toon(); m2.emissive.setHex(0x183a10); R.root.traverse(o=>{ if(o.userData.baked) o.material = m2; }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
   return R;
 };
 
@@ -1228,7 +1265,7 @@ function goblinBody(R, o){
   // legs: thin and bent, long clawed feet, rags wound round the shins
   const legs = [];
   [-1, 1].forEach(s=>{
-    const l = group(b, s*0.09*k, 0.44, -0.02);
+    const l = group(b, s*0.09*k, 0.56, -0.02); l.scale.y = 1.3;   // long shanks: adult proportions, not a child's
     limb(l, [[0, 0, 0], [s*0.012, -0.1, 0.05], [0, -0.2, 0.08]], 0.042*k, dark, skin);
     limb(l, [[0, -0.2, 0.08], [0, -0.31, 0.01], [0, -0.4, -0.03]], 0.031*k, skin);
     wraps(l, 0.034*k, [-0.29, -0.35], wrap, 0, 0.0, 0.4);
@@ -1238,20 +1275,21 @@ function goblinBody(R, o){
   });
   R.parts.legs = legs;
   // the torso, bent forward: ribs and spine through the skin, shoulder blades like wings
-  const tor = group(b, 0, 0.42, 0); tor.rotation.x = hunch; R.tor = tor;
+  const tor = group(b, 0, 0.54, 0); tor.rotation.x = hunch; R.tor = tor;
   const tp = [[0, 0], [0.12, 0.01], [0.13, 0.07], [0.108, 0.15], [0.122, 0.24], [0.15, 0.34], [0.16, 0.41], [0.12, 0.47], [0.05, 0.5], [0, 0.5]].map(p=> [p[0]*k, p[1]]);
   P(tor, blotch(sculptW(K.slathe(tp, 16, 4), 0.01, 10, seed), 0x8a7a80, 11, 0.45, seed), skin, 0, 0, 0, 0, 0, 0, 1, 1, 0.78);
   [[0.21, 0.12], [0.265, 0.133], [0.32, 0.147]].forEach(([y, r])=> P(tor, TOs(r*k, 0.005, PI*0.6), rib, 0, y, 0.005, PI/2 + 0.3, 0, PI/2 - PI*0.3, 1, 0.8, 1));
   for(let i=0;i<7;i++){ const y = 0.1 + i*0.055; P(tor, S(0.02, 6, 4), rib, 0, y, -k*0.78*(0.11 + 0.045*y/0.41)); }
   [-1, 1].forEach(s=> P(tor, S(0.07, 10, 6), skin, s*0.08*k, 0.36, -0.1*k, 0, 0, s*0.2, 0.9, 1.1, 0.4));
   // a loincloth torn to strips, a belt
-  P(b, K.tatter(K.lathe([[0.155*k, -0.15], [0.15*k, -0.05], [0.14*k, 0.04]], 14), -0.06, 9, 0.12, seed), cloth, 0, 0.5, 0.01, 0, 0, 0, 1, 1, 0.85);
-  P(b, TOs(0.145*k, 0.017), LEATH, 0, 0.53, 0.01, PI/2, 0, 0, 1, 0.85, 1);
-  P(b, BX(0.05, 0.045, 0.02), RUSTC, 0, 0.53, 0.01 + 0.125*k);
-  const top = [0, 0.42 + 0.47*Math.cos(hunch), 0.47*Math.sin(hunch)];
+  P(b, K.tatter(K.lathe([[0.155*k, -0.15], [0.15*k, -0.05], [0.14*k, 0.04]], 14), -0.06, 9, 0.12, seed), cloth, 0, 0.62, 0.01, 0, 0, 0, 1, 1, 0.85);
+  P(b, TOs(0.145*k, 0.017), LEATH, 0, 0.65, 0.01, PI/2, 0, 0, 1, 0.85, 1);
+  P(b, BX(0.05, 0.045, 0.02), RUSTC, 0, 0.65, 0.01 + 0.125*k);
+  const top = [0, 0.54 + 0.47*Math.cos(hunch), 0.47*Math.sin(hunch)];
   limb(b, [[0, top[1] - 0.04, top[2] - 0.05], [0, top[1] + 0.03, top[2] + 0.03], [0, top[1] + 0.07, top[2] + 0.1]], 0.04*k, skin);
   // the head: thrust forward on the neck, a long skull, the brow overhanging, a hooked nose, an underbite of needles
-  const head = group(b, 0, top[1] + 0.1, top[2] + 0.12); R.parts.head = head; head.rotation.x = -0.3;
+  // (sunk low between the shoulders, and small: a skull, not a mascot's head)
+  const head = group(b, 0, top[1] + 0.04, top[2] + 0.13); R.parts.head = head; head.rotation.x = -0.3;
   P(head, blotch(lumpS(0.12, 14, 11, 0.008, 14, seed), 0x8a8070, 18, 0.55, seed), skin, 0, 0.02, -0.02, -0.25, 0, 0, 0.95, 0.88, 1.2);
   P(head, S(0.085, 12, 8), skin, 0, -0.05, 0.055, 0.2, 0, 0, 1.0, 0.7, 1.12);
   P(head, S(0.062, 10, 8), dark, 0, -0.095, 0.07, 0, 0, 0, 1.12, 0.5, 1.12);
@@ -1264,15 +1302,16 @@ function goblinBody(R, o){
   teeth(head, -0.076, 0.15, 0.085, 7);
   [-1, 1].forEach(s=> P(head, CO(0.011, 0.05, 5), BONEC, s*0.036, -0.095, 0.14, -0.2, 0, -s*0.15));
   [[0.06, 0.08, 0.06], [-0.07, 0.06, -0.06], [0.03, -0.02, -0.1]].forEach(([x, y, z])=> P(head, S(0.014, 6, 4), dark, x, y, z));
-  const ear = (o.ear || 1)*0.68;
-  [-1, 1].forEach(s=>{
-    P(head, gobEar(s, ear), skin, s*0.1, 0.02, -0.02, 0, s*0.5, s*0.32);
-    P(head, gobEar(s, ear*0.8), 0x4a3436, s*0.11, 0.03, -0.012, 0, s*0.5, s*0.32, 1, 0.55, 1);
+  // ears: short, torn, laid back flat along the skull like a dog's before it bites
+  const ear = (o.ear || 1)*0.5;
+  if(o.ear !== 0) [-1, 1].forEach(s=>{
+    P(head, gobEar(s, ear), skin, s*0.1, 0.02, -0.03, 0.15, s*1.0, -s*0.05);
+    P(head, gobEar(s, ear*0.8), 0x4a3436, s*0.11, 0.03, -0.022, 0.15, s*1.0, -s*0.05, 1, 0.55, 1);
   });
   P(head, TOs(0.022, 0.006), BRASSC, 0.27*ear, 0.08, -0.17, 0.3, 0.5, 0);
   // long arms that hang to the knee, bandaged, three black claws
   const arm = s=>{
-    const a = group(b, s*0.19*k, top[1] - 0.08, top[2] - 0.06);
+    const a = group(b, s*0.19*k, top[1] - 0.08, top[2] - 0.06); a.scale.y = 1.25;   // past the knee
     P(a, S(0.05*k, 10, 8), skin, 0, 0, 0);
     limb(a, [[0, 0, 0], [s*0.03, -0.11, -0.02], [s*0.03, -0.22, -0.01]], 0.034*k, skin, dark);
     limb(a, [[s*0.03, -0.22, -0.01], [s*0.02, -0.33, 0.03], [0, -0.42, 0.06]], 0.027*k, skin);
@@ -1283,6 +1322,7 @@ function goblinBody(R, o){
   };
   R.parts.armR = arm(1); R.parts.armL = arm(-1);
   R.hand = group(R.parts.armR, 0, -0.46, 0.08);
+  head.scale.setScalar(0.78);
   return head;
 }
 /* a ring of teeth on a cord round the neck */
@@ -1327,9 +1367,9 @@ const KITS = {
     P(R.hand, S(0.032, 8, 6), LEATH, 0, -0.16, 0.03, 0, 0, 0, 1.2, 0.7, 1);
     P(R.hand, lumpS(0.026, 8, 6, 0.006, 40, 2), 0x6a6a64, 0, -0.145, 0.03);
     // a bag of stones on the hip, a bone fetish on the belt
-    P(R.body, blotch(lumpS(0.08, 12, 9, 0.008, 18, 5), 0x6a5a48, 20, 0.3, 1), LEATH, -0.16, 0.42, -0.04, 0, 0, 0, 1, 1.15, 0.85);
-    [[-0.17, 0.5, -0.04], [-0.14, 0.51, -0.01]].forEach(([x, y, z])=> P(R.body, lumpS(0.025, 6, 5, 0.006, 40, x), 0x6a6a64, x, y, z));
-    fetish(R.body, 0.12, 0.52, 0.09, 4);
+    P(R.body, blotch(lumpS(0.08, 12, 9, 0.008, 18, 5), 0x6a5a48, 20, 0.3, 1), LEATH, -0.16, 0.54, -0.04, 0, 0, 0, 1, 1.15, 0.85);
+    [[-0.17, 0.62, -0.04], [-0.14, 0.63, -0.01]].forEach(([x, y, z])=> P(R.body, lumpS(0.025, 6, 5, 0.006, 40, x), 0x6a6a64, x, y, z));
+    fetish(R.body, 0.12, 0.64, 0.09, 4);
     toothCollar(R, 5, 0xa89a80);
   },
   bomber(R, head){
@@ -1368,7 +1408,7 @@ const KITS = {
     });
     for(let i=0;i<5;i++) P(head, CO(0.018, 0.16, 5), [0x1a1a1e, 0x3a1a14, 0x1a1a1e, 0x2a2a20, 0x1a1a1e][i], (i - 2)*0.035, 0.0, -0.13, -2.2, 0, (i - 2)*0.2, 1, 1, 0.35);
     // a robe to the ankles in mouldy strips, a mantle of feathers and fur
-    P(R.body, K.tatter(K.slathe([[0.21, -0.4], [0.19, -0.2], [0.16, 0], [0.15, 0.04]], 16), -0.12, 13, 0.14, 3), 0x3a3428, 0, 0.5, 0.01, 0, 0, 0, 1, 1, 0.9);
+    P(R.body, K.tatter(K.slathe([[0.21, -0.4], [0.19, -0.2], [0.16, 0], [0.15, 0.04]], 16), -0.12, 13, 0.14, 3), 0x3a3428, 0, 0.62, 0.01, 0, 0, 0, 1, 1, 0.9);
     for(let i=0;i<12;i++){ const a = -PI*0.85 + i/11*PI*1.7; P(R.tor, CO(0.035, 0.14, 5), [0x1e1c1a, 0x2e2620, 0x26201c][i % 3], Math.sin(a)*0.16, 0.42, Math.cos(a)*0.12, PI + Math.cos(a)*0.5, 0, Math.sin(a)*0.5, 1, 1, 0.5); }
     // the staff, crooked at the top, and from the crook a censer on a chain, smoking green
     limb(R.hand, [[0, -0.42, 0], [0.02, 0, 0.01], [-0.01, 0.42, 0], [0.03, 0.74, 0.02], [0.13, 0.84, 0.03]], 0.016, 0x3a2c1e);
@@ -1387,8 +1427,9 @@ const KITS = {
   brute(R, head){
     // a sack over its head, sagging, two eyeholes hacked through it (one bigger), sewn round and tied on top
     P(head, blotch(lumpS(0.135, 16, 12, 0.016, 12, 5), 0x6a5a4a, 9, 0.35, 4), 0x564834, 0.005, 0.0, 0.02, 0.15, 0, 0.12, 1.02, 1.0, 1.1);
-    P(head, lumpS(0.07, 10, 8, 0.012, 20, 9), 0x564834, -0.01, 0.12, -0.02, 0.3, 0, 0.4, 0.8, 1.1, 0.8);
-    P(head, TOs(0.04, 0.011), 0x6a5a3a, -0.015, 0.1, -0.01, PI/2 + 0.3, 0, 0.4);
+    // gathered and tied on top, the sacking twisted into a tail that hangs back
+    P(head, K.shard(0.2, 0.035, -0.9, 5, 9), 0x564834, -0.01, 0.1, -0.02, -0.4, 0, 0.3);
+    P(head, TOs(0.03, 0.011), 0x6a5a3a, -0.015, 0.11, -0.02, PI/2 + 0.3, 0, 0.4);
     [[-1, 0.03, 0.024], [1, 0.022, 0.032]].forEach(([s, y, r])=>{
       const x = s*0.055;
       P(head, S(r, 10, 8), 0x050304, x, y, 0.13, 0, 0, 0, 1.2, 0.9, 0.5);
@@ -1400,6 +1441,11 @@ const KITS = {
     P(head, blotch(sculptW(new THREE.TorusGeometry(0.085, 0.028, 10, 28, PI*1.1), 0.004, 20, 3), 0x8a5a3a, 22, 0.2, 3), 0x3a3230, 0, -0.105, 0.04, PI/2 + 0.25, 0, PI*0.95, 1, 1.2, 0.8);
     for(let i=0;i<7;i++){ const a = -0.9 + i*0.3; P(head, CO(0.008, 0.035, 5), 0x8a8070, Math.sin(a)*0.085, -0.08, 0.04 + Math.cos(a)*0.1, -0.15, 0, -a*0.3); }
     [-1, 1].forEach(s=> P(head, CY(0.012, 0.012, 0.012, 8), BRASSC, s*0.09, -0.1, 0.06, 0, 0, PI/2));
+    // what they tried to kill it with: stakes and broken spears still in its back
+    [[-0.08, 0.36, -0.13, -0.9, 0.4, 0.26], [0.07, 0.3, -0.15, -1.05, -0.3, 0.32], [0.0, 0.18, -0.16, -1.25, 0.1, 0.22], [-0.13, 0.22, -0.1, -1.0, 0.9, 0.18], [0.14, 0.4, -0.06, -0.6, -0.8, 0.2]].forEach(([x, y, z, rx, rz, l], i)=>{
+      P(R.tor, K.shard(l, 0.02, 0.1, 4, 60 + i), i % 2 ? 0x3a2c1e : IRONC, x, y, z, rx, 0, rz);
+      P(R.tor, TOs(0.025, 0.008), BLOODC, x, y + 0.005, z - 0.01, rx + PI/2, 0, rz);
+    });
     // a noose for a collar, the cut rope hanging down the back
     P(R.tor, TOs(0.12, 0.018), 0x6a5a3a, 0, 0.44, 0.0, PI/2 + 0.2, 0, 0, 1, 0.85, 1);
     limb(R.tor, [[0, 0.44, -0.11], [0.02, 0.36, -0.16], [-0.01, 0.26, -0.17]], 0.016, 0x6a5a3a);
@@ -1408,8 +1454,8 @@ const KITS = {
     P(R.tor, TOs(0.19, 0.018), 0x6a604c, 0, 0.1, 0, PI/2 + 0.1, 0, 0, 1, 0.8, 1);
     P(R.tor, TOs(0.185, 0.016), 0x5a5240, 0, 0.14, 0, PI/2 - 0.12, 0, 0, 1, 0.8, 1);
     P(R.tor, BX(0.05, 0.04, 0.02), BLOODC, 0.08, 0.12, 0.15, 0, 0.5, 0);
-    P(R.parts.armL, blotch(sculptW(new THREE.SphereGeometry(0.1, 18, 8, 0, PI*2, 0, PI*0.5), 0.006, 14, 6), 0x8a5a3a, 18, 0.15, 6), 0x3a3230, 0, 0.03, 0, 0, 0, 0.4, 1.1, 0.8, 1.05);
-    [-0.4, 0, 0.4].forEach(a=> P(R.parts.armL, CO(0.016, 0.09, 6), 0x5a4a40, -Math.sin(0.6 + a*0.3)*0.07, 0.09, a*0.12, 0, 0, 0.6));
+    P(R.parts.armL, blotch(sculptW(new THREE.SphereGeometry(0.1, 10, 4, 0, PI*2, 0, PI*0.4), 0.006, 14, 6), 0x8a5a3a, 18, 0.15, 6), 0x3a3230, 0, 0.03, 0, 0, 0, 0.4, 1.15, 0.5, 1.05);
+    [-0.5, -0.15, 0.2, 0.5].forEach((a, i)=> P(R.parts.armL, K.shard(0.13 + (i % 2)*0.06, 0.02, -0.2, 4, 150 + i), 0x3a3230, -Math.sin(0.6 + a*0.3)*0.07, 0.07, a*0.13, 0, 0, 0.7));
     // a butcher's cleaver, rusted, its haft chained to the wrist
     P(R.hand, BX(0.034, 0.04, 0.16), LEATH, 0, 0, 0.0);
     P(R.hand, blotch(new THREE.BoxGeometry(0.018, 0.2, 0.34, 1, 4, 8), 0x8a5a3a, 14, 0.0, 7), 0x4a4440, 0, -0.06, 0.26);
@@ -1441,7 +1487,7 @@ const KITS = {
     P(head, K.tatter(hoodGeo(0.16, 1.2, 0.72, 8), -0.04, 10, 0.07, 8), 0x2e241c, 0, 0.03, -0.0, -0.25, 0, 0, 1, 1, 1.2);
     teeth(head, -0.066, 0.152, 0.11, 9, 0xd8cca8);
     // a long robe, a moth-eaten mantle
-    P(R.body, K.tatter(K.slathe([[0.22, -0.42], [0.19, -0.2], [0.16, 0], [0.15, 0.06]], 16), -0.14, 12, 0.12, 5), 0x3a2e24, 0, 0.5, 0.0, 0, 0, 0, 1, 1, 0.9);
+    P(R.body, K.tatter(K.slathe([[0.22, -0.42], [0.19, -0.2], [0.16, 0], [0.15, 0.06]], 16), -0.14, 12, 0.12, 5), 0x3a2e24, 0, 0.62, 0.0, 0, 0, 0, 1, 1, 0.9);
     const ml = new THREE.LatheGeometry([[0.22, 0], [0.2, 0.12], [0.14, 0.22], [0.08, 0.26]].map(p=> new THREE.Vector2(p[0], p[1])), 24);
     P(R.tor, sculptW(K.tatter(ml, 0.06, 14, 0.07, 9), 0.008, 12, 9), 0x2e241c, 0, 0.26, 0, 0, 0, 0, 1, 1, 0.85);
     // the pack of everything he's ever picked up: a sack, pots, a pan, a caged skull, a rolled rug, candles, antlers
@@ -1475,7 +1521,7 @@ const KITS = {
     P(crown, CY(0.12, 0.13, 0.09, 12), BRASSC);
     for(let i=0;i<6;i++){ const a = i/6*PI*2; P(crown, CO(0.026, 0.1, 4), BRASSC, Math.cos(a)*0.12, 0.09, Math.sin(a)*0.12); P(crown, S(0.016, 6, 4), [0x8a1a2a, 0x2a4a6a][i % 2], Math.cos(a)*0.125, 0.01, Math.sin(a)*0.125); }
     glow(R, crown, 0.025, 0xff3a2a, 0, 0.01, 0.13);
-    P(R.body, K.tatter(K.slathe([[0.32, -0.38], [0.28, 0], [0.22, 0.3]], 16), -0.2, 12, 0.12, 2), 0x4a1410, 0, 0.5, -0.05, 0, 0, 0, 1, 1, 0.85);
+    P(R.body, K.tatter(K.slathe([[0.32, -0.38], [0.28, 0], [0.22, 0.3]], 16), -0.2, 12, 0.12, 2), 0x4a1410, 0, 0.62, -0.05, 0, 0, 0, 1, 1, 0.85);
     for(let i=0;i<12;i++){ const a = i/12*PI*2; P(R.tor, S(0.06, 8, 6), 0x8a8070, Math.cos(a)*0.18, 0.46, Math.sin(a)*0.15); }
     P(R.hand, CY(0.02, 0.02, 0.85, 6), BRASSC, 0, 0.2, 0.1);
     P(R.hand, TOs(0.06, 0.015), BRASSC, 0, 0.6, 0.1, PI/2);
@@ -1491,7 +1537,7 @@ Models.goblin = function(kind){
     slinger:{ seed:2, skin:0x5a6450, ear:1.1 },
     bomber:{ seed:3, skin:0x585e4a, dark:0x2e3228, eye:0xff8a2a, wrap:0x4a4030 },
     shaman:{ seed:4, skin:0x5a6252, cloth:0x3a3428, eye:0x9cff3a, hunch:0.65 },
-    brute:{ seed:5, nose:false, skin:0x55604a, dark:0x343c2e, bulk:1.45, hunch:0.6, eye:0xff3a1a, ear:0.8, cloth:0x3a3028 },
+    brute:{ seed:5, nose:false, skin:0x55604a, dark:0x343c2e, bulk:1.45, hunch:0.6, eye:0xff3a1a, ear:0, cloth:0x3a3028 },
     sneak:{ seed:6, skin:0x4a5444, dark:0x2a3028, cloth:0x1e1c22, eye:0xff2a1a, wrap:0x2a2620, hunch:0.6 },
     merchant:{ seed:7, skin:0x6a6a58, eye:0xc8ff6a, cloth:0x3a2e24, hunch:0.6 },
     king:{ seed:8, skin:0x5f6a4e, cloth:0x4a1410, bulk:1.3, eye:0xff3a1a }
@@ -1499,7 +1545,7 @@ Models.goblin = function(kind){
   const head = goblinBody(R, o);
   (KITS[kind] || KITS.grunt)(R, head);
   R.body.scale.setScalar(size);
-  R.h = 1.25*size; R.size = size;
+  R.h = 1.4*size; R.size = size;
   return finish(R);
 };
 
@@ -1622,7 +1668,8 @@ Models.toadstool = function(){
   mycelium(b, 9, 0, 0.05, 0, 0.75, 0xa89c88, 2);
   R.h = 1.1; return finish(R);
 };
-function shroomPerson(R, size, capCol, spotCol){
+function shroomPerson(R, size, capCol, spotCol, opts){
+  opts = opts || {};
   const b = R.body, FLESH = 0x8a7c6c, PALE = 0x9a8e7c, seed = Math.round(size*10);
   // thin legs, a corpse's, mycelium trailing from the feet
   const legs = [];
@@ -1645,13 +1692,22 @@ function shroomPerson(R, size, capCol, spotCol){
   P(b, K.tatter(K.lathe([[0.13, -0.12], [0.125, -0.04], [0.115, 0.03]], 14), -0.05, 8, 0.1, seed), 0x3a3228, 0, 0.32, 0.0, 0, 0, 0, 1, 1, 0.85);
   // the cap bursts out where the head was: tilted, gills underneath, threads hanging,
   // and under it the jaw still hangs open, one eye left
-  const cap = group(b, 0, 0.66, 0.15); cap.rotation.set(-0.1, 0, 0.3); R.parts.head = cap;
+  // (smaller than it was, lopsided and torn: a growth on a corpse, not a hat)
+  const cap = group(b, 0, 0.66, 0.15); cap.rotation.set(-0.1, 0, 0.5); R.parts.head = cap;
   P(cap, sculptW(new THREE.CylinderGeometry(0.06, 0.075, 0.1, 14, 3), 0.006, 20, seed), FLESH, 0, -0.03, 0.0);
-  P(cap, capGeo(0.24, 0.36, 0.13, seed, 0x5a4058), capCol, 0, 0.03, -0.03);
-  underCap(cap, 0.24, -0.03, 0x8a7a6a, 18);
-  warts(cap, 0.22, 0.1, 8, spotCol, seed);
-  strands(cap, 9, 0.22, -0.06, 0.2, 0xb0a490, seed);
-  sprouts(cap, 5, -0.07, 0.24, -0.08, 0.9, 0x9a8e7c, new THREE.Color(capCol).multiplyScalar(1.3).getHex(), seed);
+  if(opts.husk){
+    // the skull has split like a seed-case, and the Gloom blooms out of it
+    [-1, 1].forEach(s=> P(cap, sculptW(new THREE.SphereGeometry(0.13, 18, 12, s > 0 ? PI/2 : -PI/2, PI, 0, PI*0.7), 0.008, 18, seed + s), 0x8a7e6a, s*0.06, 0.05, -0.02, 0, 0, -s*0.6, 1, 1.15, 1.1));
+    [-1, 1].forEach(s=> P(cap, K.shard(0.12, 0.02, 0.3, 4, seed + s), 0x8a7e6a, s*0.13, 0.12, -0.02, 0, 0, -s*1.0));
+    strands(cap, 6, 0.12, -0.04, 0.24, 0xb0a490, seed);
+  } else {
+    const CR = 0.19;
+    P(cap, capGeo(CR, 0.3, 0.2, seed, 0x5a4058), capCol, 0, 0.03, -0.03);
+    underCap(cap, CR, -0.03, 0x8a7a6a, 16);
+    warts(cap, CR*0.92, 0.08, 6, spotCol, seed);
+    strands(cap, 9, CR*0.92, -0.06, 0.26, 0xb0a490, seed);
+    sprouts(cap, 5, -0.06, 0.2, -0.07, 0.9, 0x9a8e7c, new THREE.Color(capCol).multiplyScalar(1.3).getHex(), seed);
+  }
   P(cap, S(0.05, 10, 8), PALE, 0, -0.1, 0.06, 0.3, 0, 0, 1.1, 0.6, 1.1);
   mouth(cap, 0, -0.1, 0.1, 0.04, 0.9);
   teeth(cap, -0.075, 0.105, 0.06, 6);
@@ -1915,6 +1971,15 @@ Models.watcher = function(){
     P(float, S(0.02, 6, 4), 0x9a6a6a, x0*1.5, -0.1 - l, z0 + 0.04);
   }
   P(float, K.tube([[0, 0, -0.35], [0, -0.1, -0.5], [0.05, -0.35, -0.55], [0.02, -0.7, -0.45]], 0.05, 10, 8), 0x6a3a40);
+  // and it is held: long grey fingers grown out of the knot, clutching the eye
+  // from behind, their nails curled over its rim (not a ball any more)
+  for(let i=0;i<7;i++){
+    const a = i/7*PI*2 + 0.25, c = Math.cos(a), sn = Math.sin(a), rr = 0.39 + (i % 2)*0.03;
+    const pts = [[c*0.16, sn*0.14, -0.3], [c*rr*1.05, sn*rr, -0.16], [c*rr*1.08, sn*rr*1.04, 0.04], [c*0.33, sn*0.32, 0.2]];
+    P(float, zTaper(pts, 0.032, 0.016, 14, 7), i % 3 ? 0x6a5e54 : 0x5a4c46);
+    [1, 2].forEach(k=> P(float, S(0.03, 8, 6), 0x7a6c60, pts[k][0], pts[k][1], pts[k][2]));
+    P(float, K.shard(0.06, 0.016, 0.5, 4, 120 + i), 0x1a1410, pts[3][0], pts[3][1], pts[3][2], PI/2 + 0.6, 0, -a + PI/2);
+  }
   halo(R, float, 0xff5a2a, 1.3, 0, 0, 0.35, 0.22);
   R.h = 1.5; return finish(R);
 };
@@ -1933,6 +1998,14 @@ function blob(R, r, col){
   P(inner, K.tube([[r*0.2, -r*0.35, r*0.1], [r*0.4, -r*0.2, 0], [r*0.25, -r*0.05, -r*0.1], [0, -r*0.2, -r*0.25], [-r*0.2, -r*0.35, -r*0.05], [-r*0.05, -r*0.4, r*0.25]], r*0.045, 16, 8), 0x8a4a48);
   limb(inner, [[r*0.1, r*0.05, r*0.3], [r*0.2, -r*0.05, r*0.35], [r*0.28, -r*0.1, r*0.3]], r*0.02, 0xa89a7c);
   for(let i=0;i<5;i++) P(inner, S(r*0.025 + (i % 2)*r*0.02, 6, 4), new THREE.Color(col).multiplyScalar(1.5).getHex(), Math.cos(i*2.4)*r*0.5, r*0.35 - i*r*0.12, Math.sin(i*2.4)*r*0.45);
+  // and what it hasn't finished with yet breaks out through its skin: ribs, a
+  // broken blade, and an arm reaching out of it
+  [[0.85, 0.5, 0.2, -0.7, 0.4], [0.6, -0.9, 1.1, 0.2, 0.9], [0.75, 0.2, -1.0, 0.7, -0.3], [0.5, -0.4, -0.6, -0.4, -1.0]].forEach(([y, x, z, rx, rz], i)=>{
+    const len = r*(0.5 + (i % 2)*0.25);
+    P(b, K.shard(len, r*0.05, 0.2, i === 1 ? 4 : 5, 130 + i), i === 1 ? 0x4a4a48 : 0xa89a7c, x*r*0.9, y*r*1.4, z*r*0.9, rx, 0, rz);
+  });
+  limb(b, [[-r*0.3, r*1.0, r*0.3], [-r*0.55, r*1.35, r*0.45], [-r*0.7, r*1.6, r*0.5]], r*0.06, 0x8a8070, 0x6a6052);
+  [-1, 0, 1].forEach(f=> P(b, K.shard(r*0.22, r*0.025, 0.6, 4, 140 + f), 0x8a8070, -r*0.7 + f*r*0.05, r*1.6, r*0.5, -0.3, 0, 0.5 + f*0.3));
   // the crust it drags along under it, a slick of bile
   P(b, blotch(sculptW(new THREE.TorusGeometry(r*0.9, r*0.1, 10, 28), r*0.04, 3/r, 5), 0x6a4a3a, 4/r, 0.2, 2), 0x3a3424, 0, r*0.03, 0, PI/2, 0, 0, 1, 1, 0.5);
   for(let i=0;i<6;i++){ const a = i/6*PI*2 + 0.5; P(b, S(r*0.12, 8, 6), new THREE.Color(col).multiplyScalar(0.6).getHex(), Math.cos(a)*r*1.05, r*0.02, Math.sin(a)*r*1.05, 0, 0, 0, 1.4, 0.25, 1); }
@@ -1973,7 +2046,7 @@ Models.tentacle = function(){
  *  The Gloom (Gloom Shooter's rot): violet-black flesh, bile-green
  *  pustules that glow, too many eyes, cordyceps out of what used to be folk
  * ================================================================== */
-const ROT = { flesh:0x3a1a3e, flesh2:0x5a2050, bile:0x9cff3a, pus:0xffe14a, eye:0xffe14a, cord:0xff7a2a, vein:0xff3fb0 };
+const ROT = { flesh:0x3a1a3e, flesh2:0x5a2050, bile:0x9cff3a, pus:0xffe14a, eye:0xffe14a, cord:0xff7a2a, vein:0x8ad83a };
 Models.ROT = ROT;
 let _rotSeed = 1;
 function fleshGeo(r, det, amt, c1, c2){
@@ -2028,72 +2101,123 @@ function cordyceps(R, parent, n, x, y, z, h, spread, seed){
     glow(R, parent, 0.014, ROT.cord, tip[0], tip[1] + 0.02, tip[2]);
   }
 }
+/* ---- the Gloom's people (Ash & Ember, phase 4): not balls with legs, but
+   things that used to be folk. Grey dead flesh, bone broken through, the
+   Gloom's bile and eyes the only colour on them ---- */
+const GF = { flesh:0x4a4038, dark:0x2a221e, bone:0x9a8c78, raw:0x5a3a34, pale:0x6a6052 };
+/* a long jointed limb that was an arm or a leg once: up to a high knuckle, down to
+   the floor (len along local +x, the floor at -y), a bony joint, three hooked claws */
+function gLimb(g, len, y, r){
+  const knee = [len*0.38, Math.min(0.32, len*0.55), 0], foot = [len*0.78, -y + 0.02, 0];
+  limb(g, [[0, 0, 0], [knee[0]*0.5, knee[1]*0.75, 0], knee], r || 0.03, GF.flesh);
+  limb(g, [knee, [knee[0] + (foot[0] - knee[0])*0.4, knee[1]*0.3, 0], foot], (r || 0.03)*0.72, GF.dark);
+  P(g, K.shard(0.06, 0.03, 0.3, 5, len*10), GF.bone, knee[0], knee[1] - 0.01, 0, 0, 0, -0.5);
+  [-1, 0, 1].forEach(f=> P(g, K.shard(0.07, 0.01, 0.5, 4, f + len), 0x14100e, foot[0] + 0.02, foot[1] + 0.01, f*0.025, 0, f*0.3, -PI/2 - 0.3));
+}
+/* legs for the view to walk: groups round the body, each limb out along its angle */
+function gLegs(R, parent, specs){
+  const legs = [];
+  specs.forEach(([x, y, z, a, len, r])=>{ const g = group(parent, x, y, z); g.rotation.y = -a; gLimb(g, len, y, r); legs.push(g); });
+  R.parts.legs = legs;
+}
+/* a torso, mottled and bruised, ribs through the skin (a profile of [r, y]) */
+function gTorso(parent, prof, seed, x, y, z, rx, sx, sy, sz){
+  P(parent, blotch(sculptW(K.slathe(prof, 14, 4), 0.012, 12, seed), GF.raw, 10, 0.32, seed), GF.flesh, x, y, z, rx || 0, 0, 0, sx || 1, sy || 1, sz || 1);
+}
 Models.rotling = function(){
+  // a man turned belly-up and carried on his own limbs, the head hanging back
+  // between the shoulders, ribs broken out through the chest like a cage
   const R = rig("rotling"), b = R.body;
-  P(b, rotFlesh(0.34, 0.05, 2, ROT.flesh, ROT.flesh2), 0xffffff, 0, 0.36, 0, 0, 0, 0, 1, 0.72, 1.12);
-  // ribs it grew on the outside, a spine ridge, cordyceps out of its back
-  for(let i=0;i<4;i++) [-1, 1].forEach(s=> limb(b, [[s*0.03, 0.6, -0.12 + i*0.08], [s*0.2, 0.55, -0.12 + i*0.08], [s*0.3, 0.42, -0.1 + i*0.08]], 0.011, 0x8a7a6a));
-  for(let i=0;i<5;i++) P(b, CO(0.02, 0.06, 6), 0x8a7a6a, 0, 0.6 - Math.abs(i - 2)*0.008, -0.2 + i*0.08, -0.3);
-  cordyceps(R, b, 4, -0.05, 0.56, -0.15, 0.22, 0.05, 1);
-  pustules(R, b, 6, 0.34, 0.42, 1, 0.7, 1.1);
-  rotEyes(R, b, 4, 0.48, 0.34, 0.05);
-  rotLegs(R, b, 6, 0.26, 0.3, 0.45);
-  // a maw under the eyes, needles round it, mandibles either side
-  mouth(b, 0, 0.3, 0.37, 0.11, 0.45);
-  teeth(b, 0.33, 0.4, 0.18, 8, 0xc8c0a0);
-  [-1, 1].forEach(s=> limb(b, [[s*0.12, 0.3, 0.3], [s*0.16, 0.25, 0.45], [s*0.08, 0.22, 0.55]], 0.016, 0x1a0a20));
-  R.h = 0.9; return finish(R);
+  const tor = group(b, 0, 0.5, 0); tor.rotation.x = 0.1;
+  gTorso(tor, [[0.0, -0.34], [0.09, -0.3], [0.14, -0.16], [0.16, 0.0], [0.15, 0.12], [0.12, 0.24], [0.07, 0.31], [0.0, 0.33]], 2, 0, 0, 0, PI/2, 1, 1, 0.6);
+  for(let i=0;i<5;i++){
+    const z = -0.13 + i*0.07;
+    P(tor, TOs(0.145 - Math.abs(i - 2)*0.008, 0.011, PI), GF.bone, 0, 0.0, z, 0, 0, 0, 1, 0.85, 1);
+    if(i % 2 === 0) [-1, 1].forEach(s=> P(tor, K.shard(0.11, 0.013, 0.2, 4, i*3 + s), GF.bone, s*0.13, 0.04, z, 0, 0, -s*0.7));
+  }
+  // the head, hanging upside down off the front, jaw gaping at the sky
+  const hd = group(tor, 0, -0.04, 0.37); hd.rotation.x = 2.3;
+  P(hd, blotch(lumpS(0.095, 14, 11, 0.008, 14, 3), GF.raw, 16, 0.4, 3), GF.pale, 0, 0, 0, 0, 0, 0, 0.9, 1.05, 1.1);
+  P(hd, S(0.07, 10, 8), GF.flesh, 0, -0.06, 0.04, 0.3, 0, 0, 1, 0.75, 1.1);
+  mouth(hd, 0, -0.07, 0.09, 0.05, 1.3); teeth(hd, -0.05, 0.1, 0.07, 6, 0xb8ae94);
+  eyes(hd, 0.038, 0.02, 0.08, 0.022, ROT.eye, 0, R);
+  // and the Gloom's own eyes, opened in its chest, and its stalks out of the belly
+  rotEyes(R, tor, 3, 0.09, 0.16, 0.024);
+  cordyceps(R, tor, 4, 0, 0.08, -0.12, 0.26, 0.05, 1);
+  pustules(R, tor, 4, 0.15, 0.02, 1, 0.5, 2);
+  // six limbs: arms, legs, and two that were never either
+  gLegs(R, b, [[0.11, 0.5, 0.2, 0.55, 0.6], [0.13, 0.5, 0.0, 0.05, 0.62], [0.11, 0.5, -0.2, -0.5, 0.58],
+               [-0.11, 0.5, 0.2, PI - 0.55, 0.6], [-0.13, 0.5, 0.0, PI - 0.05, 0.62], [-0.11, 0.5, -0.2, PI + 0.5, 0.58]]);
+  R.h = 0.95; return finish(R);
 };
 Models.spitter = function(){
+  // a tall, starved thing on three legs (two its own, one grown), its head gone:
+  // the neck has swollen into a gullet that splits open like a jaw and spits
   const R = rig("spitter"), b = R.body;
-  P(b, rotFlesh(0.45, 0.05, 3, 0x3b4a2a, 0x5a6a3a, 0x1a2010), 0xffffff, 0, 0.55, 0, 0, 0, 0, 1, 1.15, 1);
-  // mould: a pelt of fine pale hairs, grey fluff in the creases, and shelf fungus
-  for(let i=0;i<46;i++){ const a = i*2.39996, e = (i % 9)/9*1.5 - 0.3; P(b, CO(0.012, 0.1 + (i % 4)*0.03, 4), [0xb8d8a0, 0x8a9a7a, 0xd8e8c0][i % 3], Math.cos(a)*Math.cos(e)*0.46, 0.55 + Math.sin(e)*0.52, Math.sin(a)*Math.cos(e)*0.46, Math.sin(a)*Math.cos(e)*1.2, 0, -Math.cos(a)*Math.cos(e)*1.2 + (e > 0.6 ? 0 : 0)); }
-  [[0.3, 0.75, 0.2], [-0.32, 0.6, 0.15], [0.05, 0.9, -0.3]].forEach(([x, y, z], i)=> P(b, lumpS(0.08, 10, 8, 0.03, 30, i), 0x9aa08a, x, y, z, 0, 0, 0, 1, 0.6, 1));
-  bracket(b, 0.11, 0.38, 0.45, -0.15, PI/2 + 0.6, 0x5a5a40);
-  bracket(b, 0.08, -0.35, 0.38, -0.2, -PI/2 - 0.5, 0x5a5a40);
-  // the spout: a puckered fleshy throat, glowing bile in it, drool hanging
-  const sp = group(b, 0, 0.98, 0.18); sp.rotation.x = 0.7; R.parts.head = sp;
-  P(sp, sculptW(K.slathe([[0.0, -0.05], [0.16, 0.0], [0.13, 0.12], [0.1, 0.26], [0.12, 0.32], [0.05, 0.34]], 14, 4), 0.012, 14, 3), 0x2a361e, 0, 0, 0);
-  P(sp, sculptW(new THREE.TorusGeometry(0.1, 0.035, 10, 20), 0.01, 20, 2), 0x4a2a2a, 0, 0.32, 0, PI/2);
-  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(sp, CO(0.012, 0.05, 5), 0xc8c0a0, Math.cos(a)*0.08, 0.33, Math.sin(a)*0.08, Math.sin(a)*1.0, 0, -Math.cos(a)*1.0); }
-  glow(R, sp, 0.075, ROT.bile, 0, 0.32, 0);
-  halo(R, sp, ROT.bile, 0.8, 0, 0.36, 0, 0.4);
-  limb(b, [[0.06, 0.95, 0.4], [0.07, 0.8, 0.46], [0.06, 0.65, 0.47]], 0.012, 0x7a9a3a);
-  rotEyes(R, b, 3, 0.74, 0.42, 0.06, 0xffe14a);
-  rotEyes(R, b, 2, 0.58, 0.45, 0.04, 0xffe14a);
-  pustules(R, b, 5, 0.45, 0.6, 1, 1.1, 1);
-  rotLegs(R, b, 3, 0.28, 0.25, 0.38);
-  R.h = 1.4; return finish(R);
+  P(b, blotch(lumpS(0.12, 12, 10, 0.012, 14, 4), GF.raw, 12, 0.3, 4), GF.flesh, 0, 0.64, 0, 0, 0, 0, 1.1, 0.8, 1);
+  gLegs(R, b, [[0.07, 0.62, 0.04, 0.9, 0.62, 0.032], [-0.07, 0.62, 0.04, PI - 0.9, 0.62, 0.032], [0, 0.6, -0.08, -PI/2, 0.72, 0.04]]);
+  // the grown leg is knotted with fungus
+  for(let i=0;i<4;i++) P(R.parts.legs[2], lumpS(0.035 + (i % 2)*0.012, 8, 6, 0.008, 30, i), 0x5a5a40, 0.08 + i*0.09, 0.12 - Math.abs(i - 1.5)*0.06, 0.02);
+  const tor = group(b, 0, 0.66, 0); tor.rotation.x = 0.35;
+  gTorso(tor, [[0, 0], [0.1, 0.02], [0.12, 0.12], [0.1, 0.24], [0.14, 0.38], [0.17, 0.48], [0.11, 0.56], [0, 0.58]], 5, 0, 0, 0, 0, 1, 1, 0.75);
+  [[0.24, 0.11], [0.3, 0.125], [0.36, 0.14]].forEach(([y, r])=> P(tor, TOs(r, 0.007, PI*0.6), GF.bone, 0, y, 0.006, PI/2 + 0.3, 0, PI/2 - PI*0.3, 1, 0.75, 1));
+  for(let i=0;i<6;i++) P(tor, K.shard(0.05 + (i % 2)*0.03, 0.022, -0.4, 4, 70 + i), GF.bone, 0, 0.12 + i*0.075, -0.1 - (i > 3 ? 0.02 : 0), -0.9);
+  // mould in a pelt over the shoulders
+  for(let i=0;i<24;i++){ const a = -0.9 + (i % 8)/7*1.8, y = 0.44 + Math.floor(i/8)*0.04; P(tor, CO(0.01, 0.08 + (i % 3)*0.03, 4), [0x8a9078, 0x6a7060, 0xa8ac98][i % 3], Math.sin(a)*0.15, y, -Math.cos(a)*0.09, -0.6, 0, Math.sin(a)*0.9); }
+  // arms hanging to the floor, one ending in a hook of bone
+  [-1, 1].forEach(s=>{
+    limb(tor, [[s*0.16, 0.5, 0.02], [s*0.24, 0.24, 0.1], [s*0.22, -0.08, 0.2]], 0.026, GF.flesh, GF.bone);
+    limb(tor, [[s*0.22, -0.08, 0.2], [s*0.2, -0.3, 0.28], [s*0.17, -0.48, 0.3]], 0.019, GF.dark);
+    if(s > 0) P(tor, K.shard(0.16, 0.022, 0.8, 5, 80), GF.bone, s*0.17, -0.5, 0.3, PI);
+    else [-1, 0, 1].forEach(f=> P(tor, K.shard(0.08, 0.01, 0.5, 4, 81 + f), 0x14100e, s*0.17 + f*0.02, -0.5, 0.3, PI));
+  });
+  // the gullet, where its head was
+  const sp = group(b, 0, 1.17, 0.22); sp.rotation.x = 0.7; R.parts.head = sp;
+  P(sp, sculptW(K.slathe([[0.0, -0.06], [0.11, -0.02], [0.17, 0.08], [0.16, 0.18], [0.1, 0.27], [0.11, 0.33], [0.05, 0.35]], 14, 4), 0.014, 14, 3), 0x4a3e34, 0, 0, 0);
+  [-1, 1].forEach(s=>{ P(sp, K.shard(0.24, 0.035, 0.45, 5, 90 + s), GF.bone, s*0.1, 0.12, 0.0, 0, 0, -s*0.55); P(sp, K.shard(0.14, 0.02, 0.4, 4, 92 + s), GF.bone, s*0.06, 0.2, 0.08, 0.3, 0, -s*0.35); });
+  P(sp, sculptW(new THREE.TorusGeometry(0.09, 0.03, 10, 20), 0.01, 20, 2), 0x3a2622, 0, 0.32, 0, PI/2);
+  for(let i=0;i<8;i++){ const a = i/8*PI*2; P(sp, CO(0.011, 0.05, 5), 0xb8ae94, Math.cos(a)*0.075, 0.33, Math.sin(a)*0.075, Math.sin(a)*1.0, 0, -Math.cos(a)*1.0); }
+  glow(R, sp, 0.065, ROT.bile, 0, 0.32, 0);
+  halo(R, sp, ROT.bile, 0.7, 0, 0.36, 0, 0.35);
+  limb(b, [[0.05, 1.15, 0.42], [0.06, 1.0, 0.47], [0.05, 0.86, 0.48]], 0.011, 0x6a7a3a);
+  rotEyes(R, sp, 3, 0.16, 0.14, 0.026);
+  pustules(R, tor, 4, 0.13, 0.3, 1, 1.4, 0.9);
+  R.h = 1.5; return finish(R);
 };
 Models.bloater = function(){
+  // a man hunched over the sac his belly has become: it sags to the floor and
+  // drags, and he walks on his hands and feet either side of it, spine up
   const R = rig("bloater"), b = R.body;
-  const belly = group(b, 0, 0.82, 0); R.parts.head = belly;
-  P(belly, rotFlesh(0.75, 0.04, 4, 0x54564a, 0x6a6448, 0x1e1a14), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.9, 1);
+  const belly = group(b, 0, 0.47, 0.05); R.parts.head = belly; belly.scale.set(0.8, 0.85, 0.85);
+  const sac = sculptW(K.slathe([[0, -0.55], [0.3, -0.52], [0.5, -0.36], [0.58, -0.1], [0.54, 0.16], [0.4, 0.34], [0.2, 0.44], [0, 0.46]], 28, 4), 0.03, 4, 4);
+  const C2 = new THREE.Color(0x6a6448), C3 = new THREE.Color(0x1e1a14);
+  K.paint(sac, 0x54564a, (c, x, y, z)=>{ const k = Math.sin(x*6 + z*5 + 1)*Math.sin(y*7 + 2.8); if(k > 0.25) c.lerp(C2, Math.min(1, (k - 0.25)*3)); const cr = Math.sin(x*10 + Math.sin(z*6)*2)*Math.sin(y*8 + Math.sin(x*4)); if(Math.abs(cr) < 0.05) c.lerp(C3, 0.8); });
+  P(belly, sac, 0xffffff, 0, 0, 0, 0, 0, 0, 1, 1, 1.18);
   // stretched so far the skin has split and been stitched, veins standing up all over it
-  for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.7 + j*0.35, aa = a + Math.sin(j*1.7 + i)*0.2; pts.push([Math.cos(aa)*Math.cos(e)*0.74, Math.sin(e)*0.665, Math.sin(aa)*Math.cos(e)*0.74]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x2a2420); }
-  const seam = group(belly, 0, 0, 0); seam.rotation.set(0.3, 0.4, 0.2);
-  for(let i=0;i<9;i++){ const e = -0.7 + i*0.17; P(seam, BX(0.012, 0.01, 0.09), 0x1a0a10, 0, Math.sin(e)*0.68, Math.cos(e)*0.745, -e); }
-  P(seam, sculptW(new THREE.TorusGeometry(0.73, 0.012, 6, 40, 1.45), 0.003, 30, 1), 0x7a2a2a, 0, 0, 0, 0, -PI/2, -0.7);
-  pustules(R, belly, 14, 0.74, 0.05, 1, 0.9, 1);
-  // a small head sunk into the top of it, jaw hanging, and two useless arms
-  const hd = group(belly, 0, 0.55, 0.45);
-  P(hd, rotFlesh(0.14, 0.012, 7, 0x5e5c52, 0x403e36), 0xffffff, 0, 0, 0, 0, 0, 0, 0.9, 1, 1);
-  eyes(hd, 0.05, 0.02, 0.11, 0.03, 0xffe14a, 0, R);
-  mouth(hd, 0, -0.08, 0.11, 0.05, 1.2);
-  teeth(hd, -0.04, 0.12, 0.07, 6);
-  [-1, 1].forEach(s=>{ limb(belly, [[s*0.5, 0.25, 0.45], [s*0.62, 0.12, 0.55], [s*0.6, -0.02, 0.62]], 0.03, 0x54564a); [-1, 0, 1].forEach(f=> P(belly, CO(0.008, 0.05, 5), 0x1a0a14, s*0.6 + f*0.015, -0.06, 0.63, PI*0.9, 0, f*0.2)); });
-  for(let i=0;i<3;i++) P(belly, CY(0.04, 0.09, 0.25, 8), 0x3a2a3e, (i - 1)*0.25, 0.68, -0.25, -0.3, 0, (i - 1)*0.3);
-  for(let i=0;i<3;i++) glow(R, belly, 0.04, ROT.bile, (i - 1)*0.25*1.5, 0.82, -0.3);
-  cordyceps(R, belly, 3, -0.3, 0.55, -0.35, 0.25, 0.05, 2);
-  rotLegs(R, b, 4, 0.5, 0.35, 0.45);
-  halo(R, belly, ROT.bile, 2.2, 0, 0, 0, 0.2);
-  R.h = 1.9; return finish(R);
+  for(let i=0;i<7;i++){ const a = i/7*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.8 + j*0.38, aa = a + Math.sin(j*1.7 + i)*0.2, rr = 0.56*Math.cos(e*0.85); pts.push([Math.cos(aa)*rr, Math.sin(e)*0.42, Math.sin(aa)*rr*1.18]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x2a2420); }
+  for(let i=0;i<9;i++){ const e = -0.7 + i*0.17; P(belly, BX(0.012, 0.01, 0.09), 0x1a0a10, 0.05, Math.sin(e)*0.45, Math.cos(e)*0.62, -e); }
+  pustules(R, belly, 9, 0.56, -0.02, 1, 0.75, 1.15);
+  // the man: a ribbed back bent over the top of it, spine standing out in knives
+  const tor = group(b, 0, 0.92, -0.3); tor.rotation.x = 1.0; tor.scale.setScalar(1.3);
+  gTorso(tor, [[0, 0], [0.12, 0.02], [0.15, 0.14], [0.13, 0.26], [0.17, 0.4], [0.19, 0.5], [0.12, 0.58], [0, 0.6]], 7, 0, 0, 0, 0, 1, 1, 0.7);
+  for(let i=0;i<7;i++) P(tor, K.shard(0.15 + Math.sin(i/6*PI)*0.13, 0.032, -0.3, 5, 100 + i), GF.bone, 0, 0.05 + i*0.08, -0.11, -0.6);
+  [-1, 1].forEach(s=>{ P(tor, K.shard(0.2, 0.045, -0.3, 5, 110 + s), GF.bone, s*0.14, 0.47, -0.08, -0.4, 0, s*0.9); P(tor, K.shard(0.14, 0.035, -0.3, 5, 112 + s), GF.bone, s*0.12, 0.2, -0.08, -0.6, 0, s*1.1); });
+  for(let i=0;i<3;i++){ P(tor, CY(0.035, 0.06, 0.16, 8), 0x2e2a26, (i - 1)*0.09, 0.28 + i*0.05, -0.12, -0.5); glow(R, tor, 0.03, ROT.bile, (i - 1)*0.09, 0.3 + i*0.05, -0.2); }
+  cordyceps(R, tor, 3, 0.05, 0.2, -0.12, 0.25, 0.05, 2);
+  // the head, hung forward over the front of the sac, jaw slack
+  const hd = group(b, 0, 1.12, 0.3); hd.rotation.x = 0.7; hd.scale.setScalar(1.15);
+  P(hd, blotch(lumpS(0.12, 14, 11, 0.01, 14, 7), GF.raw, 16, 0.4, 7), GF.pale, 0, 0, 0, 0, 0, 0, 0.9, 1.05, 1.05);
+  eyes(hd, 0.045, 0.02, 0.1, 0.028, 0xffe14a, 0, R);
+  mouth(hd, 0, -0.08, 0.1, 0.05, 1.3); teeth(hd, -0.05, 0.11, 0.07, 6);
+  // walking on its hands and its feet, splayed wide round the sac
+  gLegs(R, b, [[0.2, 0.95, 0.3, 0.75, 0.95, 0.04], [-0.2, 0.95, 0.3, PI - 0.75, 0.95, 0.04], [0.24, 0.7, -0.4, -0.7, 0.75, 0.045], [-0.24, 0.7, -0.4, PI + 0.7, 0.75, 0.045]]);
+  halo(R, belly, ROT.bile, 1.6, 0, 0, 0, 0.15);
+  R.h = 1.7; return finish(R);
 };
 Models.husk = function(){
   // a mushroom-folk the Gloom took: grey stem, a dead cap, cordyceps bursting out
   const R = rig("husk");
-  shroomPerson(R, 1.25, 0x5a5660, 0x7a7680);
+  shroomPerson(R, 1.25, 0x5a5660, 0x7a7680, { husk:true });
   const cap = R.parts.head;
   cordyceps(R, cap, 8, 0, 0.32, -0.02, 0.4, 0.06, 3);
   // a fist of dead cap for a maul
@@ -2701,7 +2825,7 @@ const bsHeartShape = (x, y, z)=>{
 };
 Models.heart = function(){
   const R = rig("heart"), b = R.body;
-  const M1 = 0x6e1a2c, M2 = 0x260812, FAT = 0x8a7a4a, VEIN = 0xff3fb0, BILE = 0x9cff3a, BONE = 0xb0a488;
+  const M1 = 0x6e1a2c, M2 = 0x260812, FAT = 0x8a7a4a, VEIN = 0x8ad83a, BILE = 0x9cff3a, BONE = 0xb0a488;
   // a mound of rot it's rooted in
   P(b, bsPaint(bsBlob(1.3, 1, 0.26, 1, 0.08, 3, 9, 40, 18), 0x1e0e1a, 0x0a0608, 3, 2, (c, x, y, z)=>{ if(bsN(x, y, z, 5, 4) > 0.4) c.lerp(bsC.setHex(0x22341e), 0.6); }), 0xffffff, 0, 0.02, 0);
   // roots, thick near it and knotted, splitting into rootlets
@@ -2780,7 +2904,7 @@ Models.heart = function(){
   [[0.75, 0.6, -0.55, 0.3], [-0.8, 0.45, -0.45, 0.24]].forEach(([x, y, z, r])=>{ P(H, CY(r*0.22, r*0.3, r*1.2, 10), 0x9ab0c0, x, y, z); P(H, new THREE.SphereGeometry(r, 18, 8, 0, PI*2, 0, PI/2), 0x1a4a8a, x, y + r*0.6, z, 0, 0, 0, 1, 0.55, 1); glow(R, H, r*0.3, 0x6ad8ff, x, y + r*0.62, z); });
   // pustules of bile, weeping
   for(let i=0;i<22;i++){ const u = i*2.39996, v = Math.asin((i + 0.5)/22*1.7 - 0.85), p = onH(u, v, 1.03); glow(R, H, 0.03 + (i % 3)*0.015, i % 4 ? BILE : VEIN, p[0], p[1], p[2]); }
-  halo(R, beat, 0xff3fb0, 4.5, 0, 0, 0.6, 0.28);
+  halo(R, beat, 0x8ad83a, 4.5, 0, 0, 0.6, 0.28);
   halo(R, b, BILE, 2.5, 0, 0.1, 0, 0.15);
   R.h = 3.1; return finish(R, { w:0.035 });
 };

@@ -89,7 +89,10 @@ Each phase stands alone and can be judged in `?gallery` and on floors 1, 3 and 5
 - **One shadow-casting light: Zippy's lantern** (a point-light cube shadow at low resolution, 256–512), plus the boss arena's main light. Everything else stays unshadowed. Shadows of enemies stretching toward you from the edge of the light are the single most Souls moment we can add.
 - If the cube shadow costs too much on low-end machines, fall back to **projected stretched blob shadows** that point away from the lantern.
 
-### Phase 4: Silhouettes, rebuilt in order of screen time (about 1–2 weeks)
+### Phase 4: Silhouettes, rebuilt in order of screen time (about 1–2 weeks) — first pass done
+**Done:** `?gallery&sil` draws every model flat black on bone. `K.shard` (kit.js) is the anti-lump: a faceted, tapering, bent spike for horns, spines, claws and splinters. Zippy wears a wide-brimmed witch-hunter's hat (front pinned up so his eyes show, edge torn) instead of the curling peak; costume pieces that sat on the peak sit on the crown. Gribbus is longer and flatter with a ridge of spines and horns down his flanks. Goblins have smaller heads sunk between the shoulders, short ears laid back, longer legs and arms past the knee; the brute has no ears, a twisted sack-tail, a spiked pauldron and stakes in its back. The Gloom are people now: the rotling a corpse carried belly-up on six long limbs, the spitter a starved thing on three legs whose neck is a split gullet, the bloater a man bent over the sac his belly became, walking on hands and feet; the husk's skull has split like a seed-case. The watcher is clutched by long fingers, the blob has bones and an arm breaking out of it, shroom caps are smaller and lopsided, the Gloom Heart's veins are bile green, not pink. Budgets hold: Zippy 34k triangles, Gribbus 24k, enemies 8–23k.
+**Still to do:** the bosses' scale and entrance poses, shroom caps torn, the ghosts and skeleton checked in silhouette.
+
 Start with a **silhouette test**: render every gallery model in flat black on bone-white (a `?gallery&sil` switch). If a model is cute as a black shape, no shader will save it.
 
 | Model | Today | Target |
