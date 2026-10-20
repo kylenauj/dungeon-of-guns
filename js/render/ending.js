@@ -58,6 +58,13 @@ function walkway(G, x, y){
 }
 
 DG.Ending = {};
+/* the two of them as they will be: built ahead on the last floor (View.warmUp),
+   so the scene doesn't build four models in the frame it starts */
+DG.Ending.prebuild = function(){
+  const z = M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] });
+  const f = M.frog(false, ["crown"], { redeemed:true });
+  return { z, f };
+};
 DG.Ending.play = function(G, V, id, done){
   const mood = MOOD[id] || MOOD.dawn, E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
   const p = G.player, x0 = p.x, y0 = p.y;
@@ -80,8 +87,9 @@ DG.Ending.play = function(G, V, id, done){
   const fx0 = f0 ? f0.x : x0 + 1.2, fy0 = f0 ? f0.y : y0 + 0.6;
   const darkF = add(M.frog(false, G.gribbus.buffs));
   // and as they will be
-  const brightZ = add(M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] })); brightZ.root.visible = false;
-  const brightF = add(M.frog(false, id === "bog" ? ["crown"] : [], { redeemed:true })); brightF.root.visible = false;
+  const pre = V.endRigs || DG.Ending.prebuild(); V.endRigs = null;
+  const brightZ = add(pre.z); brightZ.root.visible = false;
+  const brightF = add(pre.f); brightF.root.visible = false;
   if(brightF.parts.crown) brightF.parts.crown.visible = id === "bog";
   [brightZ, brightF].forEach(R=>{ if(R.parts.tongue) R.parts.tongue.visible = false; });
   if(darkF.parts.tongue) darkF.parts.tongue.visible = false;
@@ -116,7 +124,7 @@ DG.Ending.play = function(G, V, id, done){
   // a new run calls this through View.dispose
   c.dispose = function(){
     rigs.forEach(R=> S.scene.remove(R.root));
-    if(hearth) S.scene.remove(hearth);
+    if(hearth) hearth.intensity = 0;
     if(shaft) S.scene.remove(shaft);
     K.GLOOM.uGloom.value = keep.gloom; S.hemi.color.setHex(keep.hemiCol); S.hemi.intensity = keep.hemiI; S.fill.intensity = keep.fillI;
     u.uHigh.value.setHex(keep.high);
@@ -250,7 +258,8 @@ DG.Ending.play = function(G, V, id, done){
     const n = Math.min(2.4, Math.max(1.4, way.n - 0.5));
     const hx = x0 + way.dx*(n + 1), hy = y0 + way.dy*(n + 1);
     if(!hearth && act > -1.2){
-      hearth = new THREE.PointLight(0xff8a2a, 0, 14, 1.6); hearth.position.set(hx, 1.5, hy); S.scene.add(hearth);
+      // (the stage's spare light: a new light would rebuild every shader mid-scene)
+      hearth = S.spare; hearth.color.setHex(0xff8a2a); hearth.intensity = 0; hearth.distance = 14; hearth.decay = 1.6; hearth.position.set(hx, 1.5, hy);
       FX.soul(hx, hy, 7, 9, 0xff8a2a);
       FX.ring(hx, hy, 2.5, 0xff8a2a, 1.2);
       S.shake(0.3);

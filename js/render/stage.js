@@ -48,12 +48,18 @@ S.init = function(){
   // the one light that casts (Ash & Ember phase 3): everything near Zippy throws
   // a hard shadow away from his lantern, into the dark. Other lights stay cheap.
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
+  // the shadow map is redrawn every S.shadowEvery frames (more apart when frames run slow)
+  r.shadowMap.autoUpdate = false; S.shadowEvery = 1; S.frameN = 0;
   try{ S.shadows = localStorage.getItem("dungeonofguns.shadows") !== "0"; }catch(e){ S.shadows = true; }
   const sh = S.playerLight.shadow; sh.mapSize.set(512, 512); sh.camera.near = 0.25; sh.camera.far = 16; sh.bias = -0.004; sh.normalBias = 0.03;
   S.playerLight.castShadow = S.shadows;
   S.torches = [];
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 8, 1.8); scene.add(l); S.torches.push(l); }
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
+  // a spare light, always there and dark until a scene needs it (the ending's hearth):
+  // adding or removing a light, or turning a shadow on or off, rebuilds every
+  // shader in the scene, which is a long freeze. So the lights never change.
+  S.spare = new THREE.PointLight(0xff8a2a, 0, 14, 1.6); scene.add(S.spare);
 
   try{ S.fancy = localStorage.getItem("dungeonofguns.ink") !== "0"; }catch(e){ S.fancy = true; }
   try{ S.etch = localStorage.getItem("dungeonofguns.etch") !== "0"; }catch(e){ S.etch = true; }
@@ -260,7 +266,10 @@ S.adapt = function(raw){
   S.adaptT = (S.adaptT || 0) + raw;
   if(S.adaptT < 1.5) return;
   const was = S.dyn;
-  if(S.ft > 1/45 && S.dyn <= 0.6 && S.playerLight.castShadow){ S.playerLight.castShadow = false; S.adaptT = 0; return; }
+  // at the lowest resolution and still slow: redraw the shadows less often (never
+  // switch them off here: that rebuilds every shader, a freeze)
+  if(S.ft > 1/45 && S.dyn <= 0.6 && S.shadowEvery < 3){ S.shadowEvery++; S.adaptT = 0; return; }
+  if(S.ft < 1/58 && S.dyn >= 1 && S.shadowEvery > 1){ S.shadowEvery--; S.adaptT = 0; return; }
   if(S.ft > 1/45) S.dyn = Math.max(0.6, S.dyn - 0.1);
   else if(S.ft < 1/58 && S.dyn < 1) S.dyn = Math.min(1, S.dyn + 0.05);
   if(S.dyn !== was){ S.adaptT = 0; S.resize(); }
@@ -272,6 +281,7 @@ S.loop = function(){
   K.tick(t);
   S.updaters.forEach(f=> f(dt, t));
   S.updateCamera(dt);
+  if(++S.frameN % S.shadowEvery === 0) S.renderer.shadowMap.needsUpdate = true;
   if(S.fancy){
     S.post.mat.uniforms.uTime.value = t;
     S.renderer.setRenderTarget(S.post.rt); S.renderer.render(S.scene, S.camera);

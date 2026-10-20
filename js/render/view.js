@@ -88,6 +88,27 @@ proto.buildFloor = function(){
   S.theme(G.D.theme, G.curses);
   V.floor = G.floor;
   S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true);
+  // every shader the floor needs compiles now, behind the area card, not mid-fight
+  try{ S.renderer.compile(S.scene, S.camera); }catch(e){}
+  // and the floor's enemies are built ahead, one a frame while you explore, so a
+  // room's fight doesn't build a dozen models in the frame it starts
+  const th = G.D.theme, kinds = Object.keys(th.enemies || {}).map(k=> (DG.ENEMIES[k] && DG.ENEMIES[k].model) || k);
+  V.pool = {}; V.warm = [];
+  if(th.boss) V.warm.push((DG.BOSSES[th.boss] && DG.BOSSES[th.boss].model) || th.boss);
+  for(let n=0;n<3;n++) kinds.forEach(k=> V.warm.push(k));
+  V.endRigs = null;
+  if(G.floor >= DG.FINAL_FLOOR) V.warm.push("@ending");
+};
+/* an enemy's rig: one built ahead if there is one, else built now */
+proto.takeRig = function(kind){
+  const L = this.pool && this.pool[kind];
+  return L && L.length ? L.pop() : M.enemy(kind);
+};
+proto.warmUp = function(){
+  const V = this, G = V.G;
+  if(!V.warm || !V.warm.length || V.cine || (G.room && G.room.active)) return;
+  const k = V.warm.shift();
+  try{ if(k === "@ending") V.endRigs = DG.Ending.prebuild(); else (V.pool[k] = V.pool[k] || []).push(M.enemy(k)); }catch(e){ console.error("warm: " + k, e); }
 };
 
 proto.dispose = function(){
@@ -416,6 +437,7 @@ function hazardMesh(h){
  * ================================================================== */
 proto.update = function(dt, t){
   const V = this, G = V.G, p = G.player;
+  V.warmUp();
   // Zippy, dressed in whatever he's carrying
   const ids = Object.keys(p.items).join(",") + "|" + G.mods.sets.join(",");
   if(ids !== V.itemIds){
@@ -589,7 +611,7 @@ proto.updateEnemies = function(dt, t){
     live[e.id] = 1;
     let R = V.rigs[e.id];
     if(!R){
-      R = V.rigs[e.id] = M.enemy(e.def.model || e.type);
+      R = V.rigs[e.id] = V.takeRig(e.def.model || e.type);
       if(e.affix){
         const a = DG.AFFIXES[e.affix], sz = a.size || 1;
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
