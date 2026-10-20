@@ -306,6 +306,8 @@ Dark Souls, Bloodborne, Blasphemous and Darkest Dungeon, in one look across ever
 
 The next step for the look ("Ash & Ember": why it still reads cozy, the rules, and a phased plan) is in [ART_DIRECTION.md](ART_DIRECTION.md).
 
+> **Superseded (October 2026):** the etched look below is retired in favour of physically based materials made in code, ambient occlusion and a film grade. See docs/ART_DIRECTION.md section 4b. The notes below are kept for the record.
+
 ### 10.0 Etched: a look of its own
 
 **What makes a game read as generic low-poly (and what we saw in our own frames):**

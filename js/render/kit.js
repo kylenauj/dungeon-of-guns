@@ -132,20 +132,20 @@ K.textTex = function(lines, w, h, opts){
    outline in the floor's ink colour. Glowing parts stay unlit. */
 K.INK = {
   uSteps:{ value:5 }, uInk:{ value:new THREE.Color(0x0a0612) }, uRim:{ value:new THREE.Color(0x8a7aff) },
-  uHatch:{ value:0.45 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.45 },
+  uHatch:{ value:0 }, uHatchAt:{ value:0.22 }, uLift:{ value:0.025 }, uRimK:{ value:0.45 },
   // the grim look: light falls off smoothly (uSoft blends the bands away),
   // and characters wear grime: mottled, darker in the creases and lower down
-  uSoft:{ value:0.72 }, uGrime:{ value:0.55 },
+  uSoft:{ value:1 }, uGrime:{ value:0.55 },
   // the etching (K.ETCH below): 0 off, 1 on; the paper's tone; hatch lines per unit
-  uEtch:{ value:1 }, uOutK:{ value:1 }, uPaper:{ value:new THREE.Color(0xd4cec2) }, uHatchF:{ value:3.6 },
+  uEtch:{ value:0 }, uOutK:{ value:1 }, uGrain:{ value:1 }, uPaper:{ value:new THREE.Color(0xd4cec2) }, uHatchF:{ value:3.6 },
   // Ash & Ember (docs/ART_DIRECTION.md): no surface is more coloured than this
   // (HSV saturation); colour comes from light and from things that glow
   uSatCap:{ value:0.24 }
 };
-/* outlines are a thin contour now, not a cartoon line */
-K.OUTLINE = 0.4;
+/* outlines are a hairline now, not a cartoon line: shape comes from light and shade */
+K.OUTLINE = 0.22;
 const INK_PARS = [
-  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF, uSatCap; uniform vec3 uInk, uRim, uPaper;",
+  "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF, uSatCap, uGrain; uniform vec3 uInk, uRim, uPaper;",
   "varying vec3 vHP; varying vec3 vHN;",
   "float inkPoche = 0.0;",
   "float in2h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
@@ -277,7 +277,17 @@ const GLOOM_WALL = [GLOOM_COMMON,
 const SATCAP = [
   "{ float scMx = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b), scMn = min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b);",
   "  float scS = (scMx - scMn)/max(scMx, 0.0001), scL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));",
-  "  diffuseColor.rgb = mix(vec3(scL), diffuseColor.rgb, min(1.0, uSatCap/max(scS, 0.0001))); }"
+  "  diffuseColor.rgb = mix(vec3(scL), diffuseColor.rgb, min(1.0, uSatCap/max(scS, 0.0001)));",
+  // and no surface is whiter than old bone: real things reflect at most ~60% of the
+  // light (pale paint, bone, ivory), so skeletons and statues stop glowing like plastic
+  "  diffuseColor.rgb *= min(1.0, 0.58/max(scL, 0.0001)); }"
+].join("\n");
+/* the grain: the surface's normal nudged by a small 3D noise in the model's own
+   space, at two scales (pores and weave, then dents and lumps) */
+const GRAIN = [
+  "{ vec3 gq = vInkO*34.0; float g0 = ign(gq), gx = ign(gq + vec3(0.09, 0.0, 0.0)), gy = ign(gq + vec3(0.0, 0.09, 0.0)), gz = ign(gq + vec3(0.0, 0.0, 0.09));",
+  "  vec3 gm = vInkO*8.0; float m0 = ign(gm), mx = ign(gm + vec3(0.12, 0.0, 0.0)), my = ign(gm + vec3(0.0, 0.12, 0.0)), mz = ign(gm + vec3(0.0, 0.0, 0.12));",
+  "  normal = normalize(normal + (vec3(gx, gy, gz) - g0)*1.4*uGrain + (vec3(mx, my, mz) - m0)*0.9*uGrain); }"
 ].join("\n");
 /* grime on characters, in their own space so it rides along with them:
    mottled stains at two scales, a fine grain, and dirt that rises from the feet */
@@ -304,7 +314,23 @@ K.inkify = function(mat, opts){
     // where the hatching lies: world space for the dungeon, a character's own space for characters
     sh.vertexShader = (opts.rim ? "#define INK_RIM\n" : "") + "varying vec3 vHP; varying vec3 vHN;\n" + sh.vertexShader.replace("#include <project_vertex>",
       "#include <project_vertex>\n vec4 inkHP = vec4(transformed, 1.0); vec3 inkHN = objectNormal;\n#ifndef INK_RIM\n#ifdef USE_INSTANCING\n inkHP = instanceMatrix*inkHP; inkHN = mat3(instanceMatrix)*inkHN;\n#endif\n inkHP = modelMatrix*inkHP; inkHN = mat3(modelMatrix)*inkHN;\n#endif\n vHP = inkHP.xyz; vHN = inkHN;");
-    sh.fragmentShader = sh.fragmentShader
+    const std = mat.isMeshStandardMaterial;
+    if(std && !opts.pbr){
+      // a character or prop on the physically based model: its grime, rim and contact
+      // shadow as before, and a fine grain pressed into the surface (skin, cloth, bone
+      // and iron stop reading as smooth plastic)
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\n" + INK_PARS)
+        .replace("#include <lights_physical_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_physical_fragment>")
+        .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + (opts.rim ? GRAIN : ""))
+        .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
+    } else if(opts.pbr){
+      // a physically based surface (stone, wood, iron): the light falls on it as it
+      // would, with its relief and roughness; only the colour cap and the Gloom are added
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\n" + INK_PARS)
+        .replace("#include <lights_physical_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_physical_fragment>");
+    } else sh.fragmentShader = sh.fragmentShader
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
       .replace("#include <lights_toon_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_toon_fragment>")
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
@@ -314,7 +340,7 @@ K.inkify = function(mat, opts){
         "#include <project_vertex>\n vInkO = transformed;\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
-  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + (opts.vivid ? "-vivid" : "") + "-etch";
+  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + (opts.vivid ? "-vivid" : "") + (opts.pbr ? "-pbr" : "") + "-etch";
   mat.extensions = Object.assign({}, mat.extensions, { derivatives:true });
   return mat;
 };
@@ -324,7 +350,16 @@ K.inkify = function(mat, opts){
 K.ink = (opts)=>{
   opts = Object.assign({}, opts);
   const rim = opts.rim, gloom = opts.gloom, vivid = opts.vivid; delete opts.rim; delete opts.gloom; delete opts.vivid;
-  return K.inkify(new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts)), { rim, gloom, vivid });
+  // characters and baked props (rim) are physically based; flat helpers stay toon
+  const m = rim ? new THREE.MeshStandardMaterial(Object.assign({ vertexColors:true, roughness:0.78, metalness:0 }, opts))
+                : new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts));
+  return K.inkify(m, { rim, gloom, vivid });
+};
+/* a physically based surface: map, normalMap, roughnessMap; { gloom } as above */
+K.inkPBR = (opts)=>{
+  opts = Object.assign({}, opts);
+  const gloom = opts.gloom, vivid = opts.vivid; delete opts.gloom; delete opts.vivid;
+  return K.inkify(new THREE.MeshStandardMaterial(Object.assign({ vertexColors:true, roughness:1, metalness:0 }, opts)), { gloom, vivid, pbr:true });
 };
 K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));

@@ -85,6 +85,37 @@ function floorTex(){
   for(let k=0;k<6;k++){ const sx = r()*N, sy = r()*N, rr = 30 + r()*70; [[0, 0], [N, 0], [-N, 0], [0, N], [0, -N]].forEach(([ox, oy])=>{ const gr = g.createRadialGradient(sx + ox, sy + oy, 0, sx + ox, sy + oy, rr); gr.addColorStop(0, "rgba(0,0,0,0.18)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(sx + ox - rr, sy + oy - rr, rr*2, rr*2); }); }
   return TEX.floor = texDone(cv);
 }
+/* a full surface from one painted stone texture: its relief (a normal map: the
+   joints sink, the faces bulge, pits and cracks cut in) and its roughness (joints
+   and grime dull, worn faces a little polished, so torchlight glints off them).
+   Height is read from the painting's tone, softened, with a fine grain added. */
+function surfaceOf(key, tex, depth){
+  if(TEX[key]) return TEX[key];
+  const cv = tex.image, N = cv.width, src = cv.getContext("2d").getImageData(0, 0, N, N).data, r = DG.RNG(key.length*977).next;
+  const h0 = new Float32Array(N*N), h = new Float32Array(N*N), at = (x, y)=> ((y + N) % N)*N + ((x + N) % N);
+  for(let i=0;i<N*N;i++) h0[i] = (src[i*4]*0.3 + src[i*4 + 1]*0.59 + src[i*4 + 2]*0.11)/255;
+  // soften (two box passes), then a fine grain so the faces aren't glassy
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s = 0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) s += h0[at(x + u, y + v)]; h[at(x, y)] = s/9; }
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s = 0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) s += h[at(x + u, y + v)]; h0[at(x, y)] = s/9 + (r() - 0.5)*0.035; }
+  const nc = document.createElement("canvas"), rc = document.createElement("canvas"); nc.width = nc.height = rc.width = rc.height = N;
+  const nd = nc.getContext("2d").createImageData(N, N), rd = rc.getContext("2d").createImageData(N, N);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const i = at(x, y), dx = (h0[at(x + 1, y)] - h0[at(x - 1, y)])*depth, dy = (h0[at(x, y + 1)] - h0[at(x, y - 1)])*depth;
+    const l = Math.hypot(dx, dy, 1), hh = h0[i];
+    nd.data[i*4] = (-dx/l*0.5 + 0.5)*255; nd.data[i*4 + 1] = (dy/l*0.5 + 0.5)*255; nd.data[i*4 + 2] = (1/l*0.5 + 0.5)*255; nd.data[i*4 + 3] = 255;
+    const ro = Math.max(0.35, Math.min(1, 1.02 - hh*0.55 + (r() - 0.5)*0.08))*255;
+    rd.data[i*4] = rd.data[i*4 + 1] = rd.data[i*4 + 2] = ro; rd.data[i*4 + 3] = 255;
+  }
+  nc.getContext("2d").putImageData(nd, 0, 0); rc.getContext("2d").putImageData(rd, 0, 0);
+  return TEX[key] = { map:tex, normalMap:texDone(nc), roughnessMap:texDone(rc) };
+}
+/* the materials for floors and walls: physically based, sharp at grazing angles */
+function stoneMat(kind){
+  const s = kind === "floor" ? surfaceOf("floorS", floorTex(), 5) : surfaceOf("stoneS", stoneTex(), 6);
+  const an = DG.Stage && DG.Stage.renderer ? Math.min(8, DG.Stage.renderer.capabilities.getMaxAnisotropy()) : 4;
+  [s.map, s.normalMap, s.roughnessMap].forEach(t=>{ if(t.anisotropy !== an){ t.anisotropy = an; t.needsUpdate = true; } });
+  return K.inkPBR({ map:s.map, normalMap:s.normalMap, roughnessMap:s.roughnessMap, normalScale:new THREE.Vector2(1.1, 1.1), gloom:kind });
+}
 /* smooth value noise over the floor, so tone drifts without showing the tile grid */
 const vnoise = (x, y)=>{ const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx*fx*(3 - 2*fx), sy = fy*fy*(3 - 2*fy);
   const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
@@ -122,8 +153,8 @@ const World = DG.World = function(D){
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
-    floor: K.ink({ map:floorTex(), gloom:"floor" }),
-    wall:  K.ink({ map:stoneTex(), gloom:"wall" }),
+    floor: stoneMat("floor"),
+    wall:  stoneMat("wall"),
     plain: K.ink(),
     lit:   new THREE.MeshBasicMaterial({ vertexColors:true })
   };
@@ -554,7 +585,7 @@ proto.buildFakes = function(){
       const low = y === r.y2 + 1 && x >= r.x1 && x <= r.x2;
       parts.push(...W.wallBlock(x, y, low));
     });
-    const m = new THREE.Mesh(K.merge(parts), K.ink({ map:stoneTex(), gloom:"wall" }));
+    const m = new THREE.Mesh(K.merge(parts), stoneMat("wall"));
     const a = W.area[f.tiles[0][1]*W.D.w + f.tiles[0][0]];
     W.areaGroup(a >= 0 ? a : f.room).add(m);
     W.fakes.push({ f, m, t:0 });

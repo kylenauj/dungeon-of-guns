@@ -128,6 +128,38 @@ Once the content is right, replace the stacked post effects with **one designed 
 
 ---
 
+## 4b. Plan A: real materials, made in code (October 2026)
+
+Playtesting showed the filters weren't enough: the game still read as a low-budget
+".io" game. The causes were surfaces with no detail (one smooth colour per part),
+primitive geometry, thin dressing, and cheap rendering. Plan A keeps everything
+generated in code (no bought or downloaded art) and replaces the etched look:
+
+**Step 1, materials and lighting (done):**
+- Walls and floors are physically based (`K.inkPBR`): relief (normal maps) and
+  roughness are derived from the painted stone and flagstone textures
+  (`surfaceOf` in world.js), sharp at grazing angles (anisotropic filtering).
+- Characters and baked props are physically based too, with their grime, rim and
+  contact shadow, and a two-scale grain pressed into the surface (`GRAIN`).
+- No surface is whiter than old bone (albedo capped at ~0.58) or more saturated
+  than `uSatCap`.
+- The post pass (`stage.js`) is rebuilt: ambient occlusion from depth (every
+  crease, corner and foot sinks into shade), FXAA, a film shoulder for bright
+  light, a faint depth line instead of ink, still grain. The etching, hatching
+  and paper are retired; outlines are hairlines (`K.OUTLINE` 0.22).
+- Lantern shadows at 1024 with soft edges; the lantern is held forward of Zippy
+  so it lights his front and throws shadows away from the camera.
+- `npm run look` now reads about 31% near-black in rooms (the stone is visible
+  now, not drawn over in ink); colour stays at 1.8%. The 35% target belonged to
+  the etched look; 25-40% is the range now.
+
+**Step 2, geometry and dressing (next):** pillars and arches along the walls,
+broken floor edges and steps, rubble at every wall base, cobwebs, chains, cloth
+rugs with real weave, corpses in clusters.
+
+**Step 3, characters (after):** higher-detail sculpted forms, textures generated
+per material (cloth weave, leather, rusted iron, bone), better animation.
+
 ## 5. How we'll know it worked
 
 Add a **look check** next to `npm run balance`: `npm run look` screenshots floors 1, 3 and 5 and the gallery with headless Chromium (Playwright is already on the machine), then reports:

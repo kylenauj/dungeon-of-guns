@@ -490,7 +490,9 @@ proto.update = function(dt, t){
   if(V.stars > 0){ V.stars -= dt; if(Math.random() < 0.4) FX.emit(p.x + Math.cos(t*9)*0.4, 2.3, p.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.25, 0.25, 0, 0); }
   // wards: little blue orbs circling
   if(p.wards > 0 && Math.random() < 0.3*p.wards){ const a = t*3 + Math.random(); FX.emit(p.x + Math.cos(a)*0.6, 1.1, p.y + Math.sin(a)*0.6, 0, 0.2, 0, 0x8ad8ff, 0.2, 0.3, 0, 1); }
-  S.playerLight.position.set(p.x, 2.2, p.y + 0.3);
+  // the lantern is held a little forward and up, toward the camera: it lights his front
+  // and the faces of what he walks toward, and shadows fall away from the viewer
+  S.playerLight.position.set(p.x, 2.6, p.y + 0.85);
   // the lantern is his: he and his gun never throw its shadow (it would fill the room)
   W.root.traverse(o=>{ o.castShadow = false; });
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
