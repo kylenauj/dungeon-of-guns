@@ -109,6 +109,11 @@ proto.buildFloor = function(){
    appeared or a new room came into view. So at load, behind the floor's title card,
    the whole floor (fog of war lifted for a moment) and one of everything that only
    turns up mid-fight is compiled and drawn once into a tiny target, then put away. */
+/* before each game step: where every moving thing is now (Stage.snap) */
+proto.snap = function(){
+  const G = this.G;
+  S.snap([G.player]); S.snap(G.enemies); S.snap(G.frogs); S.snap(G.allies); S.snap(G.bullets); S.snap(G.pickups);
+};
 proto.warmAll = function(){
   const V = this, G = V.G, W = V.world, R = S.renderer, g = new THREE.Group(), p = G.player;
   const vis = {}; for(const id in W.areas){ vis[id] = W.areas[id].g.visible; W.areas[id].g.visible = true; }
@@ -133,10 +138,20 @@ proto.warmAll = function(){
   S.scene.remove(g);
   for(const id in vis) W.areas[id].g.visible = vis[id];
 };
-/* compile one rig's shaders now (hidden far under the floor), so its first real
-   appearance costs nothing */
+/* compile one rig's shaders now and draw it once, far under the floor into a
+   scrap target (the drawing sends its meshes to the graphics card, which
+   otherwise happens the moment it first appears: a hitch when a wave lands) */
+const WARM = {};
 proto.warmRig = function(R){
-  try{ R.root.position.set(0, -80, 0); S.scene.add(R.root); S.renderer.compile(S.scene, S.camera); }catch(e){}
+  const r = S.renderer;
+  try{
+    if(!WARM.rt){ WARM.rt = new THREE.WebGLRenderTarget(32, 32); WARM.cam = new THREE.PerspectiveCamera(100, 1, 0.5, 30); WARM.cam.position.set(0, -74, 7); WARM.cam.lookAt(0, -79, 0); }
+    R.root.position.set(0, -80, 0); S.scene.add(R.root); R.root.updateMatrixWorld(true);
+    r.compile(S.scene, S.camera);
+    const sm = r.shadowMap.needsUpdate; r.shadowMap.needsUpdate = false;
+    r.setRenderTarget(WARM.rt); r.render(S.scene, WARM.cam); r.setRenderTarget(null);
+    r.shadowMap.needsUpdate = sm;
+  }catch(e){ r.setRenderTarget(null); }
   S.scene.remove(R.root);
 };
 /* an enemy's rig: one built ahead if there is one, else built now */
@@ -493,9 +508,9 @@ proto.update = function(dt, t){
     }
   }
   if(G.state !== "dead" && !V.cine) V.player.look.auras.forEach(a=> AURA[a] && AURA[a](p.x, p.y, t));
-  const W = V.player;
-  W.root.position.set(p.x, 0, p.y);
-  W.root.rotation.y = PI/2 - p.aim;
+  const W = V.player, px = S.ix(p), py = S.iy(p);
+  W.root.position.set(px, 0, py);
+  W.root.rotation.y = PI/2 - S.iaim(p);
   const gunEls = [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
   if(W.gunKey !== G.gun().uid + ":" + gunEls.join(",")) M.setGun(W, G.gun(), gunEls);
   // holding up what he just found (Isaac's pose); a transformation spins him round
@@ -503,7 +518,7 @@ proto.update = function(dt, t){
     V.hold.t -= dt;
     const k = V.hold.t, up = Math.min(1, (1.4 - k)*6, k*5);
     W.parts.armL.rotation.x = -1.0 - 1.9*up; W.parts.armL.rotation.z = -0.3 + 0.25*up;
-    V.hold.g.position.set(p.x, 2.95 + 0.25*up + Math.sin(t*4)*0.05, p.y); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
+    V.hold.g.position.set(px, 2.95 + 0.25*up + Math.sin(t*4)*0.05, py); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
     if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
@@ -535,7 +550,7 @@ proto.update = function(dt, t){
   if(p.wards > 0 && Math.random() < 0.3*p.wards){ const a = t*3 + Math.random(); FX.emit(p.x + Math.cos(a)*0.6, 1.1, p.y + Math.sin(a)*0.6, 0, 0.2, 0, 0x8ad8ff, 0.2, 0.3, 0, 1); }
   // the lantern is held a little forward and up, toward the camera: it lights his front
   // and the faces of what he walks toward, and shadows fall away from the viewer
-  S.playerLight.position.set(p.x, 2.6, p.y + 0.85);
+  S.playerLight.position.set(px, 2.6, py + 0.85);
   // the lantern is his: he and his gun never throw its shadow (it would fill the room)
   W.root.traverse(o=>{ o.castShadow = false; });
   S.flash.intensity = Math.max(0, S.flash.intensity - dt*25);
@@ -597,7 +612,7 @@ proto.updateFrogs = function(dt, t){
   while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
   G.frogs.forEach((f, i)=>{
     const R = V.frogs[i], g = G.gribbus.g;
-    R.root.position.set(f.x, f.hop || 0, f.y);
+    R.root.position.set(S.ix(f), f.hop || 0, S.iy(f));
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
     const sz = (1 + 0.5*(g.size || 0))*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
@@ -665,7 +680,7 @@ proto.updateEnemies = function(dt, t){
       M.creep(R, { speed:0 }, t, 0);
       S.scene.add(R.root);
     }
-    R.root.position.set(e.x, 0, e.y);
+    R.root.position.set(S.ix(e), 0, S.iy(e));
     const es = (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1);
     R.root.scale.set(es, es*STRETCH, es);
     if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
@@ -791,7 +806,7 @@ proto.updateLoot = function(dt, t){
     pk[k.id] = 1;
     let o = V.pickups[k.id];
     if(!o){ o = V.pickups[k.id] = M.pickup(k); S.scene.add(o); }
-    o.position.set(k.x + (o.userData.buzz ? Math.sin(t*7 + k.id)*0.15 : 0), (o.userData.hover || 0.3) + Math.sin(t*3 + k.id)*0.08, k.y);
+    o.position.set(S.ix(k) + (o.userData.buzz ? Math.sin(t*7 + k.id)*0.15 : 0), (o.userData.hover || 0.3) + Math.sin(t*3 + k.id)*0.08, S.iy(k));
     o.rotation.y = t*(o.userData.spin || 1);
   });
   for(const id in V.pickups) if(!pk[id]){ S.scene.remove(V.pickups[id]); delete V.pickups[id]; }
@@ -804,7 +819,7 @@ proto.updateAllies = function(dt, t){
     let o = V.allies[a.id];
     if(!o){ o = V.allies[a.id] = { g:allyMesh(a) }; S.scene.add(o.g); }
     const y = o.g.userData.y || 0;
-    o.g.position.set(a.x, y + (a.kind === "wisp" ? Math.sin(t*6 + a.id)*0.12 : 0), a.y);
+    o.g.position.set(S.ix(a), y + (a.kind === "wisp" ? Math.sin(t*6 + a.id)*0.12 : 0), S.iy(a));
     if(Math.hypot(a.vx, a.vy) > 0.1) o.g.rotation.y = Math.atan2(a.vx, a.vy);
     if(a.kind === "wisp" && Math.random() < 0.5) FX.emit(a.x, y, a.y, 0, 0.1, 0, ELC(a.el), 0.3, 0.3, 0, 1);
     if(a.kind === "shadow"){ const R = o.g.userData.rig, p = G.player; o.g.rotation.y = PI/2 - p.aim; if(R.gunKey !== W0gunKey(G)){ M.setGun(R, G.gun(), W0els(G)); } M.idle(R, t, Math.hypot(p.vx, p.vy)); }

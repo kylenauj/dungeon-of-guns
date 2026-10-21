@@ -124,7 +124,7 @@ DG.Ending.play = function(G, V, id, done){
   // a new run calls this through View.dispose
   c.dispose = function(){
     rigs.forEach(R=> S.scene.remove(R.root));
-    if(hearth) hearth.intensity = 0;
+    if(hearth){ hearth.intensity = 0; hearth.decay = 1.8; if(S.held === hearth) S.held = null; }
     if(shaft) S.scene.remove(shaft);
     K.GLOOM.uGloom.value = keep.gloom; S.hemi.color.setHex(keep.hemiCol); S.hemi.intensity = keep.hemiI; S.fill.intensity = keep.fillI;
     u.uHigh.value.setHex(keep.high);
@@ -258,8 +258,8 @@ DG.Ending.play = function(G, V, id, done){
     const n = Math.min(2.4, Math.max(1.4, way.n - 0.5));
     const hx = x0 + way.dx*(n + 1), hy = y0 + way.dy*(n + 1);
     if(!hearth && act > -1.2){
-      // (the stage's spare light: a new light would rebuild every shader mid-scene)
-      hearth = S.spare; hearth.color.setHex(0xff8a2a); hearth.intensity = 0; hearth.distance = 14; hearth.decay = 1.6; hearth.position.set(hx, 1.5, hy);
+      // (a torch light, borrowed: a new light would rebuild every shader mid-scene)
+      hearth = S.held = S.torches[S.torches.length - 1]; hearth.color.setHex(0xff8a2a); hearth.intensity = 0; hearth.distance = 14; hearth.decay = 1.6; hearth.position.set(hx, 1.5, hy);
       FX.soul(hx, hy, 7, 9, 0xff8a2a);
       FX.ring(hx, hy, 2.5, 0xff8a2a, 1.2);
       S.shake(0.3);

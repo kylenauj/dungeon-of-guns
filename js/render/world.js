@@ -910,17 +910,17 @@ proto.buildBreakables = function(){
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   for(const kind in by){
     const list = by[kind], geo = DG.Decor.breakableGeo(kind);
-    const mat = K.toon(), om = K.outlineMat(0.02);
-    const mesh = new THREE.InstancedMesh(geo, mat, list.length), out = new THREE.InstancedMesh(geo, om, list.length);
+    const mat = K.toon();
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
     list.forEach((b, i)=>{
       e.set(0, W.rnd()*PI*2, 0); q.setFromEuler(e);
       mtx.compose(new THREE.Vector3(b.x + 0.5, 0, b.y + 0.5), q, new THREE.Vector3(1, 1, 1));
       b.mtx = mtx.clone(); b.inst = i; b.set = kind;
-      mesh.setMatrixAt(i, mtx); out.setMatrixAt(i, mtx);
+      mesh.setMatrixAt(i, mtx);
     });
-    mesh.frustumCulled = out.frustumCulled = false;
-    W.group.add(mesh); W.group.add(out);
-    W.breakSets.push({ kind, list, mesh, out });
+    mesh.frustumCulled = false;
+    W.group.add(mesh);
+    W.breakSets.push({ kind, list, mesh });
   }
 };
 const _zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -936,9 +936,9 @@ proto.updateBreakables = function(){
       let m = vis ? b.mtx : _zero;
       if(vis && shake){ m = b.mtx.clone(); m.elements[12] += (Math.random() - 0.5)*0.08; m.elements[14] += (Math.random() - 0.5)*0.08; b.shake -= 1/60; }
       b.wasShaking = shake;
-      s.mesh.setMatrixAt(b.inst, m); s.out.setMatrixAt(b.inst, m);
+      s.mesh.setMatrixAt(b.inst, m);
     });
-    if(dirty){ s.mesh.instanceMatrix.needsUpdate = true; s.out.instanceMatrix.needsUpdate = true; }
+    if(dirty) s.mesh.instanceMatrix.needsUpdate = true;
   });
 };
 
@@ -1241,6 +1241,7 @@ proto.update = function(G, dt, t){
   const dark = G.curses.indexOf("dark") >= 0 ? 0.5 : 1;
   const near = W.lights.filter(o=> D.rooms[o.room] && D.rooms[o.room].seen && Math.abs(o.x - p.x) < 20 && Math.abs(o.z - p.y) < 16).sort((a, b)=> DG.dist2(a.x, a.z, p.x, p.y) - DG.dist2(b.x, b.z, p.x, p.y));
   S.torches.forEach((l, i)=>{
+    if(l === S.held) return;
     const o = near[i];
     if(!o){ l.intensity = 0; return; }
     l.color.setHex(o.c); l.distance = o.small ? 5 : 8;   // pools of light, with dark between them

@@ -151,6 +151,7 @@ function frame(dt, t){
       if(app.demo) I = app.demo.input(STEP);
       else if(live){ I = Object.assign({}, input, NO_SHOTS, first ? app.pend : {}); if(first) app.pend = {}; first = false; }
       else I = {};
+      V.snap();
       G.update(STEP*PACE, I);
       if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));
       G.drain().forEach(ev=>{
@@ -161,6 +162,8 @@ function frame(dt, t){
       if(app.demo && ((G.state !== "play" && G.state !== "choose") || G.t > 150)){ app.startDemoSoon(); break; }
       if(live && G.state !== "play") break;
     }
+    // how far into the next step this frame is: things are drawn that far along (Stage.snap)
+    S.alpha = Math.min(1, app.acc/STEP);
     if(live && G.state === "choose") app.choose();
     if(live && G.state === "dead") app.end(false);
     if(live && G.state === "won") app.end(true);
@@ -172,7 +175,8 @@ function frame(dt, t){
   }
   V.update(dt, t);
   const p = G.player, m = IN.mouse, aim = app.mode === "play" ? S.unproject(m.x, m.y, 0) : null;
-  if(!V.cine) S.follow(p.x, p.y, aim ? aim.x : p.x, aim ? aim.z : p.y);
+  const px = S.ix(p), py = S.iy(p);
+  if(!V.cine) S.follow(px, py, aim ? aim.x : px, aim ? aim.z : py);
   // the camera eases back in a fight (more for a big arena or a boss), and in close to explore
   const rm = G.room, big = rm && (rm.x2 - rm.x1 > 16 || rm.y2 - rm.y1 > 12);
   S.rig.zoomWant = V.cine || !(rm && rm.active) ? 1 : G.bossRef && !G.bossRef.dead ? 1.22 : big ? 1.15 : 1.08;

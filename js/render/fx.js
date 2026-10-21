@@ -361,7 +361,7 @@ FX.update = function(dt, G){
       if(b.kind === "blood" && Math.random() < 0.06) dark(b.x, y, b.y, 0, 0, 0, 0x2a0404, 0.1, 0.8, 0.8, -0.2, 9, 0.5);
     }
     grade(col, _c);
-    B.pos[n*3] = b.x; B.pos[n*3+1] = y; B.pos[n*3+2] = b.y;
+    B.pos[n*3] = S.ix(b); B.pos[n*3+1] = y; B.pos[n*3+2] = S.iy(b);
     B.col[n*3] = _c.r; B.col[n*3+1] = _c.g; B.col[n*3+2] = _c.b;
     B.size[n] = size; B.rim[n] = rim; B.gsize[n] = size*(b.team === "p" ? 2.6 : 2);
     n++;

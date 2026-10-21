@@ -155,16 +155,22 @@ const INK_PARS = [
   "uniform float uSteps, uHatch, uHatchAt, uLift, uRimK, uSoft, uGrime, uEtch, uHatchF, uSatCap, uGrain; uniform vec3 uInk, uRim, uPaper;",
   "varying vec3 vHP; varying vec3 vHN;",
   "float inkPoche = 0.0;",
-  "float in2h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+  "float in2h(vec2 p){ vec3 q = fract(vec3(p.xyx)*0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y)*q.z); }",
   "float in2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(in2h(i), in2h(i + vec2(1, 0)), f.x), mix(in2h(i + vec2(0, 1)), in2h(i + vec2(1, 1)), f.x), f.y); }",   // set by the walls' tops: solid ink, like the walls on a drawn map
   // one stroke of a hatch: a line at every whole step of c, w its half-width (0..0.5),
   // antialiased over a pixel; thin lines fade instead of breaking into dots
   "float inkLine(float c, float w){ float d = abs(fract(c) - 0.5), aa = max(fwidth(c), 0.0001); w = clamp(w, 0.0, 0.5);",
   "  return clamp((w - d)/aa + 0.5, 0.0, 1.0)*clamp(w/(aa*0.6), 0.0, 1.0); }",
-  "float igh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7)))*43758.5453); }",
+  "float igh(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y)*p.z); }",
   "float ign(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);",
   "  return mix(mix(mix(igh(i), igh(i + vec3(1,0,0)), f.x), mix(igh(i + vec3(0,1,0)), igh(i + vec3(1,1,0)), f.x), f.y),",
   "             mix(mix(igh(i + vec3(0,0,1)), igh(i + vec3(1,0,1)), f.x), mix(igh(i + vec3(0,1,1)), igh(i + vec3(1,1,1)), f.x), f.y), f.z); }",
+  // the same noise and its slope in one go (for the grain: four calls became one)
+  "vec3 ignd(vec3 p){ vec3 i = floor(p), f = fract(p), u = f*f*(3.0 - 2.0*f), du = 6.0*f*(1.0 - f);",
+  "  float a = igh(i), b = igh(i + vec3(1,0,0)), c = igh(i + vec3(0,1,0)), d = igh(i + vec3(1,1,0));",
+  "  float e = igh(i + vec3(0,0,1)), f1 = igh(i + vec3(1,0,1)), g = igh(i + vec3(0,1,1)), h = igh(i + vec3(1,1,1));",
+  "  float k1 = b - a, k2 = c - a, k3 = e - a, k4 = a - b - c + d, k5 = a - c - e + g, k6 = a - b - e + f1, k7 = -a + b + c - d + e - f1 - g + h;",
+  "  return du*vec3(k1 + k4*u.y + k6*u.z + k7*u.y*u.z, k2 + k5*u.z + k4*u.x + k7*u.z*u.x, k3 + k6*u.x + k5*u.y + k7*u.x*u.y); }",
   "float inkBayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y*0.75))); }",
   "float inkBayer(vec2 a){ return inkBayer2(0.5*a)*0.25 + inkBayer2(a); }",
   "vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection){ float d = clamp(dot(normal, lightDirection)*0.5 + 0.5, 0.0, 1.0); return vec3(d*d*1.15); }"
@@ -230,7 +236,7 @@ K.GLOOM = { uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWa
   uSeeP:{ value:new THREE.Vector3(0, -99, 0) }, uSeeC:{ value:new THREE.Vector3(0, 10, 10) } };
 const GLOOM_PARS = [
   "uniform float uGloom, uGTime, uFloorLum, uWallLum; uniform vec3 uSeeP, uSeeC; varying vec3 vGW; varying vec3 vGN;",
-  "float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
+  "float gh(vec2 p){ vec3 q = fract(vec3(p.xyx)*0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y)*q.z); }",
   "float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(gh(i), gh(i + vec2(1, 0)), f.x), mix(gh(i + vec2(0, 1)), gh(i + vec2(1, 1)), f.x), f.y); }",
   "float gfbm(vec2 p){ return gn(p)*0.55 + gn(p*2.1 + 3.7)*0.28 + gn(p*4.3 + 1.3)*0.17; }"
 ].join("\n");
@@ -246,12 +252,12 @@ const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surfa
   "vec3 gc = mix(gBase, gMoss, gCover);",
   "float gTh = abs(sin(vGW.x*0.9 + sin(vGW.z*0.7)*2.4 + gn1*5.0))*abs(sin(vGW.z*1.1 + sin(vGW.x*0.6)*2.0));",
   "gc = mix(gc, vec3(0.42, 0.42, 0.38)*gShade, smoothstep(0.03, 0.0, gTh)*0.16*gCover);",
-  "float gR = smoothstep(0.96 - gRot, 1.2 - gRot, gfbm(vGW.xz*0.22 + 17.0) + (gn2 - 0.5)*0.12);",
+  "float gRn = gfbm(vGW.xz*0.22 + 17.0), gR = smoothstep(0.96 - gRot, 1.2 - gRot, gRn + (gn2 - 0.5)*0.12);",
   "gc = mix(gc, mix(vec3(0.07, 0.065, 0.06), vec3(0.12, 0.11, 0.1), gn2)*1.45*gShade, gR);",
   // etched, every patch of moss and rot gets an ink contour, like a drawn map's shading
-  "float gEdge = smoothstep(0.03, 0.0, abs(mix(gn1, gn2, 0.3) - (1.06 - uGloom*1.25)))*step(0.01, uGloom);",
-  "gEdge = max(gEdge, smoothstep(0.025, 0.0, abs(gfbm(vGW.xz*0.22 + 17.0) - (1.04 - gRot)))*step(0.01, gRot));",
-  "gc = mix(gc, uInk, gEdge*uEtch*0.3);",
+  "if(uEtch > 0.0){ float gEdge = smoothstep(0.03, 0.0, abs(mix(gn1, gn2, 0.3) - (1.06 - uGloom*1.25)))*step(0.01, uGloom);",
+  "  gEdge = max(gEdge, smoothstep(0.025, 0.0, abs(gRn - (1.04 - gRot)))*step(0.01, gRot));",
+  "  gc = mix(gc, uInk, gEdge*uEtch*0.3); }",
   "float gVein = smoothstep(0.035, 0.0, abs(gfbm(vGW.xz*0.8 + 4.0) - 0.5));",
   "gloomGlow += vec3(0.45, 1.0, 0.15)*gVein*0.2*(0.6 + 0.4*sin(uGTime*2.0 + vGW.x))*gR;",
   "float gSp = step(0.955, gh(floor(vGW.xz*2.6)))*smoothstep(0.4, 0.15, length(fract(vGW.xz*2.6) - 0.5));",
@@ -292,9 +298,7 @@ const SATCAP = [
 /* the grain: the surface's normal nudged by a small 3D noise in the model's own
    space, at two scales (pores and weave, then dents and lumps) */
 const GRAIN = [
-  "{ vec3 gq = vInkO*34.0; float g0 = ign(gq), gx = ign(gq + vec3(0.09, 0.0, 0.0)), gy = ign(gq + vec3(0.0, 0.09, 0.0)), gz = ign(gq + vec3(0.0, 0.0, 0.09));",
-  "  vec3 gm = vInkO*8.0; float m0 = ign(gm), mx = ign(gm + vec3(0.12, 0.0, 0.0)), my = ign(gm + vec3(0.0, 0.12, 0.0)), mz = ign(gm + vec3(0.0, 0.0, 0.12));",
-  "  normal = normalize(normal + (vec3(gx, gy, gz) - g0)*1.4*uGrain + (vec3(mx, my, mz) - m0)*0.9*uGrain); }"
+  "normal = normalize(normal + (ignd(vInkO*34.0)*0.126 + ignd(vInkO*8.0)*0.108)*uGrain);"
 ].join("\n");
 /* grime on characters, in their own space so it rides along with them:
    mottled stains at two scales, a fine grain, and dirt that rises from the feet */
@@ -421,7 +425,9 @@ function bakeParts(parts){
 }
 K.bake = function(root, opts){
   opts = opts || {};
-  const mat = opts.mat || K.toon(), out = opts.outline === false ? null : (opts.outlineMat || K.outlineMat(opts.w));
+  // no outline shell by default: at 0.006 units it was under a pixel wide, yet it
+  // doubled every model's triangles and draw calls (the post pass draws the edges)
+  const mat = opts.mat || K.toon(), out = opts.outline ? (opts.outlineMat || K.outlineMat(opts.w)) : null;
   const nodes = [];
   root.traverse(o=> nodes.push(o));
   nodes.forEach(o=>{

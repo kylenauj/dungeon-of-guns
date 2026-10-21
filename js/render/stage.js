@@ -23,7 +23,9 @@
 const DG = window.DG, K = DG.Kit;
 const S = DG.Stage = {};
 
-S.TORCH_LIGHTS = 8;
+// every light costs every lit pixel (the floors are physically based): six torches
+// light the room you're in; the rest of the dungeon stays dark anyway
+S.TORCH_LIGHTS = 6;
 
 S.init = function(){
   const r = S.renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
@@ -47,18 +49,22 @@ S.init = function(){
   // the one light that casts (Ash & Ember phase 3): everything near Zippy throws
   // a hard shadow away from his lantern, into the dark. Other lights stay cheap.
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
-  // the shadow map is redrawn every S.shadowEvery frames (more apart when frames run slow)
-  r.shadowMap.autoUpdate = false; S.shadowEvery = 1; S.frameN = 0;
+  // the shadow map is redrawn every frame (needsUpdate in the loop; autoUpdate off
+  // so nothing else, like the warm-up's render, redraws it twice)
+  r.shadowMap.autoUpdate = false;
   S.shadows = true;
-  const sh = S.playerLight.shadow; sh.mapSize.set(1024, 1024); sh.camera.near = 0.25; sh.camera.far = 16; sh.bias = -0.003; sh.normalBias = 0.03; sh.radius = 2.5;
+  const sh = S.playerLight.shadow; sh.mapSize.set(1024, 1024); sh.camera.near = 0.25; sh.camera.far = 10.5; sh.bias = -0.003; sh.normalBias = 0.03; sh.radius = 2.5;
+  // (the shadow reaches no further than the lantern's light: 10 units. Past that it
+  // only cost a sixfold redraw of things nobody can see lit)
   S.playerLight.castShadow = S.shadows;
   S.torches = [];
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 8, 1.8); scene.add(l); S.torches.push(l); }
   S.flash = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(S.flash);
-  // a spare light, always there and dark until a scene needs it (the ending's hearth):
   // adding or removing a light, or turning a shadow on or off, rebuilds every
-  // shader in the scene, which is a long freeze. So the lights never change.
-  S.spare = new THREE.PointLight(0xff8a2a, 0, 14, 1.6); scene.add(S.spare);
+  // shader in the scene, which is a long freeze. So the lights never change: a
+  // scene that needs one of its own (the ending's hearth) borrows the last torch
+  // light (S.held; the world leaves it alone)
+  S.held = null;
 
   S.fancy = true; S.etch = false;
   K.INK.uEtch.value = S.fancy && S.etch ? 1 : 0; K.INK.uOutK.value = K.INK.uEtch.value ? 2 : 1;
@@ -80,7 +86,7 @@ S.init = function(){
 S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
   // S.dyn: the adaptive resolution (1 is full; it drops when frames run slow)
-  const k = (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.5)**-1)/(S.dyn || 1);
+  const k = (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.25)**-1)/(S.dyn || 1);
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){
@@ -256,22 +262,25 @@ S.updateCamera = function(dt){
   S.camera.lookAt(R.x + sx*0.5, 0, R.z + sz*0.5);
 };
 
-/* adaptive resolution: if frames run slow for a while, draw fewer pixels
-   (down to 60% of the screen's); when there's headroom again, step back up */
+/* adaptive resolution: if frames run slow for a few seconds, draw fewer pixels
+   (down to 60% of the screen's), then, as a last step, a coarser lantern shadow.
+   It only ever steps down, and rarely: every step reallocates the frame's
+   buffers (a hitch you can feel), so stepping up and down around the limit
+   was a stutter of its own. Shadows are still drawn every frame (redrawing them
+   every other frame made every other frame heavy: a judder), and never
+   switched off (that rebuilds every shader, a freeze). */
 S.dyn = 1;
 S.adapt = function(raw){
-  if(raw > 0.25) return;                       // a hitch (tab switch, load): ignore
-  S.ft = S.ft === undefined ? raw : S.ft*0.95 + raw*0.05;
+  if(raw > 0.25){ S.adaptT = 0; return; }      // a hitch (tab switch, load): start the count again
+  S.ft = S.ft === undefined ? raw : S.ft*0.97 + raw*0.03;
   S.adaptT = (S.adaptT || 0) + raw;
-  if(S.adaptT < 1.5) return;
-  const was = S.dyn;
-  // at the lowest resolution and still slow: redraw the shadows less often (never
-  // switch them off here: that rebuilds every shader, a freeze)
-  if(S.ft > 1/45 && S.dyn <= 0.6 && S.shadowEvery < 3){ S.shadowEvery++; S.adaptT = 0; return; }
-  if(S.ft < 1/58 && S.dyn >= 1 && S.shadowEvery > 1){ S.shadowEvery--; S.adaptT = 0; return; }
-  if(S.ft > 1/45) S.dyn = Math.max(0.6, S.dyn - 0.1);
-  else if(S.ft < 1/58 && S.dyn < 1) S.dyn = Math.min(1, S.dyn + 0.05);
-  if(S.dyn !== was){ S.adaptT = 0; S.resize(); }
+  if(S.adaptT < 4 || S.ft < 1/42) return;
+  S.adaptT = 0;
+  if(S.dyn > 0.6){ S.dyn = Math.max(0.6, S.dyn - 0.2); S.ft = 1/50; S.resize(); }
+  else if(S.playerLight.shadow.mapSize.x > 512){
+    const sh = S.playerLight.shadow; sh.mapSize.set(512, 512);
+    if(sh.map){ sh.map.dispose(); sh.map = null; }
+  }
 };
 S.loop = function(){
   requestAnimationFrame(S.loop);
@@ -280,7 +289,7 @@ S.loop = function(){
   K.tick(t);
   S.updaters.forEach(f=> f(dt, t));
   S.updateCamera(dt);
-  if(++S.frameN % S.shadowEvery === 0) S.renderer.shadowMap.needsUpdate = true;
+  S.renderer.shadowMap.needsUpdate = true;
   if(S.fancy){
     S.post.mat.uniforms.uTime.value = t;
     S.renderer.setRenderTarget(S.post.rt); S.renderer.render(S.scene, S.camera);
@@ -289,6 +298,26 @@ S.loop = function(){
   S.renderPortrait();
 };
 S.onFrame = f=>{ S.updaters.push(f); return ()=>{ S.updaters = S.updaters.filter(g=> g !== f); }; };
+
+/* smooth motion. The game steps 60 times a second; the screen draws at its own
+   rate (often 120 or 144, and even at 60 never exactly in step), so some frames
+   get no step and some get two, and anything drawn straight from the game
+   judders. Before each step S.snap records where things were; they're drawn
+   S.alpha of the way from there to where they are now (one step behind, which
+   nobody can see). A jump (a blink, a new room) is drawn as a jump. */
+const PREV = new WeakMap();
+S.alpha = 1;
+S.snap = function(list){
+  for(let i=0;i<list.length;i++){
+    const e = list[i]; let o = PREV.get(e);
+    if(!o){ o = { x:0, y:0, a:0 }; PREV.set(e, o); }
+    o.x = e.x; o.y = e.y; o.a = e.aim || 0;
+  }
+};
+const lerpable = (e, o)=> o && Math.abs(e.x - o.x) + Math.abs(e.y - o.y) < 1.5;
+S.ix = e=>{ const o = PREV.get(e); return lerpable(e, o) ? o.x + (e.x - o.x)*S.alpha : e.x; };
+S.iy = e=>{ const o = PREV.get(e); return lerpable(e, o) ? o.y + (e.y - o.y)*S.alpha : e.y; };
+S.iaim = e=>{ const o = PREV.get(e); if(!o) return e.aim; let d = e.aim - o.a; d -= Math.round(d/(2*Math.PI))*2*Math.PI; return o.a + d*S.alpha; };
 
 /* world → screen (CSS pixels) */
 const _v = new THREE.Vector3();
