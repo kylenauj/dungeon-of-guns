@@ -28,7 +28,7 @@ const BX = (w, h, d)=> new THREE.BoxGeometry(w, h, d);
 const TO = (r, t, a, rs, ts)=> new THREE.TorusGeometry(r, t, rs || 5, ts || 14, a || PI*2);
 
 /* the palette of the dead */
-const BONE = 0xb8ac90, BONE2 = 0x9a8e74, IRON = 0x26262a, IRON2 = 0x3a3a3e, RUST = 0x6a3a22, WAX = 0xd8ccae, WAX2 = 0xc8b890,
+const BONE = 0x7e7460, BONE2 = 0x665c4a, IRON = 0x26262a, IRON2 = 0x3a3a3e, RUST = 0x6a3a22, WAX = 0xd8ccae, WAX2 = 0xc8b890,
       BLOOD = 0x4a1410, LEATHER = 0x3a2a1e, WOOD = 0x3a2a1e, WOOD2 = 0x2e2218, STONE = 0x5a5650, MOULD = 0x4a5040, MYCEL = 0xc4c4b8,
       CORD = 0xa8683a, FLESH = 0x5e4c3e, BRASS = 0x8a6a30;
 const CLOTHS = [0x4a1c18, 0x2a2e3a, 0x2e3424, 0x3a3028, 0x3a2a34];
@@ -162,6 +162,12 @@ Decor.skull = skull; Decor.crate = crate; Decor.deadTree = deadTree; Decor.glowc
    back across the floor), "hang" (by the wrists from a chain at y=hy).
    What's left of it: bare bones; rags; rusted armour; mummified skin;
    fungus eating it; mycelium wrapping it; cordyceps bursting out of it. */
+/* a pool of old blood under something: flat, dark, ragged */
+function pool(g, r, rnd, x, z){
+  const geo = new THREE.CircleGeometry(r, 14), a = geo.attributes.position;
+  for(let i=1;i<a.count;i++){ const k = 0.7 + rnd()*0.45; a.setX(i, a.getX(i)*k); a.setY(i, a.getY(i)*k*0.85); }
+  P(g, geo, 0x240806, x || 0, 0.006, z || 0, -PI/2, 0, rnd()*PI);
+}
 function corpse(o, g, rnd, opt){
   opt = opt || {};
   const col = opt.skin ? FLESH : (opt.col || BONE), lr = opt.skin ? 0.038 : 0.022, j = ()=> (rnd() - 0.5)*0.06;
@@ -343,7 +349,46 @@ const B = {
   },
   armour(o, rnd){ corpse(o, o.group, rnd, { pose:rnd() < 0.5 ? "lie" : "slump", armour:[0x4a443e, 0x5a4a3a][Math.floor(rnd()*2)], helm:true, cloth:0 }); },
   deadknight(o, rnd){ B.armour(o, rnd); P(o.group, BX(0.06, 0.02, 0.8), 0x4a4a4e, 0.32, 0.02, 0.4, 0, 0.3, 0); P(o.group, BX(0.2, 0.03, 0.04), IRON, 0.25, 0.03, 0.02, 0, 0.3, 0); },
+  /* ---- from the dungeon prop pack (kitmodels.js): the instruments, and what's left in them ---- */
+  stocks(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("stocks")) return B.bones(o, rnd);
+    pool(o.group, 0.55, rnd, 0, 0.3);
+    KM.part(o.group, "stocks", 0.9, 0, 0, 0);
+    // whoever was left in them: the skull still in the hole, the rest in a heap below
+    skull(o.group, 0, 0.6, 0.06, 0.075, rnd()*0.6 - 0.3, 0.4);
+    B.bones(o, rnd);
+  },
+  guillotine(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("guillotine")) return B.brokenstatue(o, rnd);
+    pool(o.group, 0.75, rnd, 0, 0.35);
+    KM.part(o.group, "guillotine", 2.5, 0, 0, 0);
+    // the basket, and what's in it
+    P(o.group, K.lathe([[0, 0], [0.16, 0], [0.2, 0.18], [0.21, 0.2], [0, 0.2]], 10), 0x2e2218, 0, 0, 0.62);
+    skull(o.group, 0.03, 0.2, 0.62, 0.075, rnd()*6, 0.3);
+  },
+  xstocks(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("xstocks")) return B.shackled(o, rnd);
+    pool(o.group, 0.6, rnd, 0, 0.2);
+    KM.part(o.group, "xstocks", 1.65, 0, 0, 0);
+    corpse(o, o.group, rnd, { pose:"slump", col:BONE });
+  },
+  gallows(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("gallows")) return B.cage(o, rnd);
+    KM.part(o.group, "gallows", 2.3, 0, 0, 0);
+    pool(o.group, 0.4, rnd, 0.3, 0);
+  },
+  /* on a wall: a board of iron spikes, stained; a plank of shackles */
+  spikewall(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("spikeboard")) return B.chains(o, rnd);
+    const m = KM.part(o.group, "spikeboard", 1.05, 0, 0.35, 0.03); if(m) m.rotation.x = -0.05;
+  },
+  shacklewall(o, rnd){
+    const KM = DG.KitModels; if(!KM || !KM.has("shackles")) return B.chains(o, rnd);
+    KM.part(o.group, "shackles", 0.5, 0, 1.2, 0.04);
+    B.slumped(o, rnd);
+  },
   weaponrack(o, rnd){
+    if(DG.KitModels && DG.KitModels.has("weaponrack")){ DG.KitModels.part(o.group, "weaponrack", 0.92, 0, 0, 0); return; }
     P(o.group, BX(0.8, 0.06, 0.18), WOOD, 0, 0.1, 0); P(o.group, BX(0.06, 0.95, 0.06), WOOD, -0.37, 0.48, 0); P(o.group, BX(0.06, 0.6, 0.06), WOOD, 0.37, 0.3, 0, 0, 0, 0.1);
     P(o.group, BX(0.5, 0.05, 0.1), WOOD2, -0.12, 0.88, -0.02, 0, 0, -0.08);
     [-0.25, -0.05].forEach((x, i)=>{ rod(o.group, [x, 0.12, 0], [x + 0.02, 1.0, 0], 0.014, WOOD2); P(o.group, i ? CO(0.04, 0.2, 4) : BX(0.12, 0.2, 0.015), 0x5a5652, x + 0.02, 1.1, 0); });

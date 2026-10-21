@@ -17,7 +17,7 @@
 const DG = window.DG;
 const KM = DG.KitModels = {};
 
-const PAL = { 0:0x3e3c3a, 1:0x4a3624, 2:0x382818, 3:0x2e2a28, 4:0x585450, 5:0x67625a, 6:0x56402e, 7:0x4a1a14, 8:0x000000, 9:0x1e2a26, 10:0x2a2a30 };
+const PAL = { 0:0x3e3c3a, 1:0x4a3624, 2:0x382818, 3:0x2e2a28, 4:0x585450, 5:0x67625a, 6:0x56402e, 7:0x4a1a14, 8:0x000000, 9:0x1e2a26, 10:0x2a2a30, 11:0x3a0a08 };
 const DROP = { 8:true };                                           // flames
 
 const b64 = s=>{ const bin = atob(s), a = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i] = bin.charCodeAt(i); return a.buffer; };

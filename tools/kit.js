@@ -21,8 +21,13 @@ const ROOT = path.join(__dirname, ".."), INBOX = path.join(ROOT, "art-inbox"), O
 global.THREE = require("three"); global.window = global; global.self = global;
 const ex = f=> vm.runInThisContext(fs.readFileSync(path.join(ROOT, "node_modules/three/examples/js", f), "utf8"));
 ex("libs/fflate.min.js"); ex("loaders/FBXLoader.js");
+// some packs point at texture files that weren't shipped (or need a browser): never load them,
+// the game shades by material class anyway
+THREE.TextureLoader.prototype.load = function(){ return new THREE.Texture(); };
+const _warn = console.warn; console.warn = (...a)=>{ if(!/not supported in three\.js/.test(a[0])) _warn(...a); };
 
-/* name: [file, size, which axis the size is for ("h" height, "w" largest width, "l" largest of all)] */
+/* name: [file, size, which axis the size is for ("h" height, "w" largest width, "l" largest of all),
+   and for packs with one baked material per model: what it's mostly made of] */
 const MODELS = {
   barrel:   ["props/barrel.fbx", 0.66, "h"],
   crate1:   ["props/woodbox.fbx", 0.6, "h"],
@@ -31,25 +36,23 @@ const MODELS = {
   crate4:   ["props/woodbox_003.fbx", 0.6, "h"],
   vase:     ["props/vase.fbx", 0.62, "h"],
   urn:      ["props/vase_001.fbx", 0.62, "h"],
-  coffin:   ["props/coffin.fbx", 1.15, "l"],
-  cage:     ["props/cage.fbx", 1.9, "h"],
-  shelf:    ["props/shelf.fbx", 0.95, "w"],
-  table:    ["props/woodtable.fbx", 1.3, "w"],
-  chair:    ["props/woodchair.fbx", 0.8, "h"],
-  stool:    ["props/woodchair_001.fbx", 0.42, "h"],
-  torch:    ["props/torch.fbx", 0.62, "h"],
-  sconce:   ["props/torchhold.fbx", 0.55, "h"],
-  crest:    ["props/crest.fbx", 1.05, "h"],
-  key:      ["props/key.fbx", 0.34, "l"],
-  pillar:   ["environment/beam.fbx", 2.05, "h"],
-  pillar2:  ["environment/beam_002.fbx", 2.05, "h"],
-  portcullis:["environment/ironwalls.fbx", 1.6, "h"],
-  irondoor: ["environment/irondoor.fbx", 1.6, "h"]
+  // (the rest of that kit, walls, pillars, doors, furniture, gems, was a worse fit than
+  // what the game has: add a line here to bring one in)
+  // the dungeon prop pack (props/dungeon-pack): torture and the gallows, blood on them
+  stocks:    ["props/dungeon-pack/Stocks.fbx", 0.9, "h", "wood"],
+  guillotine:["props/dungeon-pack/Guillotine.fbx", 2.5, "h", "wood"],
+  xstocks:   ["props/dungeon-pack/X_Stocks.fbx", 1.65, "h", "wood"],
+  shackles:  ["props/dungeon-pack/Shackle_Plank.fbx", 0.5, "w", "wood"],
+  spikeboard:["props/dungeon-pack/Trap.fbx", 1.05, "h", "wood2"],
+  weaponrack:["props/dungeon-pack/Weapon_Rack.fbx", 0.92, "h", "wood"],
+  gallows:   ["props/dungeon-pack/Cage.fbx", 2.3, "h", "iron"]
 };
 /* material class from the kit's material names */
-const CLASS = { none:0, wood:1, wood2:2, iron:3, stone:4, stone2:5, clay:6, cloth:7, flame:8, glass:9, gem:10 };
-function classOf(name){
+const CLASS = { none:0, wood:1, wood2:2, iron:3, stone:4, stone2:5, clay:6, cloth:7, flame:8, glass:9, gem:10, blood:11 };
+function classOf(name, base){
   const n = (name || "").toLowerCase();
+  if(n.indexOf("blood") >= 0) return CLASS.blood;
+  if(base) return CLASS[base];
   if(n.indexOf("emission") >= 0) return CLASS.flame;
   if(n.indexOf("verre") >= 0) return CLASS.glass;
   if(n.indexOf("bois de bois") >= 0) return CLASS.wood2;
@@ -68,7 +71,7 @@ function load(file){
   return new THREE.FBXLoader().parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), "");
 }
 /* every triangle of every mesh, in the model's space, with its material class */
-function triangles(obj){
+function triangles(obj, base){
   const tris = [];
   obj.updateMatrixWorld(true);
   obj.traverse(m=>{
@@ -77,7 +80,7 @@ function triangles(obj){
     const nm = new THREE.Matrix3().getNormalMatrix(m.matrixWorld), v = new THREE.Vector3(), n = new THREE.Vector3();
     const groups = g.groups.length ? g.groups : [{ start:0, count:(g.index ? g.index.count : p.count), materialIndex:0 }];
     groups.forEach(gr=>{
-      const cls = classOf((mats[gr.materialIndex] || mats[0]).name);
+      const cls = classOf((mats[gr.materialIndex] || mats[0]).name, base);
       for(let k=gr.start; k<gr.start + gr.count; k++){
         const i = g.index ? g.index.getX(k) : k;
         v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
@@ -88,8 +91,8 @@ function triangles(obj){
   });
   return tris;
 }
-function convert(name, [file, size, axis]){
-  const verts = triangles(load(file));
+function convert(name, [file, size, axis, base]){
+  const verts = triangles(load(file), base);
   // bounds, then centre on x/z, feet on the floor, scaled to size
   const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
   verts.forEach(v=>{ for(let k=0;k<3;k++){ mn[k] = Math.min(mn[k], v[k]); mx[k] = Math.max(mx[k], v[k]); } });

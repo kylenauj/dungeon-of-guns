@@ -496,14 +496,14 @@ Dungeon.paintDoor = paintDoor;
 function dress(D, rng){
   const theme = D.theme.decor;
   const floorKinds = {
-    castle:["bones", "candlecluster", "brazier", "deadknight", "skullpile", "brokenstatue", "spikes", "cage", "candelabra", "weaponrack", "rubble", "barrelstack"],
-    undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack"],
-    crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots"],
+    castle:["bones", "candlecluster", "brazier", "deadknight", "skullpile", "brokenstatue", "spikes", "cage", "candelabra", "weaponrack", "rubble", "barrelstack", "stocks", "guillotine", "xstocks"],
+    undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack", "stocks", "gallows"],
+    crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots", "gallows"],
     gloomwood:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "roots", "rotpod", "fallenpillar", "toadstools", "bones", "fern"],
     forest:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "log", "ribcage", "roots", "rotpod", "toadstools", "fern", "glowcap"]
   }[theme] || ["bones"];
   const wallKinds = {
-    castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains"],
+    castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall", "spikewall", "shacklewall"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled", "shacklewall"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains"],
     gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"]
   }[theme] || ["banner"];
   D.rooms.forEach(r=>{
