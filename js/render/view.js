@@ -348,6 +348,9 @@ proto.handle = function(ev){
     case "lair": play("boss"); S.shake(0.4); break;
     case "hookThrow": play("arrow"); FX.burst(ev.x + Math.cos(ev.a)*1.2, 1.0, ev.y + Math.sin(ev.a)*1.2, 0x8a8278, 8, 4, 0.12, 0.4); break;
     case "hooked": S.shake(0.45); FX.burst(ev.x, 1.0, ev.y, 0xc8c0b0, 14, 3, 0.2, 0.5); play("bonk"); break;
+    case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
+    case "swallow": FX.smoke(ev.x, 0.6, ev.y, 0x4a5a2a, 8, 0.5, 0.8); S.shake(0.15); play("gulp"); break;
+    case "frogRank": FX.rise(ev.x, ev.y, 0x9cff6a, 18, 0.6); play("duo"); break;
     case "clang": FX.burst(ev.x, 1.0, ev.y, 0xffe0a0, 6, 4, 0.12, 0.25); play("stone"); break;
     case "bossPhase": S.shake(0.5); play("tellBig"); break;
     case "jump": play("jump"); break;

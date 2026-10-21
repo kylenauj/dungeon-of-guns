@@ -357,6 +357,13 @@ proto.damageEnemy = function(e, amt, src){
   if(e.st.marked > 0 && !src.dot && els.indexOf("arcane") < 0) m *= 1.1;
   if(M.special.silver && HAUNTED[e.type]) m *= 1.6;
   if(M.special.bossbane && e.big) m *= 1.25;
+  // the Gribbus build
+  const frogHit = src.from === "gribbus" || src.from === "tadpole" || src.frog;
+  if(M.special.bogpact && !frogHit && !src.from) m *= 0.7;
+  if(M.special.familiar){
+    if(!frogHit && !src.from && !src.dot) e.dueT = G.t + 3;
+    else if(frogHit && e.dueT > G.t){ e.dueT = 0; m *= 2; G.emit("due", { x:e.x, y:e.y, id:e.id }); }
+  }
   if(M.special.firsthit && !src.dot && !e.firstHit){ e.firstHit = true; m *= 3; }
   let crit = false;
   if(!src.dot && src.crit && G.chance(src.crit)){
@@ -366,6 +373,9 @@ proto.damageEnemy = function(e, amt, src){
   const d = amt*m;
   e.hp -= d; e.flash = 0.1;
   G.stats.dmg += d;
+  if(frogHit) G.stats.frogDmg = (G.stats.frogDmg || 0) + d;
+  // Swallow: the weak ones go down whole
+  if(M.special.swallow && frogHit && !e.big && e.hp > 0 && e.hp < e.maxHp*0.15){ e.hp = 0; e.swallowed = true; G.emit("swallow", { x:e.x, y:e.y, id:e.id }); }
   // Lifedrinker: a little of every direct hit comes back as health, 4 a second at most
   if(M.special.lifesteal && !src.dot && !src.overkilled){
     const p = G.player;
@@ -511,6 +521,10 @@ proto.killEnemy = function(e, src, fell){
   G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, boss:!!e.boss, fell:!!fell, midas:!!M.special.midas });
   p.mana = Math.min(p.maxMana, p.mana + DG.PLAYER.manaOnKill + M.killMana);
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
+  if(src.from === "gribbus" || src.from === "tadpole" || src.frog){
+    if(DG.Gribbus.gainXp) DG.Gribbus.gainXp(G, e.boss ? 40 : Math.round((e.def.cost || 1)*5));
+    if(M.special.hungry && G.t >= (p.hungryT || 0)){ p.hungryT = G.t + 0.25; G.heal(1); }
+  }
   // the gun in your hand learns from every kill
   const gun = G.gun();
   if(gun && !e.decoy && (gun.mastery || 0) < DG.Loot.MASTERY_MAX){
@@ -705,12 +719,12 @@ proto.byproduct = function(el, x, y, P, depth){
   if(M.special.wispcraft && depth < M.maxDepth + 1 && G.allies.filter(a=> a.kind === "wisp").length < 14) G.spawnAlly("wisp", x, y, { el, P });
 };
 
-proto.nova = function(x, y, r, dmg, els, depth){
+proto.nova = function(x, y, r, dmg, els, depth, frog){
   const G = this;
   G.emit("nova", { x, y, r, el:els[0] });
   G.enemies.forEach(e=>{
     if(e.dead || e.spawn > 0 || DG.dist(e.x, e.y, x, y) > r + e.r) return;
-    G.damageEnemy(e, dmg, { els, power:G.gunStats().power, depth, ax:e.x - x, ay:e.y - y, knock:1.5 });
+    G.damageEnemy(e, dmg, { els, power:G.gunStats().power, depth, ax:e.x - x, ay:e.y - y, knock:1.5, frog:!!frog });
   });
 };
 
@@ -1058,6 +1072,11 @@ proto.castSpell = function(g, s, I, echo){
   if(!echo){ p.mana -= s.spellCost; p.fireCd = 0.25; }
   const a = p.aim, els = G.shotEls(g);
   G.emit("spell", { spell:s.spell, x:p.x, y:p.y, a, el:g.element });
+  if(G.mods.special.croakhex && !echo && G.frogs) G.frogs.forEach(f=>{
+    G.enemies.forEach(e=>{ const d = DG.dist(e.x, e.y, f.x, f.y); if(!e.dead && e.spawn <= 0 && !e.big && d < 4.5 && d > 0.6) G.move(e, (f.x - e.x)/d*1.3, (f.y - e.y)/d*1.3, e.phases ? "ghost" : "enemy"); });
+    G.nova(f.x, f.y, 3.2, DG.Gribbus.power(G)*2*(f.twin ? 0.7 : 1), ["frost"], 1, true);
+    G.emit("croak", { x:f.x, y:f.y, kind:"frost" });
+  });
   G.trigger("spell", { x:p.x, y:p.y, els, depth:0 });
   switch(s.spell){
     case "missiles":

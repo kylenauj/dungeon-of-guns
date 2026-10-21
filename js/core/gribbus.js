@@ -24,10 +24,23 @@ Gr.create = function(G){
   return f;
 };
 
-/* the strength of a lick */
-Gr.power = function(G){
-  const M = G.mods, g = G.gribbus.g;
-  return 0.45*G.payloadPower()*(1 + M.frogDmg + (g.dmg || 0));
+/* how much harder than plain Gribbus he hits: items, tricks, the Bog Pact, and his own rank */
+Gr.scale = function(G){
+  const M = G.mods, f = G.gribbus, g = f.g;
+  return (1 + M.frogDmg + (g.dmg || 0))*(M.frogMul || 1)*(1 + 0.08*(f.level || 0));
+};
+/* the strength of a lick (the Bog Pact's toll is on Zippy's shots, not his) */
+Gr.power = function(G){ return 0.45*G.payloadPower()*Gr.scale(G); };
+/* his own kills teach him: a rank every so often, each +8% to everything he does */
+Gr.RANKS = [20, 55, 110, 190, 300, 450, 650, 900, 1250, 1700];
+Gr.gainXp = function(G, n){
+  const f = G.gribbus; if(!f) return;
+  f.xp = (f.xp || 0) + n;
+  while((f.level || 0) < Gr.RANKS.length && f.xp >= Gr.RANKS[f.level || 0]){
+    f.level = (f.level || 0) + 1;
+    G.emit("frogRank", { level:f.level, x:f.x, y:f.y });
+    G.say("Gribbus grows meaner. Rank " + f.level + ".", 2.5);
+  }
 };
 Gr.target = function(G, range, x, y){
   const f = G.gribbus;
@@ -190,7 +203,7 @@ function updateFrog(G, f, idx, dt){
   // croaks
   if(fight && g.croak && (f.timers.croak || 0) <= 0){
     const near = G.enemies.some(e=> !e.dead && e.spawn <= 0 && DG.dist(e.x, e.y, f.x, f.y) < 3);
-    if(near){ f.timers.croak = 4; G.nova(f.x, f.y, 3, dmg*0.6, ["frost"], 1); G.emit("croak", { x:f.x, y:f.y, kind:"frost" }); }
+    if(near){ f.timers.croak = 4; G.nova(f.x, f.y, 3, dmg*0.6, ["frost"], 1, true); G.emit("croak", { x:f.x, y:f.y, kind:"frost" }); }
   }
   if(fight && g.doom && (f.timers.doom || 0) <= 0 && idx === 0){
     f.timers.doom = 10;

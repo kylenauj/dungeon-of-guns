@@ -7,10 +7,11 @@ const DG = require("./load.js");
 const N = +process.argv[2] || 40;
 const SECS = 8;
 
-function trial(word, items, boons){
+function trial(word, items, boons, frogBuffs){
   const G = new DG.Game({ seedWord:word, floor:4 });
   G.god = true;
   items.forEach(id=> G.giveItem(id, true));
+  (frogBuffs || []).forEach(id=> DG.Gribbus.giveBuff(G, id));
   (boons || []).forEach(id=> G.player.boons.push(id));
   G.recalc();
   const r = G.D.rooms.find(x=> x.type === "combat" && x.x2 - x.x1 >= 12) || G.D.rooms.find(x=> x.type === "combat");
@@ -35,7 +36,7 @@ function trial(word, items, boons){
     let n = 0; for(const b of G.bullets) if(b.team === "p") n++;
     peak = Math.max(peak, n);
   }
-  return { dps:G.stats.dmg/SECS, peak };
+  return { dps:G.stats.dmg/SECS, peak, frog:(G.stats.frogDmg || 0)/Math.max(1, G.stats.dmg) };
 }
 
 function rollBuild(i){
@@ -56,7 +57,7 @@ console.log("baseline (no items): " + base.dps.toFixed(0) + " dps, " + base.peak
 const rows = [];
 for(let i=0;i<N;i++){
   const b = rollBuild(i), t = trial("PWR" + i, b.items, b.boons);
-  rows.push({ x:t.dps/base.dps, peak:t.peak, items:b.items });
+  rows.push({ x:t.dps/base.dps, peak:t.peak, items:b.items, frog:t.frog });
   if(process.argv.indexOf("-v") >= 0) console.log(("PWR" + i).padEnd(6), (t.dps/base.dps).toFixed(1).padStart(6) + "x", String(t.peak).padStart(4) + " shots", b.items.join(" "));
 }
 const xs = rows.map(r=> r.x).sort((a, b)=> a - b), pk = rows.map(r=> r.peak).sort((a, b)=> a - b);
@@ -66,3 +67,16 @@ console.log("  weakest " + xs[0].toFixed(1) + "x   p10 " + pct(xs, 0.1).toFixed(
 console.log("  peak shots alive: median " + pct(pk, 0.5) + "   p90 " + pct(pk, 0.9) + "   max " + pk[pk.length - 1]);
 const top = rows.slice().sort((a, b)=> b.x - a.x)[0];
 console.log("  strongest build: " + top.items.join(", "));
+const fr = rows.map(r=> r.frog).sort((a, b)=> a - b);
+console.log("  Gribbus' share of the damage: median " + Math.round(pct(fr, 0.5)*100) + "%   p90 " + Math.round(pct(fr, 0.9)*100) + "%   baseline " + Math.round(base.frog*100) + "%");
+// a frog run: the same rolled floor-4 builds, but four of the items, three of the boons and
+// two pond tricks went to the frog. Is Gribbus the killer, and is the run as strong as any other?
+const FROG4 = ["bogpact", "familiar", "twister", "hungrytongue"], FROGB = ["b_frog", "b_frogd", "b_bond"], FROGT = ["crown", "bigboy"];
+const fx = [], fs = [];
+for(let i=0;i<Math.ceil(N/2);i++){
+  const b = rollBuild(i), items = FROG4.concat(b.items.filter(id=> FROG4.indexOf(id) < 0).slice(4)), boons = FROGB.concat(b.boons.slice(3));
+  const t = trial("FRG" + i, items, boons, FROGT);
+  fx.push(t.dps/base.dps); fs.push(t.frog);
+}
+fx.sort((a, b)=> a - b); fs.sort((a, b)=> a - b);
+console.log("  frog runs (" + fx.length + "): power median " + pct(fx, 0.5).toFixed(1) + "x  p90 " + pct(fx, 0.9).toFixed(1) + "x;  Gribbus does median " + Math.round(pct(fs, 0.5)*100) + "%, p10 " + Math.round(pct(fs, 0.1)*100) + "%");

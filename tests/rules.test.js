@@ -1557,3 +1557,72 @@ test("the Reliquary Warden's shield: from the front, a shot barely scratches; fr
   const back = hp0 - front - e.hp;
   assert.ok(front < back*0.3, "front " + front + ", back " + back);
 });
+
+/* ---- the Gribbus build ---- */
+test("Bog Pact: Gribbus hits 75% harder, Zippy's own shots 30% softer", ()=>{
+  const G = game("BOGPACT"), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r;
+  const p0 = DG.Gribbus.power(G);
+  const e1 = addEnemy(G, r, s.x, s.y); e1.hp = e1.maxHp = 1e6; G.damageEnemy(e1, 100, {}); const zip0 = 1e6 - e1.hp;
+  G.giveItem("bogpact", true);
+  assert.ok(Math.abs(DG.Gribbus.power(G)/p0 - 1.75) < 0.01);
+  const e2 = addEnemy(G, r, s.x, s.y); e2.hp = e2.maxHp = 1e6; G.damageEnemy(e2, 100, {}); const zip1 = 1e6 - e2.hp;
+  assert.ok(Math.abs(zip1/zip0 - 0.7) < 0.01, "Zippy's shot");
+  const e3 = addEnemy(G, r, s.x, s.y); e3.hp = e3.maxHp = 1e6; G.damageEnemy(e3, 100, { from:"gribbus" });
+  assert.ok(Math.abs((1e6 - e3.hp) - zip0) < 0.01, "his licks aren't taxed");
+});
+test("Familiar's Due: what Zippy hits, Gribbus' next hit does double, once", ()=>{
+  const G = game("FAMILIAR"), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r;
+  G.giveItem("familiar", true);
+  const e = addEnemy(G, r, s.x, s.y); e.hp = e.maxHp = 1e6;
+  G.damageEnemy(e, 10, { from:"gribbus" }); const plain = 1e6 - e.hp;
+  G.damageEnemy(e, 1, {});                                   // Zippy marks it
+  let before = e.hp; G.damageEnemy(e, 10, { from:"gribbus" }); assert.ok(Math.abs((before - e.hp) - plain*2) < 0.01, "double");
+  before = e.hp; G.damageEnemy(e, 10, { from:"gribbus" }); assert.ok(Math.abs((before - e.hp) - plain) < 0.01, "once");
+});
+test("Swallow takes the weak whole, never a boss or a lair's beast", ()=>{
+  const G = game("SWALLOW"), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; G.god = true;
+  G.giveItem("swallow", true);
+  const e = addEnemy(G, r, s.x, s.y); e.hp = e.maxHp = 100;
+  G.damageEnemy(e, 80, { from:"gribbus" }); assert.ok(!e.dead);
+  G.damageEnemy(e, 6, { from:"gribbus" }); assert.ok(e.dead, "14%: swallowed");
+  const b = addEnemy(G, r, s.x, s.y); b.mini = b.big = true; b.hp = b.maxHp = 100;
+  G.damageEnemy(b, 90, { from:"gribbus" }); assert.ok(!b.dead);
+});
+test("Gribbus ranks up on his own kills, and every rank makes him hit harder; Hungry Tongue feeds Zippy", ()=>{
+  const G = game("RANKS"), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; G.god = true;
+  G.giveItem("hungrytongue", true);
+  const p = G.player; p.hp = 50;
+  const p0 = DG.Gribbus.power(G);
+  for(let i=0;i<6;i++){ const e = addEnemy(G, r, s.x, s.y); G.t += 1; G.damageEnemy(e, 1e6, { from:"gribbus" }); }
+  assert.ok(G.gribbus.level >= 1, "a rank from his own kills");
+  assert.ok(DG.Gribbus.power(G) > p0*1.07);
+  assert.ok(p.hp >= 55, "fed");
+  // Zippy's kills don't count for him
+  const lv = G.gribbus.level, xp = G.gribbus.xp;
+  for(let i=0;i<10;i++){ const e = addEnemy(G, r, s.x, s.y); G.damageEnemy(e, 1e6, {}); }
+  assert.equal(G.gribbus.xp, xp); assert.equal(G.gribbus.level, lv);
+});
+test("Croaking Hex: a spell makes Gribbus croak, and it's his damage", ()=>{
+  const G = game("CROAKHEX"), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; r.active = true; G.god = true;
+  G.giveItem("croakhex", true);
+  const f = G.gribbus; f.x = s.x; f.y = s.y;
+  const e = addEnemy(G, r, s.x + 1.5, s.y); e.hp = e.maxHp = 1e6;
+  G.player.mana = 999;
+  const g = G.gun(), st = G.gunStats();
+  G.castSpell(g, st, {}, false);
+  assert.ok(e.hp < 1e6, "frozen and hurt");
+  assert.ok(G.stats.frogDmg > 0);
+});
+test("a frog build's treasure room keeps one frog thing on offer", ()=>{
+  let hits = 0, n = 0;
+  for(let s=1; s<=12; s++){
+    const G = game("LEAN" + s, 2);
+    G.giveItem("twister", true); G.giveItem("bogpact", true);
+    const r = G.D.rooms.find(x=> x.type === "treasure");
+    r.props.forEach(pr=>{ if(pr.kind === "pedestal" && pr.offer && pr.offer.kind === "item"){ G.seenItems[pr.offer.id] = false; pr.offer = null; } });
+    r.props.forEach(pr=>{ if(pr.kind === "pedestal" && !pr.offer && !pr.sell) pr.offer = G.makeOffer(r, pr); });
+    n++;
+    if(r.props.some(pr=> pr.offer && pr.offer.kind === "item" && DG.Items.tagsOf(DG.ITEMS[pr.offer.id]).indexOf("frog") >= 0)) hits++;
+  }
+  assert.equal(hits, n);
+});

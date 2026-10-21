@@ -157,6 +157,12 @@ DG.ITEMS = {
   accordion:  I({ name:"Cursed Accordion",   tier:1, pools:"tb",   desc:"Reloading plays a horrible chord that shoves every goblin near you away and dazes them.", flavor:"It only knows one song.", on:{ reload:[{ do:"shove", r:4.5, stun:0.8 }] } }),
   dice:       I({ name:"Loaded Dice",        tier:1, pools:"ts",   desc:"Every time a room locks, roll for your damage: anything from 0.6x to 1.8x.", flavor:"Loaded with what, exactly?", special:"dice", on:{ lock:[{ do:"dice" }] } }),
   comet:      I({ name:"Comet Cape",         tier:2, pools:"tbx",  desc:"Blinking turns you into a comet: goblins you blink through take a heavy hit and go flying.", flavor:"Mind the tail.", special:"comet" }),
+  /* the Gribbus build: things that make the frog the killer */
+  bogpact:    I({ name:"Bog Pact",           tier:3, pools:"tbx",  desc:"Gribbus hits 75% harder. Your own shots hit 30% softer.", flavor:"Signed in pond-water. He kept the pen.", stats:{ frogMul:1.75 }, special:"bogpact", tags:["frog"] }),
+  familiar:   I({ name:"Familiar's Due",     tier:2, pools:"tsb",  desc:"Goblins you hit are marked for Gribbus: his next hit on one does double.", flavor:"You soften them up. He collects.", special:"familiar", tags:["frog"] }),
+  swallow:    I({ name:"Swallow",            tier:3, pools:"tbx",  desc:"Gribbus swallows goblins under 15% health whole (not bosses).", flavor:"No chewing. Never any chewing.", special:"swallow", tags:["frog"] }),
+  hungrytongue:I({ name:"Hungry Tongue",     tier:1, pools:"ts",   desc:"Every goblin Gribbus kills heals you 1.", flavor:"He shares. Sort of.", special:"hungry", tags:["frog"] }),
+  croakhex:   I({ name:"Croaking Hex",       tier:2, pools:"tb",   desc:"Casting a spell makes Gribbus croak: a blast of frost round him that drags goblins in.", flavor:"Your voice, his throat.", special:"croakhex", tags:["frog"] }),
   twister:    I({ name:"Tongue Twister",     tier:1, pools:"ts",   desc:"Gribbus flings the goblins he licks into other goblins.", flavor:"Gribbus has been practising.", special:"twister" }),
   clockwork:  I({ name:"Clockwork Heart",    tier:1, pools:"tb",   desc:"Every 12th kill winds up a ward (up to 4).", flavor:"Tick, tock, block.", special:"clockwork" }),
   haunted:    I({ name:"Haunted Gun",        tier:2, pools:"bx",   desc:"When you stop shooting, a ghost keeps pulling your trigger at goblins nearby (half damage, no ammo).", flavor:"It isn't you doing it.", special:"haunted" }),
@@ -332,7 +338,7 @@ DG.ACTIVES = {
   soup:    { name:"Bottomless Soup",charge:4, desc:"Heals 40." },
   hat:     { name:"Hat Trick",      charge:2, desc:"Your hat flies out and spirals round the room, slicing goblins, for 4 seconds." },
   whistle: { name:"Goblin Whistle", charge:2, desc:"Every goblin in the room is confused for 5 seconds and clobbers its friends." },
-  cannon:  { name:"Frog Cannon",    charge:2, desc:"Fire Gribbus at the cursor. He lands with a croak that stuns and blasts everything there." },
+  cannon:  { name:"Frog Cannon",    charge:2, desc:"Fire Gribbus at the cursor. He lands with a croak that stuns and blasts everything there, as hard as he hits." },
   discoball:{ name:"Disco Ball",    charge:3, desc:"For 8 seconds, every shot carries every element." },
   pockethole:{ name:"Pocket Black Hole", charge:3, desc:"Throw a black hole that swallows goblins for 4 seconds." },
   estus:   { name:"Estus Flask",    charge:2, desc:"Heals 30 and gives a ward." },
@@ -498,7 +504,7 @@ Items.blank = function(){
   return {
     dmg:0, dmgMul:1, rate:0, speed:0, shotSpeed:0, range:0, size:0, hp:0, mana:0, regen:0, luck:0, crit:0, critMul:0,
     magnet:0, gold:0, blinkCd:0, noSlip:0, reload:0, mag:0, spellCost:0, statusDur:0, boom:0, byproductDur:0, wispDmg:0,
-    frogRate:0, frogDmg:0, killMana:0,
+    frogRate:0, frogDmg:0, frogMul:1, killMana:0,
     shot:{ bounces:0, pierce:0, homing:0, split:0, extra:0, side:0, back:0, wiggle:0, orbit:0, boomerang:0, spectral:0, grow:0,
            accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0, portal:0, jitter:0 },
     els:[], on:{}, special:{}, duos:[], sets:[]
@@ -508,7 +514,7 @@ Items.blank = function(){
 function addDef(M, d, n){
   n = n || 1;
   if(d.stats) for(const k in d.stats){
-    if(k === "dmgMul") M.dmgMul *= Math.pow(d.stats[k], n);
+    if(k === "dmgMul" || k === "frogMul") M[k] *= Math.pow(d.stats[k], n);
     else M[k] = (M[k] || 0) + d.stats[k]*n;
   }
   if(d.shot) for(const k in d.shot) M.shot[k] = (M.shot[k] || 0) + d.shot[k]*n;
@@ -569,7 +575,7 @@ Items.tagsOf = function(d){
   if(sh.extra > 0 || sh.side || sh.back || sh.kaleido || sh.split || sh.echo || sh.orbit || sh.bounceSplit || /doubletap|fan|dualwield|shadow/.test(sp)) t.multishot = 1;
   if(has((k)=> k === "hit" || k === "crit" || k === "bounce" || k === "wall") || has((k, pl)=> pl.do === "chain" || pl.do === "missile") || /conductor|overkill|fractal|recursion|chainreaction/.test(sp)) t.proc = 1;
   if(st.crit > 0 || st.critMul > 0 || on.crit) t.crit = 1;
-  if(st.frogDmg > 0 || st.frogRate > 0 || has((k, pl)=> pl.do === "tadpole") || /twister|frogsona|frogswarm/.test(sp)) t.frog = 1;
+  if(st.frogDmg > 0 || st.frogRate > 0 || st.frogMul > 1 || has((k, pl)=> pl.do === "tadpole") || /twister|frogsona|frogswarm/.test(sp)) t.frog = 1;
   if(has((k, pl)=> pl.do === "wisp" || pl.do === "bee" || pl.do === "ghoul" || pl.do === "tadpole") || /moons|shadow|haunted|wisplord/.test(sp)) t.summons = 1;
   if(st.hp > 0 || st.wards > 0 || has((k, pl)=> pl.do === "heal" || pl.do === "ward") || /darksign|lifesteal|briar/.test(sp)) t.tank = 1;
   for(const e in Items.elSources(d)) t["el:" + e] = 1;
@@ -650,8 +656,11 @@ Items.pools = function(){
   for(const id in DG.ITEMS) DG.ITEMS[id].pools.split("").forEach(p=> P[p] && P[p].push(id));
   return P;
 };
-Items.roll = function(G, pool){
-  const P = G.pools[pool] || G.pools.t, rng = G.rng, luck = G.mods ? G.mods.luck : 0;
+Items.roll = function(G, pool, opts){
+  const P0 = G.pools[pool] || G.pools.t, rng = G.rng, luck = G.mods ? G.mods.luck : 0;
+  // a tag to lean on (a frog build's treasure room keeps one frog thing on offer)
+  const lean = opts && opts.tag ? P0.filter(id=> Items.tagsOf(DG.ITEMS[id]).indexOf(opts.tag) >= 0 && (!G.seenItems[id] || DG.ITEMS[id].stack)) : null;
+  const P = lean && lean.length ? lean : P0;
   const w = DG.POOL_TIERS[pool] || DG.POOL_TIERS.t;
   // deeper floors and luck push the odds up
   const push = 1 + 0.12*(G.floor - 1) + 0.08*luck;

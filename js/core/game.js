@@ -131,7 +131,13 @@ proto.makeOffer = function(r, pr){
   if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
   if(pr.sell === "ward") return { kind:"ward", n:2, price:L.price({ kind:"ward" }, f), currency:"gold", name:"Two Wards" };
   if(pr.sell === "active"){ const id = G.rng.pick(Object.keys(DG.ACTIVES)); return { kind:"active", id, price:L.price({ kind:"active" }, f), currency:"gold", name:DG.ACTIVES[id].name }; }
-  const id = Items.roll(G, pool);
+  // a build heading the frog's way: a treasure room always has one frog thing among its choices
+  let lean = null;
+  if(r.type === "treasure" && pr.group && G.player){
+    const dir = Items.direction(G.player.items, G.player.boons), frogOf = o=> o && o.kind === "item" && Items.tagsOf(DG.ITEMS[o.id]).indexOf("frog") >= 0;
+    if((dir.frog || 0) >= 2 && !r.props.some(o=> o !== pr && frogOf(o.offer))) lean = { tag:"frog" };
+  }
+  const id = Items.roll(G, pool, lean);
   const o = { kind:"item", id, name:DG.ITEMS[id].name };
   if(r.type === "shop") { o.price = L.itemPrice(id, f); o.currency = "gold"; }
   if(r.type === "altar"){ o.price = 20; o.currency = "hp"; }
@@ -532,7 +538,7 @@ proto.useActive = function(I){
       G.emit("frogCannon", { x1:f.x, y1:f.y, x2:tx, y2:ty });
       f.x = tx; f.y = ty; f.hopT = 0; f.rest = 0.6;
       G.pending.push({ t:0.3, fn:()=>{
-        G.nova(tx, ty, 3, P*3, G.shotEls(G.gun()), 1);
+        G.nova(tx, ty, 3, P*3*DG.Gribbus.scale(G), G.shotEls(G.gun()), 1, true);
         G.enemies.forEach(e=>{ if(!e.dead && !e.big && DG.dist(e.x, e.y, tx, ty) < 3 + e.r) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
         G.emit("croak", { x:tx, y:ty, kind:"cannon" });
       } });

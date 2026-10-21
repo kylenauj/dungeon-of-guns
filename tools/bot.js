@@ -8,6 +8,7 @@
 const DG = root.DG;
 
 const revealed = (G, x, y)=> G.D.fakes.some(f=> f.revealed && f.tiles.some(([fx, fy])=> fx === x && fy === y));
+const frogItem = id=> DG.ITEMS[id] && DG.Items.tagsOf(DG.ITEMS[id]).indexOf("frog") >= 0;
 function Bot(G, opts){
   this.G = G; this.path = null; this.repath = 0; this.goal = null; this.t = 0; this.opts = opts || {};
   this.visitedProps = {}; this.rng = DG.RNG(((G.seed || 7) ^ 0x9e3779b9) >>> 0);
@@ -52,6 +53,10 @@ Bot.prototype.chooseGoal = function(){
       if(pr.kind === "chest" && !pr.open && !pr.locked) return { x:pr.x + 0.5, y:pr.y + 1.2, use:true, key };
       if(pr.kind === "pedestal" && !pr.taken && pr.offer){
         const o = pr.offer;
+        // a frog run (opts.frog): in a room of choices, the frog's thing if there is one
+        if(this.opts.frog && pr.group && o.kind !== "item" || this.opts.frog && pr.group && o.kind === "item" && !frogItem(o.id)){
+          if(r.props.some(q=> q.group === pr.group && !q.taken && q.offer && q.offer.kind === "item" && frogItem(q.offer.id))) continue;
+        }
         const ok = !o.currency || (o.currency === "gold" && p.gold >= o.price && o.kind !== "heal") || (o.currency === "hp" && p.maxHp - o.price >= 70);
         if(ok) return { x:pr.x + 0.5, y:pr.y + (pr.closet ? 0.5 : 1.3), use:true, key };
       }

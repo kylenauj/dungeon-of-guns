@@ -23,6 +23,7 @@ const INK = "#050404", BONE = "#d8ccb0", IVORY = "#ece2c8", DIM = "#8c8270", FAI
 const SERIF = "'Cinzel','Trajan Pro','Times New Roman',serif", BOOK = "'EB Garamond','Garamond',Georgia,serif";
 const F = (w, s, fam)=> w + " " + Math.max(6, s) + "px " + (fam || SERIF);
 const hex = c=> "#" + new THREE.Color(c).getHexString();
+const R2 = v=> Math.round(v);
 /* drain the candy out of a colour: lerp it toward old bone */
 const muteCache = {};
 const mute = (c, a)=>{
@@ -506,6 +507,15 @@ H.draw = function(G, dt, opts){
     const lw = Math.min(ps + 4, measure(g, label, lsz, "700", SERIF, lsz*0.15) + 24);
     frame(g, px + ps/2 - lw/2, py - 15*k, lw, 18*k, forms.length ? "rgba(40,14,36,.96)" : "rgba(12,10,10,.97)", false);
     text(g, label, px + ps/2, py - 6*k, lsz, forms.length ? "#d8a0c8" : GOLD, "center", "700", SERIF, lsz*0.15);
+    // Gribbus' rank, earned with his own kills, and how far to the next
+    const fr = G.gribbus;
+    if(fr && fr.level){
+      const R = DG.Gribbus.RANKS, lo = R[fr.level - 1] || 0, hi = R[fr.level], kx = hi ? Math.min(1, ((fr.xp || 0) - lo)/(hi - lo)) : 1;
+      const tx = px + ps - 8, ty = py + ps - 10;
+      text(g, "GRIBBUS · RANK " + fr.level, tx, ty, 10*k, "#a8c878", "right", "700", SERIF, 1.5);
+      g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(R2(tx - 70*k), R2(ty + 4), R2(70*k), 2);
+      g.fillStyle = "#7a9a4a"; g.fillRect(R2(tx - 70*k), R2(ty + 4), R2(70*k*kx), 2);
+    }
   }
 
   // ---- bottom left: the guns ----
