@@ -168,6 +168,37 @@ steps, cobwebs and chains overhead, corpses in clusters.
 **Step 3, characters (after):** higher-detail sculpted forms, textures generated
 per material (cloth weave, leather, rusted iron, bone), better animation.
 
+## 4c. The grime pass: bleak, filthy, harsh (October 2026)
+
+The owner's brief: "dingy, dark and gross; bleak and ugly with stark bits of contrast
+to bring light and peaks of interest; filled with dirt and tattered cloth; everything
+jagged and harsh, but still leading you through like a dungeon; the horror side of
+the souls games, strange and gross." What that became:
+
+- **Stone** is broken, not cut: jagged chipped outlines, flat gouged faces pitted at
+  two scales, a hard lip at each joint, splits filled with dirt. Joints are packed
+  dirt, never drawn lines. (world.js `slab`, `joints`)
+- **Filth over the floor** (kit.js `GLOOM_FLOOR`): mud in drifts drowning the stone's
+  grid in places, matte, in the floor's own colour sunk in dirt; wet patches glint.
+  A per-floor grime map (`World.occlusion`, the walls blurred) darkens and browns the
+  floor along every wall and into the corners.
+- **Muck** (filth.js): drifts of dirt against every wall with rocks, splinters, bones
+  and rags in them; heaps in the corners; torn rags on the floor; tatters of rotten
+  cloth hanging down the walls. Faceted, so every edge is hard.
+- **The gross** (filth.js): wet flesh growths in corners with veins crawling out
+  (more the deeper you go; the one thing allowed its red, glossy); the hanged,
+  bound in rags and soaked dark at the feet, on chains by the walls.
+- **Walls** stand to uneven heights, crumbled, with broken blocks askew on top; the
+  cornice survives only in places.
+- **Light**: the lantern is a hard pool that falls off fast (11 units); rooms are lit
+  in patches by torches; most of the frame is dark (look: black ~54%).
+- **Grain**: a coarse film grain crawls through the shadows at 24 fps.
+- **The asset kit** (kitmodels.js) is shaded the same way: each material dull and
+  dirty, darker toward the floor.
+
+Keep to it: anything new should be dirtier, darker and more broken than it first
+seems it needs to be, with one point of light or colour that pulls the eye.
+
 ## 5. How we'll know it worked
 
 Add a **look check** next to `npm run balance`: `npm run look` screenshots floors 1, 3 and 5 and the gallery with headless Chromium (Playwright is already on the machine), then reports:

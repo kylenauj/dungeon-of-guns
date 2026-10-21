@@ -550,7 +550,18 @@ proto.wallBlock = function(x, y, low){
   const W = this, D = W.D, th = W.th, hh = low ? LOW : WH, out = [];
   const cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
   const h = hash2(x, y), tone = 0.85 + h*0.25;
-  stone(out, box(1, hh, 1, x + 0.5, hh/2, y + 0.5), cW, cTop, tone);
+  // a ruin, not a ruler: each section of wall stands to its own height (some
+  // crumbled well down), and broken blocks sit askew on top
+  const nearDoor = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0]].some(([u, v])=> D.at(x + u, y + v) === T.DOOR);
+  const crumble = low || nearDoor ? 0 : Math.pow(frac(h*9.7 + 0.3), 2)*0.42, top = hh - crumble;
+  stone(out, box(1, top, 1, x + 0.5, top/2, y + 0.5), cW, cTop, tone);
+  if(!low){
+    const nb = Math.floor(frac(h*5.3)*3.2);
+    for(let k=0;k<nb;k++){
+      const q = hash2(x*2.3 + k*7.1, y*4.1 - k*2.7), s = 0.2 + q*0.28;
+      stone(out, box(s, 0.12 + frac(q*13)*0.2, s*(0.7 + frac(q*7)*0.5), x + 0.2 + frac(q*29)*0.6, top + 0.04, y + 0.2 + frac(q*41)*0.6, (frac(q*3) - 0.5)*0.7, q*6, (frac(q*5) - 0.5)*0.7), cW, cTop, tone*(0.85 + frac(q*11)*0.25));
+    }
+  }
   DG.DIRS4.forEach(([dx, dy], f)=>{
     if(!walkable(D.at(x + dx, y + dy))) return;
     const fx = x + 0.5 + dx*0.5, fz = y + 0.5 + dy*0.5, alongX = dx === 0;
@@ -559,7 +570,8 @@ proto.wallBlock = function(x, y, low){
       stone(out, g, cW, cTop, k*tone);
     };
     B(1, low ? 0.14 : 0.2, 0.08, 0, low ? 0.07 : 0.1, 0.8);
-    if(!low){ B(1, 0.1, 0.1, 0, WH - 0.05, 1.05); B(1, 0.05, 0.05, 0, WH - 0.125, 0.85); }
+    // the cornice survives only where the wall does
+    if(!low && crumble < 0.08 && frac(h*17.3 + f) > 0.25){ B(1, 0.1, 0.1, 0, top - 0.05, 1.05); B(1, 0.05, 0.05, 0, top - 0.125, 0.85); }
     else B(1, 0.07, 0.045, 0, LOW - 0.035, 1.05);
     if(low) return;
     // stones that have shifted out of true

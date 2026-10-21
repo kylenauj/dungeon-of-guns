@@ -181,9 +181,11 @@ S.initPost = function(){
       "  float v = smoothstep(0.1, 0.62, r2*(1.6 + uWeird*0.25*sin(uTime*1.1)));",
       "  col = mix(col, uFog*0.3, v*uVig);",
       "  col = mix(col, vec3(0.45, 0.0, 0.02), uHurt*smoothstep(0.05, 0.45, r2));",
-      // a fine, still grain over everything, heavier in the dark
-      "  float n = ph(floor(gl_FragCoord.xy) + 0.37);",
-      "  col += (n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l));",
+      // grain: a fine still tooth over everything, and over it a coarse film grain
+      // that crawls (24 times a second, like film), heavy in the dark: the picture rasps
+      "  float n = ph(floor(gl_FragCoord.xy) + 0.37), fn = ph(floor(gl_FragCoord.xy*0.5) + floor(uTime*24.0)*7.31);",
+      "  float dk = 1.0 - smoothstep(0.0, 0.5, l);",
+      "  col += (n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk;",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
   });
