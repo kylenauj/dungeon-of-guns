@@ -1667,8 +1667,9 @@ function capGeo(r, h, droop, seed, bruise){
   const B = new THREE.Color(bruise || 0x6a5060), f = 2.4/r, s = seed || 0;
   return K.paint(g, 0xffffff, (c, x, y, z)=>{
     const a = Math.atan2(z, x), rr = Math.hypot(x, z)/r;
-    const n = Math.sin(x*f + s)*Math.sin(y*f*1.3 + s*1.7)*Math.sin(z*f*0.8 + 2.1) + 0.5*Math.sin(x*f*2.7 + 1.3)*Math.sin(z*f*2.3 + s);
-    if(n > 0.15) c.lerp(B, Math.min(1, (n - 0.15)*2.5));
+    // bruising in drifts (wandering noise: a product of sines tiled into polka dots)
+    const n = bsN(x, y, z, f*0.55, s) + 0.35*bsN(x, y, z, f*1.6, s + 3);
+    if(n > 0.25) c.lerp(B, Math.min(1, (n - 0.25)*2));
     const st = Math.sin(a*29 + Math.sin(a*5 + s)*2.5 + rr*3);
     c.multiplyScalar(0.9 + 0.2*st*st*st);
     const fi = Math.sin(x*f*3.1 + Math.sin(z*f*2.2 + s)*1.7)*Math.sin(z*f*3.4 + Math.sin(x*f*1.9)*1.4);
@@ -2055,7 +2056,7 @@ Models.poltergeist = function(){
  * ================================================================== */
 /* an eyeball: yellowed, bloodshot, veins crawling from the back to the iris, a slit pupil, wet */
 function eyeball(R, parent, r, iris, y){
-  P(parent, blotch(new THREE.SphereGeometry(r, 30, 22), 0xc89080, 2.4/r, 0.35, 1), 0xc8bca0, 0, y, 0);
+  P(parent, blotch(new THREE.SphereGeometry(r, 30, 22), 0xa86a5a, 2.4/r, 0.35, 1), 0x9a8a68, 0, y, 0);
   for(let i=0;i<11;i++){
     const a = i/11*PI*2 + Math.sin(i*7.3)*0.25, pts = [];
     for(let j=0;j<5;j++){ const t = 1.25 - j*0.2, aa = a + Math.sin(j*1.7 + i)*0.18; pts.push([Math.sin(t)*Math.cos(aa)*r*1.004, y + Math.sin(t)*Math.sin(aa)*r*1.004, Math.cos(t)*r*1.004]); }
@@ -2071,6 +2072,7 @@ Models.watcher = function(){
   const R = rig("watcher"), b = R.body, FL = 0x5a2c30;
   const float = group(b, 0, 0.9, 0); R.parts.head = float;
   eyeball(R, float, 0.33, 0x6a5a1a, 0);
+  eyeLids(float, 0.33, 0, FL, 5);
   // lids of raw flesh, heavy, wet red at the rims, a few lashes like wire
   const lid = (top)=>{
     const g = group(float, 0, 0, 0); g.rotation.x = top ? -0.5 : PI + 0.55;
@@ -2308,7 +2310,9 @@ Models.bloater = function(){
   const belly = group(b, 0, 0.47, 0.05); R.parts.head = belly; belly.scale.set(0.8, 0.85, 0.85);
   const sac = sculptW(lobes(K.slathe([[0, -0.55], [0.3, -0.52], [0.5, -0.36], [0.58, -0.1], [0.54, 0.16], [0.4, 0.34], [0.2, 0.44], [0, 0.46]], 32, 6), 5, 0.12, 2, 4), 0.03, 4, 4);
   const C2 = new THREE.Color(0x6a6448), C3 = new THREE.Color(0x1e1a14);
-  K.paint(sac, 0x54564a, (c, x, y, z)=>{ const k = Math.sin(x*6 + z*5 + 1)*Math.sin(y*7 + 2.8); if(k > 0.25) c.lerp(C2, Math.min(1, (k - 0.25)*3)); const cr = Math.sin(x*10 + Math.sin(z*6)*2)*Math.sin(y*8 + Math.sin(x*4)); if(Math.abs(cr) < 0.05) c.lerp(C3, 0.8); });
+  // mottled, and a net of stretch-marks and split veins over it (noise contours, so they
+  // wander like veins: the old sine pattern made letters)
+  K.paint(sac, 0x54564a, (c, x, y, z)=>{ const k = bsN(x, y, z, 3.2, 4); if(k > 0.2) c.lerp(C2, Math.min(1, (k - 0.2)*2.5)); if(Math.abs(bsN(x, y, z, 7, 9)) < 0.03 || Math.abs(bsN(x, y, z, 13, 2)) < 0.02) c.lerp(C3, 0.8); });
   P(belly, sac, 0xffffff, 0, 0, 0, 0, 0, 0, 1, 1, 1.18);
   // stretched so far the skin has split and been stitched, veins standing up all over it
   for(let i=0;i<7;i++){ const a = i/7*PI*2 + 0.2, pts = []; for(let j=0;j<5;j++){ const e = -0.8 + j*0.38, aa = a + Math.sin(j*1.7 + i)*0.2, rr = 0.56*Math.cos(e*0.85); pts.push([Math.cos(aa)*rr, Math.sin(e)*0.42, Math.sin(aa)*rr*1.18]); } P(belly, K.tube(pts, 0.016, 10, 6), 0x2a2420); }
@@ -2848,9 +2852,28 @@ Models.bride = function(){
 /* ---- floor 4, the Gloomwood Edge: the Eye Below. A vast bloodshot eye in a
    socket of meat, its lids rimmed with teeth that close like a mouth when it
    blinks, nerves running out of it into the floor ---- */
+/* heavy lids of raw flesh round an eyeball of radius r at (0, y, 0) looking down +z:
+   the upper one hoods the top of the iris, the lower one swells up under it, each
+   with a thick wet rim; the eye peers out of a slit of meat (never a clean ball) */
+function eyeLids(parent, r, y, col, seed){
+  const hi = 0.27, lo = -0.36, w = Math.max(10, Math.round(r*90));
+  [[hi, 1], [lo, -1]].forEach(([edge, s])=>{
+    const a0 = Math.acos(Math.abs(edge)), g = new THREE.SphereGeometry(r*1.05, Math.min(64, w*2), Math.min(24, w), 0, PI*2, 0, a0);
+    lobes(g, 5, 0.05, 0, seed + s); sculptW(g, r*0.035, 4.5/r, seed + s);
+    // folds of skin running round it, deepest near the rim (a lid wrinkles, it doesn't shine)
+    const pa = g.attributes.position, FC2 = new THREE.Color(0x1a0608);
+    K.paint(g, 0xffffff, (c, x, yv, z)=>{ const ang = Math.acos(Math.max(-1, Math.min(1, yv/(r*1.05)))), f = ang/a0; const w = Math.sin(f*PI*7 + Math.sin(Math.atan2(z, x)*3 + seed)*1.2); if(w > 0.75) c.lerp(FC2, (w - 0.75)*2.4*f); });
+    if(s < 0) g.rotateX(PI);
+    P(parent, blotch(g, 0x2a0c10, 3/r, 0.3, seed + s), col, 0, y, 0);
+    // the rim: a thick wet lip along the edge, lumpy
+    const R0 = r*1.05*Math.sin(a0), yy = y + s*r*1.05*Math.cos(a0), pts = [];
+    for(let i=0;i<=40;i++){ const t = i/40*PI*2; pts.push([Math.sin(t)*R0, yy, Math.cos(t)*R0]); }
+    P(parent, meat(pts, t=> r*(0.07 + 0.02*Math.sin(t*PI*9 + seed)), 64, 8, seed + s), new THREE.Color(col).multiplyScalar(1.25).getHex());
+  });
+}
 function bsEyeball(R, parent, r, iris, seed){
   const e = new THREE.SphereGeometry(r, r > 0.5 ? 64 : 22, r > 0.5 ? 48 : 16);
-  K.paint(e, 0xb4a88a, (c, x, y, z)=>{ const cz = z/r;
+  K.paint(e, 0x9a8a68, (c, x, y, z)=>{ const cz = z/r;
     if(cz < 0.2) c.lerp(bsC.setHex(0x7a4438), Math.min(1, (0.2 - cz)*0.8));
     if(cz > 0.6) c.lerp(bsC.setHex(0xa85a48), (cz - 0.6)*1.4);
     if(cz < 0.86 && Math.abs(bsN(x/r, y/r, z/r, 5, seed)) < 0.022) c.lerp(bsC.setHex(0x7a0e0c), 0.9);
@@ -2861,10 +2884,11 @@ function bsEyeball(R, parent, r, iris, seed){
   const ir = new THREE.Color(iris), dk = new THREE.Color(0x1a0402);
   K.paint(ic, iris, (c, x, y, z)=>{
     const t = Math.acos(Math.min(1, z/(r*1.004)))/0.52, ang = Math.atan2(y, x), xs = x/r, ys = y/r;
-    c.copy(ir).multiplyScalar(0.45 + 0.55*(0.5 + 0.5*Math.sin(ang*38 + Math.sin(ang*7)*2)))
-      .lerp(dk, Math.max(0, t - 0.75)*3);
-    if(t < 0.35) c.lerp(bsC.setHex(0xffd080), (0.35 - t)*1.2);
-    if(Math.abs(xs) < 0.07*Math.max(0, 1 - Math.pow(ys/0.36, 2)) + 0.004) c.setHex(0x000000);
+    const fib = 0.5 + 0.5*Math.sin(ang*38 + Math.sin(ang*7)*2), fib2 = 0.5 + 0.5*Math.sin(ang*91 + t*9);
+    c.copy(ir).multiplyScalar(0.22 + 0.32*fib + 0.12*fib2)
+      .lerp(dk, Math.min(1, Math.max(0, t - 0.6)*2.6));                       // a dark limbal ring
+    if(t < 0.3) c.lerp(bsC.setHex(0x6a3010), (0.3 - t)*1.6);                  // a dull collar round the pupil, not a bright one
+    if(Math.abs(xs) < 0.1*Math.max(0, 1 - Math.pow(ys/0.4, 2)) + 0.004) c.setHex(0x000000);
   });
   const m = new THREE.Mesh(ic, new THREE.MeshBasicMaterial({ vertexColors:true, transparent:true }));
   parent.add(m); R.glows.push(m);
@@ -2872,9 +2896,10 @@ function bsEyeball(R, parent, r, iris, seed){
 }
 Models.eye = function(){
   const R = rig("eye"), b = R.body;
-  const FL = 0x5a3440, FL2 = 0x1e0c14, IRIS = 0xff4a1a;
+  const FL = 0x5a3440, FL2 = 0x1e0c14, IRIS = 0xc8401a;
   const float = group(b, 0, 1.65, 0); R.parts.head = float;
   bsEyeball(R, float, 1.2, IRIS, 1.3);
+  eyeLids(float, 1.2, 0, FL, 3);
   // veins standing out on the white
   for(let i=0;i<9;i++){
     const a = i/9*PI*2 + Math.sin(i*5)*0.3, pts = [];
@@ -2923,11 +2948,11 @@ Models.eye = function(){
   // lesser eyes on stalks, half-lidded, looking everywhere else
   for(let i=0;i<4;i++){
     const a = i/4*PI*2 + PI/4, x = Math.cos(a)*1.3, z = Math.sin(a)*1.3, h = 2.35 + (i % 2)*0.45;
-    P(b, K.tube([[x*0.6, 0.6, z*0.6], [x*1.05, 1.4, z*1.05], [x*1.15, h - 0.15, z*1.15]], 0.06, 12, 8), FL);
+    // a stalk of meat, thick at the root, thinning, then swelling into the socket it holds the eye in
+    P(b, meat([[x*0.6, 0.6, z*0.6], [x*1.05, 1.4, z*1.05], [x*1.15, h - 0.12, z*1.15]], t=> 0.075 - 0.04*t + 0.06*Math.pow(Math.max(0, t - 0.75)*4, 2), 14, 9, i + 2), FL);
     const e = group(b, x*1.15, h, z*1.15); e.rotation.y = Math.atan2(x, z) + (i % 2 ? 0.5 : -0.5);
-    bsEyeball(R, e, 0.17, 0xffb03a, i + 4);
-    P(e, new THREE.SphereGeometry(0.185, 20, 8, 0, PI*2, 0, PI*0.42), FL, 0, 0, 0, -0.35);
-    P(e, new THREE.SphereGeometry(0.185, 20, 8, 0, PI*2, PI*0.7, PI*0.3), FL, 0, 0, 0, 0.2);
+    bsEyeball(R, e, 0.17, 0xa8501a, i + 4);
+    eyeLids(e, 0.17, 0, FL, i + 9);
   }
   halo(R, float, IRIS, 3.4, 0, 0, 1.1, 0.25);
   R.h = 3.4; return finish(R, { w:0.035 });
@@ -3054,6 +3079,37 @@ Models.enemy = function(model){
   if(KITS[model] && model !== "king") return Models.goblin(model);
   const f = Models[model];
   return f ? f() : Models.goblin("grunt");
+};
+/* a copy of a built rig, nearly free: the same meshes (shared geometry), its own
+   materials (so each one fades, flashes and dies on its own), and every reference
+   on the rig (parts, glows, what the animations move) pointed at its own nodes.
+   Every rig of a kind is identical, so the view builds each kind once and copies it
+   (the builds got slow enough, sculpted, to stall a wave). Rigs are groups, meshes
+   and sprites only, with no references in userData (checked: Models.copy keeps to that). */
+Models.copy = function(R){
+  const map = new Map(), mat = R.mat ? R.mat.clone() : null;
+  if(mat){ mat.onBeforeCompile = R.mat.onBeforeCompile; mat.customProgramCacheKey = R.mat.customProgramCacheKey; }
+  const glow = new Set(R.glows);
+  const dup = n=>{
+    let c;
+    if(n.isMesh) c = new THREE.Mesh(n.geometry, n.material === R.mat ? mat : glow.has(n) ? n.material.clone() : n.material);
+    else if(n.isSprite) c = new THREE.Sprite(glow.has(n) ? n.material.clone() : n.material);
+    else c = new THREE.Group();
+    c.position.copy(n.position); c.quaternion.copy(n.quaternion); c.scale.copy(n.scale);
+    c.visible = n.visible; c.renderOrder = n.renderOrder; c.frustumCulled = n.frustumCulled;
+    c.castShadow = n.castShadow; c.receiveShadow = n.receiveShadow; c.name = n.name;
+    c.userData = Object.assign({}, n.userData);
+    map.set(n, c);
+    n.children.forEach(k=> c.add(dup(k)));
+    return c;
+  };
+  const root = dup(R.root);
+  const conv = v=> v && v.isObject3D ? (map.get(v) || v) : Array.isArray(v) ? v.map(conv) : v && v.constructor === Object ? convObj(v) : v;
+  const convObj = o=>{ const r = {}; for(const k in o) r[k] = conv(o[k]); return r; };
+  const C = {};
+  for(const k in R) C[k] = conv(R[k]);
+  C.root = root; C.mat = mat; delete C.lastFade; delete C.mo;
+  return C;
 };
 
 /* ================================================================== *
@@ -3752,7 +3808,7 @@ Models.olm = function(){
   const R = rig("olm"), b = R.body;
   // legs and boots under the robe
   [-1, 1].forEach(s=>{
-    P(b, S(0.085, 10, 8), OLM.leather, s*0.11, 0.06, 0.04, 0, 0, 0, 1, 0.75, 1.45);
+    P(b, meat([[s*0.11, 0.1, -0.06], [s*0.11, 0.06, 0.04], [s*0.115, 0.04, 0.14]], t=> 0.07*(1 - 0.25*t), 8, 10, s + 2), OLM.leather);   // a boot, toe and heel
     P(b, CY(0.066, 0.078, 0.3, 10), OLM.iron2, s*0.11, 0.25, 0);
     P(b, TO(0.07, 0.012), OLM.rust, s*0.11, 0.33, 0, PI/2);
   });
@@ -3793,12 +3849,18 @@ Models.olm = function(){
   for(let i=0;i<12;i++){ const a = i/12*PI*2; P(head, zs(0.011), OLM.brass, Math.sin(a)*0.17, 0.2, Math.cos(a)*0.17); }
   [-1, 1].forEach(s=>{ glow(R, head, 0.012, 0xffb84a, s*0.05, 0.13, 0.17); halo(R, head, 0xffb84a, 0.1, s*0.05, 0.13, 0.18, 0.5); });
   // the right arm hangs, gauntlet resting on the belt; the left holds the staff
+  // (heavy sleeves, thick at the shoulder; plated fists with a ridge over the knuckles)
+  const gauntlet = (g, x, y, z, rx)=>{
+    P(g, sculptW(new THREE.BoxGeometry(0.1, 0.09, 0.12, 2, 2, 2), 0.006, 30, x*9), OLM.iron2, x, y, z, rx, 0, 0);
+    P(g, meat([[x - 0.045, y + 0.035, z + 0.05], [x, y + 0.045, z + 0.065], [x + 0.045, y + 0.035, z + 0.05]], t=> 0.014, 8, 6, 3), OLM.rust);
+    P(g, meat([[x, y + 0.06, z - 0.07], [x, y + 0.05, z - 0.02]], t=> 0.05*(1 - 0.2*t), 4, 10, 4), OLM.iron2);   // the cuff
+  };
   const armR = R.parts.armR = group(b, 0.3, 1.04, 0);
-  P(armR, K.tube([[0, 0, 0], [0.04, -0.17, 0.04], [-0.02, -0.3, 0.12]], 0.06, 8, 8), OLM.wool2);
-  P(armR, S(0.065, 10, 8), OLM.iron2, -0.03, -0.33, 0.14, 0, 0, 0, 1, 0.85, 1.1);
+  P(armR, meat([[0, 0.02, 0], [0.04, -0.17, 0.04], [-0.02, -0.3, 0.12]], t=> 0.075 - 0.025*t + 0.008*Math.sin(t*PI), 10, 10, 5), OLM.wool2);
+  gauntlet(armR, -0.03, -0.35, 0.15, 0.4);
   const armL = R.parts.armL = group(b, -0.3, 1.04, 0);
-  P(armL, K.tube([[0, 0, 0], [-0.06, -0.13, 0.08], [-0.05, -0.2, 0.22]], 0.06, 8, 8), OLM.wool2);
-  P(armL, S(0.065, 10, 8), OLM.iron2, -0.05, -0.2, 0.26, 0, 0, 0, 1, 0.9, 1);
+  P(armL, meat([[0, 0.02, 0], [-0.06, -0.13, 0.08], [-0.05, -0.2, 0.22]], t=> 0.075 - 0.025*t + 0.008*Math.sin(t*PI), 10, 10, 6), OLM.wool2);
+  gauntlet(armL, -0.05, -0.21, 0.27, -0.3);
   // the staff: knotted wood, a crook at the top, and the lantern hung from it
   const staff = R.parts.staff = group(b, -0.35, 0, 0.27);
   P(staff, K.sculpt(new THREE.CylinderGeometry(0.022, 0.03, 1.72, 8, 8), 0.006, 20, 3), OLM.wood, 0, 0.86, 0);

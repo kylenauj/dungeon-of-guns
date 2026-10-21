@@ -157,7 +157,8 @@ proto.warmRig = function(R){
 /* an enemy's rig: one built ahead if there is one, else built now */
 proto.takeRig = function(kind){
   const L = this.pool && this.pool[kind];
-  return L && L.length ? L.pop() : M.enemy(kind);
+  if(L && L.length) return L.pop();
+  return this.tpl && this.tpl[kind] ? M.copy(this.tpl[kind]) : M.enemy(kind);
 };
 proto.warmUp = function(now){
   const V = this, G = V.G;
@@ -168,7 +169,12 @@ proto.warmUp = function(now){
   const k = V.warm.shift();
   try{
     if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); }
-    else { const R = M.enemy(k); V.warmRig(R); (V.pool[k] = V.pool[k] || []).push(R); }
+    else {
+      // the first of a kind is built (and its shaders warmed), the rest are copies of it
+      V.tpl = V.tpl || {};
+      if(!V.tpl[k]){ V.tpl[k] = M.enemy(k); V.warmRig(V.tpl[k]); }
+      (V.pool[k] = V.pool[k] || []).push(M.copy(V.tpl[k]));
+    }
   }catch(e){ console.error("warm: " + k, e); }
 };
 
