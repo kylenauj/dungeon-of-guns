@@ -26,7 +26,7 @@ const Game = DG.Game = function(opts){
   G.rng = DG.RNG(G.seed ^ 0x5bd1e995);
   G.t = 0; G.events = []; G.state = "play"; G.endless = false; G.choice = null;
   G.meta = opts.meta || { flies:0, unlocked:{} };
-  G.stats = { kills:0, dmg:0, rooms:0, gold:0, time:0, floors:0, secrets:0, puzzles:0, items:0, reactions:0, flies:0 };
+  G.stats = { kills:0, dmg:0, rooms:0, gold:0, time:0, floors:0, secrets:0, puzzles:0, items:0, reactions:0, flies:0, lairs:0, bosses:[] };
   G.nextId = 1;
   G.seenItems = {}; G.pools = Items.pools();
   const P = DG.PLAYER;
@@ -726,6 +726,7 @@ proto.ambush = function(r){
 };
 proto.bossDown = function(e){
   const G = this, r = G.D.rooms[e.room];
+  G.stats.bosses.push({ floor:G.floor, type:e.type });
   G.enemies.forEach(o=>{ if(o !== e && !o.dead && o.room === r.id) G.killEnemy(o, {}); });
   G.bullets.forEach(b=>{ if(b.team === "e") b.dead = true; });
   G.beams = [];
@@ -1001,7 +1002,7 @@ proto.clearSpecial = function(r){
   const G = this;
   if(r.type === "lair" && !r.lairPaid){
     // the lair's hoard: something good, a key, and a breather
-    r.lairPaid = true;
+    r.lairPaid = true; G.stats.lairs++;
     const x = Math.floor(r.cxw), y = Math.floor(r.cyw);
     G.addProp(r, { kind:"pedestal", x, y, pool:G.floor >= 3 ? "x" : "t" });
     G.addPickup("key", x + 1.5, y + 0.5, 1);

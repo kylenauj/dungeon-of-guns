@@ -224,3 +224,19 @@ body.cinema #hud{display:none;}
   .title-wrap{gap:6px;}
   .menu .item{padding-top:5px;padding-bottom:4px;}
 }
+
+/* the journal, at the top of the satchel */
+.journal{margin:4px 0 14px;padding:10px 14px 8px;border-left:2px solid rgba(200,164,90,.55);background:linear-gradient(90deg,rgba(30,22,14,.6),rgba(10,8,6,0));}
+.journal h4{margin-top:0;}
+.journal .mission{font-style:italic;color:#d8caa8;margin:2px 0 8px;line-height:1.4;}
+.journal .roots{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:3px;}
+.journal .roots li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:baseline;font-size:14px;color:#8a7e68;}
+.journal .roots .fl{font-family:var(--display);color:#6a5e4a;}
+.journal .roots .bs{font-family:var(--display);letter-spacing:.06em;font-size:12px;}
+.journal .roots li.cut{color:#6a6050;text-decoration:line-through;text-decoration-color:rgba(168,40,26,.7);}
+.journal .roots li.cut .bs{color:#a8402c;text-decoration:none;}
+.journal .roots li.here{color:#ecdcb8;}
+.journal .roots li.here .fl{color:#ffd27a;}
+.journal .roots li.here .bs{color:#d8a050;}
+.journal .tally{font-size:13px;color:#a89878;margin:4px 0;}
+.journal .tally b{color:#e8d0a0;}

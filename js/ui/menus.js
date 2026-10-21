@@ -114,6 +114,28 @@ UI.pause = function(G){
     </div>`, "pause");
 };
 
+/* ---- the journal: what you're down here for, and how far it's got ----
+   The Mission, floor by floor (each boss is a root of the Heart), and any
+   other road you've stumbled onto. */
+UI.journal = function(G){
+  const p = G.player, n = DG.FINAL_FLOOR, felled = (G.stats.bosses || []).map(b=> b.floor);
+  const rows = DG.FLOORS.slice(0, n).map((F, i)=>{
+    const f = i + 1, B = DG.BOSSES[F.boss], done = felled.indexOf(f) >= 0, here = f === G.floor && !done;
+    const state = done ? "cut" : here ? "here" : f < G.floor ? "past" : "below";
+    return `<li class="${state}"><span class="fl">${f}</span><span class="nm">${esc(F.name)}</span><span class="bs">${done ? "✝ " : ""}${esc(B ? B.name : "")}</span></li>`;
+  }).join("");
+  const roads = [];
+  if(p.quests.ember) roads.push(`<span class="chipx" style="--c:#ff9a4a">The Ember: it wants to go down, past the Heart</span>`);
+  if(p.quests.crown) roads.push(`<span class="chipx" style="--c:#7ac84a">The Crown of the Bog: Gribbus has plans</span>`);
+  return `<div class="journal">
+      <h4>The road down</h4>
+      <p class="mission">The Gloom is a rot coming up from the Heart at the bottom of the Keep. Each warden below is one of its roots. Go down. Cut them. Still the Heart.</p>
+      <ol class="roots">${rows}</ol>
+      <p class="tally">Lairs cleared: <b>${G.stats.lairs || 0}</b> · Puzzles solved: <b>${G.stats.puzzles || 0}</b> · Secrets: <b>${G.stats.secrets || 0}</b></p>
+      ${roads.length ? `<div class="chips">${roads.join("")}</div>` : ""}
+    </div>`;
+};
+
 /* ---- the satchel: everything you carry ---- */
 UI.bag = function(G){
   const p = G.player, L = DG.Loot;
@@ -146,6 +168,7 @@ UI.bag = function(G){
   UI.show(`
     <div class="panel scroll bagp">
       <h2 class="head">SATCHEL</h2>
+      ${UI.journal(G)}
       <div class="guns">${p.guns.map(gunCard).join("")}</div>
       ${act || forms || duos ? `<h4>Held and bound</h4><div class="pws">${act}${forms}${duos}</div>` : ""}
       <h4>Powerups (${ids.length})</h4>${items}
