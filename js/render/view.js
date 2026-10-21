@@ -98,10 +98,9 @@ proto.buildFloor = function(){
   for(let n=0;n<4;n++) kinds.forEach(k=> V.warm.push(k));
   V.endRigs = null;
   if(G.floor >= DG.FINAL_FLOOR) V.warm.push("@ending");
-  // as much of it as fits in a moment is built now, behind the title card (one of
-  // each first, the boss before them); only the rest is left to trickle in
-  const t0 = performance.now();
-  while(V.warm.length && performance.now() - t0 < 600) V.warmUp(true);
+  // all of it is built now, behind the veil (main.js): one of each kind (and its
+  // shaders warmed), the rest copies of it, so nearly free (Models.copy)
+  while(V.warm.length) V.warmUp(true);
 };
 /* A new shader is compiled the first time anything that needs it is drawn, and on
    Windows (where the browser translates every shader for DirectX) that can take a

@@ -23,11 +23,13 @@ body.playing{cursor:none;}
 #hud{position:fixed;inset:0;pointer-events:none;}
 button{font:inherit;color:inherit;}
 
-#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 45%,#14100d 0%,#050404 70%);
+#loading,.veil{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 45%,#14100d 0%,#050404 70%);
   font-family:var(--display);font-weight:400;font-size:clamp(26px,6vw,46px);letter-spacing:.22em;color:var(--ivory);z-index:50;text-align:center;padding:0 16px;}
-#loading b{font-weight:400;}
-#loading i{display:block;width:min(420px,70vw);height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
-#loading small{font-family:var(--body);font-style:italic;font-size:17px;letter-spacing:.04em;color:var(--dim);animation:breathe 2.4s ease-in-out infinite;}
+#loading b,.veil b{font-weight:400;}
+.veil{z-index:40;transition:opacity .45s ease;pointer-events:none;}
+.veil.gone{opacity:0;}
+#loading i,.veil i{display:block;width:min(420px,70vw);height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+#loading small,.veil small{font-family:var(--body);font-style:italic;font-size:17px;letter-spacing:.04em;color:var(--dim);animation:breathe 2.4s ease-in-out infinite;}
 @keyframes breathe{0%,100%{opacity:.45;}50%{opacity:1;}}
 
 /* ---- menu items: Souls-style lines of engraved capitals ---- */

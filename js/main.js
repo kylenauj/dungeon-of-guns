@@ -35,7 +35,32 @@ app.startDemo = function(){
   UI.title();
 };
 
+/* ---- the veil: a loading screen over the world while a floor is built ----
+   Building a floor (its stone, the filth, every shader, every enemy ahead) takes a
+   second or two. It used to happen in the middle of a frame, the last picture
+   frozen on screen; now the veil goes up first (it paints), the floor is built
+   behind it, a couple of frames are drawn under it (so the first sight of
+   everything costs nothing later), then it fades. The game holds still meanwhile. */
+const Veil = app.veil = {
+  el:null,
+  show(title, sub){
+    if(!Veil.el){ Veil.el = document.createElement("div"); Veil.el.className = "veil"; document.body.appendChild(Veil.el); }
+    Veil.el.innerHTML = "<b></b><i></i><small></small>";
+    Veil.el.querySelector("b").textContent = title || "";
+    Veil.el.querySelector("small").textContent = sub || "the dark takes shape…";
+    Veil.el.classList.remove("gone"); Veil.el.style.display = "flex";
+  },
+  hide(){ if(!Veil.el) return; Veil.el.classList.add("gone"); setTimeout(()=>{ if(Veil.el.classList.contains("gone")) Veil.el.style.display = "none"; }, 500); }
+};
+/* run fn once the veil has painted (two frames on), then keep it up `hold` frames more */
+const behindVeil = (fn, hold)=>{ requestAnimationFrame(()=> requestAnimationFrame(()=>{ fn(); let n = hold || 2; const tick = ()=>{ if(--n <= 0) Veil.hide(); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); })); };
+
 app.newRun = function(word){
+  Veil.show("ZIPPY & GRIBBUS", "the dark takes shape…");
+  app.mode = "loading";
+  behindVeil(()=> app.newRunNow(word), 3);
+};
+app.newRunNow = function(word){
   app.stopRun();
   const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta() });
   if(Q.has("god")) G.god = true;
@@ -133,6 +158,15 @@ const ONE_SHOTS = ["blink", "use", "active", "swap", "reload"], NO_SHOTS = { bli
 function frame(dt, t){
   const G = app.G, V = app.V;
   if(!G || !V) return;
+  // going down: the veil is up, the game holds still; the floor is built once it has
+  // painted, and the events that came with the descent are handled after it
+  if(app.descend){
+    const d = app.descend; d.n++;
+    if(d.n === 3){ [d.ev].concat(d.rest).forEach(ev=>{ V.handle(ev); HUD.handle(ev, G); }); }
+    if(d.n > 3){ V.update(dt, t); S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true); }
+    if(d.n === 6){ Veil.hide(); app.descend = null; app.acc = 0; }
+    return;
+  }
   if(app.mode === "play" || app.mode === "title" || app.mode === "end" || app.mode === "cine"){
     app.acc = Math.min(app.acc + dt, STEP*5);
     let first = true;
@@ -156,9 +190,13 @@ function frame(dt, t){
       if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));
       G.drain().forEach(ev=>{
         if(ev.type === "fly" && !app.demo) saveMeta(G.meta);
+        // a new floor: everything from here waits behind the veil (frame, above)
+        if(!V.silent && ev.type === "floor" && ev.floor !== V.floor && !app.descend){ app.descend = { ev, rest:[], n:0 }; Veil.show(ev.name || "", "down into the dark…"); return; }
+        if(app.descend){ app.descend.rest.push(ev); return; }
         if(V.silent){ const a = AU.muted; AU.muted = true; V.handle(ev); AU.muted = a; }
         else { V.handle(ev); HUD.handle(ev, G); }
       });
+      if(app.descend) break;
       if(app.demo && ((G.state !== "play" && G.state !== "choose") || G.t > 150)){ app.startDemoSoon(); break; }
       if(live && G.state !== "play") break;
     }
