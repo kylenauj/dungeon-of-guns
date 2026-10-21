@@ -9,7 +9,11 @@
     "start": "npx --yes http-server -p 8080 -c-1 .",
     "bundle": "node tools/bundle.js",
     "power": "node tests/power.js",
-    "look": "node tools/look.js"
+    "look": "node tools/look.js",
+    "kit": "node tools/kit.js"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "three": "0.128.0"
+  }
 }
