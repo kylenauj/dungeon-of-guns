@@ -40,17 +40,23 @@ K.paint = function(g, col, fn){
   return g;
 };
 
+/* merge a list of geometries into one (one draw). Shared vertices stay shared: an
+   indexed part keeps its index (offset), a loose one gets a running index. (It used
+   to explode everything into separate triangles first: 3-6x the vertices, and most
+   of a floor's load time.) */
 K.merge = function(list){
-  const parts = list.map(g=> g.index ? g.toNonIndexed() : g);
-  let n = 0; parts.forEach(g=> n += g.attributes.position.count);
+  let n = 0, ni = 0; list.forEach(g=>{ n += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; });
   const pos = new Float32Array(n*3), nor = new Float32Array(n*3), col = new Float32Array(n*3), uv = new Float32Array(n*2);
-  let o = 0;
-  parts.forEach(g=>{
+  const idx = n > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+  let o = 0, oi = 0;
+  list.forEach(g=>{
     const p = g.attributes.position, q = g.attributes.normal, c = g.attributes.color, u = g.attributes.uv;
     pos.set(p.array, o*3);
     if(q) nor.set(q.array, o*3);
     if(c) col.set(c.array, o*3); else col.fill(1, o*3, (o + p.count)*3);
     if(u) uv.set(u.array, o*2);
+    if(g.index){ const ia = g.index.array; for(let i=0;i<ia.length;i++) idx[oi + i] = ia[i] + o; oi += ia.length; }
+    else { for(let i=0;i<p.count;i++) idx[oi + i] = o + i; oi += p.count; }
     o += p.count;
   });
   const g = new THREE.BufferGeometry();
@@ -58,6 +64,7 @@ K.merge = function(list){
   g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
   g.setAttribute("color", new THREE.BufferAttribute(col, 3));
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;
 };
@@ -380,6 +387,38 @@ K.part = function(parent, geo, color, x, y, z, rx, ry, rz, sx, sy, sz){
   return m;
 };
 /* merge every part directly under each object into one toon mesh + outline */
+/* every part's geometry, moved into place, tinted by its colour, written straight
+   into one merged buffer (no per-part copies: baking was most of a floor's load) */
+const _nm = new THREE.Matrix3();
+function bakeParts(parts){
+  let n = 0, ni = 0;
+  parts.forEach(m=>{ const g = m.geometry; if(!g.attributes.normal) g.computeVertexNormals(); n += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; });
+  const pos = new Float32Array(n*3), nor = new Float32Array(n*3), col = new Float32Array(n*3), uv = new Float32Array(n*2);
+  const idx = n > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+  let o = 0, oi = 0;
+  parts.forEach(m=>{
+    m.updateMatrix();
+    const g = m.geometry, P = g.attributes.position.array, N = g.attributes.normal.array, C = g.attributes.color, U = g.attributes.uv, cnt = g.attributes.position.count;
+    const e = m.matrix.elements, ne = _nm.getNormalMatrix(m.matrix).elements, c = m.material.color;
+    for(let i=0;i<cnt;i++){
+      const x = P[i*3], y = P[i*3 + 1], z = P[i*3 + 2], j = (o + i)*3;
+      pos[j] = e[0]*x + e[4]*y + e[8]*z + e[12]; pos[j + 1] = e[1]*x + e[5]*y + e[9]*z + e[13]; pos[j + 2] = e[2]*x + e[6]*y + e[10]*z + e[14];
+      const nx = N[i*3], ny = N[i*3 + 1], nz = N[i*3 + 2];
+      let ax = ne[0]*nx + ne[3]*ny + ne[6]*nz, ay = ne[1]*nx + ne[4]*ny + ne[7]*nz, az = ne[2]*nx + ne[5]*ny + ne[8]*nz;
+      const l = Math.hypot(ax, ay, az) || 1; nor[j] = ax/l; nor[j + 1] = ay/l; nor[j + 2] = az/l;
+      if(C){ col[j] = c.r*C.getX(i); col[j + 1] = c.g*C.getY(i); col[j + 2] = c.b*C.getZ(i); } else { col[j] = c.r; col[j + 1] = c.g; col[j + 2] = c.b; }
+      if(U){ uv[(o + i)*2] = U.getX(i); uv[(o + i)*2 + 1] = U.getY(i); }
+    }
+    if(g.index){ const ia = g.index.array; for(let i=0;i<ia.length;i++) idx[oi + i] = ia[i] + o; oi += ia.length; }
+    else { for(let i=0;i<cnt;i++) idx[oi + i] = o + i; oi += cnt; }
+    o += cnt;
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeBoundingSphere();
+  return g;
+}
 K.bake = function(root, opts){
   opts = opts || {};
   const mat = opts.mat || K.toon(), out = opts.outline === false ? null : (opts.outlineMat || K.outlineMat(opts.w));
@@ -388,21 +427,8 @@ K.bake = function(root, opts){
   nodes.forEach(o=>{
     const parts = o.children.filter(c=> c.isMesh && c.userData.part);
     if(!parts.length) return;
-    const geos = parts.map(m=>{
-      m.updateMatrix();
-      let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
-      g.applyMatrix4(m.matrix);
-      const c = m.material.color, a = g.attributes.position, col = new Float32Array(a.count*3), prev = g.attributes.color;
-      for(let i=0;i<a.count;i++){
-        const pr = prev ? prev.getX(i) : 1, pg = prev ? prev.getY(i) : 1, pb = prev ? prev.getZ(i) : 1;
-        col[i*3] = c.r*pr; col[i*3+1] = c.g*pg; col[i*3+2] = c.b*pb;
-      }
-      g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-      if(!g.attributes.normal) g.computeVertexNormals();
-      return g;
-    });
+    const merged = bakeParts(parts);
     parts.forEach(m=>{ o.remove(m); m.geometry.dispose(); m.material.dispose(); });
-    const merged = K.merge(geos);
     const mesh = new THREE.Mesh(merged, mat); mesh.userData.baked = true;
     mesh.castShadow = mesh.receiveShadow = true;   // in the lantern's shadow (stage.js)
     o.add(mesh);

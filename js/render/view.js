@@ -88,27 +88,70 @@ proto.buildFloor = function(){
   S.theme(G.D.theme, G.curses);
   V.floor = G.floor;
   S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true);
-  // every shader the floor needs compiles now, behind the area card, not mid-fight
-  try{ S.renderer.compile(S.scene, S.camera); }catch(e){}
+  // every shader the floor can need compiles now, behind the area card, not mid-fight
+  V.warmAll();
   // and the floor's enemies are built ahead, one a frame while you explore, so a
   // room's fight doesn't build a dozen models in the frame it starts
   const th = G.D.theme, kinds = Object.keys(th.enemies || {}).map(k=> (DG.ENEMIES[k] && DG.ENEMIES[k].model) || k);
   V.pool = {}; V.warm = [];
   if(th.boss) V.warm.push((DG.BOSSES[th.boss] && DG.BOSSES[th.boss].model) || th.boss);
-  for(let n=0;n<3;n++) kinds.forEach(k=> V.warm.push(k));
+  for(let n=0;n<4;n++) kinds.forEach(k=> V.warm.push(k));
   V.endRigs = null;
   if(G.floor >= DG.FINAL_FLOOR) V.warm.push("@ending");
+  // as much of it as fits in a moment is built now, behind the title card (one of
+  // each first, the boss before them); only the rest is left to trickle in
+  const t0 = performance.now();
+  while(V.warm.length && performance.now() - t0 < 600) V.warmUp(true);
+};
+/* A new shader is compiled the first time anything that needs it is drawn, and on
+   Windows (where the browser translates every shader for DirectX) that can take a
+   second: the game froze the first time loot dropped, a boss died, a hazard
+   appeared or a new room came into view. So at load, behind the floor's title card,
+   the whole floor (fog of war lifted for a moment) and one of everything that only
+   turns up mid-fight is compiled and drawn once into a tiny target, then put away. */
+proto.warmAll = function(){
+  const V = this, G = V.G, W = V.world, R = S.renderer, g = new THREE.Group(), p = G.player;
+  const vis = {}; for(const id in W.areas){ vis[id] = W.areas[id].g.visible; W.areas[id].g.visible = true; }
+  const add = make=>{ try{ const o = make(); if(o) g.add(o.isObject3D ? o : o.g || o.root); }catch(e){ console.warn("warm:", e); } };
+  ["gold", "heart", "mana", "ward", "fly", "flyheal", "key"].forEach(k=> add(()=> M.pickup({ kind:k, value:5 })));
+  const itemId = Object.keys(DG.ITEMS)[0], activeId = Object.keys(DG.ACTIVES || {})[0];
+  add(()=> M.powerup(itemId));
+  add(()=> M.offer({ kind:"item", id:itemId }));
+  const gun = Object.assign({}, G.gun(), { kind:"gun" });
+  add(()=> M.item(gun));
+  if(activeId) add(()=> M.item({ kind:"active", id:activeId }));
+  add(()=> M.pickup({ kind:"item", item:gun }));
+  ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum"].forEach(k=> add(()=> hazardMesh({ kind:k, r:1, t:1, max:1, id:0 })));
+  ["bee", "hat", "moon", "shadow", "tadpole", "turret", "wisp"].forEach(k=> add(()=> allyMesh({ kind:k, el:"arcane", id:0 })));
+  add(()=> shadowBlob(0.4));
+  const hadPortal = V.portal; V.makePortal(0, 0); if(V.portal && V.portal !== hadPortal){ S.scene.remove(V.portal); g.add(V.portal); V.portal = hadPortal; }
+  g.position.set(p.x, 0, p.y); S.scene.add(g);
+  try{
+    R.compile(S.scene, S.camera);
+    const rt = new THREE.WebGLRenderTarget(64, 64); R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera); R.setRenderTarget(null); rt.dispose();
+  }catch(e){ console.warn("warm:", e); }
+  S.scene.remove(g);
+  for(const id in vis) W.areas[id].g.visible = vis[id];
+};
+/* compile one rig's shaders now (hidden far under the floor), so its first real
+   appearance costs nothing */
+proto.warmRig = function(R){
+  try{ R.root.position.set(0, -80, 0); S.scene.add(R.root); S.renderer.compile(S.scene, S.camera); }catch(e){}
+  S.scene.remove(R.root);
 };
 /* an enemy's rig: one built ahead if there is one, else built now */
 proto.takeRig = function(kind){
   const L = this.pool && this.pool[kind];
   return L && L.length ? L.pop() : M.enemy(kind);
 };
-proto.warmUp = function(){
+proto.warmUp = function(now){
   const V = this, G = V.G;
-  if(!V.warm || !V.warm.length || V.cine || (G.room && G.room.active)) return;
+  if(!V.warm || !V.warm.length || (!now && (V.cine || (G.room && G.room.active)))) return;
   const k = V.warm.shift();
-  try{ if(k === "@ending") V.endRigs = DG.Ending.prebuild(); else (V.pool[k] = V.pool[k] || []).push(M.enemy(k)); }catch(e){ console.error("warm: " + k, e); }
+  try{
+    if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); }
+    else { const R = M.enemy(k); V.warmRig(R); (V.pool[k] = V.pool[k] || []).push(R); }
+  }catch(e){ console.error("warm: " + k, e); }
 };
 
 proto.dispose = function(){

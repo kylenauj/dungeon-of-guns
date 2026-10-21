@@ -753,11 +753,32 @@ proto.buildTraps = function(){
 /* ---- decor: flattened per room into one baked mesh ---- */
 /* (a list other than the dungeon's own comes from vanity.js: those can
    sit on any wall face (face + rotY) or on top of a wall (h)) */
+/* decor is sculpted once per look: up to three variants of each kind per floor,
+   then copies of them (placed, turned and scaled as each one wants). Sculpting
+   every skull and candle afresh was a large part of a floor's load time. */
+function decorCopy(o){
+  const g = new THREE.Group();
+  o.group.children.forEach(m=>{
+    if(!m.userData.part) return;
+    const c = new THREE.Mesh(m.geometry, m.material); c.position.copy(m.position); c.quaternion.copy(m.quaternion); c.scale.copy(m.scale);
+    c.userData = { part:true, lit:m.userData.lit }; g.add(c);
+  });
+  return { group:g, glows:o.glows, lights:o.lights, eyes:o.eyes };
+}
+proto.decorOf = function(kind){
+  const W = this, cache = W.decorCache || (W.decorCache = {}), L = cache[kind] || (cache[kind] = []);
+  if(L.length < 3){
+    const o = DG.Decor.build(kind, W.rnd);
+    if(o.loose || o.group.children.some(m=> !m.userData.part && !m.isSprite)) return o;   // moving or nested decor: always fresh
+    L.push(o); return decorCopy(o);
+  }
+  return decorCopy(L[Math.floor(W.rnd()*L.length)]);
+};
 proto.buildDecor = function(list){
   const W = this, D = W.D, perArea = {}, litArea = {}, glows = {};
   const tmp = new THREE.Matrix4();
   (list || D.decor).forEach(d=>{
-    const o = DG.Decor.build(d.kind, W.rnd);
+    const o = W.decorOf(d.kind);
     const a = d.area !== undefined ? d.area : W.areaOfTile(d.x, d.wall ? d.y - 0.5 : d.y); if(a === null || a < 0) return;
     const holder = new THREE.Group();
     holder.position.set(d.x, d.h || 0, d.face ? d.y : d.wall ? d.y + 1 - 0.98 : d.y);
