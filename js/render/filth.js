@@ -209,6 +209,10 @@ proto.buildFilth = function(){
   const solid = (x, y)=> D.at(x, y) === T.SOLID;
   const floorOK = (x, y)=> D.at(x, y) === T.FLOOR && !traps.has(x + "," + y);
   const nearDoor = (x, y)=>{ for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) if(D.at(x + u, y + v) === T.DOOR) return true; return false; };
+  // the way through stays clear of anything tall: corridors, and the lanes in front of doors
+  const way = new Set();
+  (D.corridors || []).forEach(c=> c.tiles.forEach(([x, y])=> way.add(x + "," + y)));
+  if(DG.Dungeon.doorLanes) D.rooms.forEach(r=> DG.Dungeon.doorLanes(D, r).forEach(L=>{ for(let y=L.y0; y<=L.y1; y++) for(let x=L.x0; x<=L.x1; x++) way.add(x + "," + y); }));
   const rot = 0.12 + Math.min(0.5, (th.gloom || 0)*0.35 + (D.floor || 1)*0.05);   // the deeper, the more of it
   const rag1 = ()=> RAGS[Math.floor(rnd()*RAGS.length)];
   for(let y=0; y<D.h; y++) for(let x=0; x<D.w; x++){
@@ -241,7 +245,7 @@ proto.buildFilth = function(){
       if(rnd() < rot) growth(meat[a] = meat[a] || new Buf(), rnd, cx, cz, sx, sz, 0.8 + rnd()*0.6);
     }
     // the hanged, by the far wall and the sides (never over a doorway)
-    if((N || Wst || E) && rnd() < 0.035) hanged(b, rnd, N ? x + 0.3 + rnd()*0.4 : Wst ? x + 0.4 : x + 0.6, N ? y + 0.4 : y + 0.3 + rnd()*0.4);
+    if((N || Wst || E) && rnd() < 0.035 && !way.has(x + "," + y)) hanged(b, rnd, N ? x + 0.3 + rnd()*0.4 : Wst ? x + 0.4 : x + 0.6, N ? y + 0.4 : y + 0.3 + rnd()*0.4);
     // the open floor: now and then a rag, a scatter of grit and bone
     if(!N && !S && !Wst && !E){
       if(rnd() < 0.035) ragAt(x + 0.2 + rnd()*0.6, y + 0.2 + rnd()*0.6, 0.45 + rnd()*0.3);

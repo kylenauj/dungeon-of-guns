@@ -753,8 +753,30 @@ H.keyMark = function(g, x, y, s, col){
   g.beginPath(); g.moveTo(x - s*0.12, y); g.lineTo(x + s*0.45, y); g.moveTo(x + s*0.3, y); g.lineTo(x + s*0.3, y + s*0.22); g.moveTo(x + s*0.45, y); g.lineTo(x + s*0.45, y + s*0.18); g.stroke();
   g.restore();
 };
+/* where a corridor leaves a room, on that room's box on the map: the door's
+   place along the wall, as a share of the room's own width or height, and a
+   point just inside the box so the corridor reads as going through the wall */
+H.mapPort = function(D, r, c, bx){
+  let p = D.doors.find(d=> d.corridor === c.id && d.room === r.id) || (D.fakes || []).find(f=> f.corridor === c.id && f.room === r.id);
+  let side = p && p.side;
+  if(!p){                                                  // the secret room's own end has no door: use the corridor's end at it
+    let best = null, bd = 1e9; const cx = (r.x1 + r.x2 + 1)/2, cy = (r.y1 + r.y2 + 1)/2;
+    c.tiles.forEach(([x, y])=>{ const d = Math.abs(x + 0.5 - cx) + Math.abs(y + 0.5 - cy); if(d < bd){ bd = d; best = { x:x + 0.5, y:y + 0.5 }; } });
+    p = best; if(!p) return null;
+  }
+  if(!side){                                               // a fake, or the secret end: which wall it's in
+    const dx = p.x < r.x1 ? -1 : p.x > r.x2 + 1 ? 1 : 0, dy = p.y < r.y1 ? -1 : p.y > r.y2 + 1 ? 1 : 0;
+    side = dx > 0 ? "e" : dx < 0 ? "w" : dy > 0 ? "s" : "n";
+  }
+  const cl = v=> Math.max(0.12, Math.min(0.88, v));
+  const fx = cl((p.x - r.x1)/(r.x2 - r.x1 + 1)), fy = cl((p.y - r.y1)/(r.y2 - r.y1 + 1));
+  if(side === "e") return { x:bx.rx + bx.rw - 1, y:bx.ry + fy*bx.rh, h:true };
+  if(side === "w") return { x:bx.rx + 1, y:bx.ry + fy*bx.rh, h:true };
+  if(side === "s") return { x:bx.rx + fx*bx.rw, y:bx.ry + bx.rh - 1, h:false };
+  return { x:bx.rx + fx*bx.rw, y:bx.ry + 1, h:false };
+};
 H.minimap = function(g, G, xr, y, small){
-  const D = G.D, cs = small ? 9 : 12, gap = 3, lost = G.curses.indexOf("lost") >= 0;
+  const D = G.D, cs = small ? 9 : 12, gap = 5, lost = G.curses.indexOf("lost") >= 0;
   const visited = r=> r.visited || (r.type === "secret" && r.found);
   const known = r=> visited(r) || r.seen || r.hinted || r.known;
   // a doorway out of somewhere you've been: you know there's a room there, not what it is
@@ -771,13 +793,16 @@ H.minimap = function(g, G, xr, y, small){
   frame(g, x, y, w, h, "rgba(8,6,6,.78)");
   const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"", throne:"♚", cage:"!", gamble:"⁂", olm:"☼" };
   const box = r=>{ const rx = x + 8 + (r.c0x - minx)*cw, ry = y + 8 + (r.c0y - miny)*ch; return { rx, ry, rw:(r.c1x - r.c0x + 1)*cw - gap, rh:(r.c1y - r.c0y + 1)*ch - gap }; };
-  // corridors between rooms you know
-  g.strokeStyle = "rgba(150,132,104,.55)"; g.lineWidth = 2;
-  shown.forEach(r=> r.links.forEach(id=>{
-    const o = D.rooms[id]; if(id < r.id || shown.indexOf(o) < 0 || !(visited(r) || visited(o)) || o.type === "secret" && !visited(o)) return;
-    const a = box(r), b = box(o);
-    g.beginPath(); g.moveTo(R(a.rx + a.rw/2), R(a.ry + a.rh/2)); g.lineTo(R(b.rx + b.rw/2), R(b.ry + b.rh/2)); g.stroke();
-  }));
+  // corridors between rooms you know, drawn door to door where the doors
+  // really are in each room's walls (drawn over the rooms, below)
+  const links = [];
+  (D.corridors || []).forEach(c=>{
+    const ra = D.rooms[c.a], rb = D.rooms[c.b];
+    if(shown.indexOf(ra) < 0 || shown.indexOf(rb) < 0 || !(visited(ra) || visited(rb))) return;
+    if(ra.type === "secret" && !visited(ra) || rb.type === "secret" && !visited(rb)) return;
+    const pa = H.mapPort(D, ra, c, box(ra)), pb = H.mapPort(D, rb, c, box(rb));
+    if(pa && pb) links.push([pa, pb]);
+  });
   shown.forEach(r=>{
     const here = G.room === r, v = visited(r), k = known(r);
     const { rx, ry, rw, rh } = box(r);
@@ -805,6 +830,16 @@ H.minimap = function(g, G, xr, y, small){
     // ROOMS: behind a locked door, a key: you can see the chains from the room next door
     if(DG.Dungeon.behindLock(D, r)) H.keyMark(g, rx + rw/2, ry + rh/2, cs*0.8, here ? INK : v ? GOLD : "#c8a45a");
   });
+  g.save(); g.lineCap = "butt";
+  links.forEach(([a, b])=>{
+    const path = ()=>{ g.beginPath(); g.moveTo(R(a.x) + 0.5, R(a.y) + 0.5);
+      if(a.h) { const mx = (a.x + b.x)/2; g.lineTo(R(mx) + 0.5, R(a.y) + 0.5); g.lineTo(R(mx) + 0.5, R(b.y) + 0.5); }
+      else { const my = (a.y + b.y)/2; g.lineTo(R(a.x) + 0.5, R(my) + 0.5); g.lineTo(R(b.x) + 0.5, R(my) + 0.5); }
+      g.lineTo(R(b.x) + 0.5, R(b.y) + 0.5); };
+    g.strokeStyle = "rgba(8,6,6,.9)"; g.lineWidth = 4; path(); g.stroke();
+    g.strokeStyle = "#a08c6c"; g.lineWidth = 2; path(); g.stroke();
+  });
+  g.restore();
   if(lost) text(g, "?", x + w/2, y + h/2, 20, "#c88ab8", "center", "700");
   return h;
 };

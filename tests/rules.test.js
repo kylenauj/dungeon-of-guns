@@ -1427,3 +1427,23 @@ test("the bot doesn't swap two equal guns back and forth forever (it once stood 
   for(let i=0;i<60*8;i++){ G.update(1/60, bot.input(1/60)); swaps += G.drain().filter(e=> e.type === "pickup" && e.kind === "gun").length; }
   assert.ok(swaps <= 1, swaps + " swaps");
 });
+
+/* ---- doorways ---- */
+test("every doorway has a clear lane in: no pillar, crate, pit, pot, trap or decor in front of a door", ()=>{
+  for(let s=1;s<=60;s++){
+    const floor = 1 + (s % 5), D = DG.Dungeon.generate(s*48271 >>> 0, floor);
+    if(!D) continue;
+    D.rooms.forEach(r=>{
+      const lanes = DG.Dungeon.doorLanes(D, r);
+      lanes.forEach(L=>{
+        for(let y=Math.max(L.y0, r.y1); y<=Math.min(L.y1, r.y2); y++) for(let x=Math.max(L.x0, r.x1); x<=Math.min(L.x1, r.x2); x++){
+          const t = D.at(x, y);
+          if(r.type !== "puzzle") assert.ok(t !== T.BLOCK && t !== T.PIT && t !== T.BREAK, `seed ${s} floor ${floor} ${r.type} room: tile ${t} at ${x},${y} in a doorway`);
+          assert.ok(!r.traps.some(tr=> tr.kind !== "darts" && tr.x === x && tr.y === y), `seed ${s}: a trap in a doorway`);
+        }
+      });
+      D.decor.filter(d=> d.room === r.id).forEach(d=> assert.ok(!DG.Dungeon.inDoorway(D, r, d.x, d.y, d.wall ? 0 : 0.2), `seed ${s} floor ${floor} ${r.type}: ${d.kind} at ${d.x.toFixed(1)},${d.y.toFixed(1)} in a doorway`));
+      r.props.filter(p=> p.kind === "sign").forEach(p=> assert.ok(!DG.Dungeon.inDoorway(D, r, p.x + 0.5, p.y + 0.5), `seed ${s}: a sign in a doorway`));
+    });
+  }
+});

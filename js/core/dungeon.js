@@ -211,6 +211,7 @@ function tryGenerate(rng, floor, seed, opts){
   rooms.forEach(r=>{ if((r.type === "combat" || r.type === "start") && rng.chance(r.type === "start" ? 1 : 0.22)) paintDoor(D, rng, r); });
   specialExtras(D, rng, floor);
   dress(D, rng);
+  clearDoorways(D);
 
   // curses, more likely deeper down
   D.curses = [];
@@ -469,12 +470,15 @@ function junglePond(D, rng, r, x0, y0, pw, ph){
   const ferns = [[r.x1 + 0.8, r.y1 + 0.8], [r.x2 + 0.2, r.y1 + 0.8], [r.x1 + 0.8, r.y2 + 0.2], [r.x2 + 0.2, r.y2 + 0.2], [r.x1 + 0.6, (r.y1 + r.y2)/2 + 0.5], [r.x2 + 0.4, (r.y1 + r.y2)/2 + 0.5], [x0 - 1, y0 - 0.5], [x0 + pw + 0.6, y0 + ph + 0.3]];
   ferns.forEach(([x, y])=> D.decor.push({ kind:"bigfern", x, y, room:r.id, rot:rng.next()*6.28, s:1.4 + rng.next()*0.6 }));
   for(let k=0;k<5;k++){ const x = x0 + 0.6 + rng.next()*(pw - 1.2), y = y0 + 0.4 + rng.next()*(ph - 1.8); D.decor.push({ kind:"lotus", x, y, room:r.id, rot:rng.next()*6.28, s:0.8 + rng.next()*0.5 }); }
-  D.decor.push({ kind:"mossylog", x:r.x1 + 2.2, y:r.y2 - 0.2, room:r.id, rot:0.3, s:1 });
+  const log = [[r.x1 + 2.2, r.y2 - 0.2], [r.x2 - 1.2, r.y2 - 0.2], [r.x1 + 2.2, r.y1 + 1.2], [r.x2 - 1.2, r.y1 + 1.2]].find(([x, y])=> !Dungeon.inDoorway(D, r, x, y, 0.6)) || [cx + 0.5, r.y2 - 0.2];
+  D.decor.push({ kind:"mossylog", x:log[0], y:log[1], room:r.id, rot:0.3, s:1 });
   D.decor.push({ kind:"frogstatue", x:x0 - 1.5, y:y0 + ph - 0.5, room:r.id, rot:0.5, s:0.7 });
   D.decor.push({ kind:"reeds", x:x0 + 1, y:y0 - 0.2, room:r.id, s:1.2 }, { kind:"reeds", x:x0 + pw - 1, y:y0 + ph + 0.1, room:r.id, s:1.1 });
-  const wx = cx + 3;   // (the sign hangs over the middle of the north wall)
+  // (the sign hangs over the middle of the north wall; the waterfall needs a stretch of solid wall, not a doorway)
+  const wallOK = x=> [-1, 0, 1].every(k=> D.at(x + k, r.y1 - 1) === T.SOLID) && !Dungeon.inDoorway(D, r, x + 0.5, r.y1 - 0.02, 1);
+  const wx = [cx + 3, cx - 3, cx + 4, cx - 4, r.x1 + 2, r.x2 - 2].find(wallOK) || cx + 3;
   D.decor.push({ kind:"waterfall", x:wx + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:1 });
-  for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(Math.abs(x - cx) > 1 && Math.abs(x - wx) > 1) D.decor.push({ kind:"junglevines", x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
+  for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(Math.abs(x - cx) > 1 && Math.abs(x - wx) > 1 && D.at(x, r.y1 - 1) === T.SOLID) D.decor.push({ kind:"junglevines", x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
 }
 const JUNGLE = { floor:["bigfern", "fern", "toadstools", "lotusbud", "mossylog", "fern"], wall:["junglevines", "glowmoss", "junglevines"] };
 
@@ -524,6 +528,54 @@ function dress(D, rng){
       if(r.jungle) continue;
       if(rng.chance(0.45)) D.decor.push({ kind:rng.pick(wallKinds), x:x + 0.5, y:r.y1 - 0.02, room:r.id, wall:true, s:0.9 + rng.next()*0.3 });
     }
+  });
+}
+
+/* ---- doorways: a clear way in ----
+   In front of every door (and every secret wall) a lane three tiles deep
+   and five wide, with nothing standing in it: no pillar, crate, pit, pool,
+   pot, trap or decor. Signs in the way step aside. Puzzle rooms keep their
+   tiles (the puzzle is laid out around its doors already), and a pond keeps
+   its water. Runs last, and draws nothing from the rng. */
+function doorLanes(D, r){
+  const lanes = [];
+  const add = (p, side)=>{
+    const cx = Math.floor(p.x), cy = Math.floor(p.y);
+    if(side === "e") lanes.push({ x0:r.x2 - 2, x1:r.x2 + 1, y0:cy - 2, y1:cy + 2 });
+    else if(side === "w") lanes.push({ x0:r.x1 - 1, x1:r.x1 + 2, y0:cy - 2, y1:cy + 2 });
+    else if(side === "s") lanes.push({ x0:cx - 2, x1:cx + 2, y0:r.y2 - 2, y1:r.y2 + 1 });
+    else lanes.push({ x0:cx - 2, x1:cx + 2, y0:r.y1 - 1, y1:r.y1 + 2 });
+  };
+  const sideOf = p=> p.x > r.x2 + 1 ? "e" : p.x < r.x1 ? "w" : p.y > r.y2 + 1 ? "s" : "n";
+  r.doors.forEach(id=> add(D.doors[id], D.doors[id].side));
+  D.fakes.forEach(f=>{ if(f.room === r.id) add(f, sideOf(f)); });
+  return lanes;
+}
+Dungeon.doorLanes = doorLanes;
+/* is (x, y), in tile units, in a doorway lane of room r? m widens the lane (for big things) */
+Dungeon.inDoorway = function(D, r, x, y, m){
+  m = m || 0;
+  return doorLanes(D, r).some(L=> x >= L.x0 - m && x < L.x1 + 1 + m && y >= L.y0 - m && y < L.y1 + 1 + m);
+};
+function clearDoorways(D){
+  D.rooms.forEach(r=>{
+    const lanes = doorLanes(D, r);
+    if(!lanes.length) return;
+    const inLane = (x, y, m)=> lanes.some(L=> x >= L.x0 - m && x < L.x1 + 1 + m && y >= L.y0 - m && y < L.y1 + 1 + m);
+    if(r.type !== "puzzle") lanes.forEach(L=>{
+      for(let y=Math.max(L.y0, r.y1); y<=Math.min(L.y1, r.y2); y++) for(let x=Math.max(L.x0, r.x1); x<=Math.min(L.x1, r.x2); x++){
+        const t = D.at(x, y);
+        if(t === T.BLOCK || t === T.PIT || t === T.BREAK || (t === T.WATER && r.type !== "pond")) D.set(x, y, T.FLOOR);
+        if(t === T.BREAK) D.breakables = D.breakables.filter(b=> b.x !== x || b.y !== y);
+      }
+    });
+    r.traps = r.traps.filter(t=> t.kind === "darts" || !inLane(t.x + 0.5, t.y + 0.5, 0));
+    D.decor = D.decor.filter(d=> d.room !== r.id || !inLane(d.x, d.y, d.wall ? 0 : 0.2 + 0.35*(d.s || 1)));
+    // a sign in the way steps aside, along its wall
+    r.props.forEach(p=>{
+      if(p.kind !== "sign" || !inLane(p.x + 0.5, p.y + 0.5, 0)) return;
+      for(const dx of [3, -3, 5, -5, 7, -7]){ const x = p.x + dx; if(x > r.x1 && x < r.x2 && !inLane(x + 0.5, p.y + 0.5, 0)){ p.x = x; break; } }
+    });
   });
 }
 
