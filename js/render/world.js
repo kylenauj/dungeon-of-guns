@@ -29,35 +29,68 @@ function texDone(cv, mip){
   return t;
 }
 function slab(g, r, x, y, w, h, v, cracks){
-  // one dressed stone: a worn face, bevelled edges, pits, a stain, maybe a crack
-  const grd = g.createLinearGradient(x, y, x + w*0.3, y + h);
-  grd.addColorStop(0, "rgb(" + (v + 14) + "," + (v + 14) + "," + (v + 14) + ")"); grd.addColorStop(1, "rgb(" + (v - 16) + "," + (v - 16) + "," + (v - 16) + ")");
-  g.fillStyle = grd; g.fillRect(x, y, w, h);
-  g.fillStyle = "rgba(255,255,255,0.16)"; g.fillRect(x, y, w, 2); g.fillRect(x, y, 2, h);
-  g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(x, y + h - 2, w, 2); g.fillRect(x + w - 2, y, 2, h);
-  for(let k=0;k<w*h/18;k++){ const q = r(); g.fillStyle = q < 0.5 ? "rgba(0,0,0," + (0.08 + r()*0.18) + ")" : "rgba(255,255,255," + (0.04 + r()*0.08) + ")"; g.fillRect(x + r()*w, y + r()*h, 1 + r()*2, 1 + r()*2); }
-  if(r() < 0.6){ const sx = x + r()*w, sy = y + r()*h, rr = 6 + r()*Math.min(w, h)*0.5, gr = g.createRadialGradient(sx, sy, 0, sx, sy, rr); gr.addColorStop(0, "rgba(0,0,0,0.28)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x, y, w, h); }
-  // chipped corners
-  if(r() < 0.35){ const c = 3 + r()*7; g.fillStyle = "rgba(0,0,0,0.6)"; g.beginPath(); const cx = r() < 0.5 ? x : x + w, cy = r() < 0.5 ? y : y + h; g.moveTo(cx, cy); g.lineTo(cx + (cx === x ? c : -c), cy); g.lineTo(cx, cy + (cy === y ? c : -c)); g.fill(); }
-  if(r() < cracks){
-    g.strokeStyle = "rgba(0,0,0,0.75)"; g.lineWidth = 1 + r(); g.beginPath();
-    let px = x + r()*w, py = y + (r() < 0.5 ? 1 : h - 1), a = py > y + h/2 ? -PI/2 : PI/2; g.moveTo(px, py);
-    for(let k=0;k<6;k++){ a += (r() - 0.5)*1.4; px += Math.cos(a)*h*0.22; py += Math.sin(a)*h*0.22; g.lineTo(Math.max(x, Math.min(x + w, px)), Math.max(y, Math.min(y + h, py))); }
-    g.stroke();
+  // one stone, broken and ground down: a jagged outline (every edge chipped in
+  // and out), a flat worn face gouged and pitted, a hard dark lip at the joint,
+  // filth packed into the low parts, sometimes split right through
+  const m = Math.min(w, h), j = m*0.09 + 1, pts = [];
+  const edge = (ax, ay, bx, by, nx, ny)=>{
+    const n = 3 + (r()*4 | 0);
+    for(let k=0;k<n;k++){
+      const t = k/n, d = (k === 0 ? 0.35 : 1)*r()*j*(r() < 0.25 ? 2.2 : 1);   // now and then a deep bite
+      pts.push([ax + (bx - ax)*t + nx*d, ay + (by - ay)*t + ny*d]);
+    }
+  };
+  edge(x, y, x + w, y, 0, 1); edge(x + w, y, x + w, y + h, -1, 0); edge(x + w, y + h, x, y + h, 0, -1); edge(x, y + h, x, y, 1, 0);
+  const path = ()=>{ g.beginPath(); pts.forEach((p, i)=> i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); };
+  g.save(); path(); g.clip();
+  const a = r()*PI*2, cx = x + w/2, cy = y + h/2, d = Math.max(w, h)*0.6;
+  const grd = g.createLinearGradient(cx - Math.cos(a)*d, cy - Math.sin(a)*d, cx + Math.cos(a)*d, cy + Math.sin(a)*d);
+  const t1 = v + 4 + (r()*6 | 0), t2 = v - 6 - (r()*6 | 0);
+  grd.addColorStop(0, "rgb(" + t1 + "," + t1 + "," + t1 + ")"); grd.addColorStop(1, "rgb(" + t2 + "," + t2 + "," + t2 + ")");
+  g.fillStyle = grd; g.fillRect(x - 2, y - 2, w + 4, h + 4);
+  // stains soaked into the stone
+  for(let k=0, n = 2 + (r()*4 | 0); k<n; k++){
+    const sx = x + r()*w, sy = y + r()*h, rr = m*(0.2 + r()*0.6), gr = g.createRadialGradient(sx, sy, 0, sx, sy, rr);
+    gr.addColorStop(0, "rgba(0,0,0," + (0.1 + r()*0.2) + ")"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x, y, w, h);
   }
+  // grit, pits, and gouges: short hard scores across the face
+  for(let k=0;k<w*h/12;k++){ const q = r(); g.fillStyle = q < 0.6 ? "rgba(0,0,0," + (0.08 + r()*0.2) + ")" : "rgba(255,255,255," + (0.03 + r()*0.05) + ")"; const sz = 0.6 + r()*1.6; g.fillRect(x + r()*w, y + r()*h, sz, sz); }
+  for(let k=0, n = (r()*5 | 0); k<n; k++){
+    const sx = x + r()*w, sy = y + r()*h, an = r()*PI, l = m*(0.1 + r()*0.35);
+    g.lineWidth = 0.8 + r()*1.2; g.strokeStyle = "rgba(0,0,0," + (0.3 + r()*0.3) + ")";
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + Math.cos(an)*l, sy + Math.sin(an)*l); g.stroke();
+  }
+  // the lip: a narrow hard darkening at the joint (worn, not pillowed)
+  path(); g.lineJoin = "miter";
+  [[3.2, 0.22], [1.4, 0.4]].forEach(([lw, al])=>{ g.lineWidth = lw; g.strokeStyle = "rgba(0,0,0," + al + ")"; g.stroke(); });
+  if(r() < cracks){
+    // a crack, and sometimes a split right through, filled with dirt
+    let px = x + r()*w, py = r() < 0.5 ? y : y + h, an = py === y ? PI/2 : -PI/2; const cp = [[px, py]];
+    const through = r() < 0.4, steps = through ? 10 : 6;
+    for(let k=0;k<steps;k++){ an += (r() - 0.5)*1.3; px += Math.cos(an)*m*0.16; py += Math.sin(an)*m*0.16; cp.push([px, py]); }
+    const line = (lw, col)=>{ g.lineWidth = lw; g.strokeStyle = col; g.beginPath(); cp.forEach((p, i)=> i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); };
+    if(through){ line(4.5, "rgba(0,0,0,0.3)"); line(2.6, "rgb(52,52,52)"); }
+    line(1 + r()*0.8, "rgba(0,0,0,0.6)");
+  }
+  g.restore();
+}
+/* the joints between stones: packed dirt and grit, not ink */
+function joints(g, r, N, v){
+  g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.fillRect(0, 0, N, N);
+  for(let k=0;k<N*N/10;k++){ const q = r(); g.fillStyle = q < 0.5 ? "rgba(0,0,0," + (0.1 + r()*0.25) + ")" : "rgba(255,255,255," + (0.03 + r()*0.08) + ")"; g.fillRect(r()*N, r()*N, 1 + r()*2, 1 + r()*2); }
 }
 /* walls: ashlar courses over 2x2 units, tiling both ways */
 function stoneTex(){
   if(TEX.stone) return TEX.stone;
   const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(77).next;
-  g.fillStyle = "#2e2e2e"; g.fillRect(0, 0, N, N);
+  joints(g, r, N, 88);
   const rows = 8, rh = N/rows;
   for(let row=0; row<rows; row++){
     const o = r()*30; let x = o;
     while(x < o + N - 1){
       let w = 28 + r()*44; if(x + w > o + N - 20) w = o + N - x;
       const v = 150 + (r()*70 | 0), seed = (r()*1e6) | 0;
-      [x, x - N].forEach(px=> slab(g, DG.RNG(seed).next, px + 1.5, row*rh + 1.5, w - 3, rh - 3, v, 0.3));
+      [x, x - N].forEach(px=> slab(g, DG.RNG(seed).next, px + 1, row*rh + 1, w - 2, rh - 2, v, 0.3));
       x += w;
     }
   }
@@ -70,8 +103,8 @@ function stoneTex(){
 function floorTex(){
   if(TEX.floor) return TEX.floor;
   const N = 512, U = N/4, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(91).next;
-  g.fillStyle = "#242424"; g.fillRect(0, 0, N, N);
-  const G = 2.5, slabs = [];
+  joints(g, r, N, 96);
+  const G = 1.8, slabs = [];
   const cut = (x, y, w, h)=>{
     const big = Math.max(w, h);
     if(big <= 0.75 || (big <= 1.75 && r() < 0.42)){ slabs.push([x, y, w, h]); return; }
@@ -161,6 +194,7 @@ const World = DG.World = function(D){
   W.rnd = DG.RNG(D.seed ^ 0x51ed).next;
   W.assignAreas();
   W.buildAreas();
+  W.occlusion();
   W.buildWater();
   W.buildDoors();
   W.buildFakes();
@@ -172,6 +206,7 @@ const World = DG.World = function(D){
   W.buildMotes();
   W.buildVanity();
   W.buildDressing();
+  W.buildFilth();
   D.rooms.forEach(r=> r.props.forEach(p=> W.addProp(p)));
   D.rooms.forEach(r=>{ if(r.puzzle) W.buildPuzzle(r); });
   // the lantern's shadows: every ink surface takes them; walls, columns and baked props throw them
@@ -179,6 +214,32 @@ const World = DG.World = function(D){
 };
 const proto = World.prototype;
 World.stone = stone; World.wuv = wuv; World.stoneTex = stoneTex; World.surfaceOf = surfaceOf;
+
+/* ---- the grime map: walls (and the stone blocks) painted white on black at
+   4 texels a tile, then blurred: the floor shader darkens and browns the floor
+   by it (K.GLOOM.tOcc), so dirt gathers along every wall and deepest in corners ---- */
+proto.occlusion = function(){
+  const W = this, D = W.D, S8 = 4, w = D.w*S8, h = D.h*S8, a = new Float32Array(w*h), b = new Float32Array(w*h);
+  for(let y=0;y<D.h;y++) for(let x=0;x<D.w;x++){
+    const t = D.at(x, y);
+    if(t !== T.SOLID && t !== T.FAKE && t !== T.BLOCK) continue;
+    for(let v=0;v<S8;v++) for(let u=0;u<S8;u++) a[(y*S8 + v)*w + x*S8 + u] = 1;
+  }
+  // three box blurs, each way (about a gaussian), reaching about a tile and a half
+  const blur = (src, dst, R, horiz)=>{
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      let s = 0, n = 0;
+      for(let k=-R;k<=R;k++){ const xx = horiz ? x + k : x, yy = horiz ? y : y + k; if(xx < 0 || yy < 0 || xx >= w || yy >= h){ s += 1; n++; continue; } s += src[yy*w + xx]; n++; }
+      dst[y*w + x] = s/n;
+    }
+  };
+  for(let i=0;i<3;i++){ blur(a, b, 2, true); blur(b, a, 2, false); }
+  const px = new Uint8Array(w*h*4);
+  for(let i=0;i<w*h;i++){ const o = Math.min(1, a[i]*1.6); px[i*4] = px[i*4 + 1] = px[i*4 + 2] = o*255; px[i*4 + 3] = 255; }
+  const tex = new THREE.DataTexture(px, w, h); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
+  W.occTex = tex;
+  K.GLOOM.tOcc.value = tex; K.GLOOM.uOccS.value.set(1/w*S8, 1/h*S8); K.GLOOM.uOccK.value = 1;
+};
 
 /* ---- which area each tile draws in ---- */
 proto.assignAreas = function(){
@@ -218,7 +279,7 @@ proto.buildAreas = function(){
         c.lerp(cF2, vnoise(px*0.21 + 3, pz*0.21 - 5)).multiplyScalar(0.72 + nz*0.5);
         const cx = Math.round(px), cz = Math.round(pz);
         let n = 0; [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]].forEach(([u, v])=>{ if(solidish(u, v)) n++; });
-        c.multiplyScalar(1 - 0.2*n);
+        c.multiplyScalar(1 - 0.08*n);
       });
       b.floor.push(g);
     }
@@ -1337,6 +1398,7 @@ proto.dispose = function(){
   const K2 = DG.Kit;
   const mine = [this.waterMat, this.moteMat].concat(this.glowMats || [], this.vanityMats || []);
   K2.timed = K2.timed.filter(m=> mine.indexOf(m) < 0);
+  if(this.occTex){ this.occTex.dispose(); if(K2.GLOOM.tOcc.value === this.occTex){ K2.GLOOM.uOccK.value = 0; } }
 };
 
 })();

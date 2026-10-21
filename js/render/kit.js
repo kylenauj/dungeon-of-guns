@@ -231,17 +231,22 @@ const INK_MAIN = [
    middle floors violet rot with bile-green veins that glow. On walls: bark
    and roots creeping up from the floor, rot veins, moss on top. Shared
    uniforms, set per floor by the stage. */
-K.GLOOM = { uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWallLum:{ value:0.4 },
+/* tOcc: where the walls are, blurred (World.occlusion): dirt and shadow pool at
+   the foot of every wall and deepest in corners. Black (none) until a floor sets it. */
+const OCC0 = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); OCC0.needsUpdate = true;
+K.GLOOM = { tOcc:{ value:OCC0 }, uOccS:{ value:new THREE.Vector2(1, 1) }, uOccK:{ value:0 },
+  uGloom:{ value:0 }, uGTime:{ value:0 }, uFloorLum:{ value:0.4 }, uWallLum:{ value:0.4 },
   // the see-through: Zippy's chest and the camera; wall between them dithers away
   uSeeP:{ value:new THREE.Vector3(0, -99, 0) }, uSeeC:{ value:new THREE.Vector3(0, 10, 10) } };
 const GLOOM_PARS = [
-  "uniform float uGloom, uGTime, uFloorLum, uWallLum; uniform vec3 uSeeP, uSeeC; varying vec3 vGW; varying vec3 vGN;",
+  "uniform float uGloom, uGTime, uFloorLum, uWallLum, uOccK; uniform vec3 uSeeP, uSeeC; uniform sampler2D tOcc; uniform vec2 uOccS; varying vec3 vGW; varying vec3 vGN;",
   "float gh(vec2 p){ vec3 q = fract(vec3(p.xyx)*0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y)*q.z); }",
   "float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(gh(i), gh(i + vec2(1, 0)), f.x), mix(gh(i + vec2(0, 1)), gh(i + vec2(1, 1)), f.x), f.y); }",
   "float gfbm(vec2 p){ return gn(p)*0.55 + gn(p*2.1 + 3.7)*0.28 + gn(p*4.3 + 1.3)*0.17; }"
 ].join("\n");
 const GLOOM_COMMON = [
   "vec3 gloomGlow = vec3(0.0);",
+  "float gFlat = 0.0, gWet = 0.0;",   // filth flattens and dulls the stone; wet filth shines
   "float gRot = clamp((uGloom - 0.3)*0.75, 0.0, 0.52);",
   "vec3 gBase = diffuseColor.rgb;"
 ].join("\n");
@@ -263,7 +268,20 @@ const GLOOM_GROUND = [   // moss, mycelium, specks and rot on a horizontal surfa
   "float gSp = step(0.955, gh(floor(vGW.xz*2.6)))*smoothstep(0.4, 0.15, length(fract(vGW.xz*2.6) - 0.5));",
   "gloomGlow += vec3(0.25, 0.75, 1.0)*gSp*0.14*(0.7 + 0.3*sin(uGTime*1.3 + gh(floor(vGW.xz*2.6))*20.0))*gCover*(1.0 - gR);"
 ].join("\n");
-const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND, "diffuseColor.rgb = gc;"].join("\n");
+const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333))/uFloorLum, 0.35, 1.3);", GLOOM_GROUND,
+  // grime at the foot of the walls: darker, browner, a ragged edge (not a clean gradient)
+  "float gO = texture2D(tOcc, vGW.xz*uOccS).r; gO = smoothstep(0.0, 1.0, clamp(gO*1.25 + (gn2 - 0.5)*0.35, 0.0, 1.0))*uOccK;",
+  "gc = mix(gc, gc*vec3(0.62, 0.55, 0.48)*0.55, gO);",
+  // filth: mud, ash and rot lying over the stone in drifts, thickest along the walls,
+  // so the floor's grid drowns in it here and there; the low wet parts glisten
+  "float gFn = gn1*0.55 + gn2*0.45 + gO*0.5;",
+  "float gF = smoothstep(0.4, 0.6, gFn);",
+  "vec3 gMud = mix(vec3(0.085, 0.07, 0.055), vec3(0.15, 0.125, 0.095), gn2)*gShade;",
+  "gc = mix(gc, gMud, gF*0.92);",
+  "gFlat = gF*0.85;",
+  "gWet = smoothstep(0.7, 0.8, gFn + (gn1 - 0.5)*0.2)*0.85;",
+  "gc *= 1.0 - gWet*0.35;",
+  "diffuseColor.rgb = gc;"].join("\n");
 const GLOOM_WALL = [GLOOM_COMMON,
   "{ vec3 sd = uSeeC - uSeeP; float sL = length(sd); vec3 sn = sd/sL, sq = vGW - uSeeP; float st = dot(sq, sn);",
   "  if(st > 0.25 && st < sL && vGW.y > 0.62){ float sr = length(sq - sn*st), sR = 1.15 + st*0.03;",
@@ -320,7 +338,10 @@ K.inkify = function(mat, opts){
         "#include <project_vertex>\n vGW = (modelMatrix*vec4(transformed, 1.0)).xyz; vGN = normalize(mat3(modelMatrix)*objectNormal);");
       sh.fragmentShader = GLOOM_PARS + "\n" + sh.fragmentShader
         .replace("#include <color_fragment>", "#include <color_fragment>\n" + (opts.gloom === "wall" ? GLOOM_WALL : GLOOM_FLOOR))
-        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += gloomGlow;");
+        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += gloomGlow;")
+        // filth is matte and smooths the stone's relief over; wet filth is glossy
+        .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(mix(roughnessFactor, 1.0, gFlat), 0.2, gWet);")
+        .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\nnormal = normalize(mix(normal, normalize(vNormal), max(gFlat, gWet)));");
     }
     // where the hatching lies: world space for the dungeon, a character's own space for characters
     sh.vertexShader = (opts.rim ? "#define INK_RIM\n" : "") + "varying vec3 vHP; varying vec3 vHN;\n" + sh.vertexShader.replace("#include <project_vertex>",

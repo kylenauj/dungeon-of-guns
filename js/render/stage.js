@@ -53,9 +53,9 @@ S.init = function(){
   // so nothing else, like the warm-up's render, redraws it twice)
   r.shadowMap.autoUpdate = false;
   S.shadows = true;
-  const sh = S.playerLight.shadow; sh.mapSize.set(1024, 1024); sh.camera.near = 0.25; sh.camera.far = 10.5; sh.bias = -0.003; sh.normalBias = 0.03; sh.radius = 2.5;
-  // (the shadow reaches no further than the lantern's light: 10 units. Past that it
-  // only cost a sixfold redraw of things nobody can see lit)
+  const sh = S.playerLight.shadow; sh.mapSize.set(1024, 1024); sh.camera.near = 0.25; sh.camera.far = 11; sh.bias = -0.003; sh.normalBias = 0.03; sh.radius = 2.5;
+  // (the shadow reaches no further than the lantern's light, set per floor in S.theme.
+  // Past that it only cost a sixfold redraw of things nobody can see lit)
   S.playerLight.castShadow = S.shadows;
   S.torches = [];
   for(let i=0;i<S.TORCH_LIGHTS;i++){ const l = new THREE.PointLight(0xffa04a, 0, 8, 1.8); scene.add(l); S.torches.push(l); }
@@ -229,8 +229,11 @@ S.theme = function(th, curses){
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);
   S.hemi.intensity = 1.0*(th.light || 1)*(dark ? 0.55 : 1)*amb;
   S.fill.intensity = 0.75*(th.light || 1)*(dark ? 0.5 : 1)*(amb < 1 ? 0.22 : 1);
-  S.playerLight.distance = (dark ? 9 : 13)*(amb < 1 ? 1.1 : 1);
-  S.playerLight.intensity = (dark ? 2.4 : 2.2)*(amb < 1 ? 1.4 : 1);
+  // the lantern: a hard pool of light around him that falls off fast, so the room
+  // beyond is the torches' and the dark's (its shadow reaches exactly as far)
+  S.playerLight.distance = dark ? 8.5 : 11; S.playerLight.decay = 2.2;
+  S.playerLight.intensity = dark ? 3.2 : 3.4;
+  S.playerLight.shadow.camera.far = S.playerLight.distance;
   // the ink: line colour, rim colour, grade, and how weird the picture gets
   K.INK.uInk.value.setHex(th.ink || 0x0a0612);
   K.INK.uRim.value.setHex(th.rim || 0x8a7aff);

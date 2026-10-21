@@ -77,11 +77,11 @@ const decalMat = ()=> K.ink({ map:atlas(), transparent:true, depthWrite:false, a
 
 /* ---- what each floor scatters about ---- */
 const THEMES = {
-  castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["tiles", 1.2, 0x4a3e32], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
+  castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
     walls:["banner", "tapestry", "shieldwall", "cornerweb", "window", "chains", "bloodsmear", "cornerweb", "slumped", "gibbet"], tops:["toprubble", "topcandle", "topskull", "topspikes"], corners:["candlecluster", "skullpile", "bones", "candlecluster"], critters:{ rats:1.6 }, motes:{ c:0xffd0a0, n:4, sp:0.2 } },
   undercroft:{ decals:[["crack", 4, 0x100e0c], ["stain", 3, 0x14120c], ["moss", 2.5, 0x1e2e1e], ["puddle", 1.6, 0x0a1414], ["grate", 0.6, 0x4a4a48], ["drag", 0.4, 0x2a0c08], ["blood", 0.4, 0x2a0c08], ["prints", 0.4, 0x141008]], rug:[0, 0],
     walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster", "chains", "wallshroom", "slumped"], tops:["toprubble", "topgrass", "topcandle", "topbones"], corners:["bones", "mushrooms", "ratnest", "candlecluster"], critters:{ rats:2.6 }, motes:{ c:0xb8d870, n:8, sp:0.4 } },
-  crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["tiles", 1, 0x3a3634], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
+  crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
     walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "ossuary", "candleshelf", "cornerweb", "slumped"], tops:["topcandle", "topskull", "topbones", "topcandle"], corners:["candlecluster", "soulcandles", "skullpile", "soulcandles"], critters:{ rats:1, bats:2 }, motes:{ c:0x8ac8ff, n:10, sp:0.3 } },
   gloomwood:{ decals:[["moss", 5, 0x142a24], ["leaves", 3, 0x1e2a22], ["splat", 2, 0x2a1024], ["puddle", 1.5, 0x10061a], ["rune", 0.3, 0x5ab8e8], ["crack", 1.5, 0x08080c], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
     walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], corners:["glowcap", "myceliumcorpse", "roots", "fern"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
