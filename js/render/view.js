@@ -133,7 +133,14 @@ proto.warmAll = function(){
   g.position.set(p.x, 0, p.y); S.scene.add(g);
   try{
     R.compile(S.scene, S.camera);
-    const rt = new THREE.WebGLRenderTarget(64, 64); R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera); R.setRenderTarget(null); rt.dispose();
+    const rt = new THREE.WebGLRenderTarget(64, 64); R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
+    // and the whole floor once from high above, every room in view: each room's floor,
+    // walls and filth go to the graphics card now, not the first time you walk into it
+    // (the camera only sees the start room; the rest arrived room by room, a hitch each)
+    const D = G.D, top = new THREE.OrthographicCamera(-D.w/2 - 2, D.w/2 + 2, D.h/2 + 2, -D.h/2 - 2, 1, 80);
+    top.position.set(D.w/2, 40, D.h/2); top.up.set(0, 0, -1); top.lookAt(D.w/2, 0, D.h/2); top.updateMatrixWorld();
+    R.render(S.scene, top);
+    R.setRenderTarget(null); rt.dispose();
   }catch(e){ console.warn("warm:", e); }
   S.scene.remove(g);
   for(const id in vis) W.areas[id].g.visible = vis[id];
@@ -842,18 +849,21 @@ proto.updateAllies = function(dt, t){
 
 proto.updateHazards = function(dt, t){
   const V = this, G = V.G, live = {};
+  // the more hazards, the thinner each one's spray of particles (fifty clouds each puffing
+  // every frame buried the screen in overlapping smoke: the late-game lag)
+  const thin = Math.min(1, 5/Math.max(1, G.hazards.length));
   G.hazards.forEach(h=>{
     live[h.id] = 1;
     let o = V.hazards[h.id];
     if(!o){ o = V.hazards[h.id] = { g:hazardMesh(h) }; o.g.position.set(h.x, 0, h.y); S.scene.add(o.g); }
     const k = Math.max(0, h.t/h.max), u = o.g.userData;
     if(h.kind === "icicle") o.g.scale.setScalar(Math.min(1, (1 - k)*6 + 0.2));
-    if(u.fire && Math.random() < 0.7){ const a = Math.random()*6.28, d = Math.random()*h.r; FX.emit(h.x + Math.cos(a)*d, 0.1, h.y + Math.sin(a)*d, 0, 2 + Math.random()*2, 0, Math.random() < 0.6 ? 0xff7a1a : 0xffd23d, 0.4, 0.45, 0, 1); }
-    if(u.cloud && Math.random() < 0.8){ const a = Math.random()*6.28, d = Math.sqrt(Math.random())*h.r; FX.emit(h.x + Math.cos(a)*d, 0.15 + Math.random()*0.5, h.y + Math.sin(a)*d, (Math.random() - 0.5)*0.3, 0.3 + Math.random()*0.4, (Math.random() - 0.5)*0.3, u.cloud, 0.7, 1.0, 0, 0.5); }
-    if(u.bubbles && Math.random() < 0.2) FX.emit(h.x + (Math.random() - 0.5)*h.r, 0.08, h.y + (Math.random() - 0.5)*h.r, 0, 0.5, 0, u.bubbles, 0.2, 0.4, 0, 1);
+    if(u.fire && Math.random() < thin*0.7){ const a = Math.random()*6.28, d = Math.random()*h.r; FX.emit(h.x + Math.cos(a)*d, 0.1, h.y + Math.sin(a)*d, 0, 2 + Math.random()*2, 0, Math.random() < 0.6 ? 0xff7a1a : 0xffd23d, 0.4, 0.45, 0, 1); }
+    if(u.cloud && Math.random() < thin*0.8){ const a = Math.random()*6.28, d = Math.sqrt(Math.random())*h.r; FX.emit(h.x + Math.cos(a)*d, 0.15 + Math.random()*0.5, h.y + Math.sin(a)*d, (Math.random() - 0.5)*0.3, 0.3 + Math.random()*0.4, (Math.random() - 0.5)*0.3, u.cloud, 0.7, 1.0, 0, 0.5); }
+    if(u.bubbles && Math.random() < thin*0.2) FX.emit(h.x + (Math.random() - 0.5)*h.r, 0.08, h.y + (Math.random() - 0.5)*h.r, 0, 0.5, 0, u.bubbles, 0.2, 0.4, 0, 1);
     if(u.spin) u.spin.rotation.z += dt*4;
     if(u.bubble) u.bubble.scale.setScalar(0.5 + 0.6*Math.abs(Math.sin(t*1.7 + h.id)));
-    if(u.suck && Math.random() < 0.9){ const a = Math.random()*6.28; FX.emit(h.x + Math.cos(a)*2.5, 0.8, h.y + Math.sin(a)*2.5, -Math.cos(a)*6, 0, -Math.sin(a)*6, 0xb36bff, 0.2, 0.4, 0, 0); }
+    if(u.suck && Math.random() < thin*0.9){ const a = Math.random()*6.28; FX.emit(h.x + Math.cos(a)*2.5, 0.8, h.y + Math.sin(a)*2.5, -Math.cos(a)*6, 0, -Math.sin(a)*6, 0xb36bff, 0.2, 0.4, 0, 0); }
     if(u.wave){ const r = h.r*(1 - k); u.wave.scale.setScalar(Math.max(0.01, r)); u.wave.material.opacity = 0.85*k; }
     o.g.children.forEach(c=>{ if(c.material && c.material.transparent && !u.wave && h.kind !== "icicle"){ c.material.opacity = Math.min(c.userData.op0 === undefined ? (c.userData.op0 = c.material.opacity) : c.userData.op0, k*3*(c.userData.op0)); } });
   });

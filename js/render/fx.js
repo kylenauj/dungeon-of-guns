@@ -59,24 +59,39 @@ FX.init = function(scene){
   dpts = new THREE.Points(dg, FX.smokeMat); dpts.frustumCulled = false; dpts.renderOrder = 4;
   scene.add(dpts);
 
-  // shots in flight: a solid sprite each (rimmed for enemy shots) and a glow under it
-  B = { pos:new Float32Array(NB*3), col:new Float32Array(NB*3), size:new Float32Array(NB), rim:new Float32Array(NB) };
+  // shots in flight: a bolt each, stretched along its flight, and a small glow under it.
+  // Harsh, not cute: a ragged streak, a hot core going to the element's colour and out
+  // to a burnt black edge (no soft round blob with a petalled rim); enemy shots are dark
+  // clots with a blood-red edge.
+  B = { pos:new Float32Array(NB*3), col:new Float32Array(NB*3), size:new Float32Array(NB), rim:new Float32Array(NB), dir:new Float32Array(NB*2) };
   const bg = new THREE.BufferGeometry();
   bg.setAttribute("position", new THREE.BufferAttribute(B.pos, 3).setUsage(THREE.DynamicDrawUsage));
   bg.setAttribute("color", new THREE.BufferAttribute(B.col, 3).setUsage(THREE.DynamicDrawUsage));
   bg.setAttribute("aSize", new THREE.BufferAttribute(B.size, 1).setUsage(THREE.DynamicDrawUsage));
   bg.setAttribute("aRim", new THREE.BufferAttribute(B.rim, 1).setUsage(THREE.DynamicDrawUsage));
+  bg.setAttribute("aDir", new THREE.BufferAttribute(B.dir, 2).setUsage(THREE.DynamicDrawUsage));
   FX.shotMat = new THREE.ShaderMaterial({ uniforms:{ uScale:{ value:400 }, uTime:{ value:0 } }, transparent:true, depthWrite:false, vertexColors:true,
-    vertexShader:"attribute float aSize; attribute float aRim; varying vec3 vC; varying float vR; varying float vS; uniform float uScale; void main(){ vC = color; vR = aRim; vS = fract(position.x*3.7 + position.z*5.3); vec4 mv = modelViewMatrix*vec4(position, 1.0); gl_PointSize = clamp(uScale*aSize/max(1.0, -mv.z), 2.0, 64.0); gl_Position = projectionMatrix*mv; }",
-    fragmentShader:["uniform float uTime; varying vec3 vC; varying float vR; varying float vS;",
-      "void main(){ vec2 p = gl_PointCoord - 0.5; float d = length(p); if(d > 0.5) discard;",
-      // a hot core going out to the colour, the edge licking like a flame
-      "  float a = atan(p.y, p.x), lick = 0.035*sin(a*6.0 + uTime*14.0 + vS*40.0);",
-      "  vec3 hot = mix(vC, vec3(1.0, 0.95, 0.85), 0.7);",
-      "  vec3 c = mix(hot, vC, smoothstep(0.1, 0.3, d + lick));",
-      "  c = mix(c, vC*0.55, smoothstep(0.3, 0.42, d + lick));",
-      "  if(vR > 0.5 && d + lick*0.6 > 0.37) c = vec3(0.06, 0.01, 0.02);",
-      "  else if(vR < 0.5 && d + lick > 0.46) discard;",
+    vertexShader:"attribute float aSize; attribute float aRim; attribute vec2 aDir; varying vec3 vC; varying float vR; varying float vS; varying vec2 vD; uniform float uScale; void main(){ vC = color; vR = aRim; vD = aDir; vS = fract(position.x*3.7 + position.z*5.3); vec4 mv = modelViewMatrix*vec4(position, 1.0); gl_PointSize = clamp(uScale*aSize/max(1.0, -mv.z), 2.0, 64.0); gl_Position = projectionMatrix*mv; }",
+    fragmentShader:["uniform float uTime; varying vec3 vC; varying float vR; varying float vS; varying vec2 vD;",
+      "float hh(float n){ return fract(sin(n)*43758.5453); }",
+      "void main(){ vec2 p = gl_PointCoord - 0.5; p.y = -p.y;",
+      // into the bolt's own frame: along its flight, and across
+      "  float st = length(vD); vec2 dir = st > 0.01 ? vD/st : vec2(1.0, 0.0);",
+      "  vec2 q = vec2(dot(p, dir), dot(p, vec2(-dir.y, dir.x)));",
+      // a tapered streak from its tail to its head (the faster, the longer); round when still
+      "  vec2 hd = vec2(0.26*st, 0.0), tl = vec2(-0.48*st, 0.0), ba = hd - tl;",
+      "  float h = st > 0.01 ? clamp(dot(q - tl, ba)/dot(ba, ba), 0.0, 1.0) : 1.0;",
+      "  float r = mix(0.012, 0.12 + 0.1*(1.0 - st), pow(h, 1.6));",
+      // ragged: it crackles and tears along its length, differently for every shot, every frame
+      "  float ang = atan(q.y, q.x - hd.x), jag = 0.3*(hh(floor(ang*4.0 + uTime*24.0) + vS*91.0) - 0.5) + 0.45*(hh(floor(h*16.0 - uTime*40.0) + vS*37.0) - 0.5);",
+      "  float d = length(q - (tl + ba*h)) - r*(1.0 + jag);",
+      "  if(d > 0.0) discard;",
+      "  float t = clamp(-d/r, 0.0, 1.0);",
+      "  vec3 hot = mix(vC, vec3(1.0, 0.93, 0.78), 0.75);",
+      "  vec3 c;",
+      "  if(vR > 0.5){ c = mix(vec3(0.3, 0.02, 0.02)*1.4, vec3(0.03, 0.0, 0.01), smoothstep(0.15, 0.55, t)); c = mix(c, vC*0.5, smoothstep(0.8, 1.0, t)*0.6); }",
+      // deep, not pastel: a burnt black edge, the element's colour dark and strong, a thin white-hot line down the middle
+      "  else { vec3 deep = vC*vC*1.15; c = mix(vec3(0.03, 0.02, 0.02), deep, smoothstep(0.08, 0.4, t)); c = mix(c, hot, smoothstep(0.72, 0.97, t)*(0.3 + 0.7*h)); }",
       "  gl_FragColor = vec4(c, 1.0); }"].join("\n") });
   bpts = new THREE.Points(bg, FX.shotMat); bpts.frustumCulled = false; bpts.renderOrder = 6;
   scene.add(bpts);
@@ -109,7 +124,13 @@ function grade(col, out){
 }
 FX.grade = grade;
 
+/* a budget of new particles a frame: a screen full of shots and hazards was spawning
+   thousands of overlapping glows and puffs, and drawing them was most of the late-game lag.
+   Past the budget, the rest are dropped (the picture's already full) */
+const SPARKS_A_FRAME = 90, PUFFS_A_FRAME = 36;
+let spent = 0, dspent = 0;
 function emit(x, y, z, vx, vy, vz, col, size, life, grav, drag){
+  if(++spent > SPARKS_A_FRAME) return;
   let i = -1;
   for(let k=0;k<64;k++){ const j = (alive + k) % N; if(P.life[j] <= 0){ i = j; break; } }
   if(i < 0) i = alive % N;
@@ -124,6 +145,7 @@ FX.emit = emit;
 
 /* a dark particle: soot, ash, blood. grow: how much bigger it gets as it ages */
 function dark(x, y, z, vx, vy, vz, col, size, life, alpha, grow, grav, drag){
+  if(++dspent > PUFFS_A_FRAME) return;
   let i = -1;
   for(let k=0;k<64;k++){ const j = (dalive + k) % ND; if(D.life[j] <= 0){ i = j; break; } }
   if(i < 0) i = dalive % ND;
@@ -299,7 +321,7 @@ const MARK = { flop:0xff3a2a, slam:0xff3a2a, tentacle:0xd84aff, tear:0x6ad8ff, s
 /* ---- per frame ---- */
 let clock = 0;
 FX.update = function(dt, G){
-  clock += dt;
+  clock += dt; spent = 0; dspent = 0;
   const sc = scaleNow(); FX.sparkMat.uniforms.uScale.value = sc; FX.shotMat.uniforms.uScale.value = sc; FX.smokeMat.uniforms.uScale.value = sc; FX.shotMat.uniforms.uTime.value = clock;
   for(let i=0;i<N;i++){
     if(P.life[i] <= 0){ if(P.size[i]){ P.size[i] = 0; } continue; }
@@ -363,12 +385,17 @@ FX.update = function(dt, G){
     grade(col, _c);
     B.pos[n*3] = S.ix(b); B.pos[n*3+1] = y; B.pos[n*3+2] = S.iy(b);
     B.col[n*3] = _c.r; B.col[n*3+1] = _c.g; B.col[n*3+2] = _c.b;
-    B.size[n] = size; B.rim[n] = rim; B.gsize[n] = size*(b.team === "p" ? 2.6 : 2);
+    // the bolt points along its flight on screen; slow shots stay round (stretch 0..1)
+    const vx = b.vx || 0, vy = b.vy || 0, sp = Math.hypot(vx, vy*0.8), stretch = Math.min(1, sp/5);
+    B.dir[n*2] = sp > 0.01 ? vx/sp*stretch : 0; B.dir[n*2 + 1] = sp > 0.01 ? -vy*0.8/sp*stretch : 0;
+    // the sprite holds the whole streak, so it's longer than the shot is wide; the glow under it
+    // is small and dim (2.6x the shot, overlapping by the dozen, was most of the late-game lag)
+    B.size[n] = size*(1 + 0.7*stretch); B.rim[n] = rim; B.gsize[n] = size*(b.team === "p" ? 0.85 : 0.8);
     n++;
   }
   for(let i=n;i<NB;i++){ if(!B.size[i]) break; B.size[i] = 0; B.gsize[i] = 0; }
   B.geo.setDrawRange(0, n); B.ggeo.setDrawRange(0, n);
-  ["position", "color", "aSize", "aRim"].forEach(k=> B.geo.attributes[k].needsUpdate = true);
+  ["position", "color", "aSize", "aRim", "aDir"].forEach(k=> B.geo.attributes[k].needsUpdate = true);
   B.ggeo.attributes.aSize.needsUpdate = true;
   // bombs: an arc through the air trailing soot, then a fizzing wait
   const seen = {};
