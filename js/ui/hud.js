@@ -84,6 +84,7 @@ H.handle = function(ev, G){
     case "bark": H.barks.push({ id:ev.id, x:ev.x, y:ev.y, text:ev.text, t:0 }); break;
     case "floor": H.area = { floor:ev.floor, name:ev.name, t:0 }; H.banner = null; break;
     case "clear": if(H.banner && H.banner.kind !== "clear") break; { const L = DG.LINES && DG.LINES.clear; H.banner = { kind:"clear", a:L && L.length ? L[Math.floor(Math.random()*L.length)] : "Silence returns.", t:0 }; break; }
+    case "lair": H.banner = { kind:"lair", a:"A LAIR", b:ev.name, t:0 }; break;
     case "kill": if(ev.boss){ const B = DG.BOSSES[G.D.theme.boss || "king"] || {}; H.banner = { kind:"felled", a:B.felled || "FOE VANQUISHED", b:G.bossName ? G.bossName() : B.name, t:0 }; } break;
     case "react": H.nums.push({ x:ev.x, y:ev.y, z:2.4, v:ev.name, crit:true, t:-0.1, col:mute(hex(ev.color), 0.15), big:true }); break;
     case "slip": if(!ev.enemy) H.nums.push({ x:p.x, y:p.y, z:2.2, v:"WHEEE", t:0, col:GOLD2, crit:true }); break;
@@ -253,7 +254,7 @@ H.draw = function(G, dt, opts){
 
   // over the world: health bars, price tags, barks, numbers
   G.enemies.forEach(e=>{
-    if(e.dead || e.spawn > 0 || e.boss || e.hidden || e.decoy) return;
+    if(e.dead || e.spawn > 0 || e.boss || e.mini || e.hidden || e.decoy) return;
     if(e.hp >= e.maxHp && !e.affix) return;
     const s = S.project(e.x, 1.4*(e.r/0.34)*(e.affix && DG.AFFIXES[e.affix].size || 1) + 0.4, e.y); if(s.behind) return;
     const w = 34*k;
@@ -443,6 +444,20 @@ H.draw = function(G, dt, opts){
     A(1);
   }
 
+  // ---- a lair's mini-boss: a smaller bar in the same place (the Choir's three share one) ----
+  const LR = !(B && !B.dead) && G.lairRef && G.lairRef.filter(e=> e.spawn <= 0);
+  if(LR && LR.length){
+    const hp = G.lairRef.reduce((a, e)=> a + Math.max(0, e.dead ? 0 : e.hp), 0), max = G.lairRef.reduce((a, e)=> a + e.maxHp, 0), lk = hp/max;
+    if(H.lairId !== G.lairRef[0].id){ H.lairId = G.lairRef[0].id; H.lairT = 0; H.lairLag = 1; }
+    H.lairT = Math.min(1, H.lairT + dt*1.4); H.lairLag = Math.max(lk, H.lairLag - dt*0.5);
+    const w = small ? W - 80 : Math.min(560, W*0.44), by = small ? Hh - 26 - ps - 30*k : Hh - 22 - 96*k - 52, bx = W/2 - w/2;
+    const rage = G.lairRef.some(e=> !e.dead && e.ai.raged);
+    A(ease(H.lairT));
+    bar(g, bx, by, w, (small ? 6 : 7)*k, lk, rage ? "#8a2418" : "#6a1a12", rage ? "#c8442e" : "#9a3a28", H.lairLag);
+    text(g, G.lairRef[0].name, bx + 2, by - 11*k, (small ? 13 : 16)*k, IVORY, "left", "600", SERIF, 1);
+    A(1);
+  }
+
   // ---- top right: the map, curses, goblins left ----
   const mapH = H.minimap(g, G, W - 22, 22, small) || 0;
   let ry = 22 + mapH + 14;
@@ -597,10 +612,10 @@ H.draw = function(G, dt, opts){
       A(1);
     } else {
       A(Math.min(1, b.t*3, (life - b.t)*2));
-      const y = Hh*0.34, s = fit(g, b.b || b.a, (small ? 28 : 44), W - 40, "600", SERIF, 0.06);
-      text(g, b.a, W/2, y - s*0.85, 12*k, "#c07ab8", "center", "700", SERIF, 5);
-      if(b.b){ g.save(); g.shadowColor = "rgba(192,122,184,.5)"; g.shadowBlur = 18; text(g, b.b, W/2, y, s, IVORY, "center", "600", SERIF, s*0.06); g.restore(); }
-      rule(g, W/2, y + s*0.7, Math.min(W/2 - 10, 220*k), "rgba(192,122,184,.8)", 3);
+      const y = Hh*0.34, s = fit(g, b.b || b.a, (small ? 28 : 44), W - 40, "600", SERIF, 0.06), red = b.kind === "lair";
+      text(g, b.a, W/2, y - s*0.85, 12*k, red ? "#c8503a" : "#c07ab8", "center", "700", SERIF, 5);
+      if(b.b){ g.save(); g.shadowColor = red ? "rgba(168,40,26,.6)" : "rgba(192,122,184,.5)"; g.shadowBlur = 18; text(g, b.b, W/2, y, s, IVORY, "center", "600", SERIF, s*0.06); g.restore(); }
+      rule(g, W/2, y + s*0.7, Math.min(W/2 - 10, 220*k), red ? "rgba(168,40,26,.8)" : "rgba(192,122,184,.8)", 3);
       A(1);
     }
   }
@@ -808,7 +823,7 @@ H.minimap = function(g, G, xr, y, small){
   const w = (maxx - minx + 1)*cw + 16, h = (maxy - miny + 1)*ch + 16;
   const x = xr - w;
   frame(g, x, y, w, h, "rgba(8,6,6,.78)");
-  const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"", throne:"♚", cage:"!", gamble:"⁂", olm:"☼" };
+  const ICON = { boss:"☠", shop:"$", treasure:"◆", puzzle:"?", secret:"★", pond:"♣", altar:"†", start:"", throne:"♚", cage:"!", gamble:"⁂", olm:"☼", lair:"✠" };
   const box = r=>{ const rx = x + 8 + (r.c0x - minx)*cw, ry = y + 8 + (r.c0y - miny)*ch; return { rx, ry, rw:(r.c1x - r.c0x + 1)*cw - gap, rh:(r.c1y - r.c0y + 1)*ch - gap }; };
   // corridors between rooms you know, drawn door to door where the doors
   // really are in each room's walls (drawn over the rooms, below)
@@ -843,7 +858,7 @@ H.minimap = function(g, G, xr, y, small){
     if(age < 0.9 && state !== "b"){ const q = age/0.9; g.globalAlpha = 1 - q; g.strokeStyle = GOLD; g.lineWidth = 2; g.strokeRect(R(rx - q*5), R(ry - q*5), R(rw + q*10), R(rh + q*10)); }
     g.restore();
     const ic = ICON[r.type];
-    if(ic && (v || r.seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : !v ? "#7a6a58" : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" || r.type === "throne" ? "#c05a7a" : r.type === "olm" ? "#ffc870" : GOLD, "center", "700", "Georgia,serif");
+    if(ic && (v || r.seen || r.hinted)) text(g, ic, rx + rw/2, ry + rh/2 + 1, cs*0.85, here ? INK : !v ? "#7a6a58" : r.type === "boss" ? "#d04a34" : r.type === "pond" ? GREEN : r.type === "altar" || r.type === "throne" ? "#c05a7a" : r.type === "olm" ? "#ffc870" : r.type === "lair" ? (r.cleared ? "#7a6a58" : "#c8503a") : GOLD, "center", "700", "Georgia,serif");
     // ROOMS: behind a locked door, a key: you can see the chains from the room next door
     if(DG.Dungeon.behindLock(D, r)) H.keyMark(g, rx + rw/2, ry + rh/2, cs*0.8, here ? INK : v ? GOLD : "#c8a45a");
   });

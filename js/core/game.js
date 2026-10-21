@@ -521,7 +521,7 @@ proto.useActive = function(I){
     case "watch": G.timeStop = 3; break;
     case "hat": G.spawnAlly("hat", p.x, p.y, { P }); break;
     case "whistle":
-      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.confused = Math.max(e.st.confused || 0, 5); });
+      G.enemies.forEach(e=>{ if(!e.dead && !e.big && G.room && e.room === G.room.id) e.st.confused = Math.max(e.st.confused || 0, 5); });
       G.emit("whistle", { x:p.x, y:p.y });
       break;
     case "cannon": {
@@ -533,7 +533,7 @@ proto.useActive = function(I){
       f.x = tx; f.y = ty; f.hopT = 0; f.rest = 0.6;
       G.pending.push({ t:0.3, fn:()=>{
         G.nova(tx, ty, 3, P*3, G.shotEls(G.gun()), 1);
-        G.enemies.forEach(e=>{ if(!e.dead && !e.boss && DG.dist(e.x, e.y, tx, ty) < 3 + e.r) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
+        G.enemies.forEach(e=>{ if(!e.dead && !e.big && DG.dist(e.x, e.y, tx, ty) < 3 + e.r) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
         G.emit("croak", { x:tx, y:ty, kind:"cannon" });
       } });
       break;
@@ -575,7 +575,7 @@ proto.useActive = function(I){
     case "soup": G.heal(40); break;
     case "estus": G.heal(30); G.addWards(1); break;
     case "dreadbell":
-      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, 2); });
+      G.enemies.forEach(e=>{ if(!e.dead && !e.big && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, 2); });
       p.tollT = G.t + 6;
       G.emit("toll", { x:p.x, y:p.y, big:true });
       break;
@@ -601,7 +601,7 @@ proto.updateRooms = function(dt){
     if(inside){
       if(!inside.visited){ inside.visited = true; G.emit("visit", { room:inside.id }); }
       G.emit("enter", { room:inside.id, type:inside.type });
-      if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss")) G.activate(inside);
+      if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss" || inside.type === "lair")) G.activate(inside);
       if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); if(G.mods.special.member) G.memberShop(inside); }
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
@@ -637,6 +637,19 @@ proto.activate = function(r){
     r.wave = r.waves.length;
     return;
   }
+  if(r.type === "lair"){
+    // a mini-boss: its name on the screen, a bar of its own, and the doors shut behind you
+    const L = DG.LAIRS[r.lair], n = L.count || 1;
+    G.lairRef = [];
+    for(let i=0;i<n;i++){
+      const a = n > 1 ? i/n*Math.PI*2 : 0, x = r.boss.x + (n > 1 ? Math.cos(a)*2.4 : 0), y = r.boss.y + (n > 1 ? Math.sin(a)*1.6 : 0);
+      G.lairRef.push(G.spawnEnemy(r, { type:L.base, x, y, size:L.size, hpMul:L.hp, lair:r.lair }));
+    }
+    G.say(L.intro, 3);
+    G.emit("lair", { room:r.id, id:r.lair, name:L.name });
+    r.wave = r.waves.length;
+    return;
+  }
   G.spawnWave(r, r.waves[0]); r.wave = 1;
 };
 proto.bossName = function(){
@@ -666,9 +679,10 @@ proto.spawnEnemy = function(r, s, bossDef){
   const e = {
     id:G.nextId++, type:s.type, def, room:r.id, x:s.x, y:s.y, vx:0, vy:0, kx:0, ky:0,
     r:def.radius*(af && af.size ? af.size : 1)*(s.size || 1), hp, maxHp:hp, speed:def.speed*(af && af.speed ? af.speed : 1)*haste, dmg:def.dmg*sc.dmg,
-    affix:s.elite || null, boss:!!s.boss, st:{}, ai:{ state:"idle", t:0, cd:0.6 + G.rng.next()*0.8 }, spawn:s.boss ? 1.4 : (s.quick ? 0.3 : 0.8), face:Math.PI/2, flash:0,
+    affix:s.elite || null, boss:!!s.boss, big:!!(s.boss || s.lair), lair:s.lair || null, st:{}, ai:{ state:"idle", t:0, cd:0.6 + G.rng.next()*0.8 }, spawn:s.boss ? 1.4 : (s.quick ? 0.3 : 0.8), face:Math.PI/2, flash:0,
     phases:!!def.phases, gen:s.gen || 0
   };
+  if(s.lair){ const L = DG.LAIRS[s.lair]; e.dmg *= L.dmg || 1; e.spawn = 1.2; e.mini = true; e.name = L.name; }
   G.enemies.push(e);
   G.emit("spawn", { id:e.id, x:e.x, y:e.y, type:e.type, boss:e.boss, affix:e.affix });
   return e;
@@ -985,6 +999,17 @@ proto.springCage = function(r){
 };
 proto.clearSpecial = function(r){
   const G = this;
+  if(r.type === "lair" && !r.lairPaid){
+    // the lair's hoard: something good, a key, and a breather
+    r.lairPaid = true;
+    const x = Math.floor(r.cxw), y = Math.floor(r.cyw);
+    G.addProp(r, { kind:"pedestal", x, y, pool:G.floor >= 3 ? "x" : "t" });
+    G.addPickup("key", x + 1.5, y + 0.5, 1);
+    G.addPickup("heart", x - 1, y + 0.5, 25);
+    G.lairRef = null;
+    G.say(DG.LAIRS[r.lair].name + " is dead. Its hoard is yours.", 3.5);
+    G.meta.lairs = G.meta.lairs || {}; G.meta.lairs[r.lair] = (G.meta.lairs[r.lair] || 0) + 1;
+  }
   if(r.sprung && !r.sprungPaid){
     r.sprungPaid = true;
     G.say(G.rng.pick(DG.LINES.sprungClear), 3.5);
@@ -1215,7 +1240,7 @@ proto.updateTraps = function(dt){
         G.emit("slip", { x:p.x, y:p.y }); G.say("WHEEEE");
       }
       G.enemies.forEach(e=>{
-        if(t.gone || e.dead || e.spawn > 0 || e.boss) return;
+        if(t.gone || e.dead || e.spawn > 0 || e.big) return;
         if(Math.abs(e.x - t.x - 0.5) < 0.45 && Math.abs(e.y - t.y - 0.5) < 0.45 && Math.hypot(e.vx, e.vy) > 0.5){
           t.gone = true; e.st.stun = 1.4; G.emit("slip", { x:e.x, y:e.y, enemy:true });
           G.damageEnemy(e, 5, {});

@@ -923,7 +923,7 @@ test("the Executioner's Axe finishes goblins below 15%, but never a boss", ()=>{
   const e = addEnemy(G, r, spot.x + 2, spot.y); e.hp = e.maxHp = 100;
   G.damageEnemy(e, 80, {}); assert.ok(!e.dead, "20% left: still standing");
   G.damageEnemy(e, 6, {}); assert.ok(e.dead, "14% left: executed");
-  const b = addEnemy(G, r, spot.x + 2, spot.y); b.boss = true; b.hp = b.maxHp = 100;
+  const b = addEnemy(G, r, spot.x + 2, spot.y); b.boss = b.big = true; b.hp = b.maxHp = 100;
   G.damageEnemy(b, 90, {}); assert.ok(!b.dead, "bosses are spared");
 });
 
@@ -1508,4 +1508,52 @@ test("every doorway has a clear lane in: no pillar, crate, pit, pot, trap or dec
       r.props.filter(p=> p.kind === "sign").forEach(p=> assert.ok(!DG.Dungeon.inDoorway(D, r, p.x + 0.5, p.y + 0.5), `seed ${s}: a sign in a doorway`));
     });
   }
+});
+
+/* ---- lairs ---- */
+test("every floor has a lair, a dead end off the path, with a mini-boss of that floor", ()=>{
+  for(let f=1; f<=5; f++) for(let s=1; s<=6; s++){
+    const D = DG.Dungeon.generate(s*7349 + f, f); if(!D) continue;
+    const L = D.rooms.filter(r=> r.type === "lair");
+    assert.equal(L.length, 1, "floor " + f);
+    const r = L[0];
+    assert.equal(r.links.length, 1, "a dead end");
+    assert.ok(DG.LAIRS[r.lair].floors.indexOf(f) >= 0, r.lair + " belongs on floor " + f);
+    assert.ok(!r.cleared);
+  }
+});
+test("a lair locks you in with its mini-boss: big, protected like a boss, no portal; its hoard pays out", ()=>{
+  Object.keys(DG.LAIRS).forEach(id=>{
+    const L = DG.LAIRS[id], f = L.floors[0];
+    let G = null, r = null;
+    for(let s=1; s<60 && !r; s++){ const H = game("LAIR" + id + s, f); const x = H.D.rooms.find(o=> o.type === "lair" && o.lair === id); if(x){ G = H; r = x; } }
+    if(!r){ r = (G = game("LAIRX" + id, f)).D.rooms.find(o=> o.type === "lair"); r.lair = id; }
+    G.god = true; G.player.x = r.cxw; G.player.y = r.y2 - 0.5;
+    step(G, 0.2);
+    assert.ok(r.active, id + ": locked in");
+    const minis = G.enemies.filter(e=> e.room === r.id && !e.dead);
+    assert.equal(minis.length, L.count || 1, id);
+    minis.forEach(e=>{ assert.ok(e.mini && e.big && !e.boss && e.lair === id); assert.ok(e.r > DG.ENEMIES[L.base].radius*1.3); });
+    // it fights for a while without anything going wrong
+    for(let i=0;i<60*8;i++){ G.update(1/60, {}); G.drain(); }
+    G.enemies.filter(e=> e.room === r.id && !e.dead).forEach(e=>{ assert.ok(Number.isFinite(e.x) && Number.isFinite(e.y) && Number.isFinite(e.hp), id + " stays finite"); });
+    // a pit doesn't take it
+    // ...kill them all: no portal, but a hoard
+    G.enemies.filter(e=> e.room === r.id && !e.dead).forEach(e=> G.killEnemy(e, {}));
+    step(G, 0.5);
+    assert.ok(!G.portal, id + ": a lair isn't a boss");
+    assert.ok(r.cleared && !r.active);
+    assert.ok(r.props.some(p=> p.kind === "pedestal"), id + ": a prize");
+    assert.ok(G.pickups.some(k=> k.kind === "key"), id + ": a key");
+  });
+});
+test("the Reliquary Warden's shield: from the front, a shot barely scratches; from behind, full", ()=>{
+  const G = game("WARDEN", 3), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  const e = G.spawnEnemy(r, { type:"skeleton", x:spot.x, y:spot.y, size:1.9, hpMul:21, lair:"warden" }); e.spawn = 0; e.face = 0;   // facing east
+  const hp0 = e.hp;
+  G.damageEnemy(e, 100, { ax:-1, ay:0 });          // a shot travelling west hits his front
+  const front = hp0 - e.hp;
+  G.damageEnemy(e, 100, { ax:1, ay:0 });           // a shot travelling east hits his back
+  const back = hp0 - front - e.hp;
+  assert.ok(front < back*0.3, "front " + front + ", back " + back);
 });

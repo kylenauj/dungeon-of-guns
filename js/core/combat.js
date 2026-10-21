@@ -311,7 +311,7 @@ proto.enemyShotStep = function(b, p){
 proto.shotHit = function(b, e){
   const G = this;
   const r = G.damageEnemy(e, b.dmg, { els:b.els, power:b.power, crit:b.crit, critMul:b.critMul, knock:b.knock, ax:b.vx, ay:b.vy, depth:b.depth, from:b.from, coin:b.coin });
-  if(b.trap && !e.boss && !e.dead){ e.st.trapped = b.trap; e.st.stun = Math.max(e.st.stun || 0, b.trap); G.emit("trapped", { id:e.id, x:e.x, y:e.y }); }
+  if(b.trap && !e.big && !e.dead){ e.st.trapped = b.trap; e.st.stun = Math.max(e.st.stun || 0, b.trap); G.emit("trapped", { id:e.id, x:e.x, y:e.y }); }
   G.trigger("hit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
   if(r && r.crit) G.trigger("crit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
 };
@@ -345,12 +345,18 @@ proto.damageEnemy = function(e, amt, src){
   let m = 1;
   if(e.affix && DG.AFFIXES[e.affix].dmgTaken) m *= DG.AFFIXES[e.affix].dmgTaken;
   if(e.def.armor) m *= e.def.armor;
+  // the Warden's tower shield: from the front, shots barely scratch him
+  if(e.lair && DG.LAIRS[e.lair].shield && !src.dot && (src.ax || src.ay)){
+    const inc = Math.atan2(-src.ay, -src.ax);                // where the hit came from
+    if(Math.abs(DG.wrapAngle(inc - e.face)) < 1.0){ m *= 0.15; if(!e.clangT || e.clangT < G.t){ e.clangT = G.t + 0.25; G.emit("clang", { x:e.x + Math.cos(e.face)*e.r, y:e.y + Math.sin(e.face)*e.r }); } }
+  }
+  if(e.lair && DG.AI.lairHurt) DG.AI.lairHurt(G, e);
   if(M.special.brittle && (e.st.chill > 0 || e.st.frozen > 0)) m *= 1 + 0.35*M.special.brittle;
   if(e.st.rot > 0) m *= 1.5;
   if(els.indexOf("arcane") >= 0 && !src.dot) m *= DG.STATUS.arcane.mul;
   if(e.st.marked > 0 && !src.dot && els.indexOf("arcane") < 0) m *= 1.1;
   if(M.special.silver && HAUNTED[e.type]) m *= 1.6;
-  if(M.special.bossbane && e.boss) m *= 1.25;
+  if(M.special.bossbane && e.big) m *= 1.25;
   if(M.special.firsthit && !src.dot && !e.firstHit){ e.firstHit = true; m *= 3; }
   let crit = false;
   if(!src.dot && src.crit && G.chance(src.crit)){
@@ -367,7 +373,7 @@ proto.damageEnemy = function(e, amt, src){
     if(p.leech >= 1 && G.t >= (p.leechNext || 0) && p.hp < p.maxHp){ p.leech -= 1; p.leechNext = G.t + 0.25; G.heal(1); }
   }
   // the Executioner's Axe: the weak ones just die
-  if(M.special.execute && !e.boss && e.hp > 0 && e.hp < e.maxHp*(M.special.reaper ? 0.22 : 0.15)){ e.hp = 0; e.executed = true; G.emit("execute", { x:e.x, y:e.y, id:e.id }); }
+  if(M.special.execute && !e.big && e.hp > 0 && e.hp < e.maxHp*(M.special.reaper ? 0.22 : 0.15)){ e.hp = 0; e.executed = true; G.emit("execute", { x:e.x, y:e.y, id:e.id }); }
   if(!src.dot) G.emit("hit", { x:e.x, y:e.y, amt:d, crit, el:els[0], id:e.id });
   if(e.decoy && !src.dot){ e.hp = Math.max(e.hp, 1); if(e.ai) e.ai.popped = true; }
   // statuses
@@ -378,7 +384,7 @@ proto.damageEnemy = function(e, amt, src){
       if(el === "fire") G.applyBurn(e, S.burn.dps*pw, S.burn.dur*dur, !!M.special.wildfire);
       if(el === "frost"){
         e.st.chill = S.chill.dur*dur; e.st.chillStacks = (e.st.chillStacks || 0) + 1;
-        if(e.st.chillStacks >= S.chill.freezeAt && !e.boss){ e.st.frozen = S.chill.freeze; e.st.chillStacks = 0; G.emit("freeze", { x:e.x, y:e.y }); }
+        if(e.st.chillStacks >= S.chill.freezeAt && !e.big){ e.st.frozen = S.chill.freeze; e.st.chillStacks = 0; G.emit("freeze", { x:e.x, y:e.y }); }
       }
       if(el === "shock") e.st.shocked = S.shock.dur*dur;
       if(el === "arcane") e.st.marked = S.arcane.dur*dur;
@@ -392,7 +398,7 @@ proto.damageEnemy = function(e, amt, src){
   }
   // knockback (frozen and big things barely budge)
   if(src.knock && (src.ax || src.ay)){
-    const l = Math.hypot(src.ax, src.ay) || 1, heavy = e.boss ? 0.05 : e.r > 0.5 ? 0.35 : 1;
+    const l = Math.hypot(src.ax, src.ay) || 1, heavy = e.big ? 0.05 : e.r > 0.5 ? 0.35 : 1;
     const k = src.knock*(els.indexOf("arcane") >= 0 ? DG.STATUS.arcane.knock/1.5 : 1)*heavy*(e.st.frozen > 0 ? 0.3 : 1)*(e.def.speed ? 1 : 0);
     e.kx += src.ax/l*k*2.2; e.ky += src.ay/l*k*2.2;
   }
@@ -550,7 +556,7 @@ proto.killEnemy = function(e, src, fell){
 proto.shrinkEnemy = function(e, k){
   if(e.dead) return;
   if(e.shrink === undefined){ e.shrink = 1; e.r0 = e.r; e.dmg0 = e.dmg; }
-  const min = e.boss ? 0.85 : 0.5;
+  const min = e.big ? 0.85 : 0.5;
   if(e.shrink <= min) return;
   e.shrink = Math.max(min, e.shrink - k);
   e.r = e.r0*e.shrink; e.dmg = e.dmg0*e.shrink;
@@ -576,7 +582,7 @@ proto.cometHits = function(){
     if(e.dead || e.spawn > 0 || e.untargetable || p.cometHit.indexOf(e.id) >= 0) return;
     if(DG.dist(e.x, e.y, p.x, p.y) > e.r + 0.7) return;
     p.cometHit.push(e.id);
-    G.damageEnemy(e, P*2.4, { els:G.shotEls(G.gun()), power:G.gunStats().power, depth:1, ax:p.bdx, ay:p.bdy, knock:e.boss ? 0.5 : 6 });
+    G.damageEnemy(e, P*2.4, { els:G.shotEls(G.gun()), power:G.gunStats().power, depth:1, ax:p.bdx, ay:p.bdy, knock:e.big ? 0.5 : 6 });
     G.emit("comet", { x:e.x, y:e.y });
   });
   if(G.mods.special.shootingstar && (p.starT = (p.starT || 0) + 1) % 3 === 0) G.byproduct(G.rng.pick(G.shotEls(G.gun())), p.x, p.y, P, 1);
@@ -634,7 +640,7 @@ proto.payload = function(pl, ctx){
     case "gold": G.dropGold(x, y, pl.n || 1); break;
     case "blackhole": G.addHazard({ kind:"blackhole", x, y, r:2.8, t:1.8, P, every:0.2, depth }); break;
     case "status": {
-      const e = ctx.enemy; if(!e || e.dead || e.boss) break;
+      const e = ctx.enemy; if(!e || e.dead || e.big) break;
       e.st[pl.st] = Math.max(e.st[pl.st] || 0, pl.t || 2);
       G.emit("status", { id:e.id, x:e.x, y:e.y, st:pl.st });
       break;
@@ -661,8 +667,8 @@ proto.payload = function(pl, ctx){
       G.enemies.forEach(e=>{
         if(e.dead || e.spawn > 0 || DG.dist(e.x, e.y, p.x, p.y) > r + e.r) return;
         const d = DG.dist(e.x, e.y, p.x, p.y) || 1;
-        if(!e.boss){ e.kx += (e.x - p.x)/d*14; e.ky += (e.y - p.y)/d*14; e.st.stun = Math.max(e.st.stun || 0, pl.stun || 0.6); }
-        if(G.mods.special.barnyard && !e.boss) e.st.confused = Math.max(e.st.confused || 0, 2.5);
+        if(!e.big){ e.kx += (e.x - p.x)/d*14; e.ky += (e.y - p.y)/d*14; e.st.stun = Math.max(e.st.stun || 0, pl.stun || 0.6); }
+        if(G.mods.special.barnyard && !e.big) e.st.confused = Math.max(e.st.confused || 0, 2.5);
       });
       break;
     }
@@ -674,7 +680,7 @@ proto.payload = function(pl, ctx){
       break;
     }
     case "toll":
-      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, pl.t || 1.5); });
+      G.enemies.forEach(e=>{ if(!e.dead && !e.big && G.room && e.room === G.room.id) e.st.stun = Math.max(e.st.stun || 0, pl.t || 1.5); });
       G.emit("toll", { x:p.x, y:p.y });
       break;
     case "dice": {
@@ -820,7 +826,7 @@ proto.updateHazards = function(dt){
       case "gum": if(fire) G.enemies.forEach(e=>{ if(live(e) && inR(e)) e.st.chill = Math.max(e.st.chill || 0, 0.35); }); break;
       case "blackhole":
         G.enemies.forEach(e=>{
-          if(!live(e) || e.boss) return;
+          if(!live(e) || e.big) return;
           const d = DG.dist(h.x, h.y, e.x, e.y); if(d > h.r) return;
           G.move(e, (h.x - e.x)/Math.max(0.3, d)*5*dt, (h.y - e.y)/Math.max(0.3, d)*5*dt, "flying");
           if(fire) G.damageEnemy(e, h.P*0.35, { els:["arcane"], dot:true });
@@ -1039,7 +1045,7 @@ proto.updateBeams = function(dt){
     b.hitCd -= dt;
     // distance from Zippy to the beam's segment
     const dx = Math.cos(b.a), dy = Math.sin(b.a), rx = p.x - b.x, ry = p.y - b.y, along = rx*dx + ry*dy;
-    if(along > 0 && along < b.len && Math.abs(rx*dy - ry*dx) < b.w + p.r*0.6 && b.hitCd <= 0){ b.hitCd = 0.4; G.hurtPlayer(b.dmg, "laser"); }
+    if(b.dmg > 0 && along > 0 && along < b.len && Math.abs(rx*dy - ry*dx) < b.w + p.r*0.6 && b.hitCd <= 0){ b.hitCd = 0.4; G.hurtPlayer(b.dmg, "laser"); }
   });
   G.beams = G.beams.filter(b=> !b.dead);
 };
@@ -1066,7 +1072,7 @@ proto.castSpell = function(g, s, I, echo){
     case "nova":
       G.bullets.forEach(b=>{ if(b.team === "e" && DG.dist(b.x, b.y, p.x, p.y) < sp.radius) b.dead = true; });
       G.nova(p.x, p.y, sp.radius, sp.dmg*pw, els, 0);
-      G.enemies.forEach(e=>{ if(!e.dead && !e.boss && DG.dist(e.x, e.y, p.x, p.y) < sp.radius + e.r) e.st.frozen = Math.max(e.st.frozen || 0, 1.6); });
+      G.enemies.forEach(e=>{ if(!e.dead && !e.big && DG.dist(e.x, e.y, p.x, p.y) < sp.radius + e.r) e.st.frozen = Math.max(e.st.frozen || 0, 1.6); });
       break;
     case "plague": {
       let tx = I.ax === undefined ? p.x + Math.cos(a)*5 : I.ax, ty = I.ay === undefined ? p.y + Math.sin(a)*5 : I.ay;

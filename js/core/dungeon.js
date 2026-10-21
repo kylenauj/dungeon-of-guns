@@ -171,7 +171,7 @@ function tryGenerate(rng, floor, seed, opts){
 
   /* ---- 4. contents ---- */
   rooms.forEach(r=>{
-    r.waves = []; r.traps = []; r.props = []; r.cleared = r.type !== "combat" && r.type !== "boss";
+    r.waves = []; r.traps = []; r.props = []; r.cleared = r.type !== "combat" && r.type !== "boss" && r.type !== "lair";
     if(r.type === "combat"){ furnish(D, rng, r); breakables(D, rng, r); trapRoom(D, rng, r, S); populate(D, rng, r, floor, S); }
   });
   const st = rooms[0];
@@ -596,6 +596,7 @@ function specialRooms(D, rng, floor, C, quest){
   if(rng.chance(R.vault(floor))) want.push("vault");
   if(rng.chance(R.weird(floor))) want.push(rng.weighted(R.table.filter(o=> floor >= o.min)).type);
   if(rng.chance(R.olm(floor))) want.push("olm");
+  want.push("lair");                                   // a mini-boss on every floor
   want.forEach(type=>{
     const cand = [];
     for(let cy=0; cy<GH; cy++) for(let cx=0; cx<GW; cx++){
@@ -605,7 +606,7 @@ function specialRooms(D, rng, floor, C, quest){
       const others = DG.DIRS4.filter(([dx, dy])=> C.roomAt(cx + dx, cy + dy)).length - ns.length;
       // (and leave the room hiding a secret wall looking like a dead end)
       const hidesSecret = ns.some(o=> o.r.links.some(id=> D.rooms[id].type === "secret"));
-      if(ns.length) cand.push({ cx, cy, ns, w:(others ? 0.3 : 1)*(hidesSecret ? 0.15 : 1)*(type === "vault" || type === "olm" ? 1 : 1 + Math.max(...ns.map(o=> o.r.dist))) });
+      if(ns.length) cand.push({ cx, cy, ns, w:(others ? 0.3 : 1)*(hidesSecret ? 0.15 : 1)*(type === "vault" || type === "olm" ? 1 : 1 + Math.max(...ns.map(o=> o.r.dist)))*(type === "lair" ? 1 + Math.max(...ns.map(o=> o.r.dist)) : 1) });
     }
     if(!cand.length) return;
     const c = rng.weighted(cand), host = rng.pick(c.ns);
@@ -613,6 +614,10 @@ function specialRooms(D, rng, floor, C, quest){
     r.c0x = r.c1x = c.cx; r.c0y = r.c1y = c.cy; r.dist = host.r.dist + 1;
     C.link(host.r, r, host.c, [c.cx, c.cy]);
     if(type === "vault" || type === "reliquary" || type === "shrine") r.lockedIn = true;
+    if(type === "lair"){
+      const f = ((floor - 1) % DG.FLOORS.length) + 1;
+      r.lair = rng.pick(Object.keys(DG.LAIRS).filter(id=> DG.LAIRS[id].floors.indexOf(f) >= 0));
+    }
   });
 }
 /* the door into a lockedIn room (on its host's side) starts shut and locked */
@@ -632,6 +637,15 @@ Dungeon.behindLock = function(D, r){ return D.doors.some(d=> d.into === r.id || 
 const deco = (D, r, kind, x, y, o)=> D.decor.push(Object.assign({ kind, x, y, room:r.id }, o || {}));
 const wallDeco = (D, r, kind, x, o)=> deco(D, r, kind, x + 0.5, r.y1 - 0.02, Object.assign({ wall:true }, o || {}));
 const SPECIAL = {
+  /* a lair: something big lives here. Bones, chains, a cage, the floor stained dark */
+  lair(D, rng, r){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.boss = { x:r.cxw, y:r.cyw - 1 };
+    deco(D, r, "bloodpool", cx + 0.5, cy + 0.5, { rot:rng.next()*6, s:1.4 });
+    [[r.x1 + 0.8, r.y1 + 0.8], [r.x2 + 0.2, r.y1 + 0.8], [r.x1 + 0.8, r.y2 + 0.2], [r.x2 + 0.2, r.y2 + 0.2]].forEach(([x, y], i)=> deco(D, r, ["skullpile", "bones", "cage", "deadknight"][(i + rng.int(0, 3)) % 4], x, y, { rot:rng.next()*6, s:1 + rng.next()*0.3 }));
+    for(let k=0;k<6;k++) deco(D, r, rng.pick(["bones", "bones", "skullpile", "corpse"]), r.x1 + 1 + rng.next()*(r.x2 - r.x1 - 1), r.y1 + 1 + rng.next()*(r.y2 - r.y1 - 1), { rot:rng.next()*6, s:0.9 + rng.next()*0.3 });
+    for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(D.at(x, r.y1 - 1) === T.SOLID) wallDeco(D, r, rng.pick(["shacklewall", "gibbet", "chains", "spikewall"]), x, { s:1 });
+  },
   /* a locked vault: two pedestals both yours, or one from the secret pool, or a golden chest and an item */
   vault(D, rng, r, floor){
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);

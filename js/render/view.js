@@ -345,6 +345,10 @@ proto.handle = function(ev){
     case "trap": if(DG.dist(ev.x, ev.y, G.player.x, G.player.y) < 10) play(ev.kind === "spikes" ? "spikes" : ev.kind === "vent" ? "vent" : "dart", { x:ev.x, y:ev.y }); break;
     case "dizzy": FX.burst(ev.x, 1.6, ev.y, 0xffe680, 8, 2, 0.25, 0.8, { up:1 }); play("thud"); S.shake(0.3); break;
     case "boss": play("boss"); break;
+    case "lair": play("boss"); S.shake(0.4); break;
+    case "hookThrow": play("arrow"); FX.burst(ev.x + Math.cos(ev.a)*1.2, 1.0, ev.y + Math.sin(ev.a)*1.2, 0x8a8278, 8, 4, 0.12, 0.4); break;
+    case "hooked": S.shake(0.45); FX.burst(ev.x, 1.0, ev.y, 0xc8c0b0, 14, 3, 0.2, 0.5); play("bonk"); break;
+    case "clang": FX.burst(ev.x, 1.0, ev.y, 0xffe0a0, 6, 4, 0.12, 0.25); play("stone"); break;
     case "bossPhase": S.shake(0.5); play("tellBig"); break;
     case "jump": play("jump"); break;
     case "land": S.shake(0.9); play("boom"); break;
@@ -703,7 +707,7 @@ proto.updateEnemies = function(dt, t){
       S.scene.add(R.root);
     }
     R.root.position.set(S.ix(e), 0, S.iy(e));
-    const es = (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1);
+    const es = e.def.radius ? e.r/e.def.radius : (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1);   // elites, lair bosses and shrunk things alike
     R.root.scale.set(es, es*STRETCH, es);
     if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
     const want = PI/2 - e.face;

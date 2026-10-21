@@ -194,7 +194,7 @@ function updateFrog(G, f, idx, dt){
   }
   if(fight && g.doom && (f.timers.doom || 0) <= 0 && idx === 0){
     f.timers.doom = 10;
-    G.enemies.forEach(e=>{ if(!e.dead && e.room === G.room.id && !e.boss) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
+    G.enemies.forEach(e=>{ if(!e.dead && e.room === G.room.id && !e.big) e.st.stun = Math.max(e.st.stun || 0, 1.2); });
     G.emit("croak", { x:f.x, y:f.y, kind:"doom" }); G.say("CROAK OF DOOM", 1.5);
   }
   if(fight && g.brood && (f.timers.brood || 0) <= 0){ f.timers.brood = 5; G.spawnAlly("tadpole", f.x, f.y, {}); }

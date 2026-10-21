@@ -30,7 +30,7 @@ AI.update = function(G, e, dt){
     G.move(e, e.kx*dt, e.ky*dt, e.phases ? "ghost" : Math.hypot(e.kx, e.ky) > 2.5 ? "flying" : "enemy");
     const f = Math.exp(-dt*9); e.kx *= f; e.ky *= f;
   } else { e.kx = e.ky = 0; }
-  if(!e.airborne && !e.phases && !e.boss && G.D.at(Math.floor(e.x), Math.floor(e.y)) === DG.TILE.PIT){
+  if(!e.airborne && !e.phases && !e.big && G.D.at(Math.floor(e.x), Math.floor(e.y)) === DG.TILE.PIT){
     G.emit("fall", { x:e.x, y:e.y, who:"enemy", id:e.id });
     G.killEnemy(e, {}, true);
     return;
@@ -39,7 +39,7 @@ AI.update = function(G, e, dt){
   if(e.st.frozen > 0 || e.st.stun > 0) return;
   // confused (Rubber Chicken, Goblin Whistle): stumbles about and clobbers
   // whatever it bumps into, friends included; no attacks on Zippy
-  if(e.st.confused > 0 && !e.boss && !e.decoy){
+  if(e.st.confused > 0 && !e.big && !e.decoy){
     if((e.ai.wanderT || 0) <= G.t){ e.ai.wanderT = G.t + 0.4 + G.rng.next()*0.6; e.ai.wanderA = G.rng.next()*Math.PI*2; }
     if(e.def.speed) walk(G, e, Math.cos(e.ai.wanderA), Math.sin(e.ai.wanderA), 0.7, dt);
     if((e.ai.bonkT || 0) <= G.t){
@@ -51,10 +51,10 @@ AI.update = function(G, e, dt){
   e.ai.cd -= dt;
   // bumping into Zippy hurts, for the squishy and the spooky
   const p = G.player;
-  if((e.def.ai === "blob" || e.def.ai === "ghost" || e.boss) && !e.untargetable && !e.airborne && DG.dist(e.x, e.y, p.x, p.y) < e.r + p.r && (e.ai.touch || 0) <= G.t){
+  if((e.def.ai === "blob" || e.def.ai === "ghost" || e.big) && !e.untargetable && !e.airborne && DG.dist(e.x, e.y, p.x, p.y) < e.r + p.r && (e.ai.touch || 0) <= G.t){
     e.ai.touch = G.t + 0.9; G.hurtPlayer(e.dmg*0.6, e.type);
   }
-  const B = BEHAVIOUR[e.def.ai] || BEHAVIOUR.melee;
+  const B = (e.lair && LAIR[e.lair]) || BEHAVIOUR[e.def.ai] || BEHAVIOUR.melee;
   B(G, e, dt, p);
 };
 
@@ -146,7 +146,7 @@ function melee(G, e, dt, p, o){
 }
 /* aim, tell, fire: slingers, skeletons, toadstools */
 function ranged(G, e, dt, p, opts){
-  const A = e.ai, S = e.def.shot;
+  const A = e.ai, S = e.shot || e.def.shot;
   if(A.state === "tell"){
     A.t -= dt; e.face = aimAt(e, p);
     if(A.t <= 0){ A.state = "move"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, S.speed, S.n, S.spread || 0, S.kind || "rock", opts && opts.extra); }
@@ -657,6 +657,176 @@ const BEHAVIOUR = {
       G.emit("tell", { id:e.id, kind:"arteries", x:e.x, y:e.y, t:1.1 });
     }
   }
+};
+
+
+/* ================================================================== *
+ *  LAIRS: the mini-bosses. Each runs its base enemy's brain, with moves
+ *  of its own on their own timers, every one with a tell. Below half
+ *  health each has a second wind.
+ * ================================================================== */
+/* a charge in a straight line (the Spore-Cook's roll; the brute's own is in BEHAVIOUR.brute) */
+function charge(G, e, dt, p, C){
+  const A = e.ai;
+  if(A.state === "ctell"){ A.t -= dt; e.face = A.a; if(A.t <= 0){ A.state = "charging"; A.t = C.time; A.hit = false; } return true; }
+  if(A.state === "charging"){
+    A.t -= dt;
+    const wall = walk(G, e, Math.cos(A.a), Math.sin(A.a), C.speed/speedOf(e), dt);
+    if(!A.hit && DG.dist(e.x, e.y, p.x, p.y) < e.r + p.r + 0.15){ A.hit = true; G.hurtPlayer(e.dmg, e.type); p.vx += Math.cos(A.a)*10; p.vy += Math.sin(A.a)*10; }
+    if(wall || A.t <= 0){ A.state = "recover"; A.t = wall ? C.stun : 0.5; if(wall){ e.st.stun = C.stun; G.emit("dizzy", { id:e.id, x:e.x, y:e.y, t:C.stun }); } }
+    return true;
+  }
+  return false;
+}
+function secondWind(G, e, line){
+  const A = e.ai;
+  if(A.raged || e.hp > e.maxHp*0.5) return false;
+  A.raged = true;
+  G.emit("bossPhase", { id:e.id });
+  if(line) G.emit("bark", { id:e.id, x:e.x, y:e.y, text:line });
+  return true;
+}
+const LAIR = {
+  /* Skabb, the Gaoler: a brute with a hooked chain. The hook drags you in
+     to his charge; chains fall from the ceiling around you. */
+  gaoler(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e, "LADS! FRESH MEAT!")) summon(G, e, 2, ["grunt", G.floor >= 2 ? "slinger" : "grunt"]);
+    A.hookCd = (A.hookCd === undefined ? 3 : A.hookCd) - dt;
+    A.chainCd = (A.chainCd === undefined ? 5 : A.chainCd) - dt;
+    if(A.state === "hook"){
+      A.t -= dt; e.face = A.a;
+      if(A.t <= 0){
+        const dx = Math.cos(A.a), dy = Math.sin(A.a), rx = p.x - e.x, ry = p.y - e.y, along = rx*dx + ry*dy, off = Math.abs(rx*dy - ry*dx);
+        G.emit("hookThrow", { id:e.id, x:e.x, y:e.y, a:A.a, len:9 });
+        if(along > 0 && along < 9 && off < 0.7 + p.r && G.los(e.x, e.y, p.x, p.y)){
+          G.hurtPlayer(e.dmg*0.5, "hook"); p.vx -= dx*16; p.vy -= dy*16;
+          G.emit("hooked", { x:p.x, y:p.y });
+          A.cd = 0;                                    // and straight into the charge
+        }
+        A.state = "recover"; A.t = 0.35; A.hookCd = A.raged ? 3.2 : 4.5;
+      }
+      return;
+    }
+    if(A.state === "chase" || A.state === "idle"){
+      if(A.hookCd <= 0 && d > 3 && d < 9 && G.los(e.x, e.y, p.x, p.y)){
+        A.a = aimAt(e, p); A.state = "hook"; A.t = 0.65;
+        G.addBeam({ owner:e.id, x:e.x, y:e.y, a:A.a, tell:0.65, time:0.01, dmg:0, w:0.25, max:9, kind:"hook" });
+        tell(G, e, "hook", 0.65, { a:A.a }); A.state = "hook"; A.t = 0.65;
+        G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(DG.LAIRS.gaoler.lines) });
+        return;
+      }
+      if(A.chainCd <= 0){
+        A.chainCd = A.raged ? 4 : 6;
+        const n = A.raged ? 6 : 4;
+        for(let k=0;k<n;k++){ const s = spotNear(G, e, p.x, p.y, k ? 3.2 : 0.3); slam(G, s.x, s.y, 0.85, e.dmg*0.7, 0.95, "chains"); }
+        G.emit("tell", { id:e.id, kind:"chains", x:e.x, y:e.y, t:0.95 });
+      }
+    }
+    BEHAVIOUR.brute(G, e, dt, p);
+  },
+  /* the Spore-Cook: lobs rot from his pot that lands in spore clouds, and
+     rolls his bulk at you; at half health he eats and boils over */
+  cook(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e, "SECOND HELPINGS!")){ A.lobCd = 0; e.hp = Math.min(e.maxHp, e.hp + e.maxHp*0.15); G.emit("heal", { x:e.x, y:e.y, amt:0, enemy:true }); }
+    if(charge(G, e, dt, p, { time:0.85, speed:8.5, stun:1.1 })) return;
+    if(A.state === "recover"){ A.t -= dt; if(A.t <= 0) A.state = "chase"; return; }
+    if(A.state === "brew"){
+      A.t -= dt;
+      if(A.t <= 0){
+        const n = A.raged ? 5 : 3;
+        for(let k=0;k<n;k++){
+          const s = spotNear(G, e, p.x, p.y, k ? 3 : 0.4), dmg = e.dmg*0.5;
+          slam(G, s.x, s.y, 1.0, dmg, 0.85, "glob");
+          G.pending.push({ t:0.85, fn:()=> G.addHazard({ kind:"spores", x:s.x, y:s.y, r:1.1, t:3.2, every:0.5, dmg:dmg*0.5, team:"e" }) });
+        }
+        G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind:"lob" });
+        A.state = "chase"; A.lobCd = A.raged ? 2.8 : 4;
+      }
+      return;
+    }
+    A.lobCd = (A.lobCd === undefined ? 2 : A.lobCd) - dt;
+    A.rollCd = (A.rollCd === undefined ? 4 : A.rollCd) - dt;
+    A.state = "chase";
+    if(A.lobCd <= 0 && G.los(e.x, e.y, p.x, p.y)){ tell(G, e, "brew", 0.7); A.state = "brew"; A.t = 0.7; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(DG.LAIRS.cook.lines) }); return; }
+    if(A.rollCd <= 0 && d > 2.5 && d < 10 && G.los(e.x, e.y, p.x, p.y)){ A.rollCd = A.raged ? 3.5 : 5; A.a = aimAt(e, p); tell(G, e, "charge", 0.8, { a:A.a }); A.state = "ctell"; A.t = 0.8; return; }
+    approach(G, e, p, dt, 0.9);
+  },
+  /* the Reliquary Warden: a dead keeper behind a tower shield (shots from
+     the front barely scratch him: get round him). Volleys of arrows at
+     range, a shield bash up close; at half health the dead rise to help. */
+  warden(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e, "RISE, BROTHERS.")) summon(G, e, 2, ["skeleton"]);
+    e.shot = e.shot || { speed:11, cd:2.4, tell:0.6, n:3, spread:24, kind:"arrow" };
+    // turn slowly to face Zippy: the shield is only good from the front
+    const want = aimAt(e, p);
+    if(A.state !== "tell" && A.state !== "lunge") e.face += DG.wrapAngle(want - e.face)*Math.min(1, dt*(A.raged ? 2.6 : 1.8));
+    if(d < 2.6 || A.state === "lunge" || (A.state === "tell" && A.tell === "stab") || A.state === "recover"){
+      melee(G, e, dt, p, { reach:2.6, tell:0.5, lunge:9, cd:1.4 });
+      if(A.state === "lunge" && A.hit && !A.bashed){ A.bashed = true; p.vx += Math.cos(A.a)*12; p.vy += Math.sin(A.a)*12; }
+      if(A.state !== "lunge") A.bashed = false;
+      return;
+    }
+    const face = e.face;
+    ranged(G, e, dt, p);
+    if(A.state !== "tell") { e.face = face + DG.wrapAngle(want - face)*Math.min(1, dt*1.8); }
+    if(d > 6) approach(G, e, p, dt, 0.7);
+  },
+  /* the Leech Mother: burrows and rises under you like any tentacle, but
+     comes up in a ring of leeches, and spits more while she's up */
+  leech(G, e, dt, p){
+    const A = e.ai, was = A.state;
+    if(secondWind(G, e)) e.def = Object.assign({}, e.def, { slam:Object.assign({}, e.def.slam, { cd:1.6, tell:0.7 }) });
+    BEHAVIOUR.tentacle(G, e, dt, p);
+    if(was === "rise" && A.state === "up") G.ring(e.x, e.y, A.raged ? 14 : 10, 4.2, e.dmg*0.45, G.rng.next(), "leech");
+    if(A.state === "up"){
+      A.spitCd = (A.spitCd === undefined ? 0.8 : A.spitCd) - dt;
+      if(A.spitCd <= 0){ A.spitCd = A.raged ? 0.9 : 1.4; shoot(G, e, aimAt(e, p), 6.5, 3, 30, "leech", { r:0.2, dmg:e.dmg*0.45 }); }
+    }
+  },
+  /* the Many-Eyed: glares down three lines at once (five, later), and
+     weeps a ring of tears between */
+  manyeyed(G, e, dt, p){
+    const A = e.ai, Z = e.def.laser;
+    secondWind(G, e);
+    A.ringCd = (A.ringCd === undefined ? 2.5 : A.ringCd) - dt;
+    if(A.state === "glare"){ A.t -= dt; if(A.t <= 0) A.state = "drift"; return; }
+    A.state = "drift";
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 15 && G.los(e.x, e.y, p.x, p.y)){
+      A.cd = (A.raged ? 2.6 : 3.4)*(0.85 + G.rng.next()*0.3);
+      A.state = "glare"; A.t = Z.tell + Z.time + 0.2;
+      const a = aimAt(e, p), n = A.raged ? 5 : 3, spread = A.raged ? 0.3 : 0.38;
+      for(let k=0;k<n;k++) G.addBeam({ owner:e.id, x:e.x, y:e.y, a:a + (k - (n - 1)/2)*spread, tell:Z.tell, time:Z.time + 0.2, dmg:e.dmg, w:0.32, max:Z.len, sweep:(k - (n - 1)/2)*0.08 });
+      G.emit("tell", { id:e.id, kind:"glare", x:e.x, y:e.y, t:Z.tell });
+      return;
+    }
+    if(A.ringCd <= 0){ A.ringCd = A.raged ? 2.6 : 3.6; G.ring(e.x, e.y, A.raged ? 16 : 12, 4.5, e.dmg*0.5, G.rng.next(), "tear"); G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind:"ring" }); }
+    keepAway(G, e, p, dt, [5, 9]);
+  },
+  /* the Choir of Husks: three that charge like husks; hurt one and the
+     other two scream at you */
+  choir(G, e, dt, p){
+    const A = e.ai;
+    if(A.screamT && A.screamT <= G.t){
+      A.screamT = 0;
+      shoot(G, e, aimAt(e, p), 7, 5, 46, "wail", { r:0.22, dmg:e.dmg*0.45 });
+      G.emit("tell", { id:e.id, kind:"scream", x:e.x, y:e.y, t:0.1 });
+    }
+    BEHAVIOUR.brute(G, e, dt, p);
+  }
+};
+AI.LAIR = LAIR;
+/* the Choir: when one is hurt, the others scream (called from damageEnemy) */
+AI.lairHurt = function(G, e){
+  if(e.lair !== "choir") return;
+  G.enemies.forEach(o=>{
+    if(o === e || o.dead || o.lair !== "choir" || o.room !== e.room) return;
+    if((o.ai.screamCd || 0) > G.t) return;
+    o.ai.screamCd = G.t + 2.2; o.ai.screamT = G.t + 0.45;
+    G.emit("tell", { id:o.id, kind:"scream", x:o.x, y:o.y, t:0.45 });
+  });
 };
 
 function summon(G, e, n, types){

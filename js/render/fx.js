@@ -315,8 +315,8 @@ FX.soul = function(x, z, h, life, col){
 
 const EL = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
 const ENEMY_SHOT = { acid:[0x9cff3a, 0.4], orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36], spore:[0xb8d84a, 0.38], ecto:[0x8ae8ff, 0.46],
-  wail:[0xa8c8ff, 0.4], arrow:[0xe8dcc0, 0.26], tear:[0x6ad8ff, 0.36], blood:[0xff2a3a, 0.42] };
-const MARK = { flop:0xff3a2a, slam:0xff3a2a, tentacle:0xd84aff, tear:0x6ad8ff, shroomring:0x9cff3a, vein:0xff2a3a, swipe:0xff6a3a };
+  wail:[0xa8c8ff, 0.4], arrow:[0xe8dcc0, 0.26], tear:[0x6ad8ff, 0.36], blood:[0xff2a3a, 0.42], leech:[0x6a1a22, 0.36] };
+const MARK = { flop:0xff3a2a, slam:0xff3a2a, tentacle:0xd84aff, tear:0x6ad8ff, shroomring:0x9cff3a, vein:0xff2a3a, swipe:0xff6a3a, chains:0xc89a50, glob:0x9cba3a };
 
 /* ---- per frame ---- */
 let clock = 0;

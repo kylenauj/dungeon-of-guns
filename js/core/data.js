@@ -309,6 +309,27 @@ DG.RARE_ROOMS = {
 };
 DG.ROOM_SIZES = { vault:[9, 7, 11, 9], olm:[11, 9, 13, 10], throne:[13, 11, 15, 13], cage:[15, 11, 17, 13], gamble:[11, 9, 13, 11] };
 
+/* ---- lairs: one mini-boss a floor, in a dead-end room of its own ----
+   Each is an enemy you know, grown huge, with moves of its own (ai.js,
+   LAIR). hp multiplies the base enemy's, so each is about 40% of that
+   floor's boss. A road lair (warden, leech) will belong to its road once
+   the roads are in; until then it turns up like the rest. */
+DG.LAIRS = {
+  gaoler:   { name:"Skabb, the Gaoler",      base:"brute",    floors:[1, 2], size:1.75, hp:3.8,  dmg:1.25,
+              intro:"Something big drags its chains across the floor.", lines:["IN YOU GO.", "I'VE A CELL FOR YOU.", "NOBODY LEAVES."] },
+  cook:     { name:"The Spore-Cook",         base:"bloater",  floors:[2, 3], size:1.6,  hp:8,    dmg:1.2,
+              intro:"A smell of boiled rot. Someone's been cooking.", lines:["MORE FOR THE POT.", "TASTE IT.", "STIR, STIR, STIR."] },
+  warden:   { name:"The Reliquary Warden",   base:"skeleton", floors:[3],    size:1.9,  hp:21,   dmg:1.35, shield:true, road:"lantern",
+              intro:"An old keeper, still at his post. He doesn't know he's dead.", lines:["NONE PASS.", "THE FLAME IS SEALED.", "BEGONE, THIEF."] },
+  leech:    { name:"The Leech Mother",       base:"tentacle", floors:[3, 4], size:1.8,  hp:15.5, dmg:1.2, road:"rot",
+              intro:"The floor is wet, and it moves.", lines:[] },
+  manyeyed: { name:"The Many-Eyed",          base:"watcher",  floors:[4, 5], size:1.85, hp:15.5, dmg:1.1,
+              intro:"You can feel it looking. All of it.", lines:[] },
+  choir:    { name:"The Choir of Husks",     base:"husk",     floors:[5],    size:1.35, hp:4,    dmg:1.0, count:3,
+              intro:"Three of them, singing with no mouths.", lines:["...", "hhhhhaaaaa", "SING"] }
+};
+DG.ROOM_SIZES.lair = [13, 11, 15, 12];
+
 /* the Red Throne's price: one of these, forever (shown before you take) */
 DG.PACTS = {
   halved:    { name:"The Halving",  desc:"your max health is cut in half, forever" },
