@@ -153,9 +153,15 @@ generated in code (no bought or downloaded art) and replaces the etched look:
   now, not drawn over in ink); colour stays at 1.8%. The 35% target belonged to
   the etched look; 25-40% is the range now.
 
-**Step 2, geometry and dressing (next):** pillars and arches along the walls,
-broken floor edges and steps, rubble at every wall base, cobwebs, chains, cloth
-rugs with real weave, corpses in clusters.
+**Step 2, geometry and dressing (first pass done):** pilasters with plinths and
+capitals along the north and side walls (midway between torches, never over a door,
+a secret wall, a painting or wall decor), a flattened blind arch with a keystone in
+each north-wall bay; rubble clustered at every wall base and piled in corners, with
+the odd fallen block (`buildDressing` in world.js, eight rock shapes reused); the rug
+is a woven kilim mesh with relief, fringe, moth holes and a worn path (`rugMat` in
+vanity.js), laid first so no decal is painted over it; "missing flagstones" are packed
+dirt now, not black squares that read as pits. Still to do: broken floor edges and
+steps, cobwebs and chains overhead, corpses in clusters.
 
 **Step 3, characters (after):** higher-detail sculpted forms, textures generated
 per material (cloth weave, leather, rusted iron, bone), better animation.

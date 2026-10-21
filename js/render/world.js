@@ -171,13 +171,14 @@ const World = DG.World = function(D){
   W.buildBreakables();
   W.buildMotes();
   W.buildVanity();
+  W.buildDressing();
   D.rooms.forEach(r=> r.props.forEach(p=> W.addProp(p)));
   D.rooms.forEach(r=>{ if(r.puzzle) W.buildPuzzle(r); });
   // the lantern's shadows: every ink surface takes them; walls, columns and baked props throw them
   W.group.traverse(o=>{ if(!o.isMesh || !o.material || !o.material.onBeforeCompile) return; o.receiveShadow = true; if(o.material === W.mats.wall || o.userData.baked) o.castShadow = true; });
 };
 const proto = World.prototype;
-World.stone = stone; World.wuv = wuv; World.stoneTex = stoneTex;
+World.stone = stone; World.wuv = wuv; World.stoneTex = stoneTex; World.surfaceOf = surfaceOf;
 
 /* ---- which area each tile draws in ---- */
 proto.assignAreas = function(){
@@ -496,6 +497,83 @@ proto.wallBlock = function(x, y, low){
     }
   });
   return out;
+};
+
+/* ---- the architecture and the mess (plan A, step 2): walls stop being flat boxes and
+   floors stop being swept clean. View-only, seeded from the dungeon.
+   - pilasters (stone columns set into the wall) along the north and side walls, with
+     a plinth and a capital; on the north wall a flattened blind arch between each
+     pair, a torch in every bay
+   - rubble along the foot of every wall, heaviest in the corners; now and then a
+     fallen block of masonry */
+proto.buildDressing = function(){
+  const W = this, D = W.D, th = W.th, rnd = DG.RNG(D.seed ^ 0xd7e5).next, P = K.part;
+  const cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
+  const solid = (x, y)=> D.at(x, y) === T.SOLID;
+  const busy = (x, y)=> D.painted.some(p=> p.x === x && p.y === y) || D.decor.some(d=> d.wall && Math.abs(d.x - x - 0.5) < 0.9 && Math.abs(d.y - y - 1) < 0.9)
+    || [-1, 0, 1].some(k=>{ const t1 = D.at(x + k, y), t2 = D.at(x, y + k); return t1 === T.DOOR || t1 === T.FAKE || t2 === T.DOOR || t2 === T.FAKE; });
+  const traps = new Set(); D.rooms.forEach(r=> (r.traps || []).forEach(t=> traps.add(t.x + "," + t.y)));
+  D.rooms.forEach(r=>{
+    if(r.type === "pond") return;
+    const wall = [], rub = new THREE.Group();
+    // a pilaster: dx, dz the way out of the wall into the room; (fx, fz) the wall face's centre
+    const pilaster = (fx, fz, dx, dz)=>{
+      const along = dz !== 0, w = 0.5, d = 0.2, B = (ww, hh, dd, y, k)=> stone(wall, box(along ? ww : dd, hh, along ? dd : ww, fx + dx*dd/2, y, fz + dz*dd/2), cW, cTop, k);
+      B(w, WH, d, WH/2, 1.02);
+      B(w + 0.18, 0.28, d + 0.1, 0.14, 0.85); B(w + 0.1, 0.08, d + 0.06, 0.32, 0.95);
+      B(w + 0.16, 0.12, d + 0.09, 1.5, 1.05); B(w + 0.22, 0.1, d + 0.13, 1.6, 0.95);
+    };
+    // the north wall: a bay round every torch
+    const off = (r.x1 + r.id) % 5, piers = [];
+    for(let x=r.x1 + 1; x<r.x2; x++){
+      if((x - r.x1 - off + 5) % 5 !== 2 && (x - r.x1 - off + 5) % 5 !== 3) continue;
+      if((x - r.x1 - off + 5) % 5 === 3 && piers.length && piers[piers.length - 1] === x - 1) continue;
+      if(!solid(x, r.y1 - 1) || busy(x, r.y1 - 1)) continue;
+      if((x - r.x1 - off + 5) % 5 === 3) continue;
+      pilaster(x + 1, r.y1, 0, 1); piers.push(x);
+    }
+    for(let i=0;i<piers.length - 1;i++){
+      const a0 = piers[i] + 1, a1 = piers[i + 1] + 1; if(a1 - a0 < 3 || a1 - a0 > 6) continue;
+      const span = a1 - a0 - 0.5, cx = (a0 + a1)/2, ok = (()=>{ for(let x=a0; x<a1; x++) if(!solid(x, r.y1 - 1) || D.painted.some(p=> p.x === x && p.y === r.y1 - 1)) return false; return true; })();
+      if(!ok) continue;
+      const arch = new THREE.TorusGeometry(span/2, 0.07, 6, 28, PI); arch.scale(1, 0.55, 0.9); arch.translate(cx, 1.6, r.y1 + 0.05);
+      stone(wall, arch, cW, cTop, 1.08);
+      const key = box(0.16, 0.24, 0.14, cx, 1.6 + span/2*0.55, r.y1 + 0.07); stone(wall, key, cW, cTop, 1.12);
+    }
+    // the side walls, a pilaster every four tiles
+    [[r.x1 - 1, r.x1, 1], [r.x2 + 1, r.x2 + 1, -1]].forEach(([wx, fx, dx])=>{
+      for(let y=r.y1 + 2; y<r.y2; y+=4) if(solid(wx, y) && !busy(wx, y)) pilaster(fx, y + 0.5, dx, 0);
+    });
+    if(wall.length){ const m = new THREE.Mesh(K.merge(wall), W.mats.wall); W.areaGroup(r.id).add(m); }
+    // rubble at the foot of the walls; the corners are where it all ends up
+    // (a handful of rock shapes, sculpted once, each one scaled and turned its own way)
+    const rocks = W.rockGeos || (W.rockGeos = [0, 1, 2, 3, 4, 5, 6, 7].map(i=> i < 6 ? K.lump(1, 0, 0.5, i*13.7 + 3) : K.shard(2.2, 0.6, 0.2, 5, i*7.1)));
+    const rock = (x, z, s)=>{
+      const tone = 0.75 + rnd()*0.55, i = Math.floor(rnd()*rocks.length), flat = 0.55 + rnd()*0.3;
+      P(rub, rocks[i], new THREE.Color(cW).multiplyScalar(tone).getHex(), x, s*0.35, z, rnd()*0.6, rnd()*6.3, i >= 6 ? PI/2 : rnd()*0.6, s, s*flat, s);
+    };
+    for(let y=r.y1; y<=r.y2; y++) for(let x=r.x1; x<=r.x2; x++){
+      if(D.at(x, y) !== T.FLOOR || traps.has(x + "," + y)) continue;
+      const n = solid(x, y - 1), s0 = solid(x, y + 1), w0 = solid(x - 1, y), e0 = solid(x + 1, y);
+      if(!(n || s0 || w0 || e0)) continue;
+      if([[0, -1], [0, 1], [-1, 0], [1, 0]].some(([u, v])=> D.at(x + u, y + v) === T.DOOR)) continue;
+      const corner = (n || s0) && (w0 || e0);
+      if(rnd() > (corner ? 0.95 : 0.4)) continue;
+      const k = corner ? 7 + Math.floor(rnd()*6) : 3 + Math.floor(rnd()*4);
+      for(let i=0;i<k;i++){
+        // pushed against the wall (or into the corner), smaller further out
+        const t = rnd(), px = x + 0.5 + (w0 ? -0.5 + 0.12 + t*0.35 : e0 ? 0.5 - 0.12 - t*0.35 : (rnd() - 0.5)*0.9);
+        const pz = y + 0.5 + (n ? -0.5 + 0.12 + rnd()*0.35 : s0 ? 0.5 - 0.12 - rnd()*0.3 : (rnd() - 0.5)*0.9);
+        rock(px, pz, (0.07 + rnd()*0.13)*(1.25 - t*0.5));
+      }
+      if(corner && rnd() < 0.35){
+        // a fallen block of masonry, cracked off the wall above
+        const bx = x + 0.5 + (w0 ? -0.18 : e0 ? 0.18 : 0), bz = y + 0.5 + (n ? -0.18 : s0 ? 0.18 : 0);
+        P(rub, new THREE.BoxGeometry(0.42, 0.24, 0.3), new THREE.Color(cW).multiplyScalar(0.95).getHex(), bx, 0.11, bz, rnd()*0.3, rnd()*3, 0.25 + rnd()*0.2);
+      }
+    }
+    if(rub.children.length){ K.bake(rub, { w:0.01 }); W.areaGroup(r.id).add(rub); }
+  });
 };
 
 /* ---- ponds and pools: an animated surface ---- */

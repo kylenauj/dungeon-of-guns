@@ -52,7 +52,11 @@ function atlas(){
   cell(CELL.drag, ()=>{ g.lineCap = "round"; for(let t=0;t<2;t++){ const x0 = 50 + t*26; for(let k=0;k<5;k++){ g.globalAlpha = 0.25 + r()*0.35; g.lineWidth = 3 + r()*7; g.beginPath(); g.moveTo(x0 + (r() - 0.5)*10, 122); g.bezierCurveTo(x0 + (r() - 0.5)*24, 90, x0 + (r() - 0.5)*30, 40, x0 - 6 + (r() - 0.5)*16, 6 + r()*16); g.stroke(); } } g.globalAlpha = 0.9; for(let k=0;k<4;k++){ g.lineWidth = 2.2; g.beginPath(); g.moveTo(44 + k*8, 120); g.lineTo(42 + k*8 + (r() - 0.5)*4, 100 - r()*8); g.stroke(); } g.globalAlpha = 1; });
   // a pool gone dark at the edges, with spatter thrown out of it
   cell(CELL.blood, ()=>{ for(let k=0;k<5;k++) blob(52 + r()*24, 52 + r()*24, 20 + r()*18, 0.8); g.globalAlpha = 0.9; for(let k=0;k<22;k++){ const a = r()*6.28, d = 34 + r()*26, rr = 1 + r()*3.5; g.beginPath(); g.ellipse(64 + Math.cos(a)*d, 64 + Math.sin(a)*d, rr*1.8, rr, a, 0, 7); g.fill(); } g.globalAlpha = 1; });
-  cell(CELL.tiles, ()=>{ for(let k=0;k<4;k++){ const x = 8 + (r()*3|0)*40, y = 8 + (r()*3|0)*40; g.fillStyle = "rgba(255,255,255,1)"; g.fillRect(x, y, 34, 34); g.fillStyle = "rgba(120,120,120,1)"; g.fillRect(x + 4, y + 4, 30, 30); } });
+  // missing flagstones: packed dirt and grit where a slab was lifted (not a hole: pits are real hazards and must not be confused with this)
+  cell(CELL.tiles, ()=>{ for(let k=0;k<3;k++){ const x = 8 + (r()*3|0)*40, y = 8 + (r()*3|0)*40;
+    g.fillStyle = "rgba(200,200,200,1)"; g.fillRect(x, y, 34, 34);
+    for(let q=0;q<70;q++){ const v = 150 + (r()*105|0); g.fillStyle = "rgba(" + v + "," + v + "," + v + ",1)"; g.fillRect(x + r()*32, y + r()*32, 1 + r()*3, 1 + r()*3); }
+    g.fillStyle = "rgba(90,90,90,1)"; g.fillRect(x, y, 34, 2); g.fillRect(x, y, 2, 34); } });
   cell(CELL.prints, ()=>{ for(let k=0;k<6;k++){ const x = 30 + k*12 + (k % 2)*10, y = 110 - k*18; g.beginPath(); g.ellipse(x, y, 4, 6, 0.3, 0, 7); g.fill(); for(let q=-1;q<=1;q++){ g.beginPath(); g.arc(x + q*4, y - 9, 1.8, 0, 7); g.fill(); } } });
   cell(CELL.drips, ()=>{ for(let k=0;k<7;k++){ const x = 8 + r()*112, l = 30 + r()*90; g.lineWidth = 3 + r()*4; g.globalAlpha = 0.5 + r()*0.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, l); g.stroke(); g.beginPath(); g.arc(x, l, g.lineWidth*0.8, 0, 7); g.fill(); } g.globalAlpha = 1; });
   _atlas = new THREE.CanvasTexture(cv); _atlas.magFilter = THREE.NearestFilter; _atlas.minFilter = THREE.NearestFilter; _atlas.generateMipmaps = false;
@@ -73,11 +77,11 @@ const decalMat = ()=> K.ink({ map:atlas(), transparent:true, depthWrite:false, a
 
 /* ---- what each floor scatters about ---- */
 const THEMES = {
-  castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["tiles", 1.2, 0x1e1a1c], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
+  castle:{ decals:[["crack", 3, 0x141012], ["stain", 2, 0x161210], ["tiles", 1.2, 0x4a3e32], ["blood", 0.9, 0x3a0c08], ["drag", 0.7, 0x3a0c08], ["prints", 0.5, 0x3a0c08], ["straw", 0.5, 0x6a5a38], ["splat", 0.4, 0x2e0a08]], rug:[0.55, 0x5a1a16],
     walls:["banner", "tapestry", "shieldwall", "cornerweb", "window", "chains", "bloodsmear", "cornerweb", "slumped", "gibbet"], tops:["toprubble", "topcandle", "topskull", "topspikes"], corners:["candlecluster", "skullpile", "bones", "candlecluster"], critters:{ rats:1.6 }, motes:{ c:0xffd0a0, n:4, sp:0.2 } },
   undercroft:{ decals:[["crack", 4, 0x100e0c], ["stain", 3, 0x14120c], ["moss", 2.5, 0x1e2e1e], ["puddle", 1.6, 0x0a1414], ["grate", 0.6, 0x4a4a48], ["drag", 0.4, 0x2a0c08], ["blood", 0.4, 0x2a0c08], ["prints", 0.4, 0x141008]], rug:[0, 0],
     walls:["beam", "pipes", "barrelrack", "cornerweb", "roots", "glowworms", "poster", "chains", "wallshroom", "slumped"], tops:["toprubble", "topgrass", "topcandle", "topbones"], corners:["bones", "mushrooms", "ratnest", "candlecluster"], critters:{ rats:2.6 }, motes:{ c:0xb8d870, n:8, sp:0.4 } },
-  crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["tiles", 1, 0x14141c], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
+  crypt:{ decals:[["crack", 5, 0x08080e], ["stain", 3, 0x10101c], ["rune", 0.5, 0x6ab8ff], ["tiles", 1, 0x3a3634], ["moss", 1.5, 0x142a24], ["blood", 0.5, 0x2a0a10], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
     walls:["window", "coffinwall", "urnshelf", "cornerweb", "skullniche", "ossuary", "candleshelf", "cornerweb", "slumped"], tops:["topcandle", "topskull", "topbones", "topcandle"], corners:["candlecluster", "soulcandles", "skullpile", "soulcandles"], critters:{ rats:1, bats:2 }, motes:{ c:0x8ac8ff, n:10, sp:0.3 } },
   gloomwood:{ decals:[["moss", 5, 0x142a24], ["leaves", 3, 0x1e2a22], ["splat", 2, 0x2a1024], ["puddle", 1.5, 0x10061a], ["rune", 0.3, 0x5ab8e8], ["crack", 1.5, 0x08080c], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
     walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], corners:["glowcap", "myceliumcorpse", "roots", "fern"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
@@ -86,6 +90,52 @@ const THEMES = {
 };
 const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v = rnd()*tot; for(const e of list){ v -= e[1]; if(v <= 0) return e; } return list[0]; };
 
+/* the rug: a kilim worn through. Madder-red field, a row of stepped lozenges, hooked
+   borders in soot and ochre, every thread drawn (weft and warp), a path worn pale
+   down the middle, wine and older stains, moth holes, fringe at both ends. Its relief
+   and roughness are made from the painting, like the stone's. */
+let _rugMat = null;
+function rugMat(){
+  if(_rugMat) return _rugMat;
+  const Wd = 512, Ht = 256, cv = document.createElement("canvas"); cv.width = Wd; cv.height = Ht; const g = cv.getContext("2d"), r = DG.RNG(4242).next;
+  const field = [92, 30, 24], soot = [30, 24, 26], ochre = [118, 86, 40], bone = [150, 130, 100];
+  const px = g.createImageData(Wd, Ht), d = px.data;
+  const put = (x, y, c, k)=>{ const i = (y*Wd + x)*4; d[i] = c[0]*k; d[i + 1] = c[1]*k; d[i + 2] = c[2]*k; d[i + 3] = 255; };
+  const FR = 16;   // fringe length at each end
+  for(let y=0;y<Ht;y++) for(let x=FR;x<Wd - FR;x++){
+    const u = x - FR, v = y, U = Wd - 2*FR;
+    // the pattern: borders, then lozenges stepped in 8px blocks
+    const edge = Math.min(v, Ht - 1 - v, u, U - 1 - u);
+    let c = field;
+    if(edge < 10) c = soot; else if(edge < 16) c = ochre; else if(edge < 30){ const hook = ((Math.floor(u/12) + Math.floor(v/12)) % 2 === 0) && ((u + v) % 24 < 12); c = hook ? bone : soot; }
+    else if(edge < 34) c = ochre;
+    else {
+      const cx = ((u % 96) - 48), cy = v - Ht/2, q = Math.floor(Math.abs(cx)/8) + Math.floor(Math.abs(cy)/8);
+      c = q < 3 ? ochre : q < 5 ? soot : q < 7 ? bone : q < 8 ? soot : field;
+    }
+    // threads: weft rows and warp columns over and under
+    const weave = 0.86 + 0.14*(((x + (y >> 1)) & 1) ? 1 : 0) - ((y & 1) ? 0.05 : 0);
+    // wear: a pale path down the middle, grime, and the dye fading toward the ends
+    const mid = Math.exp(-Math.pow((v - Ht/2)/(Ht*0.22), 2)), fade = 1 - 0.18*Math.pow(Math.abs(u/U - 0.5)*2, 3);
+    const k = weave*fade*(1 - 0.18*mid)*(0.85 + 0.15*r());
+    put(x, y, c.map((ch, j)=> ch*(1 - 0.3*mid) + [70, 62, 54][j]*0.3*mid), k);
+  }
+  g.putImageData(px, 0, 0);
+  // stains: an old dark one, a wine ring, scorch from a dropped candle
+  const blot = (x, y, rr, col, a)=>{ const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(" + col + "," + a + ")"); gr.addColorStop(1, "rgba(" + col + ",0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); };
+  blot(150, 90, 50, "20,8,6", 0.55); blot(330, 170, 30, "40,10,12", 0.45); blot(400, 70, 18, "10,8,6", 0.7);
+  // moth holes and a torn corner (cut out: the floor shows through)
+  g.globalCompositeOperation = "destination-out";
+  for(let k=0;k<7;k++){ const x = FR + 40 + r()*(Wd - 2*FR - 80), y = 30 + r()*(Ht - 60), rr = 3 + r()*9; g.beginPath(); for(let a=0;a<6.3;a+=0.5){ const q = rr*(0.6 + r()*0.6); a ? g.lineTo(x + Math.cos(a)*q, y + Math.sin(a)*q) : g.moveTo(x + q, y); } g.fill(); }
+  g.beginPath(); g.moveTo(Wd - FR, Ht - 70); for(let k=0;k<7;k++) g.lineTo(Wd - FR - 10 - r()*40, Ht - 70 + k*11); g.lineTo(Wd - FR, Ht); g.fill();
+  g.globalCompositeOperation = "source-over";
+  // fringe: knotted warp ends at both short sides
+  for(let y=4;y<Ht - 4;y+=3) [0, 1].forEach(side=>{ if(r() < 0.18) return; const len = 5 + r()*10, x0 = side ? Wd - FR : FR; g.strokeStyle = "rgb(" + ochre.map(c=> c*(0.45 + r()*0.3) | 0).join(",") + ")"; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x0, y); g.lineTo(x0 + (side ? 1 : -1)*len, y + (r() - 0.5)*4); g.stroke(); });
+  const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearMipmapLinearFilter; tex.anisotropy = 4;
+  const sf = DG.World.surfaceOf("rugS", tex, 3);
+  _rugMat = K.inkPBR({ map:sf.map, normalMap:sf.normalMap, roughnessMap:sf.roughnessMap, normalScale:new THREE.Vector2(0.8, 0.8), vertexColors:false, alphaTest:0.5, transparent:false });
+  return _rugMat;
+}
 proto.buildVanity = function(){
   const W = this, D = W.D, th = W.th, rnd = W.rnd, T0 = THEMES[th.decor] || THEMES.cellar;
   const floorAt = (x, y)=> D.at(Math.floor(x), Math.floor(y)) === T.FLOOR;
@@ -109,6 +159,19 @@ proto.buildVanity = function(){
       }
       return true;
     };
+    // the rug first (if there's room for one); then nothing else is painted over it
+    let rugRect = null;
+    // a rug down the middle of the room
+    if(T0.rug[0] && rnd() < T0.rug[0] && w >= 7 && h >= 6 && r.type !== "pond"){
+      const rx = (r.x1 + r.x2 + 1)/2, ry = (r.y1 + r.y2 + 1)/2, long = w > h;
+      const rw = long ? Math.min(w - 4, 9) : 3, rh = long ? 3 : Math.min(h - 3, 8);
+      if(clear(rx, ry, rw/2, rh/2)){
+        rugRect = [rx - rw/2 - 0.3, ry - rh/2 - 0.3, rx + rw/2 + 0.3, ry + rh/2 + 0.3];
+        // a woven runner, not a decal: its own textile with relief, laid along the room
+        const L = long ? rw : rh, S = long ? rh : rw, g = new THREE.PlaneGeometry(L, S*0.92); g.rotateX(-PI/2); if(!long) g.rotateY(PI/2); g.translate(rx, 0.012, ry);
+        const m = new THREE.Mesh(g, rugMat()); m.renderOrder = 1; W.areaGroup(r.id).add(m);
+      }
+    }
     // floor decals
     const n = Math.round(area/9);
     for(let i=0;i<n;i++){
@@ -117,14 +180,9 @@ proto.buildVanity = function(){
       const [kind, , col] = pickW(rnd, T0.decals), s = kind === "grate" ? 1 : 0.8 + rnd()*1.1;
       const c = new THREE.Color(col).multiplyScalar(0.8 + rnd()*0.4);
       if(!clear(x, y, kind === "rune" ? 1.1 : s*0.42, kind === "rune" ? 1.1 : s*0.42)) continue;
+      if(rugRect && x + s*0.5 > rugRect[0] && x - s*0.5 < rugRect[2] && y + s*0.5 > rugRect[1] && y - s*0.5 < rugRect[3]) continue;
       if(kind === "rune") decal(glowList, CELL.rune, x, 0.025, y, 2.2, 2.2, rnd()*6, c);
       else decal(list, CELL[kind], x, 0.012 + i*0.0004, y, s, s, kind === "grate" || kind === "tiles" ? 0 : rnd()*6, c);
-    }
-    // a rug down the middle of the room
-    if(T0.rug[0] && rnd() < T0.rug[0] && w >= 7 && h >= 6 && r.type !== "pond"){
-      const rx = (r.x1 + r.x2 + 1)/2, ry = (r.y1 + r.y2 + 1)/2, long = w > h;
-      const rw = long ? Math.min(w - 4, 9) : 3, rh = long ? 3 : Math.min(h - 3, 8);
-      if(clear(rx, ry, rw/2, rh/2)) decal(list, CELL.rug, rx, 0.01, ry, rw, rh, 0, new THREE.Color(T0.rug[1]));
     }
     // drips and cracks down the north wall's face
     for(let x=r.x1; x<=r.x2; x++){
