@@ -1064,9 +1064,11 @@ Models.frog = function(twin, buffs, opts){
   const [throatP, TH] = pivot(H, 0, 0.245, 0.2); R.parts.throat = throatP;
   const hind = [], thighs = [], front = [], feet = [], lids = [];
   [-1, 1].forEach(s=>{
+    // the hind leg is one chain, hip → knee → ankle, each joint hung from the
+    // one above, so however it kicks the pieces stay joined
     const [tp, ti] = pivot(b, s*0.25, 0.22, -0.18); thighs.push(tp); tp.userData.inner = ti;
-    const [hp, hi] = pivot(b, s*0.25, 0.22, -0.18); hind.push(hp);
-    const [fp, fi] = pivot(hi, s*0.3, 0.07, -0.08); feet.push(fp); hp.userData.inner = hi; fp.userData.inner = fi;
+    const [hp, hi] = pivot(ti, s*0.32, 0.11, 0.02); hind.push(hp);
+    const [fp, fi] = pivot(hi, s*0.3, 0.055, -0.12); feet.push(fp); hp.userData.inner = hi; fp.userData.inner = fi;
     const [ap, ai] = pivot(b, s*0.16, 0.25, 0.22); front.push(ap); ap.userData.inner = ai;
   });
   R.parts.hind = hind; R.parts.thighs = thighs; R.parts.feet = feet; R.parts.front = front; R.parts.lids = lids;
@@ -1135,11 +1137,17 @@ Models.frog = function(twin, buffs, opts){
   [-1, 1].forEach(s=> P(H, zs(0.011), FC.hole, s*0.04, 0.425, 0.405, 0, 0, 0, 1, 0.6, 1));
   // legs: thick folded haunches, long webbed toes with knuckled tips
   [-1, 1].forEach(s=>{
-    const ti = thighs[s < 0 ? 0 : 1].userData.inner, fi = feet[s < 0 ? 0 : 1].userData.inner, ai = front[s < 0 ? 0 : 1].userData.inner;
-    P(ti, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
-    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, HAND, zDim(HAND, 0.8)), 0xffffff, s*0.31, 0.04, 0.03, 0, s*0.2, 0, 1, 0.35, 1.5);
-    // the shin, folded away inside the haunch until the leg straightens in a kick
-    P(fi, zTaper([[s*0.3, 0.06, -0.02], [s*0.27, 0.15, -0.14], [s*0.25, 0.22, -0.24]], 0.04, 0.05, 8, 8), G1);
+    const ti = thighs[s < 0 ? 0 : 1].userData.inner, hi = hind[s < 0 ? 0 : 1].userData.inner, fi = feet[s < 0 ? 0 : 1].userData.inner, ai = front[s < 0 ? 0 : 1].userData.inner;
+    // the haunch, and the thigh running down from it to the knee
+    // (the haunch stays on the body, the thigh swings out of it)
+    P(b, fSkin(0.13, 22, 16, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.18, -0.13, 0, 0, 0, 0.8, 0.95, 1.2);
+    P(ti, zTaper([[s*0.25, 0.21, -0.17], [s*0.29, 0.15, -0.06], [s*0.32, 0.11, 0.02]], 0.08, 0.046, 12, 10), G1);
+    P(ti, fSkin(0.07, 16, 12, 0.005, 20, 12 + s, G1, G2), 0xffffff, s*0.29, 0.155, -0.07, -0.5, 0, 0, 0.9, 0.9, 1.4);
+    // the knee, a knuckle of bone under the skin, and the shin back down to the ankle
+    P(hi, K.lump(0.048, 1, 0.3, 60 + s), zDim(G1, 0.85), s*0.32, 0.11, 0.02, 0, 0, 0, 0.9, 0.9, 1);
+    P(hi, zTaper([[s*0.32, 0.11, 0.02], [s*0.31, 0.08, -0.05], [s*0.3, 0.055, -0.12]], 0.042, 0.032, 10, 10), G1);
+    P(fi, zs(0.034), zDim(G1, 0.8), s*0.3, 0.055, -0.12, 0, 0, 0, 1, 0.8, 1.2);
+    P(fi, fSkin(0.1, 20, 12, 0.005, 20, 9 + s, HAND, zDim(HAND, 0.8)), 0xffffff, s*0.31, 0.04, 0.0, 0, s*0.2, 0, 1, 0.35, 1.5);
     [-0.5, -0.15, 0.2, 0.55].forEach((a, k)=>{ const ang = a + s*0.25, l = 0.12 + (k % 2)*0.03; const x0 = s*0.31, z0 = 0.1;
       const tip = [x0 + Math.sin(ang)*l, 0.018, z0 + Math.cos(ang)*l];
       P(fi, zTaper([[x0, 0.035, z0 - 0.02], [x0 + Math.sin(ang)*l*0.5, 0.03, z0 + Math.cos(ang)*l*0.5], tip], 0.02, 0.012, 8, 6), HAND);
@@ -3224,15 +3232,11 @@ Models.hop = function(R, o, t, dt){
   const reach = air ? smooth(0.1, 0.4, k) : 0;                                   // front legs forward in the air
   const catchUp = air ? smooth(0.7, 0.95, k) : 0;                               // and down to take the landing
   const fold = air ? 0 : Math.exp(-m.land*9);                                    // the landing shoves them back under
-  if(p.thighs) p.thighs.forEach((g, i)=>{ g.rotation.x = 0.45*kick - 0.15*load + 0.1*fold; g.rotation.z = (i ? 1 : -1)*(0.08*kick - 0.06*load); });
-  if(p.hind) p.hind.forEach((g, i)=>{ g.rotation.x = 2.25*kick - 0.25*load + 0.15*fold; g.rotation.z = (i ? 1 : -1)*(0.1*kick - 0.08*load); });
-  if(p.feet) p.feet.forEach((g, i)=>{
-    // the leg straightens: the foot slides out along the folded leg, the shin comes out of the haunch
-    const u = g.userData, ext = 0.18*smooth(0.45, 1, kick);
-    if(!u.p0) u.p0 = g.position.clone();
-    g.position.set(u.p0.x + (i ? 1 : -1)*0.03*ext, u.p0.y - 0.5*ext, u.p0.z + 0.85*ext);
-    g.rotation.x = 0.9*kick - 0.15*load;
-  });
+  // the hind legs unfold as a chain: the thigh swings back, the knee opens
+  // against it so the shin carries on in line, and the foot trails out last
+  if(p.thighs) p.thighs.forEach((g, i)=>{ g.rotation.x = 2.1*kick - 0.12*load + 0.1*fold; g.rotation.z = (i ? 1 : -1)*(0.12*kick - 0.05*load); });
+  if(p.hind) p.hind.forEach(g=>{ g.rotation.x = -2.05*kick + 0.1*load - 0.08*fold; });
+  if(p.feet) p.feet.forEach(g=>{ g.rotation.x = 2.4*smooth(0.1, 1, kick) - 0.1*load; });
   if(p.front) p.front.forEach((g, i)=>{ g.rotation.x = -1.05*reach*(1 - catchUp) - 0.35*catchUp + 0.45*fold + 0.12*load - pitch*0.6; g.rotation.z = (i ? -1 : 1)*0.15*reach; });
   // the head: low and heavy, jerked forward when the tongue goes out
   const lk = o.lick || 0, jerk = lk > 0 ? Math.sin(Math.min(1, lk)*PI) : 0;
