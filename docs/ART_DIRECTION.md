@@ -199,6 +199,24 @@ the souls games, strange and gross." What that became:
 Keep to it: anything new should be dirtier, darker and more broken than it first
 seems it needs to be, with one point of light or colour that pulls the eye.
 
+**Model rules** (from the model review, October 2026). Triangle count was never the
+problem (enemies are 9-24k): primitives were. A sphere at every joint and a tube of
+even width between them reads as a jointed toy at any count. So, in models.js:
+
+- Limbs are `meat()` / `limb()`: one continuous tube whose girth follows a profile
+  (muscle swelling below a joint, narrowing into the next), lumpy, ends domed so
+  segments run together. No ball at a shoulder, elbow, hip or knee, ever.
+- Heads are sculpted in one piece (`gobSkull`: brow ledge, sockets, cheekbones,
+  hollow cheeks, jaw), not stacked spheres. Eyes go in its sockets.
+- Hands have a palm and jointed fingers; feet an instep and toes.
+- Round masses (puffballs, sacs, the poltergeist, caps) are grown with `lobes()`:
+  swellings and creases, lopsided. Eyes and wounds are placed on that surface,
+  scattered, never two side by side with a mouth under them (that's a face, and
+  a face on a blob is a cartoon).
+- A helmet or a sack sits tight on the skull it covers (the brute's sack is the
+  skull's own shape, the brow and jaw showing through).
+- An eye that should glow sits on the front of its eyeball, not inside it.
+
 ## 5. How we'll know it worked
 
 Add a **look check** next to `npm run balance`: `npm run look` screenshots floors 1, 3 and 5 and the gallery with headless Chromium (Playwright is already on the machine), then reports:
