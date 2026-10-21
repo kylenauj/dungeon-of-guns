@@ -212,7 +212,6 @@ proto.updateShots = function(dt){
       if(b.team === "p"){
         const tx = Math.floor(b.x), ty = Math.floor(b.y);
         if(G.D.at(tx, ty) === T.FAKE) G.revealFake(tx, ty);
-        if(DG.Puzzles && DG.Puzzles.shot(G, b)){ G.shotEnd(b, "puzzle"); break; }
         for(const e of G.enemies){
           if(e.dead || e.spawn > 0 || e.airborne || b.hits.indexOf(e.id) >= 0) continue;
           if(e.untargetable) continue;

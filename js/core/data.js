@@ -288,10 +288,10 @@ DG.LINES = {
   altar:  ["The altar thirsts. A little of your life will do.", "Blood for power. The oldest bargain.", "The altar hums. It is hungry. It is always hungry."]
 };
 DG.DOOR_COLORS = [
-  { id:"red",    name:"red",    hex:0xd2453a },
-  { id:"green",  name:"green",  hex:0x4fbf5a },
-  { id:"blue",   name:"blue",   hex:0x3a6fd2 },
-  { id:"yellow", name:"yellow", hex:0xe8c43a }
+  { id:"rust",  name:"rust",  hex:0x8a3a26 },
+  { id:"moss",  name:"moss",  hex:0x4a6a34 },
+  { id:"slate", name:"slate", hex:0x3a4a6a },
+  { id:"ochre", name:"ochre", hex:0x9a7a2a }
 ];
 
 /* ================================================================== *

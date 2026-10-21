@@ -147,7 +147,12 @@ proto.blocked = function(tx, ty, who){
   if(t === T.SOLID){ return who !== "ghost" || tx <= 0 || ty <= 0 || tx >= this.D.w - 1 || ty >= this.D.h - 1; }
   if(t === T.BLOCK || t === T.BREAK || t === T.PUSH) return who !== "ghost" || t === T.PUSH;
   if(t === T.DOOR){ const d = this.doorAt(tx, ty); return d && !d.open && who !== "ghost"; }
-  if(t === T.FAKE) return who !== "player" && who !== "ghost";
+  if(t === T.FAKE){
+    // a puzzle's door stays shut to everyone until it's opened (with E)
+    const f = this.D.fakes.find(o=> o.puzzle && !o.revealed && o.tiles[0][0] === tx && o.tiles[0][1] === ty);
+    if(f) return true;
+    return who !== "player" && who !== "ghost";
+  }
   if(t === T.PIT || t === T.WATER) return who === "enemy";
   return false;
 };
@@ -356,14 +361,12 @@ proto.checkBonk = function(p){
     if(Math.abs(p.x - (d.x + 0.5)) > 0.55) continue;
     if(Math.abs(p.y - p.r - (d.y + 1)) > 0.08) continue;
     if(d.kind === "real") continue;
+    const room0 = G.D.rooms[d.room], pzd = d.kind === "puzzle" && room0.puzzle && room0.puzzle.doors && room0.puzzle.doors[d.puzzle];
+    if(pzd && pzd.open) continue;
     p.bonkCd = 1; p.stun = 0.35; p.vx = 0; p.vy = 4; p.y += 0.15;
     G.emit("bonk", { x:d.x + 0.5, y:d.y + 1 });
-    const room = G.D.rooms[d.room];
-    if(d.kind === "trick" && room.puzzle && !room.puzzle.solved && room.puzzle.failed.indexOf(d.puzzle) < 0){
-      room.puzzle.failed.push(d.puzzle);
-      G.say(G.rng.pick(DG.LINES.wrong));
-      G.ambush(room);
-    } else if(d.kind === "bonk" && !d.shaken){
+    if(pzd) G.say(room0.puzzle.failed ? "Sealed. The faces are still laughing." : "Shut. It opens by hand, if you're sure.", 2);
+    else if(d.kind === "bonk" && !d.shaken){
       // the first knock on a false door can shake loose what someone hid behind the paint
       d.shaken = true;
       if(G.rng.chance(0.5)){
@@ -379,21 +382,21 @@ proto.checkBonk = function(p){
 proto.revealFake = function(tx, ty){
   const G = this;
   const f = G.D.fakes.find(o=> o.tiles.some(([x, y])=> x === tx && y === ty));
-  if(!f || f.revealed) return;
+  if(!f || f.revealed || f.puzzle) return;     // a puzzle's doors open only by hand (Puzzles.use)
   f.revealed = true;
   G.emit("illusion", { x:f.x, y:f.y });
-  if(f.puzzle){
-    const room = G.D.rooms[f.room];
-    if(room.puzzle && !room.puzzle.solved) G.solvePuzzle(room, "The honest door! ");
-  } else { G.stats.secrets++; G.say(G.rng.pick(DG.LINES.secret)); }
+  G.stats.secrets++; G.say(G.rng.pick(DG.LINES.secret));
 };
 proto.solvePuzzle = function(r, prefix){
   const G = this;
   if(r.puzzle.solved && r.puzzle.rewarded) return;
   r.puzzle.solved = true; r.puzzle.rewarded = true; G.stats.puzzles++;
   r.props.forEach(pr=>{ if(pr.kind === "chest") pr.locked = false; });
-  G.emit("solved", { room:r.id });
-  G.say((prefix || "") + G.rng.pick(DG.LINES.solved));
+  // done without a slip: a key as well
+  const clean = r.puzzle.flawless !== false;
+  if(clean){ const p = G.player; G.addPickup("key", p.x, p.y + 0.6, 1); }
+  G.emit("solved", { room:r.id, flawless:clean });
+  G.say((prefix || "") + G.rng.pick(DG.LINES.solved) + (clean ? " Not a single slip. A key falls loose." : ""));
 };
 
 proto.heal = function(n){ const p = this.player; const before = p.hp; p.hp = Math.min(p.maxHp, p.hp + n); if(p.hp > before) this.emit("heal", { x:p.x, y:p.y, amt:p.hp - before }); };
@@ -795,6 +798,7 @@ proto.target = function(){
     if(pr.kind === "merchant") consider(pr, d - 0.3, "Talk to Snibbit");
   });
   if(r) G.targetSpecial(r, consider);
+  if(r && r.puzzle && DG.Puzzles) DG.Puzzles.consider(G, r, consider);
   return best;
 };
 /* ---- the end: which ending, remembered between runs ---- */
@@ -826,6 +830,7 @@ proto.interact = function(){
   const G = this, p = G.player, tg = G.target();
   if(!tg) return;
   const o = tg.o;
+  if(o.pz){ DG.Puzzles.use(G, o); return; }
   if(G.interactSpecial(o)) return;
   if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }

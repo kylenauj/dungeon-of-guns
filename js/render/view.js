@@ -306,13 +306,20 @@ proto.handle = function(ev){
     case "bonk":
       S.shake(0.3); FX.burst(ev.x, 1.3, ev.y, 0xffe680, 10, 3, 0.25, 0.5, { up:1 });
       play("bonk"); V.stars = 1.2;
-      if(V.world) G.D.rooms.forEach(r=>{ if(r.puzzle && r.puzzle.failed) r.puzzle.failed.forEach(i=> V.world.markPainted(i)); });
       break;
     case "illusion": FX.burst(ev.x, 0.9, ev.y, 0xb36bff, 24, 2.5, 0.35, 0.8, { spread:1.4 }); play("illusion"); break;
     case "secretRoom": play("secret"); break;
     case "solved": { play("solved"); const r = G.D.rooms[ev.room]; FX.ring(r.cxw, r.cyw, 5, 0xffd23d, 0.9); break; }
     case "brazier": { play("brazier"); const r = G.D.rooms[ev.room], it = r.puzzle.items[ev.i]; FX.burst(it.x, 1.1, it.y, 0xff8a2a, 10, 3, 0.3, 0.4); break; }
-    case "statue": { play("stone"); const r = G.D.rooms[ev.room], it = r.puzzle.items[ev.i]; FX.burst(it.x, 0.6, it.y, 0xa8a8b0, 8, 2, 0.25, 0.4); break; }
+    case "gutter": { play("wrongnote", { n:0 }); const r = G.D.rooms[ev.room]; r.puzzle.items.forEach(it=> FX.smoke(it.x, 0.9, it.y, 0x2a2420, 3, 0.4, 0.9)); break; }
+    case "mirror": { play("stone"); const r = G.D.rooms[ev.room], it = r.puzzle.items[ev.i]; FX.burst(it.x, 0.8, it.y, 0xa8a8b0, 8, 2, 0.25, 0.4); if(ev.hit) FX.ring(r.puzzle.eye.x + 0.5, r.puzzle.eye.y + 0.5, 1.6, 0xffd890, 0.8); break; }
+    case "pzDoor": {
+      S.shake(ev.honest ? 0.2 : 0.4); FX.smoke(ev.x, 0.9, ev.y + 0.6, 0x5a5048, 14, 0.6, 1.4); play("doorOpen");
+      if(ev.honest) FX.rise(ev.x, ev.y - 1.5, 0xffd890, 18, 0.6); else { FX.burst(ev.x, 1.2, ev.y + 0.6, 0x8a1a10, 20, 3, 0.3, 0.6); play("wrongnote", { n:3 }); }
+      break;
+    }
+    case "spores": FX.smoke(ev.x, 0.9, ev.y, 0x8a8a5a, 18, 0.7, 1.6, { spread:1.2, rise:0.6 }); play("wrongnote", { n:2 }); break;
+    case "pzFail": S.shake(0.25); break;
     case "chorusSing": play("note", { n:ev.i }); break;
     case "chorus": play(ev.ok ? "note" : "wrongnote", { n:ev.i }); break;
     case "push": play("push"); break;

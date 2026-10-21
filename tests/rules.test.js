@@ -450,7 +450,7 @@ test("a secret corridor stays hidden (a real false, not undefined) until its ill
 });
 
 test("Gribbus can't push puzzle blocks or hop through an illusionary wall", ()=>{
-  const { G, r } = puzzleRoom("push", 1), pz = r.puzzle, b = pz.blocks[0];
+  const { G, r } = puzzleRoom("stones", 1), pz = r.puzzle, b = pz.blocks[0];
   const before = pz.blocks.map(o=> o.x + "," + o.y).join(" ");
   const fr = G.gribbus;
   G.player.x = b.x - 2.5; G.player.y = b.y + 0.5;
@@ -654,54 +654,116 @@ function puzzleRoom(kind, floor){
   }
   throw new Error("no " + kind + " puzzle");
 }
-test("the three-doors puzzle has exactly one honest door, and it's an illusion", ()=>{
-  const { G, r } = puzzleRoom("doors", 2);
-  const doors = G.D.painted.filter(p=> p.room === r.id && p.puzzle !== undefined);
-  assert.equal(doors.length, 3);
-  const real = doors.find(p=> p.kind === "real");
-  assert.equal(G.D.at(real.x, real.y), T.FAKE);
-  assert.equal(doors.indexOf(real), r.puzzle.answer);
-  assert.ok(r.props.some(p=> p.kind === "sign" && p.riddle && /HONEST GOBLIN/i.test(p.text)));
+const usePz = (G, o)=>{ o.cd = 0; DG.Puzzles.use(G, o); };
+test("puzzles are worked with E, never with shots", ()=>{
+  assert.equal(DG.Puzzles.shot, undefined);
+  const { G, r } = puzzleRoom("embers", 1), pz = r.puzzle, before = pz.lit.join("");
+  const it = pz.items[0]; G.player.x = it.x; G.player.y = it.y + 0.6;
+  for(let i=0;i<30;i++){ G.bullets.push({ team:"p", x:it.x, y:it.y, vx:0, vy:0, r:0.2, dmg:1, life:0.05, hits:[], pierce:0, el:null }); G.update(1/60, {}); G.drain(); }
+  assert.equal(pz.lit.join(""), before, "bullets went through");
+  const tg = G.target(); assert.ok(tg && tg.o.pz, "E targets the brazier"); assert.match(tg.text, /brazier/i);
 });
-test("braziers (row and grid) can always be lit", ()=>{
-  [1, 3].forEach(f=>{
-    const { G, r } = puzzleRoom("braziers", f), pz = r.puzzle, n = pz.lit.length, start = pz.lit.slice();
-    let solved = false;
-    for(let mask=0; mask<(1 << n) && !solved; mask++){
-      pz.lit = start.slice();
-      for(let i=0;i<n;i++) if(mask & (1 << i)) DG.Puzzles.flipBraziers(pz, i);
-      solved = pz.lit.every(v=> v);
+test("the Liar's Doors: one true door by the rule, every door has a closet, nothing shows through the wall", ()=>{
+  [1, 3, 5].forEach(f=>{
+    const { G, r } = puzzleRoom("doors", f), pz = r.puzzle;
+    const ws = DG.Puzzles.riddleWorlds(pz.rule, pz.doors.map(d=> d.says), pz.doors.map(d=> ({ name:d.name })));
+    assert.equal(ws.length, 1, "floor " + f + ": exactly one way the faces can all be keeping the rule");
+    assert.equal(ws[0].a, pz.answer);
+    pz.doors.forEach(d=>{
+      assert.equal(G.D.at(d.tx, d.ty), T.FAKE);
+      for(let y=d.ty - 3; y<d.ty; y++) for(let x=d.tx - 1; x<=d.tx + 1; x++) assert.equal(G.D.at(x, y), T.FLOOR, "a closet behind every door");
+      assert.ok(G.blocked(d.tx, d.ty, "player"), "shut to walking");
+    });
+    assert.ok(!r.props.some(p=> p.kind === "pedestal"), "no prize until the true door's opened");
+    G.revealFake(pz.doors[0].tx, pz.doors[0].ty);
+    assert.ok(!G.D.fakes.some(k=> k.puzzle && k.revealed), "shots and walking don't open them");
+  });
+  // the true door: solved, and the prize appears in its closet
+  { const { G, r } = puzzleRoom("doors", 2), pz = r.puzzle, d = pz.doors[pz.answer];
+    usePz(G, d);
+    assert.ok(pz.solved);
+    assert.ok(r.props.some(p=> p.kind === "pedestal" && p.y === d.ty - 2));
+    assert.ok(G.pickups.some(k=> k.kind === "key"), "no slip: a key"); }
+  // a false door: an ambush, and the others seal
+  { const { G, r } = puzzleRoom("doors", 2), pz = r.puzzle, wrong = pz.doors.find(d=> d.i !== pz.answer);
+    usePz(G, wrong);
+    assert.ok(pz.failed && !pz.solved && r.active);
+    usePz(G, pz.doors[pz.answer]);
+    assert.ok(!pz.solved, "sealed"); }
+});
+test("Embers: the candles count; the fewest moves always fit; over budget it gutters, rescrambles and the chest drops a tier", ()=>{
+  [1, 4].forEach(f=>{
+    const { G, r } = puzzleRoom("embers", f), pz = r.puzzle, N = pz.items.length;
+    assert.ok(pz.par >= 1 && pz.par <= pz.budget - 2, "floor " + f + ": par " + pz.par + ", budget " + pz.budget);
+    // find the fewest presses and make them
+    const dark = pz.lit.reduce((m, v, i)=> v ? m : m | (1 << i), 0);
+    let best = null;
+    for(let s=0; s<(1 << N); s++){ let m = 0, c = 0; for(let i=0;i<N;i++) if((s >> i) & 1){ m ^= pz.masks[i]; c++; } if(m === dark && (!best || c < best.c)) best = { s, c }; }
+    for(let i=0;i<N;i++) if((best.s >> i) & 1) usePz(G, pz.items[i]);
+    assert.ok(pz.solved, "floor " + f);
+    assert.ok(!r.props.find(p=> p.kind === "chest").locked);
+    assert.equal(r.props.find(p=> p.kind === "chest").tier, f >= 3 ? 3 : 2);
+  });
+  const { G, r } = puzzleRoom("embers", 1), pz = r.puzzle;
+  // waste the budget pressing one brazier back and forth
+  let guard = 50;
+  while(pz.moves < pz.budget - 1 && guard--) usePz(G, pz.items[0]);
+  if(!pz.solved){
+    usePz(G, pz.items[0]);
+    if(!pz.solved){
+      assert.equal(pz.moves, 0, "a fresh scramble");
+      assert.ok(r.active, "the dark noticed");
+      assert.equal(r.props.find(p=> p.kind === "chest").tier, 1);
+      assert.ok(pz.flawless === false);
     }
-    assert.ok(solved, "floor " + f);
-  });
-});
-test("push blocks: pushing each block straight along its line solves it", ()=>{
-  const { G, r } = puzzleRoom("push", 1), pz = r.puzzle;
-  pz.blocks.forEach((b, i)=>{
-    const p = pz.plates[i], dx = Math.sign(p.x - b.x), dy = Math.sign(p.y - b.y);
-    let guard = 10;
-    while((b.x !== p.x || b.y !== p.y) && guard--){ pz.cd = 0; DG.Puzzles.push(G, b.x, b.y, dx, dy); }
-  });
-  assert.ok(pz.solved);
-  assert.ok(!r.props.find(p=> p.kind === "chest").locked);
-});
-test("statues can always be turned to face the eye", ()=>{
-  const { r } = puzzleRoom("statues", 3), pz = r.puzzle, start = pz.face.slice();
-  let ok = false;
-  for(let m=0; m<256 && !ok; m++){
-    pz.face = start.slice();
-    for(let i=0;i<4;i++) for(let k=0;k<((m >> (i*2)) & 3);k++) DG.Puzzles.turnStatue(pz, i, 1);
-    ok = pz.face.every((f, i)=> f === pz.want[i]);
   }
-  assert.ok(ok);
 });
-test("the shroom chorus: repeat what they sing", ()=>{
-  const { G, r } = puzzleRoom("chorus", 1), pz = r.puzzle;
-  for(let round=0; round<pz.rounds; round++){
-    pz.phase = "listen"; pz.i = 0;
-    for(let k=0;k<pz.len + round;k++){ const it = pz.items[pz.seq[k]]; it.cd = 0; DG.Puzzles.shot(G, { x:it.x, y:it.y, r:0.1 }); }
+test("Weighing Stones: built backwards, so the recorded pushes solve it; the reset rune costs blood", ()=>{
+  [1, 3, 5].forEach(f=>{
+    const { G, r } = puzzleRoom("stones", f), pz = r.puzzle;
+    assert.ok(pz.pulls >= 4 + 2*f, "floor " + f + ": " + pz.pulls + " pushes");
+    assert.equal(pz.blocks.length, f >= 3 ? 3 : 2);
+    pz.solution.forEach(m=>{ pz.cd = 0; DG.Puzzles.push(G, m.x, m.y, m.dx, m.dy); });
+    assert.ok(pz.solved, "floor " + f);
+  });
+  const { G, r } = puzzleRoom("stones", 2), pz = r.puzzle;
+  if(pz.reset){
+    const m = pz.solution[0]; DG.Puzzles.push(G, m.x, m.y, m.dx, m.dy);
+    const hp = G.player.hp; usePz(G, pz.reset);
+    assert.ok(G.player.hp < hp, "blood");
+    assert.ok(pz.blocks.every(b=> b.x === b.sx && b.y === b.sy), "back where they started");
   }
-  assert.ok(pz.solved);
+});
+test("the Choir: sing it back (back to front, deep down); wrong notes burst spores; three and they give up on you", ()=>{
+  [1, 4].forEach(f=>{
+    const { G, r } = puzzleRoom("choir", f), pz = r.puzzle;
+    assert.equal(pz.reverse, f >= 4);
+    for(let round=0; round<pz.rounds; round++){
+      pz.phase = "listen"; pz.i = 0;
+      const n = pz.len + round;
+      for(let k=0;k<n;k++) usePz(G, pz.items[pz.seq[pz.reverse ? n - 1 - k : k]]);
+    }
+    assert.ok(pz.solved, "floor " + f);
+  });
+  const { G, r } = puzzleRoom("choir", 2), pz = r.puzzle, hp0 = G.player.hp;
+  for(let k=0;k<3;k++){ pz.phase = "listen"; pz.i = 0; usePz(G, pz.items[(pz.seq[0] + 1) % 4]); G.player.iframes = 0; }
+  assert.ok(G.player.hp < hp0, "spores");
+  assert.ok(pz.solved && !pz.flawless);
+  assert.equal(r.props.find(p=> p.kind === "chest").tier, 1);
+  assert.ok(!G.pickups.some(k=> k.kind === "key"));
+});
+test("the Mirror Hall: the answer carries the light to the eye; the scramble doesn't; turning by the chain solves it", ()=>{
+  [1, 3, 5].forEach(f=>{
+    const { G, r } = puzzleRoom("mirrors", f), pz = r.puzzle;
+    assert.ok(!DG.Puzzles.trace(G.D, pz).hit, "scrambled");
+    assert.equal(pz.linked, f >= 4);
+    const par = DG.Puzzles.mirrorPar(pz);
+    assert.equal(pz.budget, par + 4);
+    // turn each, in order, until it's right (the chain way: it drags the next one round)
+    pz.items.forEach((it, i)=>{ if(pz.want[i] < 0) return; let g = 4; while(it.q !== pz.want[i] && g-- && !pz.solved) usePz(G, it); });
+    assert.ok(pz.solved, "floor " + f);
+    assert.ok(pz.turns <= par, "the chain way is the fewest");
+  });
 });
 
 /* ================================================================== *

@@ -1233,60 +1233,128 @@ proto.updateRoomProp = function(pr, o, G, dt, t){
   if(o.beam){ o.beam.visible = !pr.taken; o.beam.rotation.y = t*0.2; o.beam.children.forEach((m, i)=> m.material.opacity = (i ? 0.1 : 0.06)*(0.8 + 0.2*Math.sin(t*1.1 + i))); if(!pr.taken && Math.random() < dt*5 && DG.FX) DG.FX.emit(pr.x + 0.5 + (Math.random() - 0.5)*0.8, 0.3, pr.y + 0.5, 0, 0.6 + Math.random()*0.5, 0, 0xff4a2a, 0.04, 2, -0.1, 0.3); }
 };
 
-/* ---- puzzle pieces ---- */
+/* ---- puzzle pieces ----
+   Iron and stone, dark until used: light is what tells you how you're doing
+   (a brazier's coals, the beam in the Mirror Hall, the eye that wakes). */
+const BX = (w, h, d)=> new THREE.BoxGeometry(w, h, d);
+const PZ_SHROOM = [0x8a3a30, 0x3a6a72, 0x6a7a34, 0x9a7a34];
 proto.buildPuzzle = function(r){
   const W = this, pz = r.puzzle, P = K.part, out = W.pz[r.id] = { r, items:[] };
   const add = g=> W.areaGroup(r.id).add(g);
-  if(pz.kind === "braziers") pz.items.forEach((it, i)=>{
-    const g = new THREE.Group(); g.position.set(it.x, 0, it.y);
-    P(g, new THREE.CylinderGeometry(0.08, 0.16, 0.7, 6), 0x3a3a40, 0, 0.35, 0);
-    P(g, new THREE.CylinderGeometry(0.34, 0.18, 0.22, 10), 0x5a5a64, 0, 0.8, 0);
-    K.bake(g, { w:0.018 });
-    const coal = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.04, 10), K.basic(0x2a1a14)); coal.position.y = 0.9; g.add(coal);
-    const flame = K.sprite(0xff8a2a, 1.3, 0.9); flame.position.y = 1.2; g.add(flame);
-    add(g); out.items.push({ g, flame, coal });
-  });
-  if(pz.kind === "statues"){
+  const glowBeam = c=> new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.75, blending:THREE.AdditiveBlending, depthWrite:false });
+  if(pz.kind === "doors"){
+    // a stone face over each door: long, gaunt, the brow heavy, the eyes sunk, the mouth a slot that speaks
+    pz.doors.forEach(d=>{
+      const g = new THREE.Group(); g.position.set(d.x, 0, d.ty + 1.04);
+      P(g, K.sculpt(new THREE.SphereGeometry(0.24, 16, 12), 0.025, 7, d.i + 3), 0x4e4a44, 0, 2.16, 0, 0, 0, 0, 0.82, 1.45, 0.42);
+      P(g, K.lump(0.08, 1, 0.35, d.i), 0x423e38, 0, 2.38, 0.06, 0, 0, 0, 2.3, 0.55, 1);            // the brow, a hard ledge
+      [-1, 1].forEach(s=>{
+        P(g, new THREE.SphereGeometry(0.06, 8, 6), 0x080606, s*0.085, 2.27, 0.075, 0, 0, 0, 1, 0.75, 0.6);   // sockets, deep
+        P(g, K.lump(0.05, 0, 0.3, d.i + s), 0x3a3632, s*0.12, 2.06, 0.06, 0, 0, 0, 0.8, 1.6, 0.6);      // hollow cheeks
+      });
+      P(g, BX(0.035, 0.16, 0.05), 0x46423c, 0, 2.15, 0.1);                                              // the nose, a ridge
+      P(g, BX(0.13, 0.03, 0.05), 0x060404, 0, 1.94, 0.085);                                             // the mouth, a slot
+      [-1, 1].forEach(s=> P(g, BX(0.012, 0.09, 0.03), 0x2a2622, s*0.075, 1.9, 0.08, 0, 0, s*0.2));      // creases, down at the corners
+      P(g, BX(0.62, 0.06, 0.14), 0x34302c, 0, 1.76, 0.02);
+      K.bake(g, { w:0.014 });
+      const eyes = [-1, 1].map(s=>{ const e = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 4), K.basic(0x2a1a10)); e.position.set(s*0.085, 2.27, 0.11); g.add(e); return e; });
+      add(g); out.items.push({ g, eyes });
+    });
+  }
+  if(pz.kind === "embers"){
     pz.items.forEach((it, i)=>{
       const g = new THREE.Group(); g.position.set(it.x, 0, it.y);
-      P(g, new THREE.BoxGeometry(0.8, 0.3, 0.8), 0x6a6a74, 0, 0.15, 0);
-      const turn = new THREE.Group(); turn.position.y = 0.3; g.add(turn);
-      P(turn, new THREE.CylinderGeometry(0.22, 0.3, 0.7, 8), 0x8a8a94, 0, 0.35, 0);
-      P(turn, new THREE.SphereGeometry(0.24, 12, 10), 0x8a8a94, 0, 0.85, 0);
-      P(turn, new THREE.ConeGeometry(0.08, 0.25, 6), 0x7a7a84, 0, 0.85, 0.28, PI/2);
-      [-1, 1].forEach(s=> P(turn, new THREE.ConeGeometry(0.06, 0.25, 4), 0x7a7a84, s*0.18, 1.08, 0, 0, 0, -s*0.4));
-      K.bake(g, { w:0.02 });
-      [-1, 1].forEach(s=>{ const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), K.basic(0x46e4ff)); e.position.set(s*0.09, 0.9, 0.2); turn.add(e); });
-      add(g); out.items.push({ g, turn });
+      for(let k=0;k<3;k++){ const a = k/3*PI*2 + i; P(g, new THREE.CylinderGeometry(0.02, 0.03, 0.72, 5), 0x26262a, Math.cos(a)*0.12, 0.34, Math.sin(a)*0.12, Math.sin(a)*0.25, 0, -Math.cos(a)*0.25); }
+      P(g, K.lathe([[0.05, 0], [0.24, 0.05], [0.3, 0.17], [0.27, 0.19], [0.2, 0.08], [0.05, 0.03]], 12), 0x2e2e32, 0, 0.66, 0);
+      for(let k=0;k<7;k++){ const a = k/7*PI*2; P(g, new THREE.ConeGeometry(0.02, 0.09, 4), 0x2a2a2e, Math.cos(a)*0.3, 0.88, Math.sin(a)*0.3); }
+      if(pz.knight.indexOf(i) >= 0) P(g, new THREE.TorusGeometry(0.34, 0.025, 4, 8), 0x6a5a3a, 0, 0.05, 0, PI/2);   // a knight's mark, cut in the floor
+      K.bake(g, { w:0.016 });
+      const coal = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.05, 10), K.basic(0x1a120e)); coal.position.y = 0.8; g.add(coal);
+      const flame = K.sprite(0xff7a2a, 1.3, 0.9); flame.position.y = 1.08; g.add(flame);
+      add(g); out.items.push({ g, flame, coal });
     });
-    const eye = new THREE.Group(); eye.position.set(pz.eye.x, 0, pz.eye.y);
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.7, 20), K.basic(0x2a1a3a)); disc.rotation.x = -PI/2; disc.position.y = 0.03; eye.add(disc);
-    const iris = new THREE.Mesh(new THREE.CircleGeometry(0.35, 20), K.basic(0xd84aff)); iris.rotation.x = -PI/2; iris.position.y = 0.04; eye.add(iris);
-    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), K.basic(0x080808)); pupil.rotation.x = -PI/2; pupil.position.y = 0.05; eye.add(pupil);
-    add(eye); out.eye = eye;
+    // the candle stand, by the sign: one candle for each try left
+    const sx = Math.floor(r.cxw) + 2.2, sz = r.y1 + 0.7, stand = new THREE.Group(); stand.position.set(sx, 0, sz);
+    P(stand, BX(1.5, 0.5, 0.36), 0x3a2a1e, 0, 0.25, 0); P(stand, BX(1.6, 0.05, 0.42), 0x2e2218, 0, 0.52, 0);
+    K.bake(stand, { w:0.014 }); add(stand);
+    out.candles = [];
+    for(let k=0;k<10;k++){
+      const c = new THREE.Group(); c.position.set(-0.66 + k*0.146, 0.55, 0); stand.add(c);
+      const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.16 + (k % 3)*0.04, 6), K.basic(0x9a8e70)); wax.position.y = 0.09; c.add(wax);
+      const f = K.sprite(0xffb050, 0.35, 0.9); f.position.y = 0.24 + (k % 3)*0.04; c.add(f);
+      out.candles.push({ c, f });
+    }
   }
-  if(pz.kind === "chorus") pz.items.forEach((it, i)=>{
-    const col = [0xff4a6a, 0x46e4ff, 0x9cff3a, 0xffd23d][i];
-    const g = new THREE.Group(); g.position.set(it.x, 0, it.y);
-    P(g, new THREE.CylinderGeometry(0.12, 0.16, 0.6, 10), 0x9a948a, 0, 0.3, 0);
-    P(g, new THREE.SphereGeometry(0.42, 16, 8, 0, PI*2, 0, PI/2), new THREE.Color(col).multiplyScalar(0.45).getHex(), 0, 0.58, 0, 0, 0, 0, 1, 0.7, 1);
-    P(g, new THREE.SphereGeometry(0.06, 8, 6), 0x0a0406, 0, 0.36, 0.11, 0, 0, 0, 0.8, 1.4, 0.5);
+  if(pz.kind === "choir") pz.items.forEach((it, i)=>{
+    const col = PZ_SHROOM[i], g = new THREE.Group(); g.position.set(it.x, 0, it.y);
+    P(g, K.sculpt(new THREE.CylinderGeometry(0.1, 0.17, 0.62, 10, 4), 0.02, 5, i), 0x8a8274, 0, 0.31, 0);
+    P(g, K.sculpt(new THREE.SphereGeometry(0.44, 16, 8, 0, PI*2, 0, PI/2), 0.04, 4, i + 4), col, 0, 0.58, 0, 0, 0, 0, 1, 0.66, 1);
+    for(let k=0;k<6;k++){ const a = k/6*PI*2 + i; P(g, K.lump(0.035, 0, 0.4, k + i*7), new THREE.Color(col).multiplyScalar(1.3).getHex(), Math.cos(a)*0.28, 0.76, Math.sin(a)*0.28); }
+    P(g, new THREE.SphereGeometry(0.07, 8, 6), 0x0a0406, 0, 0.36, 0.12, 0, 0, 0, 0.8, 1.5, 0.5);      // a mouth in the stalk
     K.bake(g, { w:0.02 });
-    const glow = K.sprite(col, 2.2, 0); glow.position.y = 0.8; g.add(glow);
+    const glow = K.sprite(new THREE.Color(col).multiplyScalar(2.2).getHex(), 2.2, 0); glow.position.y = 0.8; g.add(glow);
     add(g); out.items.push({ g, glow, col });
   });
-  if(pz.kind === "push"){
-    out.blocks = pz.blocks.map(b=>{
+  if(pz.kind === "stones"){
+    out.blocks = pz.blocks.map((b, i)=>{
       const g = new THREE.Group();
-      P(g, new THREE.BoxGeometry(0.94, 0.9, 0.94), 0x7a7a88, 0, 0.45, 0);
-      P(g, new THREE.BoxGeometry(0.96, 0.1, 0.96), 0x5a5a68, 0, 0.88, 0);
+      P(g, K.sculpt(new THREE.BoxGeometry(0.92, 0.86, 0.92, 3, 3, 3), 0.05, 4, i + 2), 0x5a5650, 0, 0.43, 0);
+      P(g, BX(0.96, 0.08, 0.96), 0x46423c, 0, 0.86, 0);
       K.bake(g, { w:0.022 });
-      const rune = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map:K.textTex(["◇"], 32, 32, { size:26, bg:"#5a5a68", fg:"#46e4ff" }) }));
-      rune.position.set(0, 0.5, 0.48); g.add(rune);
+      const rune = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map:K.textTex(["◇"], 32, 32, { size:24, bg:"#3a3834", fg:"#6aa8c8" }) }));
+      rune.position.set(0, 0.48, 0.465); g.add(rune);
       g.position.set(b.x + 0.5, 0, b.y + 0.5); add(g);
       return g;
     });
   }
+  if(pz.kind === "mirrors"){
+    // the source: a crack of daylight in the ceiling, falling on a brass dish that throws it sideways
+    const s = pz.src, src = new THREE.Group(); src.position.set(s.x + 0.5, 0, s.y + 0.5);
+    P(src, new THREE.CylinderGeometry(0.06, 0.16, 0.8, 6), 0x2a2a2e, 0, 0.4, 0);
+    const dish = new THREE.Group(); dish.position.y = 1.0; dish.rotation.y = Math.atan2([1, 0, -1, 0][s.d], [0, 1, 0, -1][s.d]); src.add(dish);
+    P(dish, K.lathe([[0, 0], [0.22, 0.04], [0.3, 0.12], [0.28, 0.13], [0.2, 0.06], [0, 0.02]], 14), 0x8a6a30, 0, 0, 0, -PI/2 + 0.2, 0, 0);
+    K.bake(src, { w:0.016 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.4, 6, 10, 1, true), glowBeam(0xd8e0f0)); shaft.material.opacity = 0.16; shaft.position.y = 3.6; src.add(shaft);
+    add(src);
+    pz.items.forEach((it, i)=>{
+      const g = new THREE.Group(); g.position.set(it.x, 0, it.y);
+      P(g, K.sculpt(new THREE.BoxGeometry(0.7, 0.28, 0.7, 2, 1, 2), 0.03, 5, i), 0x4a4640, 0, 0.14, 0);
+      const turn = new THREE.Group(); turn.position.y = 0.28; g.add(turn);
+      // a hooded thing, kneeling, holding up a shield of polished steel
+      P(turn, K.sculpt(new THREE.CylinderGeometry(0.16, 0.3, 0.7, 9, 3), 0.03, 4, i + 3), 0x5a5650, 0, 0.35, -0.05);
+      P(turn, K.sculpt(new THREE.SphereGeometry(0.17, 10, 8), 0.03, 5, i + 5), 0x4e4a44, 0, 0.82, -0.04, 0.3, 0, 0, 1, 1.1, 1);
+      P(turn, new THREE.CylinderGeometry(0.3, 0.3, 0.04, 16), 0x8a8a8e, 0, 0.62, 0.22, PI/2);
+      P(turn, new THREE.TorusGeometry(0.3, 0.025, 5, 16), 0x5a4a30, 0, 0.62, 0.23);
+      K.bake(g, { w:0.018 });
+      const shine = new THREE.Mesh(new THREE.CircleGeometry(0.26, 16), K.basic(0x3a3c40)); shine.position.set(0, 0.62, 0.245); turn.add(shine);
+      add(g); out.items.push({ g, turn, shine });
+    });
+    const eye = new THREE.Group(); eye.position.set(pz.eye.x + 0.5, 0, pz.eye.y + 0.5);
+    P(eye, new THREE.CylinderGeometry(0.6, 0.66, 0.08, 16), 0x3a3634, 0, 0.04, 0);
+    K.bake(eye, { w:0.012 });
+    const lid = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), K.basic(0x14100c)); lid.rotation.x = -PI/2; lid.position.y = 0.085; eye.add(lid);
+    const iris = new THREE.Mesh(new THREE.CircleGeometry(0.26, 18), K.basic(0x3a2a14)); iris.rotation.x = -PI/2; iris.position.y = 0.09; eye.add(iris);
+    const pupil = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.36), K.basic(0x050404)); pupil.rotation.x = -PI/2; pupil.position.y = 0.095; eye.add(pupil);
+    const halo = K.sprite(0xffd890, 1.6, 0); halo.position.y = 0.3; eye.add(halo);
+    add(eye); out.eye = { g:eye, iris, halo };
+    out.beam = new THREE.Group(); add(out.beam); out.beamMat = glowBeam(0xfff0c8); out.beamMat2 = glowBeam(0xffd890); out.beamMat2.opacity = 0.18;
+    W.rebuildBeam(r);
+  }
+};
+/* the Mirror Hall's light, drawn where it really goes */
+proto.rebuildBeam = function(r){
+  const W = this, o = W.pz[r.id], pz = r.puzzle, tr = DG.Puzzles.trace(W.D, pz);
+  while(o.beam.children.length) o.beam.remove(o.beam.children[0]);
+  for(let i=1;i<tr.pts.length;i++){
+    const [ax, az] = tr.pts[i - 1], [bx, bz] = tr.pts[i], len = Math.hypot(bx - ax, bz - az);
+    if(len < 0.01) continue;
+    [[0.05, o.beamMat], [0.22, o.beamMat2]].forEach(([w, m])=>{
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(w, w, len), m);
+      seg.position.set((ax + bx)/2, 0.9, (az + bz)/2); seg.rotation.y = Math.atan2(bx - ax, bz - az);
+      o.beam.add(seg);
+    });
+  }
+  o.hit = tr.hit; o.ver = pz.items.map(it=> it.q).join("");
 };
 
 /* ================================================================== *
@@ -1312,6 +1380,10 @@ proto.update = function(G, dt, t){
   });
   // illusions, once found
   W.fakes.forEach(o=>{
+    if(o.f.puzzle){
+      if(o.f.revealed && o.m.visible){ o.m.visible = false; const pd = W.painted.find(q=> q.p.room === o.f.room && q.p.puzzle === o.f.door); if(pd) pd.m.visible = false; }
+      return;
+    }
     if(!o.f.revealed){ if(o.f.hinted) o.m.material.emissive && o.m.material.emissive.setHex(0x2a1a4a); return; }
     if(!o.m.material.transparent){ o.m.material.transparent = true; o.m.material.needsUpdate = true; }
     o.t += dt;
@@ -1398,11 +1470,26 @@ proto.update = function(G, dt, t){
   // puzzle pieces
   for(const id in W.pz){
     const o = W.pz[id], pz = o.r.puzzle;
-    if(pz.kind === "braziers") o.items.forEach((it, i)=>{ const lit = pz.lit[i], f = lit ? 1 + 0.12*Math.sin(t*14 + i) : 0; it.flame.scale.setScalar(1.3*f + 0.001); it.coal.material.color.setHex(lit ? 0xff5a1a : 0x2a1a14); });
-    if(pz.kind === "statues") o.items.forEach((it, i)=>{ const want = -pz.face[i]*PI/2 + PI/2; it.turn.rotation.y += DG.wrapAngle(want - it.turn.rotation.y)*(1 - Math.exp(-dt*10)); });
-    if(pz.kind === "statues" && o.eye) o.eye.children[1].material.color.setHex(pz.solved ? 0x46ff8a : 0xd84aff);
-    if(pz.kind === "chorus") o.items.forEach((it, i)=>{ const gl = Math.max(0, pz.items[i].glow || 0); it.glow.material.opacity = Math.min(1, gl*2.5) + (pz.solved ? 0.3 : 0); it.g.scale.setScalar(1 + gl*0.4); });
-    if(pz.kind === "push") o.blocks.forEach((g, i)=>{ const b = pz.blocks[i]; g.position.x += (b.x + 0.5 - g.position.x)*(1 - Math.exp(-dt*14)); g.position.z += (b.y + 0.5 - g.position.z)*(1 - Math.exp(-dt*14)); });
+    if(pz.kind === "embers"){
+      o.items.forEach((it, i)=>{ const lit = pz.lit[i], f = lit ? 1 + 0.12*Math.sin(t*14 + i) : 0; it.flame.scale.setScalar(1.3*f + 0.001); it.coal.material.color.setHex(lit ? 0xd8480e : 0x1a120e); });
+      const left = pz.solved ? 0 : pz.budget - pz.moves;
+      o.candles.forEach((c, k)=>{ c.c.visible = k < pz.budget; c.f.visible = k < left; c.f.scale.setScalar(0.35*(1 + 0.15*Math.sin(t*11 + k))); });
+    }
+    if(pz.kind === "doors") o.items.forEach((it, i)=>{ const d = pz.doors[i], c = d.open ? (i === pz.answer ? 0xffd890 : 0x8a1a10) : pz.failed ? 0x8a1a10 : 0x2a1a10; it.eyes.forEach(e=> e.material.color.setHex(c)); });
+    if(pz.kind === "mirrors"){
+      o.items.forEach((it, i)=>{
+        const [a, b] = [[3, 0], [0, 1], [1, 2], [2, 3]][pz.items[i].q], vx = [1, 0, -1, 0][a] + [1, 0, -1, 0][b], vz = [0, 1, 0, -1][a] + [0, 1, 0, -1][b];
+        const want = Math.atan2(vx, vz);
+        it.turn.rotation.y += DG.wrapAngle(want - it.turn.rotation.y)*(1 - Math.exp(-dt*10));
+      });
+      const ver = pz.items.map(it=> it.q).join("");
+      if(ver !== o.ver) W.rebuildBeam(o.r);
+      o.beam.children.forEach((m, k)=>{ m.scale.x = m.scale.y = 1 + 0.15*Math.sin(t*9 + k); });
+      o.eye.iris.material.color.setHex(o.hit || pz.solved ? 0xffc040 : 0x3a2a14);
+      o.eye.halo.material.opacity = o.hit || pz.solved ? 0.8 + 0.2*Math.sin(t*4) : 0;
+    }
+    if(pz.kind === "choir") o.items.forEach((it, i)=>{ const gl = Math.max(0, pz.items[i].glow || 0); it.glow.material.opacity = Math.min(1, gl*2.5) + (pz.solved ? 0.25 : 0); it.g.scale.setScalar(1 + gl*0.4); });
+    if(pz.kind === "stones") o.blocks.forEach((g, i)=>{ const b = pz.blocks[i]; g.position.x += (b.x + 0.5 - g.position.x)*(1 - Math.exp(-dt*14)); g.position.z += (b.y + 0.5 - g.position.z)*(1 - Math.exp(-dt*14)); });
   }
   // eyes in the walls follow Zippy, and blink now and then
   W.eyes.forEach(e=>{

@@ -284,6 +284,16 @@ H.draw = function(G, dt, opts){
       }
     });
   }
+  // the Liar's Doors: what each stone face says, under it, while the doors are still shut
+  if(G.room && G.room.puzzle && G.room.puzzle.kind === "doors" && !G.room.puzzle.solved && !G.room.puzzle.failed){
+    G.room.puzzle.doors.forEach(d=>{
+      if(d.open || DG.dist(d.x, d.y, p.x, p.y) > 9) return;
+      const s = S.project(d.x, 1.62, d.ty + 1.1); if(s.behind) return;
+      const lines = wrapWords(g, "\u201c" + d.says + "\u201d", 14*k, 150*k);
+      text(g, d.name.toUpperCase() + " DOOR", s.x, s.y - 15*k, 10*k, mute(hex(d.color), 0.25), "center", "700", SERIF, 2);
+      lines.forEach((ln, i)=> text(g, ln, s.x, s.y + i*16*k, 14*k, mute(hex(d.color), 0.45), "center", "italic 600", BOOK, 1));
+    });
+  }
   H.barks = H.barks.filter(b=>{
     b.t += dt;
     const e = G.enemies.find(o=> o.id === b.id); if(e){ b.x = e.x; b.y = e.y; }
@@ -775,6 +785,13 @@ H.mapPort = function(D, r, c, bx){
   if(side === "s") return { x:bx.rx + fx*bx.rw, y:bx.ry + bx.rh - 1, h:false };
   return { x:bx.rx + fx*bx.rw, y:bx.ry + 1, h:false };
 };
+/* lines of at most w pixels */
+function wrapWords(g, str, size, w){
+  const words = str.split(" "), out = []; let line = "";
+  words.forEach(wd=>{ const t = line ? line + " " + wd : wd; if(line && measure(g, t, size, "italic 600", BOOK) > w){ out.push(line); line = wd; } else line = t; });
+  if(line) out.push(line);
+  return out;
+}
 H.minimap = function(g, G, xr, y, small){
   const D = G.D, cs = small ? 9 : 12, gap = 5, lost = G.curses.indexOf("lost") >= 0;
   const visited = r=> r.visited || (r.type === "secret" && r.found);
