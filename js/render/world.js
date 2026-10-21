@@ -53,6 +53,8 @@ function slab(g, r, x, y, w, h, v, cracks){
     const sx = x + r()*w, sy = y + r()*h, rr = m*(0.2 + r()*0.6), gr = g.createRadialGradient(sx, sy, 0, sx, sy, rr);
     gr.addColorStop(0, "rgba(0,0,0," + (0.1 + r()*0.2) + ")"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x, y, w, h);
   }
+  // pitting at a middle scale: the face is lumpy and eaten, not smooth
+  for(let k=0;k<w*h/90;k++){ const sx = x + r()*w, sy = y + r()*h, rr = 2 + r()*6, dark = r() < 0.55; g.fillStyle = dark ? "rgba(0,0,0," + (0.06 + r()*0.12) + ")" : "rgba(255,255,255," + (0.04 + r()*0.07) + ")"; g.beginPath(); g.ellipse(sx, sy, rr, rr*(0.5 + r()*0.5), r()*PI, 0, PI*2); g.fill(); }
   // grit, pits, and gouges: short hard scores across the face
   for(let k=0;k<w*h/12;k++){ const q = r(); g.fillStyle = q < 0.6 ? "rgba(0,0,0," + (0.08 + r()*0.2) + ")" : "rgba(255,255,255," + (0.03 + r()*0.05) + ")"; const sz = 0.6 + r()*1.6; g.fillRect(x + r()*w, y + r()*h, sz, sz); }
   for(let k=0, n = (r()*5 | 0); k<n; k++){
@@ -62,7 +64,7 @@ function slab(g, r, x, y, w, h, v, cracks){
   }
   // the lip: a narrow hard darkening at the joint (worn, not pillowed)
   path(); g.lineJoin = "miter";
-  [[3.2, 0.22], [1.4, 0.4]].forEach(([lw, al])=>{ g.lineWidth = lw; g.strokeStyle = "rgba(0,0,0," + al + ")"; g.stroke(); });
+  [[2, 0.2], [0.9, 0.45]].forEach(([lw, al])=>{ g.lineWidth = lw; g.strokeStyle = "rgba(0,0,0," + al + ")"; g.stroke(); });
   if(r() < cracks){
     // a crack, and sometimes a split right through, filled with dirt
     let px = x + r()*w, py = r() < 0.5 ? y : y + h, an = py === y ? PI/2 : -PI/2; const cp = [[px, py]];
@@ -129,7 +131,7 @@ function surfaceOf(key, tex, depth){
   for(let i=0;i<N*N;i++) h0[i] = (src[i*4]*0.3 + src[i*4 + 1]*0.59 + src[i*4 + 2]*0.11)/255;
   // soften (two box passes), then a fine grain so the faces aren't glassy
   for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s = 0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) s += h0[at(x + u, y + v)]; h[at(x, y)] = s/9; }
-  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s = 0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) s += h[at(x + u, y + v)]; h0[at(x, y)] = s/9 + (r() - 0.5)*0.035; }
+  for(let i=0;i<N*N;i++) h0[i] = h[i]*0.6 + h0[i]*0.4 + (r() - 0.5)*0.05;
   const nc = document.createElement("canvas"), rc = document.createElement("canvas"); nc.width = nc.height = rc.width = rc.height = N;
   const nd = nc.getContext("2d").createImageData(N, N), rd = rc.getContext("2d").createImageData(N, N);
   for(let y=0;y<N;y++) for(let x=0;x<N;x++){
@@ -226,11 +228,17 @@ proto.occlusion = function(){
     for(let v=0;v<S8;v++) for(let u=0;u<S8;u++) a[(y*S8 + v)*w + x*S8 + u] = 1;
   }
   // three box blurs, each way (about a gaussian), reaching about a tile and a half
+  // a sliding box: add the texel entering the window, drop the one leaving (off the map counts as wall)
   const blur = (src, dst, R, horiz)=>{
-    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
-      let s = 0, n = 0;
-      for(let k=-R;k<=R;k++){ const xx = horiz ? x + k : x, yy = horiz ? y : y + k; if(xx < 0 || yy < 0 || xx >= w || yy >= h){ s += 1; n++; continue; } s += src[yy*w + xx]; n++; }
-      dst[y*w + x] = s/n;
+    const L = horiz ? w : h, M = horiz ? h : w, st = horiz ? 1 : w, line = horiz ? w : 1, n = 2*R + 1;
+    for(let m=0;m<M;m++){
+      const base = m*line; let s = 0;
+      for(let k=-R;k<=R;k++) s += k < 0 || k >= L ? 1 : src[base + k*st];
+      for(let i=0;i<L;i++){
+        dst[base + i*st] = s/n;
+        const out = i - R, inn = i + R + 1;
+        s += (inn >= L ? 1 : src[base + inn*st]) - (out < 0 ? 1 : src[base + out*st]);
+      }
     }
   };
   for(let i=0;i<3;i++){ blur(a, b, 2, true); blur(b, a, 2, false); }
@@ -355,9 +363,13 @@ proto.pillar = function(b, x, y, st, h, a, cW, cTop){
   const W = this, D = W.D, th = W.th, gl = th.gloom || 0, P = K.part, cx = x + 0.5, cz = y + 0.5;
   const h2 = frac(h*7.31 + 0.2), h3 = frac(h*13.7 + 0.5);
   if(st === "crates"){
-    const wood = [0x3e2c1e, 0x36281c, 0x44301e][Math.floor(h2*3)];
-    crate(P, b.parts, 0.84, cx, 0, cz, (h - 0.5)*0.3, wood);
-    if(h3 < 0.5) crate(P, b.parts, 0.56, cx + (h2 - 0.5)*0.2, 0.78, cz + (h - 0.5)*0.2, h*4, wood);
+    const wood = [0x3e2c1e, 0x36281c, 0x44301e][Math.floor(h2*3)], KM = DG.KitModels;
+    if(KM && KM.has("crate1")){
+      // crates from the kit: a big one, often a smaller one dumped on top
+      KM.part(b.parts, "crate" + (1 + Math.floor(h2*4)), 0.84, cx, 0, cz, (h - 0.5)*0.3);
+      if(h3 < 0.5) KM.part(b.parts, "crate" + (1 + Math.floor(h3*8)), 0.52, cx + (h2 - 0.5)*0.2, 0.84, cz + (h - 0.5)*0.2, h*4);
+    } else crate(P, b.parts, 0.84, cx, 0, cz, (h - 0.5)*0.3, wood);
+    if(h3 < 0.5){ if(!(KM && KM.has("crate1"))) crate(P, b.parts, 0.56, cx + (h2 - 0.5)*0.2, 0.78, cz + (h - 0.5)*0.2, h*4, wood); }
     else if(h3 < 0.7) skull(P, b.parts, cx + 0.1, 0.78, cz + 0.05, 0.1, h*6);
     else { P(b.parts, new THREE.SphereGeometry(0.2, 10, 8), 0x4a3e2c, cx - 0.12, 0.92, cz, 0, 0, 0.3, 1.2, 0.7, 0.9); P(b.parts, new THREE.CylinderGeometry(0.04, 0.06, 0.1, 6), 0x4a3e2c, cx - 0.24, 1.04, cz, 0, 0, 0.6); }
   } else if(st === "graves"){

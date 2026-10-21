@@ -276,7 +276,7 @@ const GLOOM_FLOOR = [GLOOM_COMMON, "float gShade = clamp(dot(vColor, vec3(0.333)
   // so the floor's grid drowns in it here and there; the low wet parts glisten
   "float gFn = gn1*0.55 + gn2*0.45 + gO*0.5;",
   "float gF = smoothstep(0.4, 0.6, gFn);",
-  "vec3 gMud = mix(vec3(0.085, 0.07, 0.055), vec3(0.15, 0.125, 0.095), gn2)*gShade;",
+  "vec3 gMud = mix(gBase*0.42, vec3(0.07, 0.058, 0.046)*gShade, 0.45)*mix(0.75, 1.15, gn2);",   // the floor's own colour, sunk in dirt
   "gc = mix(gc, gMud, gF*0.92);",
   "gFlat = gF*0.85;",
   "gWet = smoothstep(0.7, 0.8, gFn + (gn1 - 0.5)*0.2)*0.85;",

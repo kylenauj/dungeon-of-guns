@@ -272,6 +272,14 @@ const B = {
   sack(o, rnd){ P(o.group, K.sculpt(K.slathe([[0, 0], [0.24, 0.04], [0.27, 0.2], [0.18, 0.4], [0.07, 0.48], [0.06, 0.54], [0, 0.54]], 10, 3), 0.025, 9, rnd()*9), 0x4a3e2c, 0, 0, 0, (rnd() - 0.5)*0.4, rnd()*6, 0.25); P(o.group, TO(0.06, 0.012), 0x2a2218, 0, 0.47, 0, PI/2); P(o.group, new THREE.CircleGeometry(0.25, 9), 0x5a4c34, 0.22, 0.01, 0.12, -PI/2); },
   cobweb(o){ const w = new THREE.Mesh(new THREE.CircleGeometry(0.5, 6, 0, PI/2), new THREE.MeshBasicMaterial({ map:webTex(), transparent:true, opacity:0.4, depthWrite:false, side:THREE.DoubleSide, color:0xb8b8b0 })); w.rotation.x = -PI/2; w.position.y = 0.04; o.group.add(w); o.loose = true; },
   barrelstack(o, rnd){
+    const KM = DG.KitModels;
+    if(KM && KM.has("barrel")){
+      // two standing, one laid across them
+      KM.part(o.group, "barrel", 0.62, -0.22, 0, 0, rnd()*6); KM.part(o.group, "barrel", 0.62, 0.24, 0, 0.05, rnd()*6);
+      const top = KM.part(o.group, "barrel", 0.62, 0, 0.86, 0.02); if(top){ top.rotation.set(0, 0.3, PI/2); }
+      for(let k=0;k<3;k++) P(o.group, BX(0.05, 0.015, 0.36), 0x3a2a1c, 0.5 + k*0.06, 0.01, 0.3, 0, k*0.6, 0);
+      return;
+    }
     const barrel = (x, y, z, rx, ry)=> sub(o.group, x, y, z, rx, ry, 0, 1, t=>{ P(t, K.lathe([[0, -0.21], [0.17, -0.21], [0.2, 0], [0.17, 0.21], [0, 0.21]], 12), [0x3a2a1c, 0x34261a][Math.floor(rnd()*2)]); [-0.14, 0.14].forEach(y=> P(t, TO(0.185, 0.012), RUST, 0, y, 0, PI/2)); });
     barrel(-0.2, 0.21, 0, 0, 0); barrel(0.22, 0.21, 0.05, 0, 0); barrel(0, 0.62, 0.02, PI/2, 0.3);
     for(let k=0;k<3;k++) P(o.group, BX(0.05, 0.015, 0.36), 0x3a2a1c, 0.45 + k*0.06, 0.01, 0.3, 0, k*0.6, 0);
@@ -831,7 +839,11 @@ const BR = {
     for(let k=0;k<5;k++){ const a = k/5*PI*2; P(g, K.tube([[Math.cos(a)*0.08, 0.4, Math.sin(a)*0.08], [Math.cos(a)*0.3, 0.25, Math.sin(a)*0.3], [Math.cos(a)*0.33, 0.02, Math.sin(a)*0.33]], 0.012, 8, 3), 0x3a1418); }
   }
 };
+/* breakables drawn from the asset kit where it has them (kitmodels.js): name, height */
+const KIT_BREAK = { barrel:["barrel", 0.72], crate:["crate2", 0.78], pot:["vase", 0.56], urn:["urn", 0.62] };
 Decor.breakableGeo = function(kind){
+  const KM = DG.KitModels, kb = KIT_BREAK[kind];
+  if(kb && KM && KM.has(kb[0])) return KM.geo(kb[0], { h:kb[1] }).clone();
   const g = new THREE.Group(); (BR[kind] || BR.pot)(g);
   const geos = [];
   g.children.forEach(m=>{ m.updateMatrix(); let q = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); q.applyMatrix4(m.matrix); if(!q.attributes.normal) q.computeVertexNormals(); K.paint(q, m.material.color); geos.push(q); });

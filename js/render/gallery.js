@@ -12,7 +12,7 @@ const Gallery = DG.Gallery = {};
 
 function label(text, w){
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w || 1.6, 0.32), new THREE.MeshBasicMaterial({ map:K.textTex([text], 160, 32, { size:20, bg:"#120e16", fg:"#f3e6c4" }), transparent:true }));
-  m.rotation.x = -1.05; m.position.y = 0.02;
+  m.rotation.x = -1.05; m.position.y = 0.02; m.userData.text = text;
   return m;
 }
 
@@ -42,6 +42,7 @@ Gallery.start = function(){
     { name:"LOOT", gap:1.6, items:[...["gold", "heart", "mana", "ward", "fly"].map(k=> [k, ()=>{ const g = M.pickup({ kind:k, value:5 }); g.position.y = 0.5; return { root:g }; }]),
       ...Object.keys(DG.ITEMS).filter((id, i, a)=> ["spinach", "pinball", "frostrounds", "wispcraft", "plague", "orbiter", "prismheart", "midas", "echo"].indexOf(id) >= 0).map(id=> [DG.ITEMS[id].name, ()=>{ const g = M.powerup(id); g.position.y = 0.8; return { root:g, spin:true }; }])] },
     { name:"BREAKABLES", gap:1.4, items:["pot", "crate", "barrel", "xbarrel", "urn", "coffin", "shroomcap", "eggsac", "pustule"].map(k=> [k, ()=> ({ root:new THREE.Mesh(DG.Decor.breakableGeo(k), K.toon()) })]) },
+    { name:"FILTH", gap:2.4, items:["drift", "heap", "growth", "hanged", "rag", "tatter"].map(k=> [k, ()=> ({ root:new THREE.Mesh(DG.Filth.sample(k), k === "growth" ? K.inkPBR({ vivid:true, roughness:0.3 }) : K.inkPBR({ side:THREE.DoubleSide })) })]) },
     { name:"DECOR", gap:1.5, items:DG.Decor.kinds().map(k=> [k, ()=>{ const o = DG.Decor.build(k, Math.random); K.bake(o.group, { w:0.018 }); o.glows.forEach(gl=>{ const sp = K.sprite(gl.c, gl.s*1.4, 0.8); sp.position.set(gl.x, gl.y, gl.z); o.group.add(sp); }); return { root:o.group }; }]) }
   ];
   let z = 0;
