@@ -287,7 +287,7 @@ Every puzzle is generated and always solvable (the tests check). It rewards an i
 ---
 
 ## 9. Difficulty
-Goblins scale per floor (HP ×1 → ×3.3 by floor 5). Powerups and boons are how you keep up. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
+Goblins scale per floor (HP ×1, ×1.6, ×2.6, ×3.8, ×5.2 by floor 5: the late floors steepened in October 2026, when a played run was "broken" by level 13; `npm run balance` average floor 2.58 → 2.42, no bot win where there had been one; floor 1 unchanged). Powerups and boons are how you keep up. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
 
 **The power curve.** Some runs should be duds and some should be god runs. None should flood the room with shots.
 - `npm run power` rolls 40+ floor-4 builds the way a run would and reports their damage against a no-item baseline.
