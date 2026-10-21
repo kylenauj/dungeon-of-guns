@@ -129,21 +129,28 @@ function deadTree(Pp, g, cx, cz, ht, rs, s){
 function glowcap(Pp, g, lit, cx, cz, ht, R, col, s){
   const rr = DG.RNG(Math.floor(s*1e6) + 3).next, lean = (rr() - 0.5)*0.25;
   const tx = cx - Math.sin(lean)*ht, top = ht*Math.cos(lean);
-  P(g, K.sculpt(K.slathe([[R*0.5, 0], [R*0.4, R*0.12], [R*0.24, R*0.4], [R*0.19, ht*0.55], [R*0.22, ht + 0.02]], 10, 3), R*0.035, 6/R, s*9), 0x8e8a86, cx, 0, cz, 0, 0, lean);
-  P(g, K.tatter(new THREE.CylinderGeometry(R*0.26, R*0.42, R*0.3, 16, 3, true), -R*0.04, 11, R*0.22, s*5), 0xa4a098, cx - Math.sin(lean)*ht*0.72, ht*0.72, cz);
+  P(g, K.sculpt(K.slathe([[R*0.5, 0], [R*0.4, R*0.12], [R*0.24, R*0.4], [R*0.19, ht*0.55], [R*0.22, ht + 0.02]], 10, 3), R*0.035, 6/R, s*9), 0x5e5a54, cx, 0, cz, 0, 0, lean);
+  P(g, K.tatter(new THREE.CylinderGeometry(R*0.26, R*0.42, R*0.3, 16, 3, true), -R*0.04, 11, R*0.22, s*5), 0x6a665e, cx - Math.sin(lean)*ht*0.72, ht*0.72, cz);
   const capH = R*0.9, ry = rr()*6;
   const cap = K.sculpt(K.slathe([[R, 0], [R*0.94, R*0.22], [R*0.74, R*0.56], [R*0.42, R*0.82], [R*0.12, R*0.94], [0, R*0.96]], 14, 3), R*0.07, 3.2/R, s*13);
   const capCol = [0x34303c, 0x2e343a, 0x3a3036, 0x2e3634][Math.floor(rr()*4)];
   const y0 = top - R*0.08;
   P(g, cap, capCol, tx, y0, cz, 0, ry, 0, 1, 0.9, 1);
-  // bioluminescent veins running down from the crown, and the glowing gill rim
-  const lc = new THREE.Color(col).multiplyScalar(0.85).getHex();
-  for(let k=0;k<7;k++){
-    const a = k/7*PI*2 + rr()*0.4, pts = [];
-    for(let j=0;j<=4;j++){ const f = 0.15 + j/4*0.85, rad = R*Math.sin(f*PI/2)*1.005, hh = R*0.96*0.9*Math.cos(f*PI/2*0.98); pts.push([tx + Math.cos(a + j*0.08)*rad, y0 + hh + 0.006, cz + Math.sin(a + j*0.08)*rad]); }
-    L(lit, K.tube(pts, R*0.016, 4, 3), lc);
+  // bioluminescent veins: thin, dim, uneven, wandering and forking down from wherever
+  // they start (evenly spaced bright ribs made it a beach umbrella)
+  const lc = new THREE.Color(col).multiplyScalar(0.45).getHex();
+  const vein = (a, f0, f1, w)=>{
+    const pts = []; let aa = a;
+    for(let j=0;j<=4;j++){ const f = f0 + j/4*(f1 - f0), rad = R*Math.sin(f*PI/2)*1.005, hh = R*0.96*0.9*Math.cos(f*PI/2*0.98); aa += (rr() - 0.5)*0.35; pts.push([tx + Math.cos(aa)*rad, y0 + hh + 0.006, cz + Math.sin(aa)*rad]); }
+    L(lit, K.tube(pts, R*w, 4, 3), lc);
+    return aa;
+  };
+  for(let k=0;k<11;k++){
+    const a = rr()*PI*2, f0 = 0.1 + rr()*0.45, f1 = Math.min(1, f0 + 0.25 + rr()*0.5);
+    const end = vein(a, f0, f1, 0.006 + rr()*0.006);
+    if(rr() < 0.4) vein(end + (rr() < 0.5 ? 0.3 : -0.3), f1 - 0.1, Math.min(1, f1 + 0.2), 0.004);
   }
-  L(lit, TO(R*0.97, R*0.03, PI*2, 4, 28), col, tx, y0, cz, PI/2);
+  L(lit, TO(R*0.97, R*0.02, PI*2, 4, 28), new THREE.Color(col).multiplyScalar(0.6).getHex(), tx, y0, cz, PI/2);
   L(lit, CY(R*0.92, R*0.2, R*0.2, 20, true), new THREE.Color(col).multiplyScalar(0.7).getHex(), tx, y0 - R*0.1, cz);
   for(let k=0;k<6;k++){ const a = rr()*PI*2, l = 0.15 + rr()*0.45*R*2; P(g, CY(0.008, 0.003, l, 3), MYCEL, tx + Math.cos(a)*R*0.9, y0 - 0.02 - l/2, cz + Math.sin(a)*R*0.9); }
   return { x:tx, y:y0 - R*0.07, z:cz, h:capH };

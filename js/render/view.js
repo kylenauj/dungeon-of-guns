@@ -162,6 +162,9 @@ proto.takeRig = function(kind){
 proto.warmUp = function(now){
   const V = this, G = V.G;
   if(!V.warm || !V.warm.length || (!now && (V.cine || (G.room && G.room.active)))) return;
+  // between fights: one every fifth of a second, not one every frame (each is a
+  // build, a compile and a draw: back to back they were a stutter after every fight)
+  if(!now){ const t = performance.now(); if(t - (V.warmAt || 0) < 200) return; V.warmAt = t; }
   const k = V.warm.shift();
   try{
     if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); }

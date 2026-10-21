@@ -39,6 +39,8 @@ function glow(R, parent, r, c, x, y, z){
 }
 function halo(R, parent, c, s, x, y, z, op){ const sp = K.sprite(c, s, op === undefined ? 0.6 : op); sp.position.set(x || 0, y || 0, z || 0); parent.add(sp); R.glows.push(sp); return sp; }
 function finish(R, opts){
+  // figures get the figure material (a stronger edge light: what moves reads in the dark)
+  opts = Object.assign({}, opts); if(!opts.mat) opts.mat = K.figure();
   const b = K.bake(R.root, opts);
   R.mat = b.mat; R.out = b.out;
   return R;
@@ -52,7 +54,7 @@ function eyes(parent, sep, y, z, r, pupil, look, R){
     P(parent, S(r*1.25, 10, 8), 0x1c1416, s*sep, y + r*0.1, z - r*0.45, 0, 0, s*0.3, 1.15, 0.85, 0.5);
     P(parent, S(r*0.9, 10, 8), 0x050304, s*sep, y, z - r*0.2, 0, 0, s*0.25, 1.1, 0.78, 0.5);
     const x = s*sep - (look || 0)*s*0.2*r;
-    if(R){ glow(R, parent, r*0.26, c, x, y - r*0.08, z + r*0.12); halo(R, parent, c, r*5, x, y - r*0.08, z + r*0.2, 0.45); }
+    if(R){ glow(R, parent, r*0.2, c, x, y - r*0.08, z + r*0.12); halo(R, parent, c, r*2.2, x, y - r*0.08, z + r*0.2, 0.28); }
     else P(parent, S(r*0.18, 6, 4), c, x, y - r*0.08, z + r*0.12);
   });
 }
@@ -1102,13 +1104,13 @@ Models.frog = function(twin, buffs, opts){
   // the eyes: raised, slit-pupilled, glowing dully under heavy lids; the left one scarred half shut
   [-1, 1].forEach(s=>{
     P(H, fSkin(0.095, 24, 18, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
-    P(H, zs(0.064, 14, 10), 0x24160a, s*0.15, 0.52, 0.248);
-    glow(R, H, 0.052, s < 0 ? zDim(IRIS, 0.7) : IRIS, s*0.15, 0.52, 0.272);
-    halo(R, H, IRIS, s < 0 ? 0.2 : 0.28, s*0.15, 0.53, 0.31, 0.7);
+    P(H, zs(0.064, 14, 10), 0x140c06, s*0.15, 0.52, 0.248);
+    glow(R, H, 0.036, zDim(IRIS, s < 0 ? 0.5 : 0.7), s*0.15, 0.515, 0.268);
+    if(!shine) halo(R, H, IRIS, 0.09, s*0.15, 0.52, 0.3, 0.35); else halo(R, H, IRIS, 0.28, s*0.15, 0.53, 0.31, 0.7);
     P(H, BX(0.011, 0.07, 0.008), FC.hole, s*0.15, 0.518, 0.326);
     const lg = group(H, s*0.15, 0.52, 0.256); lids.push(lg);
     const lid = P(lg, new THREE.SphereGeometry(0.072, 18, 8, 0, PI*2, 0, PI*0.5), G2, 0, 0, 0);
-    lid.rotation.set(s < 0 ? -0.35 : -0.75, 0, s*0.35); lg.userData.shut = s < 0 ? 0.95 : 1.3;
+    lid.rotation.set(shine ? (s < 0 ? -0.35 : -0.75) : (s < 0 ? -0.05 : -0.3), 0, s*0.35); lg.userData.shut = s < 0 ? 0.95 : 1.3;   // heavy-lidded, half shut
     P(H, zto(0.058, 0.013, PI), G2, s*0.15, 0.515, 0.29, 0.2, 0, PI);
     P(H, K.lump(0.04, 1, 0.3, 7 + s), G2, s*0.16, 0.575, 0.2, 0, 0, s*0.4, 1.3, 0.6, 1);
   });
@@ -1166,7 +1168,7 @@ Models.frog = function(twin, buffs, opts){
   finish(R, { w:0.022 });
   // the redeemed glow: a material of its own (made the same way, so no new shader
   // compiles at the moment he appears), not a clone (a clone loses the ink)
-  if(shine){ const m2 = K.toon(); m2.emissive.setHex(0x183a10); R.root.traverse(o=>{ if(o.userData.baked) o.material = m2; }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
+  if(shine){ const m2 = K.figure(); m2.emissive.setHex(0x183a10); R.root.traverse(o=>{ if(o.userData.baked) o.material = m2; }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
   return R;
 };
 
@@ -1196,7 +1198,7 @@ const FROG_OUTFIT = {
  *  embers at the bottom of a well; rags, rust and little fetishes.
  * ================================================================== */
 const GOB = { skin:0x5f6a4e, dark:0x3a4232, eye:0xffb83a, cloth:0x4a3e30, metal:0x6a6a70, iron:0x26262a, rib:0x6a755a, wrap:0x4e4636 };
-const BONEC = 0xc8bca0, RUSTC = 0x6a3a22, IRONC = 0x26262a, LEATH = 0x3a2a1e, BRASSC = 0x8a6a30, BLOODC = 0x4a1410, RAGC = 0x4a4234;
+const BONEC = 0x948a72, RUSTC = 0x6a3a22, IRONC = 0x26262a, LEATH = 0x3a2a1e, BRASSC = 0x8a6a30, BLOODC = 0x4a1410, RAGC = 0x4a4234;
 /* a lean torus for small rings, links and ribs (the shared TO is made for big smooth ones) */
 const TOs = (r, t, a)=> geo("ts" + r + "," + t + "," + (a || 0), ()=> new THREE.TorusGeometry(r, t, 6, a && a < PI ? 10 : 18, a || PI*2));
 /* K.sculpt, but vertices that share a place (seams, poles) stay together, so no cracks open */
@@ -1426,9 +1428,9 @@ const KITS = {
   },
   brute(R, head){
     // a sack over its head, sagging, two eyeholes hacked through it (one bigger), sewn round and tied on top
-    P(head, blotch(lumpS(0.135, 16, 12, 0.016, 12, 5), 0x6a5a4a, 9, 0.35, 4), 0x564834, 0.005, 0.0, 0.02, 0.15, 0, 0.12, 1.02, 1.0, 1.1);
+    P(head, blotch(lumpS(0.135, 16, 12, 0.03, 9, 5), 0x3a1410, 7, 0.2, 4), 0x3a3024, 0.005, 0.0, 0.02, 0.15, 0, 0.12, 1.08, 0.92, 1.12);
     // gathered and tied on top, the sacking twisted into a tail that hangs back
-    P(head, K.shard(0.2, 0.035, -0.9, 5, 9), 0x564834, -0.01, 0.1, -0.02, -0.4, 0, 0.3);
+    P(head, K.shard(0.2, 0.035, -0.9, 5, 9), 0x3a3024, -0.01, 0.1, -0.02, -0.4, 0, 0.3);
     P(head, TOs(0.03, 0.011), 0x6a5a3a, -0.015, 0.11, -0.02, PI/2 + 0.3, 0, 0.4);
     [[-1, 0.03, 0.024], [1, 0.022, 0.032]].forEach(([s, y, r])=>{
       const x = s*0.055;
@@ -1618,7 +1620,7 @@ Models.puffling = function(){
     if(Math.abs(n) < 0.07 && y > -0.12) c.setHex(0x2a1a1c);
     else if(Math.sin(x*6 + 1)*Math.sin(y*5)*Math.sin(z*7 + 2) > 0.2) c.setHex(0x8a7080);
   });
-  P(b, g, 0xb0a48c, 0, 0.32, 0, 0, 0, 0, 1, 0.92, 1);
+  P(b, g, 0x5e5448, 0, 0.32, 0, 0, 0, 0, 1, 0.92, 1);
   // spore sacs swelling out of its sides, the pores weeping light
   [[0.22, 0.24, 0.12, 0.09], [-0.24, 0.3, 0.06, 0.08], [0.12, 0.2, -0.24, 0.085], [-0.15, 0.48, -0.15, 0.07], [0.18, 0.5, -0.04, 0.06]].forEach(([x, y, z, r], i)=>{
     P(b, blotch(lumpS(r, 12, 9, r*0.15, 18, i), 0x8a7a50, 30, 0.3, i), 0xb8ac80, x, y, z);
@@ -1628,11 +1630,11 @@ Models.puffling = function(){
   for(let i=0;i<7;i++){ const a = i/7*PI*2; P(b, CO(0.045, 0.1, 5), 0x9a8c74, Math.cos(a)*0.07, 0.6, Math.sin(a)*0.07, Math.sin(a)*0.9, 0, -Math.cos(a)*0.9, 1, 1, 0.35); }
   P(b, S(0.06, 10, 8), 0x0a0606, 0, 0.59, 0, 0, 0, 0, 1, 0.5, 1);
   glow(R, b, 0.035, 0xc8ff8a, 0, 0.62, 0);
-  halo(R, b, 0x9cff3a, 0.7, 0, 0.72, 0, 0.35);
+  halo(R, b, 0x9cff3a, 0.5, 0, 0.72, 0, 0.22);
   // three eyes sunk in the flesh where a face isn't, and a mouth like a wound
   [[0.09, 0.42, 0.25, 0.03], [-0.03, 0.47, 0.25, 0.016], [-0.1, 0.36, 0.25, 0.018], [0.15, 0.52, 0.18, 0.014], [-0.15, 0.48, 0.18, 0.012]].forEach(([x, y, z, r])=>{ P(b, S(r*1.3, 8, 6), 0x0a0606, x, y, z, 0, 0, 0, 1, 0.8, 0.5); glow(R, b, r*0.38, 0xd8ff6a, x, y - r*0.1, z + r*0.42); halo(R, b, 0xd8ff6a, r*5, x, y, z + r*0.6, 0.4); });
-  mouth(b, 0.01, 0.26, 0.27, 0.08, 0.35);
-  teeth(b, 0.285, 0.285, 0.11, 8);
+  mouth(b, 0.13, 0.2, 0.24, 0.08, 0.5);
+  teeth(b, 0.225, 0.255, 0.11, 8);
   // roots for feet: mycelium spreading over the floor
   mycelium(b, 7, 0, 0.06, 0, 0.5, 0xa89c88, 1);
   [-1, 1].forEach(s=> P(b, lumpS(0.07, 10, 7, 0.01, 20, s), 0x8a7c66, s*0.13, 0.05, 0.03, 0, 0, 0, 1, 0.55, 1.3));
@@ -1658,7 +1660,7 @@ Models.toadstool = function(){
   const cap = group(b, 0, 0.6, 0); R.parts.head = cap;
   P(cap, capGeo(0.5, 0.36, 0.13, 5, 0x6a4a50), 0x5a2420);
   underCap(cap, 0.5, -0.06, 0x8a7a6a, 26);
-  warts(cap, 0.5, 0.05, 14, 0x7a6a56, 2);
+  warts(cap, 0.5, 0.05, 14, 0x4a2a24, 2);
   sprouts(cap, 8, 0.1, 0.27, -0.12, 1.3, 0xa89a88, 0x5a3a34, 1);
   sprouts(cap, 4, -0.24, 0.17, 0.14, 1.0, 0xa89a88, 0x6a4a3a, 3);
   for(let i=0;i<9;i++){ const a = i*0.7 + 0.3, l = 0.06 + (i % 3)*0.05; P(cap, CO(0.012, l, 5), 0x7a7a5a, Math.cos(a)*0.46, -0.13 - l/2, Math.sin(a)*0.46, PI); }
@@ -1704,7 +1706,6 @@ function shroomPerson(R, size, capCol, spotCol, opts){
     const CR = 0.19;
     P(cap, capGeo(CR, 0.3, 0.2, seed, 0x5a4058), capCol, 0, 0.03, -0.03);
     underCap(cap, CR, -0.03, 0x8a7a6a, 16);
-    warts(cap, CR*0.92, 0.08, 6, spotCol, seed);
     strands(cap, 9, CR*0.92, -0.06, 0.26, 0xb0a490, seed);
     sprouts(cap, 5, -0.06, 0.2, -0.07, 0.9, 0x9a8e7c, new THREE.Color(capCol).multiplyScalar(1.3).getHex(), seed);
   }
@@ -1729,8 +1730,8 @@ function shroomPerson(R, size, capCol, spotCol, opts){
   P(R.parts.armR, blotch(sculptW(new THREE.TorusGeometry(0.11, 0.012, 6, 20, PI*0.9), 0.003, 30, 2), 0x8a5a3a, 30, 0.1, 2), 0x5a5048, 0, -0.27, 0.24, 0, PI/2, PI*0.6, 1, 1, 0.35);
   b.scale.setScalar(size); R.h = 1.1*size; R.size = size;
 }
-Models.shroomkin = function(){ const R = rig("shroomkin"); shroomPerson(R, 1.15, 0x5e4462, 0x9a8a90); return finish(R); };
-Models.shroomlet = function(){ const R = rig("shroomlet"); shroomPerson(R, 0.6, 0x6e4258, 0xa89aa0); return finish(R); };
+Models.shroomkin = function(){ const R = rig("shroomkin"); shroomPerson(R, 1.15, 0x4e3a4a, 0x5a4450); return finish(R); };
+Models.shroomlet = function(){ const R = rig("shroomlet"); shroomPerson(R, 0.6, 0x5a3a46, 0x64464e); return finish(R); };
 
 /* ================================================================== *
  *  The haunted: shrouds with nothing in them but a skull and a cold
@@ -1765,15 +1766,19 @@ function boneHand(parent, x, y, z, s, len, col){
   limb(parent, [[x + s*0.025, y, z], [x + s*0.06, y - 0.01, z + 0.04], [x + s*0.07, y - 0.04, z + 0.07]], 0.007, col);
 }
 Models.ghost = function(){
-  const R = rig("ghost"), b = R.body, CL = 0x434c56, BN = 0x9aa0a0;
+  const R = rig("ghost"), b = R.body, CL = 0x363c44, BN = 0x5e5a50;
   const float = group(b, 0, 0.25, 0); R.parts.head = float;
   P(float, shroud(0.95, 0.42, 2, 0.32), CL);
   P(float, shroud(0.6, 0.46, 5, 0.3), 0x3a424c, 0, -0.06, 0);
   // the cowl, and in it a skull with two cold lights for eyes
   const hd = group(float, 0, 0.9, 0.05); hd.rotation.x = -0.2;
   P(hd, K.tatter(hoodGeo(0.2, 1.5, 0.78, 3), -0.1, 10, 0.1, 3), 0x3a424c, 0, 0, -0.02, 0, 0, 0, 1, 1.05, 1.15);
-  P(hd, S(0.16, 12, 10), 0x07080a, 0, -0.01, -0.05);
-  skull(hd, 0.105, 0, -0.03, 0.1, 0x8a8e8c, R, 0x8ad8ff);
+  P(hd, S(0.17, 12, 10), 0x030304, 0, -0.01, -0.03);
+  // (no face: a skull in there read as a cartoon from above. Just the dark, and
+  // two cold pinpricks, one a little higher, deep in it)
+  [[-1, 0.0], [1, 0.012]].forEach(([s, dy])=>{ glow(R, hd, 0.011, 0xa8e0ff, s*0.045, -0.02 + dy, 0.1); halo(R, hd, 0x8ad8ff, 0.08, s*0.045, -0.02 + dy, 0.12, 0.35); });
+  // a jaw-bone hanging out of the dark below them, the only bone you see
+  P(hd, TOs(0.05, 0.009, PI), 0x4a463e, 0, -0.12, 0.08, -0.4, 0, PI);
   // long sleeves reaching out, torn, skeletal hands
   [-1, 1].forEach(s=>{
     P(float, K.tatter(K.lathe([[0.085, -0.3], [0.06, -0.15], [0.05, 0]], 10), -0.25, 6, 0.08, s + 4), CL, s*0.25, 0.72, 0.1, -1.25, 0, s*0.12);
@@ -1783,7 +1788,7 @@ Models.ghost = function(){
   links(b, [0.12, 0.25, 0.05], [0.42, 0.06, 0.15], 7, 0.03, 0x3a3230);
   P(b, blotch(lumpS(0.1, 14, 10, 0.006, 20, 2), 0x8a5a3a, 20, 0.2, 2), 0x2e2a2a, 0.47, 0.1, 0.17);
   P(float, TOs(0.06, 0.016), 0x3a3230, 0.12, 0.04, 0.05, PI/2);
-  halo(R, float, 0x8ad8ff, 1.5, 0, 0.5, 0, 0.22);
+  halo(R, float, 0x8ad8ff, 1.5, 0, 0.5, 0, 0.12);
   R.h = 1.4; R.ghostly = true; return finish(R);
 };
 Models.banshee = function(){
@@ -1985,7 +1990,7 @@ Models.watcher = function(){
 };
 function blob(R, r, col){
   const b = R.body;
-  const goo = new THREE.Mesh(sculptW(new THREE.SphereGeometry(r, 30, 22), r*0.05, 2/r, 3), new THREE.MeshPhongMaterial({ color:col, transparent:true, opacity:0.6, shininess:70, specular:0x3a3a34, emissive:new THREE.Color(col).multiplyScalar(0.04) }));
+  const goo = new THREE.Mesh(sculptW(new THREE.SphereGeometry(r, 30, 22), r*0.05, 2/r, 3), new THREE.MeshPhongMaterial({ color:new THREE.Color(col).multiplyScalar(0.55), transparent:true, opacity:0.82, shininess:18, specular:0x0a0a08, emissive:new THREE.Color(col).multiplyScalar(0.015) }));
   goo.position.y = r*0.8; goo.scale.set(1.1, 0.8, 1.1); b.add(goo); R.parts.goo = goo; R.glows.push(goo);
   // inside: what it ate. A skull, a hand, a sword, ribs, an eye or two still looking, gut in coils
   const inner = group(b, 0, r*0.85, 0); R.parts.head = inner;
@@ -2011,10 +2016,10 @@ function blob(R, r, col){
   for(let i=0;i<6;i++){ const a = i/6*PI*2 + 0.5; P(b, S(r*0.12, 8, 6), new THREE.Color(col).multiplyScalar(0.6).getHex(), Math.cos(a)*r*1.05, r*0.02, Math.sin(a)*r*1.05, 0, 0, 0, 1.4, 0.25, 1); }
   R.h = r*1.8;
 }
-Models.blob = function(){ const R = rig("blob"); blob(R, 0.55, 0x4a5040); return finish(R); };
-Models.blobling = function(){ const R = rig("blobling"); blob(R, 0.32, 0x525a46); return finish(R); };
+Models.blob = function(){ const R = rig("blob"); blob(R, 0.55, 0x3e3a2c); return finish(R); };
+Models.blobling = function(){ const R = rig("blobling"); blob(R, 0.32, 0x443e30); return finish(R); };
 Models.tentacle = function(){
-  const R = rig("tentacle"), b = R.body, FL = 0x5a2a36, SU = 0xb89090;
+  const R = rig("tentacle"), b = R.body, FL = 0x4a2430, SU = 0x5e3a40;
   const segs = []; let parent = b;
   for(let i=0;i<5;i++){
     const g = group(parent, 0, i ? 0.32 : 0, 0); segs.push(g);
@@ -2023,10 +2028,10 @@ Models.tentacle = function(){
     // suckers in two rows up the inside of the curl
     [0.05, 0.13, 0.21, 0.29].forEach((y, j)=> [-1, 1].forEach(s=>{
       const rr = r0 - (r0 - r1)*y/0.36 + 0.004, a = s*0.33 + (j % 2)*0.06, x = Math.sin(a)*rr, z = Math.cos(a)*rr, sr = 0.028 - i*0.004;
-      P(g, TOs(sr*0.85, sr*0.28), 0x9a6a70, x, y, z, 0, a, 0); P(g, S(sr*0.75, 8, 6), 0x6a3a44, x, y, z - 0.002, 0, a, 0, 1, 1, 0.35);
+      P(g, TOs(sr*0.85, sr*0.28), 0x5a3a40, x, y, z, 0, a, 0); P(g, S(sr*0.75, 8, 6), 0x2a1418, x, y, z - 0.002, 0, a, 0, 1, 1, 0.35);
     }));
     // scars across the back, pale and puckered
-    if(i < 4) P(g, BX(0.01, 0.14, 0.008), 0xa88890, Math.sin(PI + 0.4)*r0, 0.17, Math.cos(PI + 0.4)*r0, 0, PI + 0.4, 0.5 + i*0.3);
+    if(i < 4) P(g, BX(0.01, 0.14, 0.008), 0x6a4a50, Math.sin(PI + 0.4)*r0, 0.17, Math.cos(PI + 0.4)*r0, 0, PI + 0.4, 0.5 + i*0.3);
     parent = g;
   }
   limb(segs[4], [[0, 0.34, 0], [0, 0.46, 0.03], [0, 0.55, 0.1], [0, 0.56, 0.18], [0, 0.5, 0.22]], 0.034, FL);
@@ -2037,7 +2042,7 @@ Models.tentacle = function(){
   P(b, CY(0.55, 0.55, 0.01, 24), 0x2a0a0e, 0, 0.005, 0);
   P(b, CY(0.3, 0.3, 0.02, 20), 0x050304, 0, 0.02, 0);
   P(b, blotch(sculptW(new THREE.TorusGeometry(0.3, 0.085, 12, 32), 0.02, 10, 3), 0x8a4a5a, 10, 0.2, 2), 0x6a2a34, 0, 0.05, 0, PI/2, 0, 0, 1, 1, 0.65);
-  for(let i=0;i<14;i++){ const a = i/14*PI*2; P(b, CO(0.02, 0.09 + (i % 3)*0.03, 5), 0xc8bc98, Math.cos(a)*0.26, 0.1, Math.sin(a)*0.26, -Math.sin(a)*0.7, 0, Math.cos(a)*0.7); }
+  for(let i=0;i<14;i++){ const a = i/14*PI*2; P(b, CO(0.02, 0.09 + (i % 3)*0.03, 5), 0x8a7e64, Math.cos(a)*0.26, 0.1, Math.sin(a)*0.26, -Math.sin(a)*0.7, 0, Math.cos(a)*0.7); }
   for(let i=0;i<8;i++){ const a = i/8*PI*2 + 0.2, d = 0.48 + (i % 2)*0.08; P(b, blotch(new THREE.BoxGeometry(0.2, 0.07, 0.15), 0x6a6a6a, 20, 0.2, i), 0x3e3a3c, Math.cos(a)*d, 0.035, Math.sin(a)*d, 0.35*Math.sin(a*3), -a, 0.3); }
   R.h = 1.6; return finish(R);
 };

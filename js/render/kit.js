@@ -220,7 +220,13 @@ const INK_MAIN = [
   // characters sink into a soft contact shadow near the floor, so all of them sit in the world the same way
   "  inkLit *= mix(0.4, 1.0, smoothstep(0.0, 0.6, vInkY));",
   "  float inkRim = 1.0 - clamp(dot(normal, geometry.viewDir), 0.0, 1.0);",
-  "  inkLit += uRim*step(0.62 + inkB*0.12, inkRim)*uRimK*(0.35 + 0.65*inkA);",
+  // a thin cold edge round every figure, lit or not: in the dark the dungeon is, what
+  // can kill you still shows as a silhouette (smooth now, and as strong on a black-clad thing)
+  "#ifdef INK_FIGURE",
+  "  inkLit += uRim*smoothstep(0.32, 0.88, inkRim)*0.6*smoothstep(0.0, 0.5, vInkY + 0.2);",
+  "#else",
+  "  inkLit += uRim*smoothstep(0.6, 0.92, inkRim)*uRimK*(0.75 + 0.25*inkA)*smoothstep(0.0, 0.5, vInkY + 0.2);",
+  "#endif",
   "#endif",
   "outgoingLight = inkLit;",
   "gl_FragColor = vec4( outgoingLight, diffuseColor.a );"
@@ -311,7 +317,11 @@ const SATCAP = [
   "  diffuseColor.rgb = mix(vec3(scL), diffuseColor.rgb, min(1.0, uSatCap/max(scS, 0.0001)));",
   // and no surface is whiter than old bone: real things reflect at most ~60% of the
   // light (pale paint, bone, ivory), so skeletons and statues stop glowing like plastic
-  "  diffuseColor.rgb *= min(1.0, 0.58/max(scL, 0.0001)); }"
+  "#ifdef INK_RIM",
+  "  diffuseColor.rgb *= min(1.0, 0.42/max(scL, 0.0001)); }",   // characters: nothing on them paler than dirty bone (pale bits were what made them read as cartoons)
+  "#else",
+  "  diffuseColor.rgb *= min(1.0, 0.58/max(scL, 0.0001)); }",
+  "#endif"
 ].join("\n");
 /* the grain: the surface's normal nudged by a small 3D noise in the model's own
    space, at two scales (pores and weave, then dents and lumps) */
@@ -367,12 +377,13 @@ K.inkify = function(mat, opts){
       .replace("#include <lights_toon_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_toon_fragment>")
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
     if(opts.rim){
+      if(opts.figure) sh.fragmentShader = "#define INK_FIGURE\n" + sh.fragmentShader;
       sh.fragmentShader = "#define INK_RIM\nvarying float vInkY; varying vec3 vInkO;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" + GRIME);
       sh.vertexShader = "varying float vInkY; varying vec3 vInkO;\n" + sh.vertexShader.replace("#include <project_vertex>",
         "#include <project_vertex>\n vInkO = transformed;\n#ifdef USE_INSTANCING\n vInkY = (modelMatrix*instanceMatrix*vec4(transformed, 1.0)).y;\n#else\n vInkY = (modelMatrix*vec4(transformed, 1.0)).y;\n#endif");
     }
   };
-  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.gloom ? "-gloom-" + opts.gloom : "") + (opts.vivid ? "-vivid" : "") + (opts.pbr ? "-pbr" : "") + "-etch";
+  mat.customProgramCacheKey = ()=> (opts.rim ? "ink-rim" : "ink") + (opts.figure ? "-fig" : "") + (opts.gloom ? "-gloom-" + opts.gloom : "") + (opts.vivid ? "-vivid" : "") + (opts.pbr ? "-pbr" : "") + "-etch";
   mat.extensions = Object.assign({}, mat.extensions, { derivatives:true });
   return mat;
 };
@@ -381,12 +392,15 @@ K.inkify = function(mat, opts){
    { vivid:true } for the few things allowed their full colour (loot) */
 K.ink = (opts)=>{
   opts = Object.assign({}, opts);
-  const rim = opts.rim, gloom = opts.gloom, vivid = opts.vivid; delete opts.rim; delete opts.gloom; delete opts.vivid;
+  const rim = opts.rim, gloom = opts.gloom, vivid = opts.vivid, figure = opts.figure; delete opts.rim; delete opts.gloom; delete opts.vivid; delete opts.figure;
   // characters and baked props (rim) are physically based; flat helpers stay toon
   const m = rim ? new THREE.MeshStandardMaterial(Object.assign({ vertexColors:true, roughness:0.78, metalness:0 }, opts))
                 : new THREE.MeshToonMaterial(Object.assign({ vertexColors:true }, opts));
-  return K.inkify(m, { rim, gloom, vivid });
+  return K.inkify(m, { rim, gloom, vivid, figure });
 };
+/* a figure (Zippy, Gribbus, every enemy): the character material with a stronger
+   edge light, so what moves reads against the dark (props keep the faint one) */
+K.figure = opts=> K.ink(Object.assign({ rim:true, figure:true }, opts));
 /* a physically based surface: map, normalMap, roughnessMap; { gloom } as above */
 K.inkPBR = (opts)=>{
   opts = Object.assign({}, opts);
