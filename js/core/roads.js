@@ -126,7 +126,9 @@ Roads.dive = function(G, o){
   const s = G.D.rooms[o.dive]; if(!s) return;
   s.dived = true;
   // the shrine's own door opens from the inside
-  G.D.doors.forEach(d=>{ if(d.into === s.id || d.room === s.id){ if(d.sealed){ d.sealed = false; d.locked = false; } } });
+  // (opened, not just unsealed: a door that's neither locked nor open has nothing to open it with, and you'd be shut in)
+  G.D.doors.forEach(d=>{ if(d.into === s.id || d.room === s.id){ if(d.sealed){ d.sealed = false; d.locked = false; d.open = true; } } });
+  G.D.ver = (G.D.ver || 0) + 1;
   const p = G.player, f = G.gribbus, at = G.freeSpot(s, s.cxw, s.y2 - 0.5);
   G.emit("dive", { x:p.x, y:p.y, x2:at.x, y2:at.y });
   p.x = at.x; p.y = at.y; p.vx = p.vy = 0; p.safeX = p.x; p.safeY = p.y;
@@ -268,7 +270,7 @@ Roads.vigilMove = function(G, e, dt){
 Roads.burnWards = function(G, d){
   const R = L(G);
   if(!R || R.wicks < 2){ G.say(DG.LANTERN.lines.warded, 4); G.emit("broke"); return; }
-  d.warded = false; d.locked = false;
+  d.warded = false; d.locked = false; d.open = true;
   G.D.ver = (G.D.ver || 0) + 1;
   G.emit("unlock", { x:d.x, y:d.y, door:d.id }); G.emit("wardsBurn", { x:d.x, y:d.y });
   G.say(DG.LANTERN.lines.burn, 3);

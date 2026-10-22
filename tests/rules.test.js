@@ -1829,3 +1829,29 @@ test("the Rite of the Keeper: every fifth spell is a Lantern Beam", ()=>{
   for(let i=0;i<10;i++){ G.player.mana = 999; G.castSpell(G.gun(), G.gunStats(), {}, false); beams += G.drain().filter(e=> e.type === "lanternBeam").length; }
   assert.equal(beams, 2);
 });
+
+// regression: diving into the black pond put you in the shrine with its outer door
+// unsealed but still shut, and nothing could open it: you were shut in for good
+test("the Drowned Shrine and the Reliquary let you back out: every door between them and the floor opens", ()=>{
+  const walkOut = (G, r)=>{
+    // flood fill from the room over walkable tiles: it must reach the start room
+    const W = G.D.w, seen = new Uint8Array(W*G.D.h), q = [[Math.floor(r.cxw), Math.floor(r.cyw)]], st = G.D.rooms.find(o=> o.type === "start");
+    seen[q[0][1]*W + q[0][0]] = 1;
+    while(q.length){ const [x, y] = q.pop(); if(G.inRoom(st, x + 0.5, y + 0.5)) return true;
+      for(const [dx, dy] of DG.DIRS4){ const nx = x + dx, ny = y + dy; if(seen[ny*W + nx] || G.blocked(nx, ny, "player")) continue; seen[ny*W + nx] = 1; q.push([nx, ny]); } }
+    return false;
+  };
+  // the shrine, by the dive
+  let G = null;
+  for(let s=1; s<30 && !G; s++){ const H = game("DIVEOUT" + s, 2); H.god = true; H.roads.rot.stage = 2; H.enterFloor(3); if(H.D.rooms.some(o=> o.type === "shrine")) G = H; }
+  const shrine = G.D.rooms.find(o=> o.type === "shrine"), pond = G.D.rooms.find(o=> o.type === "pond");
+  G.player.x = pond.cxw; G.player.y = pond.cyw + 1.2; G.room = pond; G.interact();
+  step(G, 0.3);
+  G.enemies.filter(e=> e.room === shrine.id && !e.dead).forEach(e=> G.killEnemy(e, {})); step(G, 0.5);
+  assert.ok(walkOut(G, shrine), "out of the shrine");
+  // the reliquary, by the wards
+  const H = game("WARDOUT", 1); H.god = true; H.roads.lantern.stage = 1; H.roads.lantern.wicks = 2; H.enterFloor(2);
+  const rel = H.D.rooms.find(o=> o.type === "reliquary"), d = H.D.doors.find(o=> o.into === rel.id);
+  H.unlockDoor(d);
+  assert.ok(walkOut(H, rel), "into (and out of) the reliquary");
+});
