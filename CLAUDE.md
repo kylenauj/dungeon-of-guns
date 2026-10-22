@@ -20,9 +20,10 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
   - `loot.js`: guns and stats.
   - `dungeon.js`: the generator.
   - `puzzles.js`: the five puzzle kinds.
-  - `game.js`: the simulation (rooms, pickups, levelling, actives).
+  - `game.js`: the simulation (rooms, pickups, actives, Brother Olm). There are no levels: powerups come from bosses, lairs, shops and Olm.
+  - `roads.js`: the side roads. A run gets at most one, by chance (the Ember, the Bog, Olm); see docs/ENDINGS.md §0.
   - `combat.js`: shots, triggers and payloads, statuses, reactions, hazards, allies.
-  - `gribbus.js`: the frog and frog ponds.
+  - `gribbus.js`: the frog, his pond, praise and the Mimic Toad. His tricks are items too (`f_*` in `items.js`).
   - `ai.js`: every enemy and boss.
 - `tools/bot.js` is a pathfinding bot used by the tests, `npm run balance` and the title-screen attract mode.
 - `js/render/` is three.js.

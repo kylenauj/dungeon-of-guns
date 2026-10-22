@@ -18,8 +18,8 @@ This document has three parts:
 | **Enter the Gungeon** | The dodge roll. Guns with personalities. Named **synergies**: owning two specific items pops "SYNERGY!" and upgrades both. | Blink. Guns as fire pattern × element. **Duos:** named combos that announce themselves. |
 | **Noita** | Spell modifiers compose: "on hit, cast X", and X inherits the modifiers. Chaos that comes out of a few simple rules. | **Triggers and payloads.** Child shots inherit the parent's elements, with a depth limit so it never runs away. |
 | **Risk of Rain 2** | On-hit item procs that chain. Stacks scale linearly or with diminishing returns. | Chance per proc, scaled by luck. A per-item cooldown so chains stay readable. Stacks add up. |
-| **Hades** | Boons by rarity, and **Duo boons** that need two gods. You pick one of three. | Pick one of three on **level-up** (character boons) and at **frog ponds** (Gribbus buffs). **Elemental reactions** are Hades' duo boons, free and automatic. |
-| **Nuclear Throne** | A mutation pick on level-up. Short, explosive, readable. | XP from kills leads to a level-up choice once the room is clear. |
+| **Hades** | Boons by rarity, and **Duo boons** that need two gods. You pick one of three. | Pick one of three at **Gribbus' pond** (his tricks, all of one tier). Boons come only as Brother Olm's blessings now. **Elemental reactions** are Hades' duo boons, free and automatic. |
+| **Nuclear Throne** | A mutation pick on level-up. Short, explosive, readable. | (Levels are gone since October 2026: you grow only by what you find.) |
 | **Vampire Survivors** | Weapon + passive = an evolution. A screen full of chaos that still reads. | **Ascensions:** a gun plus the right powerup becomes something new. Screen-filling godly items. |
 | **Spelunky** | The world reacts. Bombs hurt everyone. Shopkeepers get angry. | Explosive barrels, goblin bombs that hit goblins, breakable pots, traps that hurt enemies. |
 
@@ -34,8 +34,8 @@ The rule we take from all of them: **many small, general rules that multiply**, 
 | **Seconds** | Move, aim, shoot, blink. Gribbus picks his own fights. Right-click casts the gun's element spell. `F` fires the active item. |
 | **A room** | The doors slam shut. Goblins (and worse) rise out of the floor. Clear every wave and the doors open. Clearing a room charges your active item and sometimes drops a reward. |
 | **A floor** | 10–18 rooms, including **jumbo rooms** (2×1, 1×2 and 2×2 cells) for the big fights. Treasure, shop, puzzle, **frog pond**, **cursed altar**, a secret room behind an illusion, and the boss. |
-| **A run** | Five floors, each spookier and weirder than the last, then endless. You level up between fights and pick a boon. |
-| **Meta** | **Golden flies** carry over between runs. Spend them at frog ponds to unlock new Gribbus buffs. |
+| **A run** | Five floors, each spookier and weirder than the last, then endless. No levels: powerups from bosses, lairs, shops and Brother Olm. At most one side road, by chance (docs/ENDINGS.md §0). |
+| **Meta** | The endings found, the road steps reached, Olm's memory of you, and what you carried lately. |
 
 ---
 
@@ -84,7 +84,7 @@ Common → Uncommon → Rare → Legendary → **Godly**. Godly items are rare (
 ### 3.4 Pools
 Each room type draws from its own pool: treasure, shop, boss, secret, altar. An item that has been seen, offered or taken **leaves the pool for the run**, so seeing the same one twice is rare by design.
 
-**Fresh builds.** What you carried in your last two runs is offered at 0.3x weight (`Items.remember`, saved with the meta next to the golden flies), so one run's build isn't the next one's.
+**Fresh builds.** What you carried in your last two runs is offered at 0.3x weight (`Items.remember`, saved with the meta), so one run's build isn't the next one's.
 
 ### 3.4b The grim ones
 36 items that change how you play rather than add a number: **Hollowing** (+5% damage per kill in a room, up to +60%, gone when it's clear), **Executioner's Axe** (goblins under 15% just die), **Darksign** (once a floor, you rise again at 40%), **Lifedrinker** (2% of damage heals, 4 a second at most), **Parrying Dagger** (+60% for a second after a blink), **Black Briar Armour** (+20% while warded), **Hunter's Mark** (the first hit on each goblin triples), **Silver Bullets** (+60% on the dead and haunted), **Bell of Dread** (a toll stuns the room as it locks), **Bonfire Ember**, **Sunlight Medal**, **Soul Mass**, **Ring of the Abyss**, **Last Rites**, **Blood Moon**, and the godly **Fire Keeper's Soul**. Actives: Estus Flask, Toll of the Damned, Soul Spear. Duos: Crimson Covenant, The Reaper, Kindled, Praise the Sun, Hawkeye, Plague of Flies. Transformation: **Blood Hunter**.
@@ -160,9 +160,9 @@ each, and they stack. The HUD shows a sigil per attuned element.
 Items carry **build tags** (`Items.tagsOf`): coin, attack speed, multishot,
 proc, crit, frog, summons, tank, and each element. What you own sets a
 **direction** (`Items.direction`), and offers lean toward it
-(`Items.pull`, up to 2.5x). The first boon of each level-up leans hard toward
-the build; the other two stay wild. A build is a goal you can steer toward,
-but it isn't guaranteed.
+(`Items.pull`, up to 2.5x). A frog build (two frog things) also finds
+Gribbus' pond on every floor. A build is a goal you can steer toward, but
+it isn't guaranteed.
 
 **Stackers** (`stack:true`) can be picked up again and again, each copy
 adding its effect, as in Risk of Rain:
@@ -186,7 +186,7 @@ five ranks, so the gun you stick with grows with you.
 | **Blink** | `Space`. Invulnerable, crosses pits. |
 | **Guns** | Carries up to 3. A gun is its fire pattern, element and level; ascended guns can appear. Powerups apply to all of them. |
 | **Active item** | One at a time, on `F`. Charged by clearing rooms or getting kills. |
-| **Level-ups** | XP from kills. On level-up you pick **1 of 3 boons**: small character upgrades such as +crit, a fire trail behind blinks, mana on kill, a bigger pickup magnet, or Gribbus speed. The pick waits until the room is clear. |
+| **Boons** | No levels any more. Boons (small character upgrades: +crit, a fire trail behind blinks, mana on kill...) come only as Brother Olm's blessing, for gold. |
 
 ---
 
@@ -196,7 +196,7 @@ Gribbus, a warty old toad, follows Zippy and picks his own fights: in a fight he
 
 **Frog ponds** are side rooms with a pond and three lily pads. Each pad holds a **Gribbus buff**. Pick one and the other two sink. The buffs include Long Tongue, Toxic Spit, Frost Croak, Hop Lightning, Tadpole Brood, Lily Shield (blocks shots near Zippy), Bullet Gulp (eats enemy shots and spits them back), Royal Crown, Big Boy, Fly Hunter, Mirror Skin (copies Zippy's elements), Bubble Blower, Croak of Doom and Twin Frog. The godly one, **Frogsona**, makes Gribbus fire Zippy's shots.
 
-**Golden flies** are rare drops: one in each frog pond, and bosses can drop them. They're saved between runs and unlock more Gribbus buffs in the pond pool.
+Gribbus' tricks are items (`f_*`): three of one tier float on his pond's lily pads (the pond is rare), and some sit in the shop, treasure and boss pools. **Mimic Toad** sits him at your side copying your volleys. On the Bog road he eats glowing mushrooms, grows, and demands praise.
 
 ---
 
@@ -265,7 +265,7 @@ found. A line of lore also plays on arriving at each floor (`DG.LORE_FLOORS`).
 - **Combat:** normal or **jumbo**, with furniture (pillars, pits, crates, cross walls, ring walls, gardens, graveyards…), **breakable** pots and crates, and **explosive barrels**.
 - **Treasure:** an item pedestal. **Shop:** two items, a gun, soup, and a mystery. **Boss:** an item pedestal and the portal.
 - **Secret:** behind an illusionary wall. Secret-pool items, with better godly odds.
-- **Frog pond:** a Gribbus buff (pick 1 of 3) and a golden fly.
+- **Frog pond** (rare): a Gribbus trick, pick 1 of 3 of one tier.
 - **Cursed altar:** trade 20 max health for an altar-pool item. The pool has better odds of legendary and godly items.
 - **Puzzle:** see section 8.
 - **Frog pond:** an oasis in the rot, done as a jungle: big ferns, lotus flowers on the water, hanging vines, a mossy log, a second frog idol, a little waterfall down the north wall, green-gold light and fireflies. No corpses.
@@ -300,7 +300,7 @@ Every puzzle is generated and always solvable (the tests check). It rewards an i
 ---
 
 ## 9. Difficulty
-Goblins scale per floor (HP ×1, ×1.6, ×2.6, ×3.8, ×5.2 by floor 5: the late floors steepened in October 2026, when a played run was "broken" by level 13; `npm run balance` average floor 2.58 → 2.42, no bot win where there had been one; floor 1 unchanged). Powerups and boons are how you keep up. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
+Goblins scale per floor (HP ×1, ×1.6, ×2.6, ×3.8, ×5.2 by floor 5: the late floors steepened in October 2026, when a played run was "broken" by level 13; `npm run balance` average floor 2.58 → 2.42, no bot win where there had been one; floor 1 unchanged). Powerups are how you keep up, and since the October 2026 rework (no levels, fewer items, enemy shots that hang, bend and burst) most runs don't keep up for long: `npm run balance` 2.83 → 2.58, `npm run power` median 4.5x → 3.3x, p90 15.7x → 8.3x, the luckiest build still 24x. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
 
 **The power curve.** Some runs should be duds and some should be god runs. None should flood the room with shots.
 - `npm run power` rolls 40+ floor-4 builds the way a run would and reports their damage against a no-item baseline.

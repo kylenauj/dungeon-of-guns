@@ -1,4 +1,40 @@
-# Three roads down: endings, Olm, the rotten pond, puzzles and lairs
+# Roads down: endings, Olm, the frog, puzzles and lairs
+
+## 0. Now: one road a run, by chance
+
+**This section is what's built.** Sections 2 to 4 below are the earlier
+design (the Lantern and the Rot as chains you could start on any run); they
+stay as history. The rest (the Mission, puzzles, lairs) still stands.
+
+Side roads were on offer every run, and the Rot's choice at the pond was
+obvious (click the corrupted lily). Now a run gets **at most one side
+road**, rolled from the seed when it starts (`DG.ROUTES`: none 40%, the
+Ember 20%, the Bog 20%, Olm 20%; `G.roads.route`, `js/core/roads.js`).
+Only that road's things are put in the dungeon, so a road is something you
+stumble on. `?route=bog|olm|ember|none` forces one for testing.
+
+| Road | What you find | Last floor | Boss | Ending |
+|---|---|---|---|---|
+| **None** | the Mission only | the climb out | the Gloom Heart | **DAWN** |
+| **The Ember** | the Sealed Reliquary on floor 2 or 3, its Warden keeping the Ember | 6, the Kiln | the Hollow Wizard | **THE FIRST FLAME** |
+| **The Bog** | glowing mushrooms down the dungeon (2-3 a floor). Gribbus eats each one and grows a little; at 4, 7 and 10 he grows a size (the old Rot models); from 4 on he **demands praise** (E near him: +50% for 20s, ignore him and he sulks). At ten, the Heart's portal runs green | 6, the Glutton's Bog: everything glows, Gribbus hits twice as hard and wears the crown | the Bog Lord, Toad King | **KING OF THE BOG**: Gribbus eats him; Zippy is his royal wizard |
+| **Olm** | Brother Olm twice (floors 1-2 and 3-4). Hear everything he has to say (Listen, across both visits) and he gives up his lantern; the door of eyes in his second library opens | 6, the Flesh Library: ghosts, Lantern Wights and Gorged Toads | the Archivist, Who Wrote the Dark | **THE WHITE WIZARD**: Zippy, cleansed, robed white, in a column of holy light |
+
+Off his road, Olm still turns up once on 35% of runs. He looks like Zippy
+(the same school's coat, hood and hat), a head taller, in teal and brass,
+with ten little frogs sat round him reading scrolls in his library. His
+talk is a panel along the bottom of the screen, no portrait: Listen, a
+scroll (a powerup) for gold, Trade (a powerup for one a tier higher), a
+Blessing (the only boons there are now), Mend, a Key.
+
+**Gribbus' pond** is rare (18% of floor 1, 25% after; every floor on a frog
+build). Its three lily pads hold three tricks of **one tier**, so no pad is
+the obvious pick. His tricks are items (`f_*`), found in shops, treasure
+and boss pools too, so a frog build is something you can steer toward.
+**Mimic Toad** sits him at your side copying every volley you fire, at half
+strength before frog damage bonuses. Golden flies are gone.
+
+## The earlier design
 
 A design for the second half of the game. Today the two side endings sit
 behind a locked door each (the Sealed Reliquary and the Drowned Shrine). A

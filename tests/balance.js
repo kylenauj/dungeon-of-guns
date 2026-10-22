@@ -15,7 +15,7 @@ for(let i=0;i<runs;i++){
   floors.push(G.floor + (G.state === "won" ? 1 : 0));
   causes[G.lastHurt || "-"] = (causes[G.lastHurt || "-"] || 0) + (G.state === "dead" ? 1 : 0);
   if(frog) frogShare.push((G.stats.frogDmg || 0)/Math.max(1, G.stats.dmg));
-  console.log("BAL" + i, G.state.padEnd(5), "floor", G.floor, "kills", String(G.stats.kills).padStart(3), "time", Math.round(G.stats.time) + "s", "gun", G.gun().name, Math.round(DG.Loot.dps(G.gun(), G.mods)) + "dps", "items", G.stats.items, "lvl", G.player.level);
+  console.log("BAL" + i, G.state.padEnd(5), "floor", G.floor, "kills", String(G.stats.kills).padStart(3), "time", Math.round(G.stats.time) + "s", "gun", G.gun().name, Math.round(DG.Loot.dps(G.gun(), G.mods)) + "dps", "items", G.stats.items, "road", (G.roads && G.roads.route) || "-");
 }
 const avg = floors.reduce((a, b)=> a + b, 0)/floors.length;
 console.log("\naverage floor reached:", avg.toFixed(2), " killed by:", JSON.stringify(causes));
