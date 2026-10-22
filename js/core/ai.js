@@ -37,6 +37,8 @@ AI.update = function(G, e, dt){
   }
   e.vx = 0; e.vy = 0;
   if(e.st.frozen > 0 || e.st.stun > 0) return;
+  // a vigil: it drifts for the wick, not for you
+  if(e.vigil && DG.Roads && DG.Roads.vigilMove(G, e, dt)) return;
   // confused (Rubber Chicken, Goblin Whistle): stumbles about and clobbers
   // whatever it bumps into, friends included; no attacks on Zippy
   if(e.st.confused > 0 && !e.big && !e.decoy){
@@ -484,7 +486,8 @@ const BEHAVIOUR = {
      and in his rage the dead come when he calls ---- */
   hollow(G, e, dt, p){
     const A = e.ai, rage = e.hp/e.maxHp < 0.5;
-    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE HOLLOW WIZARD: \"I WAS YOU, ONCE. YOU WILL BE ME.\"", 3); }
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE HOLLOW WIZARD: \"I WAS YOU, ONCE. YOU WILL BE ME.\"", 3);
+      if(DG.Roads && DG.Roads.olmAlly(G)) G.pending.push({ t:3.2, fn:()=> G.say("BROTHER OLM: \"Aldous. It's me. It's Olm. I brought it back. I'm sorry. I'm so sorry.\"", 4.5) }); }
     switch(A.state){
       case "volley":
         A.t -= dt; A.fire = (A.fire || 0) - dt;

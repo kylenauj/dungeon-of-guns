@@ -720,6 +720,18 @@ proto.byproduct = function(el, x, y, P, depth){
   if(M.special.wispcraft && depth < M.maxDepth + 1 && G.allies.filter(a=> a.kind === "wisp").length < 14) G.spawnAlly("wisp", x, y, { el, P });
 };
 
+/* a Lantern Beam: the old fire in a straight line, through everything in its way, three pulses */
+proto.lanternBeam = function(x, y, a, dmg, src){
+  const G = this, len = G.beamLength(x, y, a, 16), dx = Math.cos(a), dy = Math.sin(a);
+  G.emit("lanternBeam", { x, y, a, len });
+  const pulse = ()=> G.enemies.forEach(e=>{
+    if(e.dead || e.spawn > 0) return;
+    const rx = e.x - x, ry = e.y - y, along = rx*dx + ry*dy;
+    if(along < 0 || along > len || Math.abs(rx*dy - ry*dx) > 0.7 + e.r) return;
+    G.damageEnemy(e, dmg/3, Object.assign({ els:["fire"], power:1, depth:1, ax:dx, ay:dy, knock:0.6 }, src || {}));
+  });
+  pulse(); G.pending.push({ t:0.2, fn:pulse }, { t:0.4, fn:pulse });
+};
 proto.nova = function(x, y, r, dmg, els, depth, frog){
   const G = this;
   G.emit("nova", { x, y, r, el:els[0] });
@@ -879,6 +891,7 @@ proto.spawnAlly = function(kind, x, y, o){
   if(kind === "bee"){ const k = M.special.killerbees ? 2 : 1; a.life = 6*k; a.dmg = P*0.22*k; a.speed = 9.5; a.r = 0.12; a.el = "poison"; a.orbit = G.rng.next()*TAU; }
   if(kind === "ghoul"){ a.life = 10; a.dmg = P*0.9; a.speed = 4.4; a.r = 0.3; a.model = o.model || "grunt"; a.orbit = G.rng.next()*TAU; }
   if(kind === "hat"){ a.life = 4; a.r = 0.4; a.dmg = P*1.2; a.orbit = G.rng.next()*TAU; a.hitT = {}; }
+  if(kind === "olm"){ a.life = Infinity; a.r = 0.5; a.speed = 2.6; a.cd = 2; a.ward = null; }
   G.allies.push(a);
   G.emit("ally", { id:a.id, kind, x, y, el:a.el });
   return a;
@@ -919,6 +932,14 @@ proto.updateAllies = function(dt){
       a.orbit += dt*4.2;
       a.x = p.x + Math.cos(a.orbit)*rad; a.y = p.y + Math.sin(a.orbit)*rad;
       G.enemies.forEach(e=>{ if(!e.dead && e.spawn <= 0 && (a.hitT[e.id] || 0) <= G.t && DG.dist(a.x, a.y, e.x, e.y) < e.r + a.r){ a.hitT[e.id] = G.t + 0.35; G.damageEnemy(e, a.dmg, { els:G.shotEls(G.gun()), power:1, depth:2, ax:e.x - p.x, ay:e.y - p.y, knock:2, from:"hat" }); } });
+    } else if(a.kind === "olm"){
+      // Brother Olm: slow, a few steps behind; every few seconds a Lantern Beam at whatever's nearest; a ward for you at every locked door
+      const tx = p.x - Math.cos(p.aim)*2.2, ty = p.y - Math.sin(p.aim)*2.2, d = Math.hypot(tx - a.x, ty - a.y);
+      if(d > 0.4){ const sp = Math.min(a.speed*(d > 6 ? 2 : 1), d/dt); G.move(a, (tx - a.x)/d*sp*dt, (ty - a.y)/d*sp*dt, "frog"); }
+      if(d > 14){ a.x = p.x - 1; a.y = p.y + 1; }
+      const tg = G.room && G.room.active ? G.nearestEnemy(a.x, a.y, 12) : null;
+      if(tg && a.cd <= 0 && G.los(a.x, a.y, tg.x, tg.y)){ a.cd = 3.2; a.face = Math.atan2(tg.y - a.y, tg.x - a.x); G.lanternBeam(a.x, a.y, a.face, G.payloadPower()*3.2, { from:"olm" }); }
+      if(G.room && G.room.active && a.ward !== G.room.id){ a.ward = G.room.id; G.addWards(1); G.emit("olmWard", { x:a.x, y:a.y }); }
     } else if(a.kind === "moon"){
       a.orbit += dt*2.2;
       a.x = p.x + Math.cos(a.orbit)*1.7; a.y = p.y + Math.sin(a.orbit)*1.7;
@@ -1073,6 +1094,13 @@ proto.castSpell = function(g, s, I, echo){
   if(!echo){ p.mana -= s.spellCost; p.fireCd = 0.25; }
   const a = p.aim, els = G.shotEls(g);
   G.emit("spell", { spell:s.spell, x:p.x, y:p.y, a, el:g.element });
+  // the Lantern road: the old fire on the floor, and every fifth (or every) cast a beam of it
+  if(!echo){
+    const M = G.mods;
+    p.casts = (p.casts || 0) + 1;
+    if(M.special.ritewick) for(let k=1;k<=5;k++){ const x = p.x + Math.cos(a)*k*1.1, y = p.y + Math.sin(a)*k*1.1; if(G.bulletBlocked(x, y)) break; G.byproduct("fire", x, y, pw*0.6, 1); }
+    if(M.special.lampstaff || (M.special.ritekeeper && p.casts % 5 === 0)) G.lanternBeam(p.x, p.y, a, pw*(M.special.lampstaff ? 2.2 : 3));
+  }
   if(G.mods.special.croakhex && !echo && G.frogs) G.frogs.forEach(f=>{
     G.enemies.forEach(e=>{ const d = DG.dist(e.x, e.y, f.x, f.y); if(!e.dead && e.spawn <= 0 && !e.big && d < 4.5 && d > 0.6) G.move(e, (f.x - e.x)/d*1.3, (f.y - e.y)/d*1.3, e.phases ? "ghost" : "enemy"); });
     G.nova(f.x, f.y, 3.2, DG.Gribbus.power(G)*2*(f.twin ? 0.7 : 1), ["frost"], 1, true);

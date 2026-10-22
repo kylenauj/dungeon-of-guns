@@ -85,7 +85,8 @@ function tryGenerate(rng, floor, seed, opts){
      Reliquary (floors 1-2) holds the Ember of the First Flame; the Drowned
      Shrine (floors 2-3) the Crown of the Bog. Each starts an alternative ending. ---- */
   // (the Drowned Shrine now belongs to the Rot road: it's only here when Gribbus has split once and has no crown yet)
-  const quest = opts.shrine ? "shrine" : (floor === 1 && rng.chance(0.25)) || (floor === 2 && rng.chance(0.2)) ? "reliquary" : null;
+  // (and the Sealed Reliquary to the Lantern road: only there once you carry Olm's lantern)
+  const quest = opts.shrine ? "shrine" : opts.reliquary ? "reliquary" : null;
   // it grows off a goblin room into an empty cell with specialRooms below, so it is
   // always a dead end: its door locks, and it must never stand between you and the boss
 
@@ -134,7 +135,7 @@ function tryGenerate(rng, floor, seed, opts){
     link(host.r, sec, host.c, [c.cx, c.cy], "secret");
     sec.dist = host.r.dist + 1;
   }
-  specialRooms(D, rng, floor, { roomAt, addRoom, link }, quest && !opts.theme ? quest : null);   // ROOMS: vaults and the rare rooms
+  specialRooms(D, rng, floor, { roomAt, addRoom, link }, quest && !opts.theme ? quest : null, opts);   // ROOMS: vaults and the rare rooms
 
   /* ---- 3. rectangles ---- */
   rooms.forEach(r=>{
@@ -201,6 +202,7 @@ function tryGenerate(rng, floor, seed, opts){
     }
     if(r.type === "pond"){ makePond(D, rng, r); if(opts.rot) r.corrupt = true; }
     if(r.type === "shrine" && r.road){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS. SOMETHING ELSE REMEMBERS IT." }); }
+    else if(r.type === "reliquary" && r.road){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME. A KEEPER STILL KEEPS IT." }); }
     else if(r.type === "reliquary" || r.type === "shrine"){
       r.props.push({ kind:"pedestal", x:cx, y:cy, quest:r.type === "reliquary" ? "ember" : "crown" });
       r.props.push({ kind:"sign", x:cx, y:r.y1, text:r.type === "reliquary" ? "SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME." : "THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS." });
@@ -210,6 +212,14 @@ function tryGenerate(rng, floor, seed, opts){
     if(SPECIAL[r.type]) SPECIAL[r.type](D, rng, r, floor);
   });
 
+  // the Lantern road: a dead wick in some goblin room, tall iron, waiting
+  if(opts.wick){
+    const cands = rooms.filter(r=> r.type === "combat" && r.dist >= 1);
+    for(const r of rng.shuffle(cands)){
+      const free = freeTiles(D, r, { door:4, edge:true }).filter(([x, y])=> Math.abs(x + 0.5 - r.cxw) < 3.5 && Math.abs(y + 0.5 - r.cyw) < 3);
+      if(free.length){ const [x, y] = rng.pick(free); r.props.push({ kind:"wick", x, y }); break; }
+    }
+  }
   rooms.forEach(r=>{ if((r.type === "combat" || r.type === "start") && rng.chance(r.type === "start" ? 1 : 0.22)) paintDoor(D, rng, r); });
   specialExtras(D, rng, floor);
   dress(D, rng);
@@ -593,11 +603,12 @@ function clearDoorways(D){
  *  dead scrawl on the floor (most of them by secret walls).
  * ================================================================== */
 const isDeadEnd = r=> r.type === "combat" && r.links.length === 1;
-function specialRooms(D, rng, floor, C, quest){
+function specialRooms(D, rng, floor, C, quest, opts){
+  opts = opts || {};
   const R = DG.RARE_ROOMS, want = quest ? [quest] : [];
   if(rng.chance(R.vault(floor))) want.push("vault");
   if(rng.chance(R.weird(floor))) want.push(rng.weighted(R.table.filter(o=> floor >= o.min)).type);
-  if(rng.chance(R.olm(floor))) want.push("olm");
+  if(rng.chance(R.olm(floor)) || opts.sanctum) want.push("olm");
   want.push("lair");                                   // a mini-boss on every floor
   want.forEach(type=>{
     const cand = [];
@@ -618,6 +629,8 @@ function specialRooms(D, rng, floor, C, quest){
     if(type === "vault" || type === "reliquary" || type === "shrine") r.lockedIn = true;
     // the Rot road's shrine: sealed with water, not a lock (you dive in from the floor's pond), and the Leech Mother lives in it
     if(type === "shrine"){ r.sealed = true; r.road = "rot"; r.lair = "leech"; }
+    // the Lantern road's reliquary: warded, not locked (two wicks lit burn the wards), and the Warden keeps the Ember
+    if(type === "reliquary"){ r.warded = true; r.road = "lantern"; r.lair = "warden"; }
     if(type === "lair"){
       const f = ((floor - 1) % DG.FLOORS.length) + 1;
       r.lair = rng.pick(Object.keys(DG.LAIRS).filter(id=> DG.LAIRS[id].floors.indexOf(f) >= 0));
@@ -630,7 +643,7 @@ function lockRooms(D){
     if(!r.lockedIn) return;
     D.corridors.forEach(c=>{
       if(c.a !== r.id && c.b !== r.id) return;
-      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; if(r.sealed) d.sealed = true; } });
+      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; if(r.sealed) d.sealed = true; if(r.warded) d.warded = true; } });
     });
   });
 }

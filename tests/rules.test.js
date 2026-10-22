@@ -147,7 +147,7 @@ test("powerups stack", ()=>{
 test("item pools never offer the same thing twice in a run", ()=>{
   const G = game("POOLS");
   const seen = new Set();
-  for(let i=0;i<60;i++){ const id = DG.Items.roll(G, "t"); assert.ok(!seen.has(id), "repeat: " + id); seen.add(id); }
+  for(let i=0;i<60;i++){ const id = DG.Items.roll(G, "t"); assert.ok(!seen.has(id) || DG.ITEMS[id].stack, "repeat: " + id); seen.add(id); }
 });
 
 test("the brief's combo: a ricochet + frost + Crystal Growth + Wispcraft shot grows icicles that release ice wisps", ()=>{
@@ -885,7 +885,7 @@ test("every item is well formed: real payloads, real tiers and pools, a descript
     const d = DG.ITEMS[id];
     assert.ok(d.name && d.desc, id + " has a name and a description");
     assert.ok(d.tier >= 0 && d.tier <= 4, id + " tier");
-    assert.ok(/^[tsbxa]+$/.test(d.pools), id + " pools");
+    assert.ok(d.given ? d.pools === "" : /^[tsbxa]+$/.test(d.pools), id + " pools");
     check(d, id);
   }
   DG.DUOS.forEach(d=>{ assert.ok(DG.ITEMS[d.a] && DG.ITEMS[d.b], d.name + " pairs real items"); check(d, d.name); });
@@ -1192,16 +1192,18 @@ function killBoss(G){
 }
 function takePortal(G){ G.player.x = G.portal.x; G.player.y = G.portal.y; G.interact(); }
 
-test("the quest rooms: the Reliquary turns up early behind a locked door; the Drowned Shrine only on the Rot road, sealed with water", ()=>{
+test("the quest rooms belong to the roads: the Reliquary warded (the Lantern), the Drowned Shrine sealed with water (the Rot)", ()=>{
   const seen = { reliquary:0, shrine:0 };
   for(let s=1; s<=60; s++) for(const floor of [1, 2, 3]){
-    const D = DG.Dungeon.generate(s*7349 >>> 0, floor);
-    assert.ok(!D.rooms.some(r=> r.type === "shrine"), "no shrine off the road");
+    const D0 = DG.Dungeon.generate(s*7349 >>> 0, floor);
+    assert.ok(!D0.rooms.some(r=> r.type === "shrine" || r.type === "reliquary"), "no quest room off the roads");
+    if(floor === 1) continue;
+    const D = DG.Dungeon.generate(s*7349 >>> 0, floor, { reliquary:true });
     D.rooms.filter(r=> r.type === "reliquary").forEach(r=>{
       seen[r.type]++;
-      assert.ok(r.type === "reliquary" ? floor <= 2 : floor >= 2, r.type + " on floor " + floor);
-      assert.ok(D.doors.some(d=> d.locked && !d.open && d.into === r.id), "locked");
-      assert.ok(r.props.some(p=> p.kind === "pedestal" && p.quest === (r.type === "reliquary" ? "ember" : "crown")));
+      assert.ok(D.doors.some(d=> d.locked && d.warded && !d.open && d.into === r.id), "warded");
+      assert.equal(r.lair, "warden");
+      assert.ok(!r.props.some(p=> p.quest), "the Ember waits for the Warden to die");
     });
   }
   for(let s=1; s<=20; s++){
@@ -1220,7 +1222,7 @@ test("the quest rooms: the Reliquary turns up early behind a locked door; the Dr
 test("no locked room ever stands between the start and the boss", ()=>{
   let quests = 0;
   for(let s=1; s<=120; s++) for(const floor of [1, 2, 3]){
-    const D = DG.Dungeon.generate(s*7349 >>> 0, floor);
+    const D = DG.Dungeon.generate(s*7349 >>> 0, floor, s % 2 ? { reliquary:true } : { shrine:true, rot:2 });
     const shut = r=> D.doors.some(d=> d.locked && d.into === r.id);
     D.rooms.forEach(r=>{ if(r.type === "reliquary" || r.type === "shrine"){ quests++; assert.equal(r.links.length, 1, r.type + " is a dead end"); } });
     const start = D.rooms.find(r=> r.type === "start"), seen = { [start.id]:true }, q = [start];
@@ -1716,4 +1718,89 @@ test("the Rot's last fight: the Heart drags Gribbus in; hurt it and it chokes; l
   assert.ok(h.dead);
   step(G, 4);
   assert.equal(G.ending, "bog");
+});
+
+/* ---- the Lantern road ---- */
+function olmOf(G){ for(const r of G.D.rooms) for(const p of r.props) if(p.kind === "olm") return { r, o:p }; return null; }
+function olmAct(G, act){ const i = G.choice.options.findIndex(o=> o.act === act); assert.ok(i >= 0, "Olm offers " + act + ": " + G.choice.options.map(o=> o.act).join(",")); G.choose(i); }
+test("the Lantern: Brother Olm finds you on floor 1 or 2, and asks you to carry his lantern", ()=>{
+  for(let s=1; s<=8; s++){
+    const G = game("OLMROAD" + s, 1);
+    const A = olmOf(G); if(!A){ G.enterFloor(2); }
+    const B = olmOf(G); assert.ok(B, "seed " + s + ": he's on floor 1 or 2");
+    G.talkOlm(B.o); olmAct(G, "lantern");
+    assert.equal(G.roads.lantern.stage, 1);
+  }
+});
+test("the Lantern: a dead wick on the next floors; light it and hold the vigil (they come for the flame), and a Rite is yours", ()=>{
+  const G = game("WICKS", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
+  let wick = null, room = null;
+  G.D.rooms.forEach(r=> r.props.forEach(p=>{ if(p.kind === "wick"){ wick = p; room = r; } }));
+  assert.ok(wick, "a wick on floor 2");
+  room.cleared = true; room.active = false; G.room = room;
+  G.player.x = wick.x + 0.5; G.player.y = wick.y + 1.3;
+  const tg = G.target(); assert.ok(tg && tg.o === wick, "E lights it");
+  G.interact();
+  assert.ok(room.vigil && room.active, "the vigil");
+  // the ghosts go for the wick, not for Zippy: let one drift in
+  let ghost = null;
+  for(let i=0;i<60*4 && !ghost;i++){ G.update(1/60, {}); G.drain(); ghost = G.enemies.find(e=> e.vigil && !e.dead); }
+  assert.ok(ghost, "the dark came");
+  // stand guard: kill everything that comes, for the whole vigil
+  for(let i=0;i<60*30 && room.vigil;i++){ G.enemies.forEach(e=>{ if(!e.dead && e.spawn <= 0 && e.vigil) G.killEnemy(e, {}); }); G.update(1/60, {}); G.drain(); }
+  assert.ok(wick.lit && !room.vigil);
+  assert.equal(G.roads.lantern.wicks, 1);
+  assert.ok(G.player.boons.indexOf("rite_wick") >= 0, "the first Rite");
+  assert.ok(G.roads.rot.closed, "the black lily shuts");
+  step(G, 1); assert.ok(room.cleared && !room.active, "and the doors open");
+});
+test("the Lantern: a wick the dark reaches goes out, and can be lit again", ()=>{
+  const G = game("WICKOUT", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
+  let wick = null, room = null;
+  G.D.rooms.forEach(r=> r.props.forEach(p=>{ if(p.kind === "wick"){ wick = p; room = r; } }));
+  room.cleared = true; G.room = room; const c = G.freeSpot(room, room.cxw - 2, room.y2 - 1); G.player.x = c.x; G.player.y = c.y;
+  DG.Roads.lightWick(G, wick);
+  for(let i=0;i<60*30 && room.vigil;i++){ G.gribbus.held = 1; G.update(1/60, {}); G.drain(); }
+  assert.ok(!wick.lit && wick.hp <= 0, "out");
+  assert.equal(G.roads.lantern.wicks, 0);
+});
+test("the Lantern: the Reliquary's wards burn away for two wicks; the Warden keeps the Ember; Olm confesses deep down", ()=>{
+  const G = game("RELIQ", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
+  const r = G.D.rooms.find(o=> o.type === "reliquary"); assert.ok(r, "a reliquary on floor 2");
+  const d = G.D.doors.find(o=> o.into === r.id);
+  G.unlockDoor(d); assert.ok(d.locked, "one wick isn't enough");
+  G.roads.lantern.wicks = 2; G.unlockDoor(d); assert.ok(!d.locked && !d.warded, "the wards burn");
+  G.player.x = r.cxw; G.player.y = r.y2 - 0.5; step(G, 0.3);
+  assert.ok(G.enemies.some(e=> e.lair === "warden" && !e.dead));
+  G.enemies.filter(e=> e.room === r.id && !e.dead).forEach(e=> G.killEnemy(e, {})); step(G, 0.5);
+  const ped = r.props.find(p=> p.quest === "ember"); assert.ok(ped);
+  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2; G.interact();
+  assert.ok(G.player.quests.ember && G.roads.lantern.ember);
+  // floor 4: he's there, and he'll tell you
+  G.enterFloor(4);
+  const B = olmOf(G); assert.ok(B, "Olm on floor 4");
+  G.talkOlm(B.o); olmAct(G, "truth");
+  for(let k=0;k<DG.LANTERN.truth.length - 1;k++) olmAct(G, "truthNext");
+  olmAct(G, "forgive");
+  assert.equal(G.roads.lantern.olm, "forgive");
+  G.enterFloor(5);
+  const olm = G.allies.find(a=> a.kind === "olm"); assert.ok(olm, "he comes down with you");
+});
+test("the Lantern: taking his lantern instead gives the Lamplighter's Staff: every spell a beam", ()=>{
+  const G = game("TAKE", 4); G.god = true; G.roads.lantern.stage = 2; G.roads.lantern.ember = true; G.player.quests.ember = true;
+  DG.Roads.decide(G, "take");
+  assert.ok(G.player.items.lampstaff);
+  const r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; r.active = true;
+  G.player.x = s.x; G.player.y = s.y; G.player.aim = 0;
+  const e = addEnemy(G, r, s.x + 3, s.y); e.hp = e.maxHp = 1e6;
+  G.player.mana = 999;
+  G.castSpell(G.gun(), G.gunStats(), {}, false); step(G, 0.5);
+  assert.ok(e.hp < 1e6, "the beam burns what's in its way");
+  assert.ok(G.drain !== undefined);
+});
+test("the Rite of the Keeper: every fifth spell is a Lantern Beam", ()=>{
+  const G = game("KEEPER", 2); G.god = true; G.player.boons.push("rite_keeper"); G.recalc();
+  let beams = 0;
+  for(let i=0;i<10;i++){ G.player.mana = 999; G.castSpell(G.gun(), G.gunStats(), {}, false); beams += G.drain().filter(e=> e.type === "lanternBeam").length; }
+  assert.equal(beams, 2);
 });

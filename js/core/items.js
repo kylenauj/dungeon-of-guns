@@ -158,6 +158,7 @@ DG.ITEMS = {
   dice:       I({ name:"Loaded Dice",        tier:1, pools:"ts",   desc:"Every time a room locks, roll for your damage: anything from 0.6x to 1.8x.", flavor:"Loaded with what, exactly?", special:"dice", on:{ lock:[{ do:"dice" }] } }),
   comet:      I({ name:"Comet Cape",         tier:2, pools:"tbx",  desc:"Blinking turns you into a comet: goblins you blink through take a heavy hit and go flying.", flavor:"Mind the tail.", special:"comet" }),
   /* the Gribbus build: things that make the frog the killer */
+  lampstaff:  I({ name:"The Lamplighter's Staff", tier:4, pools:"", given:true, desc:"Every spell is a Lantern Beam, and costs half the mana.", flavor:"Forty years he carried it. It's lighter than it looks.", stats:{ spellCost:0.5 }, special:"lampstaff" }),
   bogpact:    I({ name:"Bog Pact",           tier:3, pools:"tbx",  desc:"Gribbus hits 75% harder. Your own shots hit 30% softer.", flavor:"Signed in pond-water. He kept the pen.", stats:{ frogMul:1.75 }, special:"bogpact", tags:["frog"] }),
   familiar:   I({ name:"Familiar's Due",     tier:2, pools:"tsb",  desc:"Goblins you hit are marked for Gribbus: his next hit on one does double.", flavor:"You soften them up. He collects.", special:"familiar", tags:["frog"] }),
   swallow:    I({ name:"Swallow",            tier:3, pools:"tbx",  desc:"Gribbus swallows goblins under 15% health whole (not bosses).", flavor:"No chewing. Never any chewing.", special:"swallow", tags:["frog"] }),
@@ -367,6 +368,10 @@ DG.BOONS = {
   b_boom:   { name:"Kaboomist",        desc:"Explosions 20% bigger.",  stats:{ boom:0.2 } },
   b_byprod: { name:"Leftovers",        desc:"Byproducts last 40% longer.", stats:{ byproductDur:0.4 } },
   b_wisp:   { name:"Wisp Friend",      desc:"Wisps hit 30% harder.",   stats:{ wispDmg:0.3 } },
+  /* the Lantern Rites: given by the old fire, a wick at a time (never offered at a level-up) */
+  rite_wick:  { name:"Rite of the Wick",   desc:"Your spells leave a line of the old fire burning behind them.", special:"ritewick", hidden:true },
+  rite_wax:   { name:"Rite of Wax",        desc:"Spells cost a quarter less mana.", stats:{ spellCost:0.25 }, hidden:true },
+  rite_keeper:{ name:"Rite of the Keeper", desc:"Every fifth spell is a Lantern Beam: a ray of the old fire through everything in its way.", special:"ritekeeper", hidden:true },
   b_frog:   { name:"Frog Snacks",      desc:"Gribbus attacks 20% faster.", stats:{ frogRate:0.2 } },
   b_frogd:  { name:"Frog Strength",    desc:"Gribbus hits 30% harder.", stats:{ frogDmg:0.3 } },
   b_killmana:{ name:"Mana Leak",       desc:"Kills give 3 more mana.", stats:{ killMana:3 } },
@@ -713,7 +718,7 @@ function setPull(G, id){
 Items.rollBoons = function(G, n){
   const p = G.player, owned = p.boons, recent = (p.boonOffers || []).flat();
   const dir = Items.direction(p.items, owned);
-  const cand = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3).map(id=>{
+  const cand = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3 && !DG.BOONS[id].hidden).map(id=>{
     const have = owned.filter(x=> x === id).length, b = DG.BOONS[id];
     return { id, w:(b.rare ? 0.45 : 1)*(have ? 0.5/have : 1)*(recent.indexOf(id) >= 0 ? 0.15 : 1), pull:Items.pull(b, dir) };
   });

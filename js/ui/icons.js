@@ -801,7 +801,7 @@ Icons.ITEMS = {
   /* the odd ones */
   chicken:"bird", shrinkray:"arrowsin", stickybomb:"bomb+droplet", bubblegum:"bubble+droplet", portal:"door", disco:"discoball", beehive:"hive@poison",
   napkin:"skull+ghost", thundersocks:"sock@shock", penny:"coin+clover", hiccups:"bubble", spaghetti:"tangle", snailmail:"snail", accordion:"accordion",
-  dice:"die", comet:"comet", twister:"frog+spiral", bogpact:"scroll+frog", familiar:"reticle+frog", swallow:"frog+skull", hungrytongue:"tongue+heart", croakhex:"nova+frog", clockwork:"cog+heart", haunted:"gun+ghost", pinata:"club",
+  dice:"die", comet:"comet", twister:"frog+spiral", bogpact:"scroll+frog", lampstaff:"wand+flame", familiar:"reticle+frog", swallow:"frog+skull", hungrytongue:"tongue+heart", croakhex:"nova+frog", clockwork:"cog+heart", haunted:"gun+ghost", pinata:"club",
   /* the grim ones */
   bloodvial:"vial", ashenring:"ring", graveboots:"boot+tomb", candlestub:"candle@fire", hexcoin:"coin+eye", rottenheart:"heart+fly",
   leadrounds:"weight", crowfeather:"feather", greatbow:"bow", witchfire:"flame+eye", bloodpact:"scroll+droplet", sacknife:"knife",
