@@ -37,6 +37,12 @@ S.init = function(){
   // full resolution by default now (P still gives the old chunky pixels)
   // one look, no options: etched, crisp, lantern shadows on (old saved choices are ignored)
   S.pixel = false;
+  // the PSX look: a 240-line picture blown up in hard pixels, vertices that snap
+  // and swim, and colour cut to the PlayStation's 15 bits with an ordered dither.
+  // Off by default; P, the pause menu or ?psx turn it on (remembered)
+  let psx = false; try{ psx = localStorage.getItem("zg.psx") === "1"; }catch(e){}
+  if(/[?&]psx\b/.test(location.search)) psx = !/[?&]psx=0\b/.test(location.search);
+  S.psx = psx;
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
@@ -89,22 +95,33 @@ S.init = function(){
 S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
   // S.dyn: the adaptive resolution (1 is full; it drops when frames run slow)
-  const k = (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.25)**-1)/(S.dyn || 1);
+  const chunky = S.pixel || S.psx;
+  const k = S.psx ? Math.max(1, h/S.PSX_LINES) : (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.25)**-1)/(S.dyn || 1);
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){
     const bw = Math.round(w/k), bh = Math.round(h/k); S.post.rt.setSize(bw, bh); S.post.mat.uniforms.uRes.value.set(bw, bh);
     // a render target's texture can't be flagged needsUpdate (three.js would
     // upload it like an image and throw); a new filter needs the target rebuilt
-    const f = S.pixel ? THREE.NearestFilter : THREE.LinearFilter, tx = S.post.rt.texture;
+    const f = chunky ? THREE.NearestFilter : THREE.LinearFilter, tx = S.post.rt.texture;
     if(tx.minFilter !== f){ tx.minFilter = tx.magFilter = f; S.post.rt.dispose(); }
   }
   const c = S.renderer.domElement; c.style.width = w + "px"; c.style.height = h + "px";
-  c.style.imageRendering = S.pixel ? "pixelated" : "auto";
+  c.style.imageRendering = chunky ? "pixelated" : "auto";
+  // the wobble: a grid one picture-pixel fine (NDC spans two, so half the lines)
+  const rh = Math.round(h/k); K.INK.uSnap.value = S.psx ? rh/2 : 0; K.INK.uSnapAsp.value = w/h;
+  if(S.post) S.post.mat.uniforms.uPsx.value = S.psx ? 1 : 0;
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
   // the post pass rebuilds positions from depth (for its ambient occlusion): it needs the lens
   if(S.post){ const ty = Math.tan(S.camera.fov*Math.PI/360); S.post.mat.uniforms.uProj.value.set(ty*S.camera.aspect, ty); }
   K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uScale) m.uniforms.uScale.value = h/k/2; });
+};
+S.PSX_LINES = 240;
+S.setPsx = function(on){
+  S.psx = !!on;
+  try{ localStorage.setItem("zg.psx", S.psx ? "1" : "0"); }catch(e){}
+  S.resize();
+  return S.psx;
 };
 S.initPost = function(){
   const rt = new THREE.WebGLRenderTarget(16, 16, { minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter });
@@ -114,11 +131,14 @@ S.initPost = function(){
       uProj:{ value:new THREE.Vector2(1, 1) }, uAO:{ value:1.0 },
       uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
       uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x0c0c10) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
-      uDesat:{ value:0.18 }, uBloom:{ value:0.6 } },
+      uDesat:{ value:0.18 }, uBloom:{ value:0.6 }, uPsx:{ value:0 } },
     depthTest:false, depthWrite:false,
     vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
     fragmentShader:[
-      "uniform sampler2D tCol, tDep; uniform vec2 uRes, uProj; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom, uAO;",
+      "uniform sampler2D tCol, tDep; uniform vec2 uRes, uProj; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom, uAO, uPsx;",
+      // the PlayStation's ordered dither: a 4x4 Bayer matrix, 0..15/16
+      "float bayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y*0.75))); }",
+      "float bayer4(vec2 a){ return bayer2(0.5*a)*0.25 + bayer2(a); }",
       "uniform vec3 uInk, uShade, uHigh, uFog; varying vec2 vUv;",
       "float ph(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }",
       "float lin(vec2 uv){ float z = texture2D(tDep, uv).r*2.0 - 1.0; return 2.0*uNear*uFar/(uFar + uNear - z*(uFar - uNear)); }",
@@ -141,7 +161,7 @@ S.initPost = function(){
       // the deep floors breathe: the edges of the picture swim and split
       "  uv += uWeird*0.0055*vec2(sin(uv.y*17.0 + uTime*1.7), cos(uv.x*13.0 + uTime*1.3))*smoothstep(0.04, 0.3, r2);",
       "  vec2 px = 1.0/uRes;",
-      "  vec3 col = fxaa(uv, px);",
+      "  vec3 col = uPsx > 0.5 ? texture2D(tCol, uv).rgb : fxaa(uv, px);",
       "  float ca = uWeird*0.012*r2;",
       "  if(ca > 0.0001){ col.r = texture2D(tCol, uv + c*ca).r; col.b = texture2D(tCol, uv - c*ca).b; }",
       // ambient occlusion from the depth alone: every crease, corner and foot sinks
@@ -188,7 +208,9 @@ S.initPost = function(){
       // that crawls (24 times a second, like film), heavy in the dark: the picture rasps
       "  float n = ph(floor(gl_FragCoord.xy) + 0.37), fn = ph(floor(gl_FragCoord.xy*0.5) + floor(uTime*24.0)*7.31);",
       "  float dk = 1.0 - smoothstep(0.0, 0.5, l);",
-      "  col += (n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk;",
+      "  col += ((n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk)*(1.0 - uPsx);",
+      // the PSX: 32 levels a channel (15-bit colour), stepped through the dither
+      "  if(uPsx > 0.5) col = floor(clamp(col, 0.0, 1.0)*31.0 + bayer4(gl_FragCoord.xy))/31.0;",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
   });
@@ -217,7 +239,10 @@ S.renderPortrait = function(){
   const x = Math.round(r.x/k), y = Math.round(H - (r.y + r.h)/k), w = Math.max(8, Math.round(r.w/k)), h = Math.max(8, Math.round(r.h/k));
   P.cam.aspect = w/h; P.cam.updateProjectionMatrix();
   R.setScissorTest(true); R.setScissor(x, y, w, h); R.setViewport(x, y, w, h);
+  // (the portrait wobbles on its own little grid in the PSX look, not the screen's)
+  const snap = K.INK.uSnap.value; if(snap) K.INK.uSnap.value = h/2;
   R.render(P.scene, P.cam);
+  K.INK.uSnap.value = snap;
   R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height);
 };
 /* each floor's mood: darker and foggier the deeper you go, and darker still if cursed */

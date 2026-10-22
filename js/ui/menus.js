@@ -64,6 +64,7 @@ UI.title = function(){
         <button class="item" data-act="how">HOW TO PLAY</button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
+        <button class="item" data-act="psx">LOOK <small>${DG.Stage.psx ? "PSX" : "modern"}</small></button>
       </div>
       <div class="title-foot">${UI.endingSigils()}
       ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest floor ${b.floor} · foes slain ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound. Something down there is listening.</p>`}</div>
@@ -91,7 +92,7 @@ UI.how = function(back){
         <p><kbd>F</kbd> use your active item</p>
         <p><kbd>Q</kbd> / <kbd>wheel</kbd> / <kbd>1-3</kbd> switch guns</p>
         <p><kbd>TAB</kbd> satchel: everything you carry</p>
-        <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound</p>
+        <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>P</kbd> PSX look</p>
         <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, B active, Y swap, RB satchel.</p>
       </div>
       </div>
@@ -110,6 +111,7 @@ UI.pause = function(G){
         <button class="item" data-act="howPause">HOW TO PLAY</button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
+        <button class="item" data-act="psx">LOOK <small>${DG.Stage.psx ? "PSX" : "modern"}</small></button>
         <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
       </div>
     </div>`, "pause");

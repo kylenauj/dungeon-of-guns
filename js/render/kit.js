@@ -147,8 +147,14 @@ K.INK = {
   uEtch:{ value:0 }, uOutK:{ value:1 }, uGrain:{ value:1 }, uPaper:{ value:new THREE.Color(0xd4cec2) }, uHatchF:{ value:3.6 },
   // Ash & Ember (docs/ART_DIRECTION.md): no surface is more coloured than this
   // (HSV saturation); colour comes from light and from things that glow
-  uSatCap:{ value:0.24 }
+  uSatCap:{ value:0.24 },
+  // the PSX look (Stage.setPsx): every vertex snaps to a grid this many cells
+  // high (0: off), uSnapAsp cells wide per cell high, so models wobble and swim
+  // as the camera moves, the way the PlayStation's whole-pixel maths did
+  uSnap:{ value:0 }, uSnapAsp:{ value:1 }
 };
+const SNAP = "\n if(uSnap > 0.0 && gl_Position.w > 0.0){ vec2 sg = vec2(uSnap*uSnapAsp, uSnap); gl_Position.xy = floor(gl_Position.xy/gl_Position.w*sg + 0.5)/sg*gl_Position.w; }";
+K.SNAP = SNAP;
 /* outlines are a hairline now, not a cartoon line: shape comes from light and shade */
 K.OUTLINE = 0.22;
 const INK_PARS = [
@@ -376,6 +382,8 @@ K.inkify = function(mat, opts){
       .replace("#include <gradientmap_pars_fragment>", INK_PARS)
       .replace("#include <lights_toon_fragment>", (opts.vivid ? "" : SATCAP) + "\n#include <lights_toon_fragment>")
       .replace("gl_FragColor = vec4( outgoingLight, diffuseColor.a );", INK_MAIN);
+    // the PSX wobble (off unless uSnap is set): after every other vertex change
+    sh.vertexShader = "uniform float uSnap, uSnapAsp;\n" + sh.vertexShader.replace("#include <fog_vertex>", "#include <fog_vertex>" + SNAP);
     if(opts.rim){
       if(opts.figure) sh.fragmentShader = "#define INK_FIGURE\n" + sh.fragmentShader;
       sh.fragmentShader = "#define INK_RIM\nvarying float vInkY; varying vec3 vInkO;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" + GRIME);
@@ -411,8 +419,8 @@ K.toon = (opts)=> K.ink(Object.assign({ rim:true }, opts));
 K.lambert = (c, opts)=> K.ink(Object.assign({ color:c, vertexColors:false }, opts));
 K.vlambert = opts=> K.ink(opts);
 K.outlineMat = (w)=> new THREE.ShaderMaterial({
-  uniforms:{ uW:{ value:(w || 0.028)*K.OUTLINE }, uA:{ value:1 }, uInk:K.INK.uInk, uOutK:K.INK.uOutK }, side:THREE.BackSide, transparent:true,
-  vertexShader:"uniform float uW, uOutK; void main(){ vec3 p = position + normal*uW*uOutK; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0); }",
+  uniforms:{ uW:{ value:(w || 0.028)*K.OUTLINE }, uA:{ value:1 }, uInk:K.INK.uInk, uOutK:K.INK.uOutK, uSnap:K.INK.uSnap, uSnapAsp:K.INK.uSnapAsp }, side:THREE.BackSide, transparent:true,
+  vertexShader:"uniform float uW, uOutK, uSnap, uSnapAsp; void main(){ vec3 p = position + normal*uW*uOutK; gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0);" + SNAP + " }",
   fragmentShader:"uniform float uA; uniform vec3 uInk; void main(){ if(uA < 0.99 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) > uA) discard; gl_FragColor = vec4(uInk, 1.0); }"
 });
 /* a part: geometry + a colour, to be baked */
