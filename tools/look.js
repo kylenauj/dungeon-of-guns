@@ -78,8 +78,10 @@ function measure(b64){
   p.on("pageerror", e=> console.error("  page error:", e.message));
   const rows = [];
   for(const s of SHOTS){
-    await p.goto(base + s.url);
+    // (the HUD's web fonts don't matter here, it's hidden; and a floor is built behind the loading veil, so wait for it to lift)
+    await p.goto(base + s.url, { waitUntil:"domcontentloaded" });
     await p.waitForTimeout(s.wait);
+    await p.waitForFunction(()=>{ const v = document.querySelector(".veil"); return !v || v.style.display === "none"; }, null, { timeout:120000 });
     if(s.cam) await p.evaluate(([x, z, d])=>{ const C = DG.Gallery.cam; C.x = x; C.z = z; C.dist = d; DG.Stage.follow(x, z, x, z, true); }, s.cam);
     await p.addStyleTag({ content:"#hud, #screens { visibility:hidden !important; }" });
     await p.waitForTimeout(1500);
