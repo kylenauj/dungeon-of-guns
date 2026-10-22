@@ -445,6 +445,14 @@ H.draw = function(G, dt, opts){
     A(1);
   }
 
+  // ---- a vigil: the flame's strength, and how long to hold ----
+  const VG = G.room && G.room.vigil;
+  if(VG){
+    const pr = G.room.props.find(o=> o.id === VG.prop), hp = Math.max(0, (pr && pr.hp || 0)/100), w = small ? W - 120 : Math.min(420, W*0.34), bx = W/2 - w/2, by = 64*k;
+    text(g, "THE VIGIL", W/2, by - 14*k, 13*k, "#ffc870", "center", "700", SERIF, 4);
+    bar(g, bx, by, w, 6*k, hp, "#6a3a10", hp > 0.35 ? "#e89a3a" : "#d8442a", hp);
+    text(g, Math.ceil(Math.max(0, VG.t)) + "s", bx + w + 10*k, by + 6*k, 13*k, IVORY, "left", "700", SERIF, 1);
+  }
   // ---- a lair's mini-boss: a smaller bar in the same place (the Choir's three share one) ----
   const LR = !(B && !B.dead) && G.lairRef && G.lairRef.filter(e=> e.spawn <= 0);
   if(LR && LR.length){

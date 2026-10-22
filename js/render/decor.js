@@ -746,6 +746,73 @@ Object.assign(B, {
     o.lights.push({ x:-0.4, y:1.1, z:0, c:0xffb060, i:0.45 });
   },
   bookpile(o, rnd){ for(let s=0;s<2;s++){ let y = 0; const x = s*0.3 - 0.15; for(let i=0;i<3 + Math.floor(rnd()*3);i++){ const h = 0.04 + rnd()*0.03; P(o.group, BX(0.26 + rnd()*0.08, h, 0.2 + rnd()*0.05), [0x4a1a14, 0x2a3a2a, 0x3a2a1a, 0x5a4a2a][i % 4], x, y + h/2, 0, 0, rnd()*0.6, 0); y += h; } } },
+  /* ---- the Lantern Sanctum: Brother Olm's ruined scriptorium ---- */
+  /* a lectern, its book chained open; the pages lift now and then */
+  lectern(o, rnd){
+    const g = o.group;
+    P(g, CY(0.16, 0.2, 0.06, 8), WOOD2, 0, 0.03, 0);
+    P(g, K.sculpt(CY(0.045, 0.06, 0.95, 8, 4), 0.006, 20, rnd()*9), WOOD, 0, 0.5, 0);
+    P(g, BX(0.5, 0.04, 0.36), WOOD, 0, 1.0, 0.02, 0.45, 0, 0);
+    P(g, BX(0.5, 0.05, 0.04), WOOD2, 0, 0.92, 0.17, 0.45, 0, 0);
+    // the book: two leaves fanned open, stained, a ribbon
+    [-1, 1].forEach(sd=>{ const lf = new THREE.BoxGeometry(0.21, 0.012, 0.3, 4, 1, 1); const a = lf.attributes.position; for(let i=0;i<a.count;i++) a.setY(i, a.getY(i) + Math.pow(Math.abs(a.getX(i))/0.105, 2)*0.02*(a.getX(i)*sd > 0 ? 1 : 0.3)); P(g, lf, 0x8a7a58, sd*0.105, 1.04, 0.02, 0.45, 0, -sd*0.08); });
+    P(g, BX(0.46, 0.02, 0.32), 0x3a1a14, 0, 1.025, 0.02, 0.45, 0, 0);
+    for(let k=0;k<6;k++){ const sd = k % 2 ? 1 : -1; P(g, BX(0.14, 0.003, 0.004), 0x2a2018, sd*0.11, 1.055, -0.08 + (k >> 1)*0.06, 0.45, 0, 0); }
+    P(g, BX(0.015, 0.002, 0.2), 0x6a1a14, 0.02, 1.06, 0.13, 0.9, 0, 0.1);
+    // the chain from the book to the post
+    for(let k=0;k<6;k++) P(g, TO(0.016, 0.004, 0, 3, 6), IRON2, -0.24 + k*0.008, 0.98 - k*0.07, 0.12 - k*0.015, 0, k % 2 ? PI/2 : 0, 0);
+    candle(o, g, 0.2, -0.12, 0.08 + rnd()*0.06, 0.025, WAX2, undefined, 1.0);
+  },
+  /* an orrery of bone and brass: rings, and skulls for planets */
+  orrery(o, rnd){
+    const g = o.group;
+    P(g, CY(0.25, 0.32, 0.12, 10), 0x2a2420, 0, 0.06, 0);
+    rod(g, [0, 0.1, 0], [0, 1.9, 0], 0.03, BRASS, 0.018);
+    [[0.55, 1.5, 0.3, 0.2], [0.85, 1.35, -0.5, 0.4], [1.15, 1.2, 0.2, -0.3]].forEach(([r, y, rx, rz], i)=>{
+      P(g, TO(r, 0.014, 0, 4, 40), i % 2 ? BRASS : 0x5a4a30, 0, y, 0, PI/2 + rx, 0, rz);
+      const a = rnd()*PI*2, x = Math.cos(a)*r, z = Math.sin(a)*r;
+      skull(g, x, y - 0.06 + Math.sin(a)*rx*r*0.5, z, 0.07 + i*0.02, a, 0);
+    });
+    L(g, S(0.1, 10, 8), 0xffb060, 0, 1.92, 0);
+    o.glows.push({ x:0, y:1.92, z:0, c:0xffa040, s:1.4 }); o.lights.push({ x:0, y:1.9, z:0, c:0xffa860, i:0.6 });
+  },
+  /* a mound of melted wax with dozens of stubs burning in it */
+  waxmound(o, rnd){
+    const g = o.group;
+    for(let k=0;k<5;k++) P(g, K.lump(0.16 + rnd()*0.14, 1, 0.35, rnd()*9), [WAX, WAX2, 0xb8a888][k % 3], (rnd() - 0.5)*0.5, 0.04 + rnd()*0.08, (rnd() - 0.5)*0.5, 0, 0, 0, 1, 0.45, 1);
+    const n = 7 + Math.floor(rnd()*6);
+    for(let k=0;k<n;k++){ const a = rnd()*PI*2, d = rnd()*0.35; candle(o, g, Math.cos(a)*d, Math.sin(a)*d, 0.05 + rnd()*0.2, 0.02 + rnd()*0.015, [WAX, WAX2][k % 2], k % 3 ? undefined : false, 0.08); }
+    o.lights.push({ x:0, y:0.5, z:0, c:0xffb060, i:0.5 });
+  },
+  /* loose pages drifted against the wall: they rustle when you walk through */
+  pagedrift(o, rnd){
+    const g = o.group;
+    for(let k=0;k<22;k++){
+      const pg = new THREE.PlaneGeometry(0.16 + rnd()*0.06, 0.22 + rnd()*0.06, 2, 2); const a = pg.attributes.position; for(let i=0;i<a.count;i++) a.setZ(i, (rnd() - 0.5)*0.03);
+      P(g, pg, [0x8a7a58, 0x6a5a40, 0x9a8a68, 0x5a4a36][k % 4], (rnd() - 0.5)*1.1, 0.01 + rnd()*0.08 + (k > 14 ? 0.08 : 0), (rnd() - 0.5)*0.6, -PI/2 + (rnd() - 0.5)*0.8, rnd()*PI, (rnd() - 0.5)*0.6);
+    }
+  },
+  /* a summoning circle burned into the floor: rings, a star, runes, the stone scorched black */
+  summoncircle(o, rnd){
+    const g = o.group;
+    P(g, new THREE.CircleGeometry(1.6, 40).rotateX(-PI/2), 0x0a0806, 0, 0.006, 0);
+    [1.45, 1.2, 0.5].forEach((r, i)=> L(g, new THREE.RingGeometry(r - 0.03, r, 48).rotateX(-PI/2), i === 1 ? 0x8a3a1a : 0x6a2a14, 0, 0.012 + i*0.001, 0));
+    for(let k=0;k<5;k++){ const a = k/5*PI*2, b = (k + 2)/5*PI*2; const ax = Math.sin(a)*1.2, az = Math.cos(a)*1.2, bx = Math.sin(b)*1.2, bz = Math.cos(b)*1.2, len = Math.hypot(bx - ax, bz - az); L(g, new THREE.PlaneGeometry(0.03, len).rotateX(-PI/2), 0x7a2a12, (ax + bx)/2, 0.014, (az + bz)/2, 0, Math.atan2(bx - ax, bz - az), 0); }
+    for(let k=0;k<16;k++){ const a = k/16*PI*2; L(g, new THREE.PlaneGeometry(0.06, 0.1).rotateX(-PI/2), 0x6a2a14, Math.sin(a)*1.33, 0.015, Math.cos(a)*1.33, 0, a + (k % 3)*0.4, 0); }
+    o.glows.push({ x:0, y:0.05, z:0, c:0x8a2a10, s:2.2 });
+  },
+  /* a tall window of stained glass, cracked, a shaft of cold light through the dust */
+  stainedglass(o, rnd){
+    const g = o.group;
+    P(g, BX(1.2, 2.3, 0.14), 0x2a2622, 0, 1.4, 0.04);
+    P(g, new THREE.CylinderGeometry(0, 0.64, 0.55, 4, 1), 0x2a2622, 0, 2.82, 0.04, 0, PI/4, 0, 1.3, 1, 0.16);   // the pointed arch
+    const cols = [0x3a5a8a, 0x8a2a2a, 0x8a7a2a, 0x2a6a4a, 0x5a3a7a];
+    for(let y=0;y<5;y++) for(let x=0;x<3;x++){ if(rnd() < 0.18) continue; L(g, BX(0.3, 0.38, 0.02), cols[(x + y*2) % cols.length], -0.33 + x*0.33, 0.55 + y*0.42, 0.12); }
+    for(let k=0;k<4;k++) P(g, BX(1.04, 0.025, 0.04), 0x14100c, 0, 0.76 + k*0.42, 0.13);
+    [-0.165, 0.165].forEach(x=> P(g, BX(0.025, 2.1, 0.04), 0x14100c, x, 1.4, 0.13));
+    o.glows.push({ x:0, y:1.4, z:0.2, c:0x8aa8d8, s:2.2 });
+    o.lights.push({ x:0, y:1.8, z:0.8, c:0x9ab8e8, i:0.7 });
+  },
   kettle(o, rnd){
     const g = o.group;
     for(let i=0;i<3;i++){ const a = i/3*PI*2; rod(g, [Math.cos(a)*0.22, 0, Math.sin(a)*0.22], [0, 0.55, 0], 0.012, IRON); }

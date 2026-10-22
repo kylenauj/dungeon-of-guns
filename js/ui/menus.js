@@ -125,19 +125,21 @@ UI.journal = function(G){
     return `<li class="${state}"><span class="fl">${f}</span><span class="nm">${esc(F.name)}</span><span class="bs">${done ? "✝ " : ""}${esc(B ? B.name : "")}</span></li>`;
   }).join("");
   const roads = [];
-  if(p.quests.ember) roads.push(`<span class="chipx" style="--c:#ff9a4a">The Ember: it wants to go down, past the Heart</span>`);
+  if(p.quests.ember) roads.push(`<span class="chipx" style="--c:#ff9a4a">The Ember: it wants to go down, past the Heart, to the Kiln</span>`);
   if(p.quests.crown && !(G.roads && G.roads.rot.stage)) roads.push(`<span class="chipx" style="--c:#7ac84a">The Crown of the Bog: Gribbus has plans</span>`);
   // the Rot road, once he's drunk from the lily: every step, done or not
   const rot = G.roads && G.roads.rot;
   const rotRoad = rot && rot.stage >= 1 && DG.Roads ? `<h4 class="road rot">The Rot</h4><ol class="steps">${DG.Roads.rotSteps(G).map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>` : "";
-  const shut = G.roads && G.roads.lantern.closed ? `<p class="tally shut">The Lantern road is shut.</p>` : "";
+  const lan = G.roads && G.roads.lantern;
+  const lanRoad = lan && lan.stage >= 1 && DG.Roads ? `<h4 class="road lantern">The Lantern</h4><ol class="steps">${DG.Roads.lanternSteps(G).map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>` : "";
+  const shut = (G.roads && G.roads.lantern.closed ? `<p class="tally shut">The Lantern road is shut.</p>` : "") + (G.roads && G.roads.rot.closed ? `<p class="tally shut">The black lily won't open for you now.</p>` : "");
   return `<div class="journal">
       <h4>The road down</h4>
       <p class="mission">The Gloom is a rot coming up from the Heart at the bottom of the Keep. Each warden below is one of its roots. Go down. Cut them. Still the Heart.</p>
       <ol class="roots">${rows}</ol>
       <p class="tally">Lairs cleared: <b>${G.stats.lairs || 0}</b> · Puzzles solved: <b>${G.stats.puzzles || 0}</b> · Secrets: <b>${G.stats.secrets || 0}</b></p>
       ${roads.length ? `<div class="chips">${roads.join("")}</div>` : ""}
-      ${rotRoad}${shut}
+      ${lanRoad}${rotRoad}${shut}
     </div>`;
 };
 
@@ -212,21 +214,20 @@ const OLM_CSS = `
 @media (max-width:640px){ .olmp{grid-template-columns:1fr;gap:10px;} .olmp .face{width:90px;height:110px;margin:0 auto;} .olmp .olmline{font-size:16px;} }`;
 function olmStyle(){ if(document.getElementById("olm-css")) return; const s = document.createElement("style"); s.id = "olm-css"; s.textContent = OLM_CSS; document.head.appendChild(s); }
 /* his likeness: a pot helm, a cowl, a lantern held up (drawn, not a photo; he'd never sit for one) */
+/* his likeness: the hood, empty, and the cage-lantern hung where a face should be */
 const OLM_FACE = `<svg viewBox="0 0 150 190" aria-hidden="true">
-  <defs><radialGradient id="olmL" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe2a0"/><stop offset=".35" stop-color="#ff9a3a" stop-opacity=".8"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
-  <circle class="lamp" cx="112" cy="104" r="44" fill="url(#olmL)"/>
-  <path d="M18 190 C20 140 36 118 75 112 C114 118 130 140 132 190Z" fill="#3a2e24" stroke="#120c08" stroke-width="2"/>
-  <path d="M30 190 C34 150 50 132 75 128 C100 132 116 150 120 190Z" fill="#5a4a3a" stroke="#120c08" stroke-width="2"/>
-  <path d="M38 132 C40 112 54 104 75 104 C96 104 110 112 112 132 C100 126 50 126 38 132Z" fill="#6a3a22" stroke="#120c08" stroke-width="2"/>
-  <path d="M34 70 C34 30 52 14 75 14 C98 14 116 30 116 70 C116 92 104 106 75 108 C46 106 34 92 34 70Z" fill="#5c5650" stroke="#120c08" stroke-width="2.5"/>
-  <path d="M40 60 C46 40 60 30 75 30 C90 30 104 40 110 60" fill="none" stroke="#7a726a" stroke-width="3"/>
-  <rect x="40" y="62" width="70" height="9" rx="3" fill="#0c0806"/>
-  <circle cx="60" cy="66" r="2" fill="#ffb84a"/><circle cx="90" cy="66" r="2" fill="#ffb84a"/>
-  <path d="M75 72 L75 104" stroke="#3a3430" stroke-width="3"/>
-  <g fill="#7a5a3a">${[48, 58, 68, 82, 92, 102].map(x=> `<circle cx="${x}" cy="88" r="2"/>`).join("")}</g>
-  <path d="M103 86 L120 96" stroke="#2a2420" stroke-width="3"/>
-  <rect x="104" y="96" width="16" height="22" rx="2" fill="#2a2420" stroke="#120c08" stroke-width="1.5"/>
-  <rect x="107" y="99" width="10" height="15" fill="#ffc870"/>
+  <defs><radialGradient id="olmL" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe2a0"/><stop offset=".35" stop-color="#ff9a3a" stop-opacity=".75"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
+  <path d="M8 190 C14 140 30 112 75 104 C120 112 136 140 142 190Z" fill="#2a241e" stroke="#0c0806" stroke-width="2"/>
+  <path d="M22 132 C30 60 48 18 82 8 C96 30 118 70 128 132 C110 118 40 118 22 132Z" fill="#2e2822" stroke="#0c0806" stroke-width="2.5"/>
+  <path d="M38 126 C44 78 58 52 78 44 C96 54 108 84 112 126 C96 116 54 116 38 126Z" fill="#050403"/>
+  <path d="M30 130 C44 120 106 120 120 130" fill="none" stroke="#4a4034" stroke-width="5"/>
+  <g fill="#d8cca8">${[30, 44, 104, 118].map((x, i)=> `<rect x="${x}" y="${132 + (i % 2)*4}" width="7" height="14" rx="1"/>`).join("")}</g>
+  <circle class="lamp" cx="75" cy="102" r="40" fill="url(#olmL)"/>
+  <path d="M75 50 L75 78" stroke="#26241f" stroke-width="2.5"/>
+  <g stroke="#26241f" stroke-width="2.5" fill="none"><ellipse cx="75" cy="84" rx="9" ry="3"/><ellipse cx="75" cy="118" rx="9" ry="3"/>
+  ${[-12, -6, 0, 6, 12].map(x=> `<path d="M${75 + x*0.7} 84 Q${75 + x} 101 ${75 + x*0.7} 118"/>`).join("")}</g>
+  <ellipse cx="75" cy="101" rx="5" ry="9" fill="#fff0b0"/>
+  <path d="M75 120 L75 128" stroke="#26241f" stroke-width="2"/>
 </svg>`;
 UI.olm = function(G){
   olmStyle();
@@ -278,7 +279,9 @@ UI.choose = function(G){
 
 /* the ending's lore, a line at a time, before the tally */
 UI.lore = function(G, id){
-  const E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
+  const E0 = DG.ENDINGS[id] || DG.ENDINGS.dawn, olm = G && G.roads && G.roads.lantern.olm;
+  // the First Flame remembers what you did with Olm
+  const E = id === "flame" && olm && E0["lore_" + olm] ? Object.assign({}, E0, { lore:E0["lore_" + olm] }) : E0;
   UI.show(`
     <div class="lorewrap ending-${id}">
       <h2 class="lore-title">${esc(E.title)}</h2>

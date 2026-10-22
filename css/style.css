@@ -247,3 +247,4 @@ body.cinema #hud{display:none;}
 .journal .steps li.done{color:#c8d088;}
 .journal .steps li.done::marker{content:"✓  ";color:#a8c850;}
 .journal .tally.shut{font-style:italic;color:#7a6a58;}
+.journal h4.road.lantern{color:#e8a850;}

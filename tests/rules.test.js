@@ -1447,9 +1447,9 @@ test("Brother Olm: talk, a blessing for gold, a trade a tier up, a mend, a key, 
   assert.equal(G.state, "choose"); assert.equal(G.choice.kind, "olm");
   assert.ok(G.choice.line.length > 10);
   const idx = act=> G.choice.options.findIndex(x=> x.act === act);
-  // listening: what matters on this floor first (the Reliquary, on floor 1), and never the same twice
+  // listening: what matters on this floor first (the road down: wicks, the Reliquary), and never the same twice
   G.choose(idx("listen"));
-  assert.ok(/reliquary/i.test(G.choice.line), G.choice.line);
+  assert.ok(/wicks|reliquary/i.test(G.choice.line), G.choice.line);
   const lines = new Set([G.choice.line]);
   for(let k=0;k<6;k++){ G.choose(idx("listen")); assert.ok(!lines.has(G.choice.line), "a new line each time"); lines.add(G.choice.line); }
   // a blessing: needs the gold, gives a boon, once a visit

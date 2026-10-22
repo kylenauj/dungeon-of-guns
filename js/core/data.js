@@ -220,7 +220,20 @@ DG.ENDINGS = {
     "He laid him to rest, and set the Ember in the hearth where it belonged.",
     "The First Flame woke. Its light ran up every stair of the Keep and out through the forest, and the Gloom had nowhere left to hide.",
     "There is a keeper in the Kiln again. He is grey, and he is patient, and he talks to his frog.",
-    "Gribbus has his own chair by the fire. It is a very good chair."] },
+    "Gribbus has his own chair by the fire. It is a very good chair."],
+    // the Lantern road: what you did with Olm
+    lore_forgive:[
+      "In the Kiln, Zippy found what was left of his master: hollow, burning cold, still guarding a fire that had gone out.",
+      "Brother Olm held his old friend while Zippy set the Ember in the hearth, and talked to him the whole time, about nothing, about the kettle.",
+      "The First Flame woke. Its light ran up every stair of the Keep and out through the forest, and the Gloom had nowhere left to hide.",
+      "There are two lanterns by the Kiln's fire now, side by side. One of them is very old. Neither of them goes out.",
+      "Gribbus sleeps between them. Olm says he's the warmest thing in the Keep, and he isn't wrong."],
+    lore_take:[
+      "In the Kiln, Zippy found what was left of his master: hollow, burning cold, still guarding a fire that had gone out.",
+      "He laid him to rest, and set the Ember in the hearth, and Olm's coal beside it, where they both belonged.",
+      "The First Flame woke. Its light ran up every stair of the Keep, past a scriptorium where an old man sat in the dark with his hands in his lap.",
+      "The light reached him. He didn't move. Perhaps he was asleep. Perhaps he was only listening to the fire, at last.",
+      "Zippy keeps the Kiln alone now. He is grey, and he is patient, and he talks to his frog."] },
   bog:{ title:"KING OF THE BOG", sub:"Gribbus ate the Heart.", lore:[
     "The Gloom Heart was a hunger, and it met a worse one.",
     "Gribbus swallowed it whole, and the rot inside it found a home that was already rotten.",
@@ -351,9 +364,10 @@ DG.OLM = {
   talk: [
     { id:"chair",     text:"I came down for the light at the bottom. Forty years ago. Haven't found it. Found this chair, though. Good chair." },
     { id:"keys",      text:"Keys. Goblins hoard them like teeth. A door in chains wants one. What's behind is usually worth it. Usually." },
-    { id:"reliquary", text:"Up in the first halls there's a reliquary, sealed and locked. The First Flame sleeps inside. Keep a key for it, if you find it early.", floors:[1, 2], pri:2 },
+    { id:"reliquary", text:"There's a reliquary, a floor or two down, warded by the old keepers. Locks won't open it. Light will. Enough light. Mind the one who still keeps it.", floors:[1, 3], pri:2 },
+    { id:"wicks",     text:"The old keepers left wicks all the way down. Dead now. My lantern can see them. Light them, and hold them lit, and the old fire will remember you.", floors:[1, 3], pri:3 },
     { id:"walls",     text:"A room with one door is a liar. It means to have two. Watch for stone that breathes. Listen for the draught.", pri:1 },
-    { id:"shrine",    text:"Deeper, the Drowned Shrine. Bog-water and an old crown. Your frog would look well in a crown. Don't tell him I said so.", floors:[2, 3], pri:2 },
+    { id:"shrine",    text:"There's a pond down here that drinks wrong. If your frog ever looks at a black lily, Zippy... don't let him. Promise me.", floors:[1, 3], pri:2 },
     { id:"soapstone", text:"The dead scrawl on the floors in orange. 'Try wall.' Half of it is true. The other half is goblins." },
     { id:"throne",    text:"There's a red throne somewhere below. If you find it... no. If you find it, think of me. Then think again." },
     { id:"gamble",    text:"The gamblers' altars pay. Until they don't. I lost an arm to one. Won it back. Different arm." },
@@ -384,7 +398,7 @@ Object.assign(DG.LINES, {
   cage:   ["A treasure in a cage. The cage isn't for the treasure.", "Too easy. Far too easy."],
   gamble: ["The house is very old, and has never lost.", "Dice carved from knucklebones. Whose? Best not."],
   sprung: ["IT'S A TRAP. Of course it's a trap.", "The cage was bait. You were the fish."],
-  olmRoom:["Warm light. A kettle. Snoring.", "Somebody lives here. Somebody with a lantern."],
+  olmRoom:["Pages turn on their own. Something very tall is breathing in the dark.", "Wax and old ink. A light hangs in a hood, and the hood turns toward you.", "A circle burned into the floor. Someone has been standing in it a long time."],
   sprungClear:["The cage is empty. So is the room. You win this one.", "Survived the bait. The prize is yours, fair and bloody."]
 });
 

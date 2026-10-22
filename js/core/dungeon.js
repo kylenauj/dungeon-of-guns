@@ -701,17 +701,22 @@ const SPECIAL = {
     deco(D, r, "candlecluster", cx - 4.2, cy - 1, { rot:1, s:1 }); deco(D, r, "candlecluster", cx + 4.4, cy + 2, { rot:2, s:1 });
   },
   /* the Wizard's Quarters: a cot, a hearth, a kettle, too many books, and Brother Olm */
+  /* the Lantern Sanctum: a ruined scriptorium. Olm stands in a circle burned
+     into the floor under a cracked window; lecterns ring him, their books
+     chained open; wax mounds burn in the corners; an orrery of bones turns */
   olm(D, rng, r){
-    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw), ox = cx + 0.5, oy = cy - 0.5;
     r.props.push({ kind:"olm", x:cx, y:cy - 1 });
-    wallDeco(D, r, "hearth", cx, { s:1 });
-    [r.x1 + 1, r.x1 + 3, r.x2 - 3, r.x2 - 1].forEach(x=>{ if(Math.abs(x - cx) > 1) wallDeco(D, r, "bookshelf", x, { s:1 }); });
-    deco(D, r, "cot", r.x1 + 1.6, r.y2 - 0.4, { rot:0, s:1 });
-    deco(D, r, "desk", r.x2 - 0.9, cy + 0.5, { rot:-Math.PI/2, s:1 });
-    deco(D, r, "bookpile", r.x1 + 0.8, cy, { rot:rng.next()*6, s:1 });
-    deco(D, r, "bookpile", r.x2 - 0.6, r.y2 - 0.2, { rot:rng.next()*6, s:1 });
-    deco(D, r, "kettle", cx + 1.4, r.y1 + 0.7, { rot:0, s:1 });
-    deco(D, r, "stool", cx - 1.2, cy - 0.2, { rot:0.4, s:1 });
+    deco(D, r, "summoncircle", ox, oy, { rot:0, s:1.2 });
+    wallDeco(D, r, "stainedglass", cx, { s:1 });
+    [r.x1 + 1, r.x1 + 3, r.x2 - 3, r.x2 - 1].forEach(x=>{ if(Math.abs(x - cx) > 2) wallDeco(D, r, "bookshelf", x, { s:1 }); });
+    // lecterns round the circle, facing in
+    [-2.4, -1.5, 1.5, 2.4].forEach((a, i)=>{ const x = ox + Math.sin(a)*3, y = oy - Math.cos(a)*2.4; deco(D, r, "lectern", x, y, { rot:a + Math.PI, s:1 }); });
+    [[r.x1 + 0.9, r.y1 + 1], [r.x2 + 0.1, r.y1 + 1], [r.x1 + 0.9, r.y2], [r.x2 + 0.1, r.y2]].forEach(([x, y])=> deco(D, r, "waxmound", x, y, { rot:rng.next()*6, s:1 + rng.next()*0.3 }));
+    deco(D, r, "orrery", r.x2 - 1.4, cy + 1.6, { rot:rng.next()*6, s:1 });
+    deco(D, r, "pagedrift", r.x1 + 1.6, r.y2 - 0.3, { rot:0, s:1.2 });
+    deco(D, r, "pagedrift", r.x2 - 2.5, r.y1 + 0.8, { rot:0.4, s:1 });
+    deco(D, r, "bookpile", r.x1 + 0.8, cy + 0.5, { rot:rng.next()*6, s:1 });
   }
 };
 Dungeon.SPECIAL = SPECIAL;

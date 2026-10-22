@@ -1208,6 +1208,24 @@ proto.roomProp = function(p, g, o){
   }
   if(p.kind === "dice"){ W.decorInto(g, "dicealtar", p, {}); return true; }
   if(p.kind === "bloodbowl"){ W.decorInto(g, "bloodbowl", p, {}); return true; }
+  if(p.kind === "wick"){
+    // a dead wick: a tall iron stand, a basin of cold black wax, a wick like a finger; lit, a tall slow flame
+    const P = K.part;
+    for(let k=0;k<4;k++){ const a = k/4*PI*2 + 0.4; P(g, new THREE.CylinderGeometry(0.025, 0.035, 1.5, 5), 0x26241f, Math.cos(a)*0.16, 0.74, Math.sin(a)*0.16, Math.sin(a)*0.12, 0, -Math.cos(a)*0.12); }
+    P(g, new THREE.TorusGeometry(0.17, 0.02, 4, 12), 0x26241f, 0, 0.5, 0, PI/2);
+    P(g, K.lathe([[0.04, 0], [0.24, 0.05], [0.3, 0.16], [0.27, 0.18], [0.2, 0.08], [0.04, 0.03]], 12), 0x2e2c28, 0, 1.45, 0);
+    P(g, new THREE.CylinderGeometry(0.22, 0.22, 0.05, 12), 0x14120e, 0, 1.57, 0);
+    P(g, new THREE.CylinderGeometry(0.02, 0.03, 0.22, 6), 0x0a0806, 0, 1.68, 0, 0.1, 0, 0.1);
+    for(let k=0;k<8;k++){ const a = k/8*PI*2; P(g, new THREE.ConeGeometry(0.018, 0.1, 4), 0x26241f, Math.cos(a)*0.29, 1.66, Math.sin(a)*0.29); }
+    K.bake(g, { w:0.016 });
+    const flame = K.sprite(0xffb060, 1.8, 0.95); flame.position.y = 1.95; flame.visible = false; g.add(flame);
+    const core = K.sprite(0xfff0c8, 0.7, 0.95); core.position.y = 1.85; core.visible = false; g.add(core);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.85, 40, 1, 0, PI*2), new THREE.MeshBasicMaterial({ color:0xffb060, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false }));
+    ring.rotation.x = -PI/2; ring.position.y = 0.04; g.add(ring);
+    o.flame = flame; o.core = core; o.ring = ring;
+    W.lights.push({ x:p.x + 0.5, y:2.1, z:p.y + 0.5, c:0xffa850, i:0, room:p.room, ph:0, small:true, wick:p }); o.light = W.lights[W.lights.length - 1];
+    return true;
+  }
   if(p.kind === "olm"){
     const R = M.olm(); g.add(R.root); o.rig = R;
     W.lights.push({ x:p.x + 0.2, y:1.4, z:p.y + 1.0, c:0xffa850, i:1.1, room:p.room, ph:0, small:true });
@@ -1224,6 +1242,17 @@ proto.roomProp = function(p, g, o){
 };
 proto.updateRoomProp = function(pr, o, G, dt, t){
   const p = G.player;
+  if(pr.kind === "wick" && o.flame){
+    const r = G.D.rooms[pr.room], burning = pr.lit || !!r.vigil, hp = pr.lit ? 1 : Math.max(0, (pr.hp || 0)/100);
+    const f = (0.85 + 0.15*Math.sin(t*9 + pr.x))*(pr.lit ? 1 : 0.5 + 0.5*hp);
+    o.flame.visible = o.core.visible = burning;
+    o.flame.scale.setScalar(1.8*f); o.core.scale.setScalar(0.7*f);
+    o.light.i = burning ? 1.4*f : 0;
+    // the vigil: a ring on the floor, shrinking as the flame weakens
+    o.ring.material.opacity = r.vigil ? 0.35 + 0.15*Math.sin(t*6) : 0;
+    o.ring.scale.setScalar(0.4 + 0.6*hp);
+    o.ring.material.color.setHex(hp > 0.35 ? 0xffb060 : 0xff4a2a);
+  }
   if(pr.kind === "olm" && o.rig){
     const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 4;
     M.olmIdle(o.rig, t, near ? DG.clamp(Math.atan2(p.x - pr.x - 0.5, p.y - pr.y - 0.5), -1, 1) : Math.sin(t*0.2)*0.4);

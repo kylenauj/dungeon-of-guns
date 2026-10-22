@@ -174,7 +174,7 @@ proto.warmUp = function(now){
   if(!now){ const t = performance.now(); if(t - (V.warmAt || 0) < 200) return; V.warmAt = t; }
   const k = V.warm.shift();
   try{
-    if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); }
+    if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); }
     else {
       // the first of a kind is built (and its shaders warmed), the rest are copies of it
       V.tpl = V.tpl || {};
@@ -356,6 +356,14 @@ proto.handle = function(ev){
     case "choke": S.shake(0.5); FX.burst(ev.x, 1.2, ev.y, 0x8a1a10, 24, 4, 0.3, 0.6); play("tellBig"); break;
     case "spitOut": FX.burst(ev.x, 0.8, ev.y, 0x3a0a0a, 20, 4, 0.25, 0.6); play("gulp"); break;
     case "frogLeap": S.shake(0.6); FX.rise(ev.x2, ev.y2, 0x9ab040, 30, 1); play("gulp"); break;
+    case "lantern": FX.rise(p.x, p.y, 0xffb060, 20, 0.6); play("blessing"); break;
+    case "vigil": FX.ring(ev.x, ev.y, 2.5, 0xffb060, 0.9); FX.soul(ev.x, ev.y, 3, 5, 0xffa040); S.shake(0.2); play("tellBig"); break;
+    case "wickHit": FX.burst(ev.x, 1.6, ev.y, 0x3a2a4a, 12, 3, 0.25, 0.5); play("wrongnote", { n:1 }); break;
+    case "wickOut": FX.smoke(ev.x, 1.6, ev.y, 0x1a1614, 18, 0.6, 1.6); S.shake(0.3); play("wrongnote", { n:3 }); break;
+    case "wickLit": FX.ring(ev.x, ev.y, 4, 0xffd890, 1.2); FX.rise(ev.x, ev.y, 0xffb060, 30, 1); S.shake(0.4); play("solved"); break;
+    case "wardsBurn": FX.burst(ev.x, 1.2, ev.y, 0xffb060, 30, 4, 0.3, 0.8, { up:1 }); play("illusion"); break;
+    case "olmWard": FX.ring(ev.x, ev.y, 2, 0xffb060, 0.6); break;
+    case "lanternBeam": V.lanternBeam(ev); play("brazier"); break;
     case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
     case "swallow": FX.smoke(ev.x, 0.6, ev.y, 0x4a5a2a, 8, 0.5, 0.8); S.shake(0.15); play("gulp"); break;
     case "frogRank": FX.rise(ev.x, ev.y, 0x9cff6a, 18, 0.6); play("duo"); break;
@@ -459,6 +467,7 @@ proto.makePortal = function(x, y){
 /* ---- allies and hazards: little meshes made on demand ---- */
 function allyMesh(a){
   const g = new THREE.Group();
+  if(a.kind === "olm"){ const R = M.olm(); R.root.scale.setScalar(0.85); g.add(R.root); g.userData.rig = R; return g; }
   if(a.kind === "wisp"){
     const c = ELC(a.el);
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), K.basic(0xffffff)); g.add(core);
@@ -850,7 +859,25 @@ proto.updateLoot = function(dt, t){
   for(const id in V.pickups) if(!pk[id]){ S.scene.remove(V.pickups[id]); delete V.pickups[id]; }
 };
 
+/* a Lantern Beam: a ray of the old fire, bright, then gone */
+proto.lanternBeam = function(ev){
+  const V = this, g = new THREE.Group(), len = ev.len;
+  [[0.09, 0xfff0c8, 0.95], [0.4, 0xffa040, 0.4], [0.9, 0xff7a20, 0.14]].forEach(([w, c, op])=>{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, w*0.6, len), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false }));
+    m.position.z = len/2; m.userData.op = op; g.add(m);
+  });
+  g.position.set(ev.x, 0.95, ev.y); g.rotation.y = Math.atan2(Math.cos(ev.a), Math.sin(ev.a));
+  S.scene.add(g); (V.lbeams = V.lbeams || []).push({ g, t:0 });
+  for(let k=0;k<10;k++){ const d = Math.random()*len; FX.emit(ev.x + Math.cos(ev.a)*d, 0.9, ev.y + Math.sin(ev.a)*d, 0, 1.5, 0, 0xffb060, 0.3, 0.5, 0, 1); }
+};
 proto.updateAllies = function(dt, t){
+  const V0 = this;
+  if(V0.lbeams && V0.lbeams.length) V0.lbeams = V0.lbeams.filter(b=>{
+    b.t += dt; const k = Math.max(0, 1 - b.t/0.55);
+    b.g.children.forEach(m=>{ m.material.opacity = m.userData.op*k; m.scale.x = m.scale.y = 1 + (1 - k)*0.6; });
+    if(k <= 0){ S.scene.remove(b.g); b.g.children.forEach(m=>{ m.geometry.dispose(); m.material.dispose(); }); return false; }
+    return true;
+  });
   const V = this, G = V.G, live = {};
   G.allies.forEach(a=>{
     live[a.id] = 1;
@@ -864,6 +891,12 @@ proto.updateAllies = function(dt, t){
     if(a.kind === "tadpole") o.g.children.forEach(c=>{ if(c.userData.baked) c.rotation.y = Math.sin(t*20 + a.id)*0.3; });
     if(a.kind === "bee"){ o.g.position.y = y + Math.sin(t*14 + a.id)*0.1; o.g.userData.wings.forEach((w, i)=> w.rotation.z = Math.sin(t*60)*0.6*(i ? -1 : 1)); }
     if(a.kind === "ghoul"){ M.idle(o.g.userData.rig, t, Math.hypot(a.vx, a.vy)); o.g.position.y = 0.15 + Math.sin(t*3 + a.id)*0.08; if(Math.random() < 0.2) FX.emit(a.x, 0.6, a.y, 0, 0.6, 0, 0x6aff9a, 0.25, 0.4, 0, 1); }
+    if(a.kind === "olm"){
+      const R = o.g.userData.rig, mv = o.px === undefined ? 0 : Math.hypot(a.x - o.px, a.y - o.py)/Math.max(dt, 1e-3);
+      if(mv > 0.2) o.g.rotation.y += DG.wrapAngle(Math.atan2(a.x - o.px, a.y - o.py) - o.g.rotation.y)*(1 - Math.exp(-dt*4));
+      o.px = a.x; o.py = a.y;
+      M.olmIdle(R, t, 0); R.root.position.y = Math.abs(Math.sin(t*3.2))*0.04*Math.min(1, mv);
+    }
     if(a.kind === "hat"){ o.g.rotation.y = t*14; o.g.rotation.z = 0.35; if(Math.random() < 0.6) FX.emit(a.x, 0.9, a.y, 0, 0, 0, 0xb36bff, 0.3, 0.3, 0, 1); }
   });
   for(const id in V.allies) if(!live[id]){ FX.burst(V.allies[id].g.position.x, 0.8, V.allies[id].g.position.z, 0xffffff, 5, 2, 0.2, 0.3); S.scene.remove(V.allies[id].g); delete V.allies[id]; }
