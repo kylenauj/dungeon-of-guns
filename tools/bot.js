@@ -63,6 +63,7 @@ Bot.prototype.chooseGoal = function(){
       if(pr.kind === "lilypad" && !pr.taken && !r.pondDone && (pr.buff || !r.pondOffered)) return { x:pr.x + 0.5, y:pr.y + 1.3, use:!!pr.buff, key:pr.buff ? key : null };
     }
   }
+  if(G.D.climb) return { x:G.D.exit.x, y:G.D.exit.y };
   const todo = G.D.rooms.filter(r=> !r.cleared && (r.type === "combat"));
   if(todo.length){ todo.sort((a, b)=> DG.dist(a.cxw, a.cyw, p.x, p.y) - DG.dist(b.cxw, b.cyw, p.x, p.y)); return G.freeSpot(todo[0], todo[0].cxw, todo[0].cyw); }
   const boss = G.D.rooms.find(r=> r.type === "boss" && !r.cleared);

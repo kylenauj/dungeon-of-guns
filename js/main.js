@@ -191,7 +191,7 @@ function frame(dt, t){
       G.drain().forEach(ev=>{
         if(ev.type === "fly" && !app.demo) saveMeta(G.meta);
         // a new floor: everything from here waits behind the veil (frame, above)
-        if(!V.silent && ev.type === "floor" && ev.floor !== V.floor && !app.descend){ app.descend = { ev, rest:[], n:0 }; Veil.show(ev.name || "", "down into the dark…"); return; }
+        if(!V.silent && ev.type === "floor" && V.builtD !== G.D && !app.descend){ app.descend = { ev, rest:[], n:0 }; Veil.show(ev.name || "", "down into the dark…"); return; }
         if(app.descend){ app.descend.rest.push(ev); return; }
         if(V.silent){ const a = AU.muted; AU.muted = true; V.handle(ev); AU.muted = a; }
         else { V.handle(ev); HUD.handle(ev, G); }

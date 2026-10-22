@@ -39,6 +39,14 @@ AI.update = function(G, e, dt){
   if(e.st.frozen > 0 || e.st.stun > 0) return;
   // a vigil: it drifts for the wick, not for you
   if(e.vigil && DG.Roads && DG.Roads.vigilMove(G, e, dt)) return;
+  // the climb: the last of the Gloom flees down the shaft, and whatever's in its way gets hurt
+  if(e.flee){
+    e.vx = 0; e.vy = 5.5; e.y += e.vy*dt; e.face = Math.PI/2;
+    const r = G.D.rooms[e.room], pl = G.player;
+    if(DG.dist(e.x, e.y, pl.x, pl.y) < e.r + pl.r && (e.ai.touch || 0) <= G.t){ e.ai.touch = G.t + 0.8; G.hurtPlayer(e.dmg*0.5, "ghost"); }
+    if(r && e.y > r.y2){ e.dead = true; e.hp = 0; }
+    return;
+  }
   // confused (Rubber Chicken, Goblin Whistle): stumbles about and clobbers
   // whatever it bumps into, friends included; no attacks on Zippy
   if(e.st.confused > 0 && !e.big && !e.decoy){

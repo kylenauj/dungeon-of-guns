@@ -653,6 +653,35 @@ Dungeon.behindLock = function(D, r){ return D.doors.some(d=> d.into === r.id || 
 
 const deco = (D, r, kind, x, y, o)=> D.decor.push(Object.assign({ kind, x, y, room:r.id }, o || {}));
 const wallDeco = (D, r, kind, x, o)=> deco(D, r, kind, x + 0.5, r.y1 - 0.02, Object.assign({ wall:true }, o || {}));
+/* ---- the climb out: one long shaft up through the dying forest to the morning ---- */
+Dungeon.climb = function(seed){
+  const rng = DG.RNG(seed), W = CW*GW, H = CH*GH, len = DG.CLIMB_LEN;
+  const base = DG.FLOORS[DG.FINAL_FLOOR - 1];
+  // the forest's own stone, but the light is the morning's, coming down from the top
+  const theme = Object.assign({}, base, { name:"The Way Up", boss:null, gloom:0.85, enemies:{ ghost:1 }, motes:"dust",
+    torch:0xffa860, ambient:0x6a5a48, light:0.95, fog:0x0a0806, rim:0xffb070, shaft:0xffd8a0, high:0xffe2b0, mist:0.3, weird:0.2 });
+  const D = { seed, floor:DG.FINAL_FLOOR, w:W, h:H, tiles:new Uint8Array(W*H), rooms:[], doors:[], corridors:[], painted:[], fakes:[], breakables:[], decor:[], ver:0, theme, climb:true };
+  D.at = (x, y)=> (x < 0 || y < 0 || x >= W || y >= H) ? T.SOLID : D.tiles[y*W + x];
+  D.set = (x, y, v)=>{ if(x >= 0 && y >= 0 && x < W && y < H) D.tiles[y*W + x] = v; };
+  const cx = 3, x1 = cx*CW + 8, x2 = x1 + 10, y2 = H - 6, y1 = y2 - len;
+  const r = { id:0, type:"climb", cells:[], c0x:cx, c1x:cx, c0y:Math.floor(y1/CH), c1y:Math.floor(y2/CH), x1, x2, y1, y2, cxw:(x1 + x2 + 1)/2, cyw:(y1 + y2 + 1)/2,
+    links:[], doors:[], props:[], traps:[], waves:[], cleared:true, dist:0 };
+  for(let cy=r.c0y; cy<=r.c1y; cy++) r.cells.push([cx, cy]);
+  D.rooms.push(r);
+  for(let y=y1; y<=y2; y++) for(let x=x1; x<=x2; x++) D.set(x, y, T.FLOOR);
+  // the shaft narrows and widens: roots and fallen stone jut in from the walls
+  for(let y=y1 + 6; y<y2 - 4; y+=rng.int(4, 7)){ const left = rng.chance(0.5), w = rng.int(1, 3); for(let k=0;k<w;k++) D.set(left ? x1 + k : x2 - k, y, T.BLOCK); }
+  // braziers up the walls, closer together toward the top, where the morning comes in
+  for(let y=y2 - 4, k=0; y>y1 + 1; y-=Math.max(4, 9 - Math.floor((y2 - y)/18)), k++) D.decor.push({ kind:k % 3 === 2 ? "candelabra" : "brazier", x:k % 2 ? x1 + 0.7 : x2 + 0.3, y:y + 0.5, room:0, rot:0, s:1 });
+  [-3, 0, 3].forEach(dx=> D.decor.push({ kind:"brazier", x:(x1 + x2 + 1)/2 + dx, y:y1 + 0.9, room:0, rot:0, s:1.2 }));
+  for(let i=0;i<60;i++) D.decor.push({ kind:rng.pick(["roots", "rubble", "bones", "deadtree", "myceliumcorpse", "rotpod"]), x:rng.chance(0.5) ? x1 + 0.6 + rng.next()*0.8 : x2 + 0.4 - rng.next()*0.8, y:y1 + 2 + rng.next()*(len - 4), room:0, rot:rng.next()*6, s:0.8 + rng.next()*0.5 });
+  D.start = { x:r.cxw, y:y2 - 0.5 };
+  D.exit = { x:r.cxw, y:y1 + 1 };
+  D.curses = [];
+  D.doorMap = new Int16Array(W*H).fill(-1);
+  return D;
+};
+
 const SPECIAL = {
   /* a lair: something big lives here. Bones, chains, a cage, the floor stained dark */
   lair(D, rng, r){

@@ -204,6 +204,8 @@ DG.QUESTS = {
   ember:{ name:"Ember of the First Flame", desc:"A coal that will not go out. It wants to go home, down to the Kiln.", flavor:"Warm as a hand on your shoulder." },
   crown:{ name:"Crown of the Bog",         desc:"A crown of reeds and river-gold. Gribbus put it on before you could stop him.", flavor:"He looks taller. He isn't." }
 };
+/* the climb out: after the Heart, one long way up toward daylight (set up from the Gloom Forest's look in Dungeon.climb) */
+DG.CLIMB_LEN = 96;
 /* the Kiln: a sixth floor that only the Ember opens */
 DG.KILN = { name:"The Kiln of the First Flame", boss:"hollow", gloom:0, floor:0x3a2a22, floor2:0x30221c, wall:0x4a3a30, top:0x5a4a3a, torch:0xff8a3a, fog:0x0a0402, water:0x6a2a10,
   ambient:0xc8885a, light:0.95, decor:"castle", motes:"dust", ink:0x140804, rim:0xff9a5a, shaft:0xffb070, mist:0.18, shade:0x2a1408, high:0xffd8a0, weird:0.15,

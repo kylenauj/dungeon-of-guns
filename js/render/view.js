@@ -86,7 +86,7 @@ proto.buildFloor = function(){
   V.world = new DG.World(G.D);
   S.scene.add(V.world.group);
   S.theme(G.D.theme, G.curses);
-  V.floor = G.floor;
+  V.floor = G.floor; V.builtD = G.D;
   S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true);
   // every shader the floor can need compiles now, behind the area card, not mid-fight
   V.warmAll();
@@ -209,7 +209,7 @@ proto.handle = function(ev){
   const V = this, G = V.G, p = G.player, au = A();
   const play = (n, o)=> au && !V.silent && au.play(n, o);
   switch(ev.type){
-    case "floor": if(ev.floor !== V.floor) V.buildFloor(); play("descend"); break;
+    case "floor": if(V.builtD !== G.D) V.buildFloor(); play("descend"); break;
     // King of the Bog: Gribbus lunges and swallows the Heart whole
     case "feast": {
       V.frogs.forEach(f=>{ f.lick = 0.18; f.lickX = ev.x; f.lickY = ev.y; });
@@ -364,6 +364,8 @@ proto.handle = function(ev){
     case "wardsBurn": FX.burst(ev.x, 1.2, ev.y, 0xffb060, 30, 4, 0.3, 0.8, { up:1 }); play("illusion"); break;
     case "olmWard": FX.ring(ev.x, ev.y, 2, 0xffb060, 0.6); break;
     case "lanternBeam": V.lanternBeam(ev); play("brazier"); break;
+    case "rockfall": FX.smoke(ev.x, 0.4, ev.y, 0x4a4038, 8, 0.6, 1.2); FX.burst(ev.x, 0.6, ev.y, 0x5a5048, 10, 3, 0.2, 0.5); S.shake(0.18); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
+    case "dawnbreak": FX.ring(ev.x, ev.y, 6, 0xffe2b0, 1.5); S.shake(0.4); break;
     case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
     case "swallow": FX.smoke(ev.x, 0.6, ev.y, 0x4a5a2a, 8, 0.5, 0.8); S.shake(0.15); play("gulp"); break;
     case "frogRank": FX.rise(ev.x, ev.y, 0x9cff6a, 18, 0.6); play("duo"); break;
@@ -872,6 +874,8 @@ proto.lanternBeam = function(ev){
 };
 proto.updateAllies = function(dt, t){
   const V0 = this;
+  // the climb: the higher you get, the more the Gloom lets go, and the light comes warm
+  if(V0.G.climb && K.GLOOM){ const k = V0.G.climbK || 0; K.GLOOM.uGloom.value = 0.85*(1 - k); S.hemi.intensity = (V0.hemi0 === undefined ? (V0.hemi0 = S.hemi.intensity) : V0.hemi0)*(1 + 1.4*k*k); }
   if(V0.lbeams && V0.lbeams.length) V0.lbeams = V0.lbeams.filter(b=>{
     b.t += dt; const k = Math.max(0, 1 - b.t/0.55);
     b.g.children.forEach(m=>{ m.material.opacity = m.userData.op*k; m.scale.x = m.scale.y = 1 + (1 - k)*0.6; });

@@ -1232,13 +1232,38 @@ test("no locked room ever stands between the start and the boss", ()=>{
   assert.ok(quests > 20, quests + " quest rooms");
 });
 
-test("Dawn: kill the Gloom Heart, take the way out", ()=>{
+test("Dawn: kill the Gloom Heart, take the way out, and climb toward the light", ()=>{
   const G = game("DAWNEND", 5);
   killBoss(G);
   assert.ok(G.portal, "the way out opens");
   takePortal(G);
+  assert.equal(G.state, "play", "not yet: the climb");
+  assert.ok(G.D.climb && G.climb);
+  // rocks fall and the Gloom flees past; at the top, the morning
+  let rocks = 0, ghosts = 0;
+  for(let i=0;i<60*4;i++){ G.update(1/60, {}); G.drain().forEach(e=>{ if(e.type === "rockfall") rocks++; }); }
+  ghosts = G.enemies.filter(e=> e.flee).length;
+  assert.ok(rocks > 2 && ghosts >= 1, rocks + " rocks, " + ghosts + " ghosts");
+  G.player.x = G.D.exit.x; G.player.y = G.D.exit.y + 0.5; G.update(1/60, {});
   assert.equal(G.state, "won"); assert.equal(G.ending, "dawn");
   assert.ok(G.meta.endings.dawn, "remembered");
+});
+test("the Mission: every warden killed without a scratch trims the Heart", ()=>{
+  const a = game("TRIM", 5); a.stats.bosses = [{ floor:1, clean:true }, { floor:2, clean:true }, { floor:3, clean:false }];
+  const b = game("TRIM", 5); b.stats.bosses = [];
+  const hp = G=>{ const r = G.D.rooms.find(x=> x.type === "boss"); G.player.x = r.cxw; G.player.y = r.y2 - 1; G.god = true; step(G, 0.5); return G.enemies.find(e=> e.boss).maxHp; };
+  const ha = hp(a), hb = hp(b);
+  assert.ok(Math.abs(ha/hb - 0.8) < 0.01, ha + " vs " + hb);
+});
+test("a boss fight taken without a hit is remembered as clean", ()=>{
+  const G = game("CLEANKILL", 1); G.god = false;
+  const r = G.D.rooms.find(x=> x.type === "boss"); G.player.x = r.cxw; G.player.y = r.y2 - 1; step(G, 0.3);
+  const b = G.enemies.find(e=> e.boss); G.player.iframes = 99; G.killEnemy(b, {}); step(G, 0.2);
+  assert.ok(G.stats.bosses[0].clean);
+  const H = game("DIRTYKILL", 1);
+  const r2 = H.D.rooms.find(x=> x.type === "boss"); H.player.x = r2.cxw; H.player.y = r2.y2 - 1; step(H, 0.3);
+  H.player.iframes = 0; H.hurtPlayer(5, "test"); H.killEnemy(H.enemies.find(e=> e.boss), {}); step(H, 0.2);
+  assert.ok(!H.stats.bosses[0].clean);
 });
 
 test("King of the Bog: with the Crown, and split at least once, Gribbus eats the Heart", ()=>{

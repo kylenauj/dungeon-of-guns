@@ -71,11 +71,12 @@ proto.luck = function(p){ return Math.min(1, p*(1 + 0.15*this.mods.luck)); };
 proto.chance = function(p){ return this.rng.next() < this.luck(p); };
 
 /* ---- floors ---- */
-proto.enterFloor = function(n){
+proto.enterFloor = function(n, D0){
   const G = this, p = G.player;
   G.floor = n;
   const gen = Object.assign(DG.Roads ? DG.Roads.genOpts(G, n) : {}, G.kiln && n === DG.FINAL_FLOOR + 1 ? { theme:DG.KILN } : {});
-  G.D = DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, gen);
+  G.D = D0 || DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, gen);
+  G.climb = G.D.climb ? { t:0, rock:1.5, ghost:3 } : null;
   G.scale = DG.FLOOR_SCALE(n);
   G.enemies = []; G.bullets = []; G.pickups = []; G.bombs = []; G.marks = []; G.hazards = []; G.allies = []; G.pending = []; G.beams = [];
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
@@ -106,10 +107,30 @@ proto.descend = function(){
   if(G.kiln && G.floor === DG.FINAL_FLOOR + 1){ G.finish("flame"); return; }
   if(G.floor >= DG.FINAL_FLOOR && !G.endless){
     if(G.player.quests.ember && !G.kiln){ G.kiln = true; G.enterFloor(DG.FINAL_FLOOR + 1); G.say("The Ember pulls you down. Down to the Kiln.", 3.5); return; }
+    if(!G.kiln && !G.D.climb){ G.enterFloor(DG.FINAL_FLOOR, DG.Dungeon.climb((G.seed ^ 0xc11b) >>> 0)); G.say("The Heart is still, and the forest is coming apart. Up. Run. Toward the light.", 4); return; }
     if(!G.kiln){ G.finish("dawn"); return; }
   }
   p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp*0.3));   // a snack on the stairs
   G.enterFloor(G.floor + 1);
+};
+/* the climb out: stone falls ahead of you, the last of the Gloom flees past you, and the top is daylight */
+proto.updateClimb = function(dt){
+  const G = this, C = G.climb, p = G.player, r = G.D.rooms[0];
+  if(G.state !== "play") return;
+  C.t += dt; C.rock -= dt; C.ghost -= dt;
+  G.climbK = Math.max(0, Math.min(1, (r.y2 - p.y)/(r.y2 - r.y1)));
+  if(C.rock <= 0){
+    C.rock = 0.45 + G.rng.next()*0.35;
+    const x = G.rng.range(r.x1 + 0.8, r.x2 + 0.2), y = Math.max(r.y1 + 1, p.y - G.rng.range(1.5, 7.5));
+    G.marks.push({ kind:"slam", x, y, r:0.9, t:0.85, max:0.85 });
+    G.pending.push({ t:0.85, fn:()=>{ G.explode(x, y, 0.9, 14*G.scale.dmg, "e", { why:"rock" }); G.emit("rockfall", { x, y }); } });
+  }
+  if(C.ghost <= 0){
+    C.ghost = 1.6 + G.rng.next()*1.4;
+    const e = G.spawnEnemy(r, { type:"ghost", x:G.rng.range(r.x1 + 1, r.x2), y:Math.max(r.y1 + 1, p.y - 10), quick:true });
+    e.flee = true; e.phases = true;
+  }
+  if(p.y <= G.D.exit.y + 0.6){ G.emit("dawnbreak", { x:p.x, y:p.y }); G.finish("dawn"); }
 };
 proto.keepGoing = function(){ this.endless = true; this.state = "play"; this.enterFloor(this.floor + 1); };
 
@@ -266,6 +287,7 @@ proto.update = function(dt, input){
   G.updateTraps(dt);
   if(DG.Puzzles) DG.Puzzles.update(G, dt);
   if(DG.Roads) DG.Roads.updateVigil(G, dt);
+  if(G.climb) G.updateClimb(dt);
   G.updatePickups(dt);
   G.marks = G.marks.filter(m=> (m.t -= dt) > 0);
   G.enemies = G.enemies.filter(e=> !e.dead);
@@ -426,6 +448,7 @@ proto.hurtPlayer = function(amt, why, force){
     p.wards--; G.emit("wardBreak", { x:p.x, y:p.y });
   } else {
     p.hp -= amt;
+    G.stats.hits = (G.stats.hits || 0) + 1;
     G.emit("hurt", { amt, why, x:p.x, y:p.y });
     if(G.mods.special.vengeance) p.vengeT = G.t + 4;
     // the Brittle Crown: getting hurt spills your gold
@@ -641,7 +664,11 @@ proto.activate = function(r){
   G.trigger("lock", { x:G.player.x, y:G.player.y, depth:0 });
   if(r.type === "boss"){
     const key = G.D.theme.boss || "king", b = DG.BOSSES[key];
-    const e = G.spawnEnemy(r, { type:key, x:r.boss.x, y:r.boss.y, boss:true }, b);
+    // the Mission: every warden cut down without a scratch has cut a root of the Heart cleanly
+    const clean = key === "heart" ? (G.stats.bosses || []).filter(o=> o.clean).length : 0;
+    r.hitsAtStart = G.stats.hits || 0;
+    const e = G.spawnEnemy(r, { type:key, x:r.boss.x, y:r.boss.y, boss:true, hpMul:1 - 0.1*Math.min(4, clean) }, b);
+    if(clean) G.pending.push({ t:3.8, fn:()=> G.say(clean + (clean > 1 ? " of its roots were" : " of its roots was") + " cut clean. The Heart is weaker for it.", 3.5) });
     G.bossRef = e;
     G.say(b.name.toUpperCase() + ": \"" + G.rng.pick(b.lines) + "\"", 3.5);
     G.emit("boss", { id:e.id, name:G.bossName() });
@@ -737,7 +764,7 @@ proto.ambush = function(r){
 };
 proto.bossDown = function(e){
   const G = this, r = G.D.rooms[e.room];
-  G.stats.bosses.push({ floor:G.floor, type:e.type });
+  G.stats.bosses.push({ floor:G.floor, type:e.type, clean:(G.stats.hits || 0) === (r.hitsAtStart || 0) });
   G.enemies.forEach(o=>{ if(o !== e && !o.dead && o.room === r.id) G.killEnemy(o, {}); });
   G.bullets.forEach(b=>{ if(b.team === "e") b.dead = true; });
   G.beams = [];
