@@ -27,7 +27,8 @@ Gr.create = function(G){
 /* how much harder than plain Gribbus he hits: items, tricks, the Bog Pact, and his own rank */
 Gr.scale = function(G){
   const M = G.mods, f = G.gribbus, g = f.g;
-  return (1 + M.frogDmg + (g.dmg || 0))*(M.frogMul || 1)*(1 + 0.08*(f.level || 0));
+  const rot = DG.Roads ? DG.Roads.frogBonus(G) : {};
+  return (1 + M.frogDmg + (g.dmg || 0) + (rot.dmg || 0))*(M.frogMul || 1)*(1 + 0.08*(f.level || 0));
 };
 /* the strength of a lick (the Bog Pact's toll is on Zippy's shots, not his) */
 Gr.power = function(G){ return 0.45*G.payloadPower()*Gr.scale(G); };
@@ -78,18 +79,20 @@ Gr.offerPond = function(G, r){
   const pads = r.props.filter(p=> p.kind === "lilypad");
   const unlocked = id=> !DG.FROG_BUFFS[id].locked || G.meta.flies >= DG.FROG_BUFFS[id].locked;
   const have = G.gribbus.buffs;
-  const ids = G.rng.shuffle(Object.keys(DG.FROG_BUFFS).filter(id=> have.indexOf(id) < 0 && unlocked(id)));
+  const ids = G.rng.shuffle(Object.keys(DG.FROG_BUFFS).filter(id=> have.indexOf(id) < 0 && unlocked(id) && !DG.FROG_BUFFS[id].hidden));
   pads.forEach((p, i)=>{ p.buff = ids[i] || null; p.taken = !ids[i]; });
+  if(DG.Roads) DG.Roads.offerGloom(G, r);
   if(!ids.length){ r.pondDone = true; G.dropGold(r.cxw, r.cyw + 2, 20); G.say("Gribbus knows every trick there is. Have some gold instead."); }
   if(r.fly && !r.flyGiven){ r.flyGiven = true; G.addPickup("fly", r.fly.x + 0.5, r.fly.y + 0.5, 1); }
 };
 Gr.choosePad = function(G, pad){
   const r = G.D.rooms[pad.room];
   if(r.pondDone || pad.taken || !pad.buff) return;
-  Gr.giveBuff(G, pad.buff);
+  if(pad.gloom) DG.Roads.chooseGloom(G, pad);
+  else Gr.giveBuff(G, pad.buff);
   pad.taken = true; pad.chosen = true; r.pondDone = true;
   r.props.forEach(p=>{ if(p.kind === "lilypad" && p !== pad && !p.taken){ p.taken = true; p.sunk = true; G.emit("sink", { id:p.id }); } });
-  G.say("Gribbus learned " + DG.FROG_BUFFS[pad.buff].name + "! " + G.rng.pick(DG.LINES.gribbus), 3.5);
+  if(!pad.gloom) G.say("Gribbus learned " + DG.FROG_BUFFS[pad.buff].name + "! " + G.rng.pick(DG.LINES.gribbus), 3.5);
 };
 
 /* back to Zippy's side, on open floor */
@@ -152,7 +155,10 @@ Gr.update = function(G, dt){
 
 function updateFrog(G, f, idx, dt){
   const p = G.player, M = G.mods, g = G.gribbus.g, rng = G.rng;
-  const rate = 1 + M.frogRate + (g.rate || 0);
+  // held (in the Heart's pull) or dazed: he does nothing of his own
+  if(f.held > 0){ f.held -= dt; f.hop = 0; f.hopT = 0; return; }
+  const rot = DG.Roads ? DG.Roads.frogBonus(G) : {}, rotStage = G.roads ? G.roads.rot.stage : 0;
+  const rate = 1 + M.frogRate + (g.rate || 0) + (rot.rate || 0);
   f.cd -= dt*rate; f.spitCd -= dt*rate; f.rest -= dt;
   for(const k in f.timers) f.timers[k] -= dt;
   const fight = G.room && G.room.active;
@@ -162,10 +168,12 @@ function updateFrog(G, f, idx, dt){
   const away = DG.dist(f.x, f.y, p.x, p.y), stuck = f.stuck || 0;
   if(fight ? !G.inRoom(G.room, f.x, f.y) || stuck > 5 : away > 26 || stuck > 2.5) Gr.recall(G, f);
 
-  const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = 1 + 0.5*(g.size || 0);
+  const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = 1 + 0.5*((g.size || 0) + (rot.size || 0));
   // in a fight: the nearest goblin anywhere in the room, however far from Zippy
   const tg = fight ? G.nearestEnemy(f.x, f.y, 99, null, null, G.room.id) : null;
-  const els = g.mirrorEls ? G.shotEls(G.gun()) : [];
+  const els0 = g.mirrorEls ? G.shotEls(G.gun()) : [];
+  // the Rot: what he licks starts to rot
+  const els = rotStage >= 1 && els0.indexOf("poison") < 0 ? els0.concat("poison") : els0;
 
   // the tongue
   if(f.tongue){
@@ -177,6 +185,8 @@ function updateFrog(G, f, idx, dt){
     f.face = Math.atan2(tg.y - f.y, tg.x - f.x);
     f.tongue = { x:tg.x, y:tg.y, t:0.18 };
     G.damageEnemy(tg, dmg*size, { els, power:1, depth:1, ax:tg.x - f.x, ay:tg.y - f.y, knock:g.sticky ? 0 : 1.2, from:"gribbus" });
+    // Rot III: the small ones, he just swallows
+    if(rotStage >= 3 && !tg.big && !tg.dead && (tg.def.cost || 1) <= 1.5 && tg.hp < tg.maxHp*0.25){ tg.hp = 0; G.killEnemy(tg, { from:"gribbus" }); G.emit("swallow", { x:tg.x, y:tg.y, id:tg.id }); }
     if(g.sticky && !tg.boss && !tg.dead){ G.move(tg, (f.x - tg.x)*0.35, (f.y - tg.y)*0.35, tg.phases ? "ghost" : "enemy"); tg.st.chill = Math.max(tg.st.chill || 0, 1.5); }
     // Tongue Twister: the licked goblin gets flung into its neighbour
     if(M.special.twister && !tg.boss && !tg.dead){

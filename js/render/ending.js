@@ -27,7 +27,7 @@ const seg = (t, a, b)=> ease((t - a)/(b - a));
 const MOOD = {
   dawn:  { sky:0xffe2b0, ground:0x6a5a3a, light:1.3, high:0xfff0c8, fx:0xffe6a0, len:15 },
   flame: { sky:0xffa860, ground:0x4a2010, light:1.2, high:0xffc890, fx:0xff8a2a, len:15 },
-  bog:   { sky:0xb8f0a0, ground:0x2a4a1a, light:1.1, high:0xe8ffc0, fx:0x72e050, len:15 }
+  bog:   { sky:0x5a6a32, ground:0x0a0c08, light:0.8, high:0xc8d860, fx:0x9ab040, len:15, gloom:0.6 }   // the Rot: no dawn, a green dark
 };
 const T_GATHER = 1.6, T_FLASH = 4.2, T_TITLE = 5.2, T_ACT = 6.6;
 
@@ -63,7 +63,8 @@ DG.Ending = {};
 DG.Ending.prebuild = function(){
   const z = M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] });
   const f = M.frog(false, ["crown"], { redeemed:true });
-  return { z, f };
+  const fr = M.frog(false, ["crown"], { rot:3 });          // the king of what's left
+  return { z, f, fr };
 };
 DG.Ending.play = function(G, V, id, done){
   const mood = MOOD[id] || MOOD.dawn, E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
@@ -89,7 +90,7 @@ DG.Ending.play = function(G, V, id, done){
   // and as they will be
   const pre = V.endRigs || DG.Ending.prebuild(); V.endRigs = null;
   const brightZ = add(pre.z); brightZ.root.visible = false;
-  const brightF = add(pre.f); brightF.root.visible = false;
+  const brightF = add(id === "bog" && pre.fr ? pre.fr : pre.f); brightF.root.visible = false;
   if(brightF.parts.crown) brightF.parts.crown.visible = id === "bog";
   [brightZ, brightF].forEach(R=>{ if(R.parts.tongue) R.parts.tongue.visible = false; });
   if(darkF.parts.tongue) darkF.parts.tongue.visible = false;
@@ -113,7 +114,7 @@ DG.Ending.play = function(G, V, id, done){
       const bg = id === "bog" ? 2.1 : 0;
       brightZ.root.position.set(x0 - side.x*bg, 0, y0 - side.y*bg); brightZ.root.rotation.y = 0;
       brightF.root.position.set(fx1 + side.x*bg*0.8, 0, fy1 + side.y*bg*0.8); brightF.root.scale.setScalar(id === "bog" ? 4.4 : 1.3); }
-    K.GLOOM.uGloom.value = 0; S.hemi.color.copy(hemi1); S.hemi.intensity = mood.light; u.uHigh.value.copy(high1);
+    K.GLOOM.uGloom.value = mood.gloom || 0; S.hemi.color.copy(hemi1); S.hemi.intensity = mood.light; u.uHigh.value.copy(high1);
     M.tint(brightZ, mood.fx, 0.03); M.tint(brightF, 0x000000, 1);
     S.rig.dist = keep.dist; S.rig.pitch = keep.pitch; S.rig.lead = keep.lead;
     u.uDesat.value = keep.desat; u.uBloom.value = keep.bloom; u.uVig.value = keep.vig;
@@ -144,7 +145,7 @@ DG.Ending.play = function(G, V, id, done){
     S.rig.dist = lerp(keep.dist, 10.5, cz); S.rig.pitch = lerp(keep.pitch, 0.62, cz);
     // the light: the rot recedes and the picture warms
     const lk = seg(k, T_GATHER, T_FLASH + 1.5);
-    K.GLOOM.uGloom.value = lerp(keep.gloom, 0, lk);
+    K.GLOOM.uGloom.value = lerp(keep.gloom, mood.gloom || 0, lk);
     S.hemi.color.copy(hemi0).lerp(hemi1, lk); S.hemi.intensity = lerp(keep.hemiI, mood.light, lk); S.fill.intensity = lerp(keep.fillI, 0.95, lk);
     u.uDesat.value = lerp(keep.desat, 0.12, lk); u.uBloom.value = lerp(keep.bloom, 0.8, lk); u.uVig.value = lerp(keep.vig, 0.5, lk);
     u.uHigh.value.copy(high0).lerp(high1, lk);
@@ -199,7 +200,7 @@ DG.Ending.play = function(G, V, id, done){
     S.flash.position.set(x0, 2, y0); S.flash.color.setHex(mood.fx); S.flash.intensity = 9;
     S.shake(0.5);
     FX.burst(x0, 1.2, y0, 0xffffff, 40, 6, 0.3, 0.9, { col2:mood.fx, up:1.5 });
-    FX.burst(fx1, 0.5, fy1, 0x72e050, 18, 3.5, 0.22, 0.7, { col2:0xff8a2a, up:1 });
+    FX.burst(fx1, 0.5, fy1, id === "bog" ? 0x9ab040 : 0x72e050, 18, 3.5, 0.22, 0.7, { col2:id === "bog" ? 0x1a1a10 : 0xff8a2a, up:1 });
     FX.ring(x0, y0, 3.2, mood.fx, 0.9);
     FX.ring(x0, y0, 1.6, 0xffffff, 0.5);
     FX.soul(x0, y0, 5, 2.4, mood.fx);
@@ -293,9 +294,9 @@ DG.Ending.play = function(G, V, id, done){
     M.animate(Z, t, 0); M.stalk(Z, { speed:0, fwd:0, side:0, max:DG.PLAYER.speed }, t, dt);
     const bow = seg(act, 3.6, 4.6)*(1 - seg(act, 6.2, 7));
     Z.body.rotation.x = 0.55*bow;
-    if(act > 0 && act < 3.2 && Math.random() < 0.6) FX.emit(fx + (Math.random() - 0.5)*sz*0.6, Math.random()*sz*0.4, fy + (Math.random() - 0.5)*sz*0.6, (Math.random() - 0.5)*2, 1 + Math.random()*2, (Math.random() - 0.5)*2, Math.random() < 0.5 ? 0x72e050 : 0xff8a2a, 0.15, 0.8, 0.3, 1);
-    if(act > 3.2 && !c.croaked){ c.croaked = true; const au = A(); au && au.play && au.play("croak"); S.shake(0.35); FX.ring(fx, fy, 3.5, 0x72e050, 1); FX.burst(fx, sz*0.6, fy, 0x72e050, 30, 5, 0.25, 0.9, { col2:0xffd23d, up:1 }); }
-    if(Math.random() < 0.3) FX.emit(fx + (Math.random() - 0.5)*5, 0.05, fy + (Math.random() - 0.5)*5, 0, 0.3, 0, Math.random() < 0.5 ? 0xc8ff8a : 0xffd23d, 0.1, 1.6, -0.05, 0.6);
+    if(act > 0 && act < 3.2 && Math.random() < 0.6) FX.emit(fx + (Math.random() - 0.5)*sz*0.6, Math.random()*sz*0.4, fy + (Math.random() - 0.5)*sz*0.6, (Math.random() - 0.5)*2, 1 + Math.random()*2, (Math.random() - 0.5)*2, Math.random() < 0.5 ? 0x9ab040 : 0x14160e, 0.15, 0.8, 0.3, 1);
+    if(act > 3.2 && !c.croaked){ c.croaked = true; const au = A(); au && au.play && au.play("croak"); S.shake(0.35); FX.ring(fx, fy, 3.5, 0x9ab040, 1); FX.burst(fx, sz*0.6, fy, 0x14160e, 30, 5, 0.25, 0.9, { col2:0xc8d860, up:1 }); }
+    if(Math.random() < 0.3) FX.emit(fx + (Math.random() - 0.5)*5, 0.05, fy + (Math.random() - 0.5)*5, 0, 0.3, 0, Math.random() < 0.5 ? 0x9ab040 : 0x3a2a4a, 0.1, 1.6, -0.05, 0.6);
     S.rig.tx = lerp(x0 - side.x*back, fx, 0.5); S.rig.tz = lerp(y0 - side.y*back, fy, 0.5) - 0.3;
     S.rig.dist = lerp(10.5, 13.5, grow);
   }

@@ -521,32 +521,35 @@ proto.buildRoomsVanity = function(){
 /* the pond: moss and leaves over the stone, green-gold light, fireflies, the waterfall's water */
 proto.buildJungle = function(r, rnd){
   const W = this, D = W.D, list = [], cx = (r.x1 + r.x2 + 1)/2, cz = (r.y1 + r.y2 + 1)/2, w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1;
+  const rot = !!r.corrupt;   // the Rot has had it: the oasis gone black
   for(let i=0;i<Math.round(w*h/3);i++){
     const x = r.x1 + 0.4 + rnd()*(w - 0.8), z = r.y1 + 0.4 + rnd()*(h - 0.8);
     if(D.at(Math.floor(x), Math.floor(z)) !== T.FLOOR) continue;
     const k = rnd() < 0.6 ? CELL.moss : CELL.leaves, s = 0.9 + rnd()*1.3;
-    decal(list, k, x, 0.013 + i*0.0002, z, s, s, rnd()*6, new THREE.Color(k === CELL.moss ? [0x2e5a22, 0x3a6a26, 0x24481c][i % 3] : [0x4a6a2a, 0x6a7a2a][i % 2]));
+    decal(list, k, x, 0.013 + i*0.0002, z, s, s, rnd()*6, new THREE.Color(rot ? (k === CELL.moss ? [0x14140e, 0x1c1620, 0x101208][i % 3] : [0x2a2418, 0x1a1a10][i % 2]) : k === CELL.moss ? [0x2e5a22, 0x3a6a26, 0x24481c][i % 3] : [0x4a6a2a, 0x6a7a2a][i % 2]));
   }
   // moss creeping up the north wall
   for(let x=r.x1; x<=r.x2; x++) if(rnd() < 0.6 && D.at(x, r.y1 - 1) === T.SOLID) decal(list, CELL.moss, x + 0.5, 0.35 + rnd()*0.5, r.y1 + 0.01, 1.1, 0.9, 0, new THREE.Color(0x2e5222), true);
   const m = new THREE.Mesh(K.merge(list), decalMat()); m.renderOrder = 1; W.areaGroup(r.id).add(m);
-  // warm green-gold light over the water, and a glow on it
-  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0x9ad84a, 0.35)); pool.scale.set(w*0.9, 1, h*0.9); pool.position.set(cx, 0.03, cz); W.areaGroup(r.id).add(pool);
-  const sun = new THREE.Mesh(K.glowPlane, K.glowMat(0xffe08a, 0.25)); sun.scale.set(5, 1, 4); sun.position.set(cx, 0.05, cz - 0.5); W.areaGroup(r.id).add(sun);
-  W.lights.push({ x:cx, y:2.4, z:cz, c:0xd8e870, i:1.3, room:r.id, ph:0 }, { x:r.x1 + 2, y:1.2, z:r.y2 - 1, c:0x8ae05a, i:0.6, room:r.id, ph:1, small:true }, { x:r.x2 - 1, y:1.2, z:r.y1 + 2, c:0xc8e070, i:0.6, room:r.id, ph:2, small:true });
+  // warm green-gold light over the water, and a glow on it (gone violet and black under the Rot)
+  const pool = new THREE.Mesh(K.glowPlane, K.glowMat(rot ? 0x3a2a4a : 0x9ad84a, rot ? 0.22 : 0.35)); pool.scale.set(w*0.9, 1, h*0.9); pool.position.set(cx, 0.03, cz); W.areaGroup(r.id).add(pool);
+  const sun = new THREE.Mesh(K.glowPlane, K.glowMat(0xffe08a, 0.25)); sun.scale.set(5, 1, 4); sun.position.set(cx, 0.05, cz - 0.5); sun.visible = !rot; W.areaGroup(r.id).add(sun);
+  const L = [{ x:cx, y:2.4, z:cz, c:rot ? 0x6a4a8a : 0xd8e870, i:rot ? 0.6 : 1.3, room:r.id, ph:0 }, { x:r.x1 + 2, y:1.2, z:r.y2 - 1, c:rot ? 0x8aa030 : 0x8ae05a, i:0.6, room:r.id, ph:1, small:true }, { x:r.x2 - 1, y:1.2, z:r.y1 + 2, c:rot ? 0x5a3a6a : 0xc8e070, i:0.6, room:r.id, ph:2, small:true }];
+  W.lights.push(...L);
+  W.ponds = W.ponds || {}; W.ponds[r.id] = { pool, sun, L };
   // fireflies: a cloud of slow gold sparks
   const n = Math.round(w*h/3), pos = new Float32Array(n*3), ph = new Float32Array(n);
   for(let i=0;i<n;i++){ pos[i*3] = r.x1 + rnd()*w; pos[i*3 + 1] = 0.3 + rnd()*1.5; pos[i*3 + 2] = r.y1 + rnd()*h; ph[i] = rnd()*6.28; }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aPh", new THREE.BufferAttribute(ph, 1));
   const mat = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{ value:0 }, uScale:{ value:300 }, uCol:{ value:new THREE.Color(0xe8ff7a) }, uSp:{ value:0.35 } }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uTime:{ value:0 }, uScale:{ value:300 }, uCol:{ value:new THREE.Color(rot ? 0x6a7a2a : 0xe8ff7a) }, uSp:{ value:0.35 } }, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
     vertexShader:["attribute float aPh; uniform float uTime, uScale, uSp; varying float vA;",
       "void main(){ vec3 p = position; float t = uTime*uSp + aPh;",
       "  p += vec3(sin(t*1.3)*0.9, sin(t*2.1)*0.3, cos(t*1.1)*0.9);",
       "  vA = pow(0.5 + 0.5*sin(uTime*1.6 + aPh*5.0), 4.0);",
       "  vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_PointSize = clamp(uScale*0.16/max(1.0, -mv.z), 2.0, 9.0); gl_Position = projectionMatrix*mv; }"].join("\n"),
     fragmentShader:"uniform vec3 uCol; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); if(d > 0.5) discard; gl_FragColor = vec4(uCol*vA*(1.0 - d*1.8), 1.0); }" });
-  K.timed.push(mat); W.vanityMats.push(mat); W.jungleFlies = (W.jungleFlies || []).concat([mat]);
+  K.timed.push(mat); W.vanityMats.push(mat); W.jungleFlies = (W.jungleFlies || []).concat([mat]); W.ponds[r.id].flies = mat;
   const pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 6; W.areaGroup(r.id).add(pts);
   // the waterfall: a sheet of falling water down the wall, white where it lands
   D.decor.filter(d=> d.kind === "waterfall" && d.room === r.id).forEach(d=>{
@@ -563,6 +566,13 @@ proto.buildJungle = function(r, rnd){
     const foam = K.sprite(0xd8f8f0, 1.2, 0.5); foam.position.set(d.x, 0.15, d.y + 0.35); W.areaGroup(r.id).add(foam);
     W.falls.push({ x:d.x, z:d.y + 0.4, room:r.id, foam });
   });
+};
+/* the Gloom Lily drunk, mid-floor: the pond's light goes out */
+proto.corruptPond = function(id){
+  const o = this.ponds && this.ponds[id]; if(!o) return;
+  o.pool.material.color.setHex(0x3a2a4a); o.pool.material.opacity = 0.22; o.sun.visible = false;
+  o.L[0].c = 0x6a4a8a; o.L[0].i = 0.6; o.L[1].c = 0x8aa030; o.L[2].c = 0x5a3a6a;
+  if(o.flies) o.flies.uniforms.uCol.value.setHex(0x6a7a2a);
 };
 proto.updateRoomsVanity = function(G, dt, t){
   const W = this, D = W.D, p = G.player, FX = DG.FX, live = !(DG.app && DG.app.V && DG.app.V.silent);

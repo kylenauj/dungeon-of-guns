@@ -222,10 +222,11 @@ DG.ENDINGS = {
     "There is a keeper in the Kiln again. He is grey, and he is patient, and he talks to his frog.",
     "Gribbus has his own chair by the fire. It is a very good chair."] },
   bog:{ title:"KING OF THE BOG", sub:"Gribbus ate the Heart.", lore:[
-    "The Gloom Heart was a hunger, and it met a bigger one.",
-    "Gribbus swallowed it whole, crown and all, and the rot inside it became his.",
-    "The forest did not die. It became a bog, green and loud and full of frogs, and every frog in it bows to him.",
-    "Zippy is his royal wizard now, by decree. He was not consulted.",
+    "The Gloom Heart was a hunger, and it met a worse one.",
+    "Gribbus swallowed it whole, and the rot inside it found a home that was already rotten.",
+    "The Keep did not wake. It drowned. Black water rose up every stair, and the forest sank into it and did not come up.",
+    "Every frog in the bog turns to face the throne when he croaks. Some of them have three eyes now.",
+    "Zippy is his royal wizard, by decree. He was not consulted. He is not allowed to leave.",
     "Long live the King of the Bog. Croak."] }
 };
 /* a line on arriving at each floor, so the story seeps in as you go down */

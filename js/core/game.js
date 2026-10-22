@@ -28,6 +28,7 @@ const Game = DG.Game = function(opts){
   G.meta = opts.meta || { flies:0, unlocked:{} };
   G.stats = { kills:0, dmg:0, rooms:0, gold:0, time:0, floors:0, secrets:0, puzzles:0, items:0, reactions:0, flies:0, lairs:0, bosses:[] };
   G.nextId = 1;
+  G.roads = DG.Roads ? DG.Roads.init() : null;
   G.seenItems = {}; G.pools = Items.pools();
   const P = DG.PLAYER;
   G.player = {
@@ -73,7 +74,8 @@ proto.chance = function(p){ return this.rng.next() < this.luck(p); };
 proto.enterFloor = function(n){
   const G = this, p = G.player;
   G.floor = n;
-  G.D = DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, G.kiln && n === DG.FINAL_FLOOR + 1 ? { theme:DG.KILN } : null);
+  const gen = Object.assign(DG.Roads ? DG.Roads.genOpts(G, n) : {}, G.kiln && n === DG.FINAL_FLOOR + 1 ? { theme:DG.KILN } : {});
+  G.D = DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, gen);
   G.scale = DG.FLOOR_SCALE(n);
   G.enemies = []; G.bullets = []; G.pickups = []; G.bombs = []; G.marks = []; G.hazards = []; G.allies = []; G.pending = []; G.beams = [];
   G.room = null; G.portal = null; G.bossRef = null; G.timeStop = 0; G.tickT = {};
@@ -607,9 +609,10 @@ proto.updateRooms = function(dt){
     if(inside){
       if(!inside.visited){ inside.visited = true; G.emit("visit", { room:inside.id }); }
       G.emit("enter", { room:inside.id, type:inside.type });
-      if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss" || inside.type === "lair")) G.activate(inside);
+      if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss" || inside.lair)) G.activate(inside);
       if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); if(G.mods.special.member) G.memberShop(inside); }
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
+      if(inside.type === "pond" && DG.Roads) DG.Roads.enterPond(G, inside);
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
       if(inside.type === "secret" && !inside.found){ inside.found = true; G.emit("secretRoom", { room:inside.id }); }
       G.enterSpecial(inside);
@@ -643,7 +646,7 @@ proto.activate = function(r){
     r.wave = r.waves.length;
     return;
   }
-  if(r.type === "lair"){
+  if(r.lair){
     // a mini-boss: its name on the screen, a bar of its own, and the doors shut behind you
     const L = DG.LAIRS[r.lair], n = L.count || 1;
     G.lairRef = [];
@@ -743,11 +746,12 @@ proto.bossDown = function(e){
   G.emit("portal", G.portal);
   const p = G.player;
   if(e.type === "hollow") G.say("The Hollow Wizard is still. The hearth is cold, and waiting.", 4);
-  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && p.quests.crown && !p.quests.ember){
+  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && DG.Roads && DG.Roads.canFeast(G) && !p.quests.ember){
     // the Crown: Gribbus doesn't let a good meal go to waste
     G.portal = null;
     G.emit("feast", { x:e.x, y:e.y });
     G.say("Gribbus looks at the Heart. The Heart looks at Gribbus.", 3);
+    DG.Roads.feast(G);
     G.pending.push({ t:3.2, fn:()=> G.finish("bog") });
   }
   else if(G.floor >= DG.FINAL_FLOOR && !G.endless && p.quests.ember) G.say("The Gloom Heart is still. The Ember is burning a hole in your pocket. It wants to go down.", 4);
@@ -807,7 +811,7 @@ proto.target = function(){
   const consider = (o, d, text)=>{ if(d < bd){ bd = d; best = { o, text }; } };
   G.pickups.forEach(k=>{ if(k.kind === "item") consider(k, DG.dist(k.x, k.y, p.x, p.y), "Take " + k.item.name); });
   // a locked door, with or without a key in your pocket
-  G.D.doors.forEach(d=>{ if(d.locked) consider({ door:d }, DG.dist(d.x, d.y, p.x, p.y) - 0.4, p.keys > 0 ? "Unlock (1 key of " + p.keys + ")" : "Locked. It wants a key."); });
+  G.D.doors.forEach(d=>{ if(d.locked) consider({ door:d }, DG.dist(d.x, d.y, p.x, p.y) - 0.4, d.sealed ? "Sealed with black water" : p.keys > 0 ? "Unlock (1 key of " + p.keys + ")" : "Locked. It wants a key."); });
   if(G.portal) consider({ portal:true }, DG.dist(G.portal.x, G.portal.y, p.x, p.y) - 0.3, G.floor >= DG.FINAL_FLOOR && !G.endless ? "Escape the dungeon" : "Jump in the portal");
   const r = G.room || G.D.rooms.find(rr=> p.x > rr.x1 - 1 && p.x < rr.x2 + 2 && p.y > rr.y1 - 5 && p.y < rr.y2 + 2);
   if(r) r.props.forEach(pr=>{
@@ -820,6 +824,7 @@ proto.target = function(){
   });
   if(r) G.targetSpecial(r, consider);
   if(r && r.puzzle && DG.Puzzles) DG.Puzzles.consider(G, r, consider);
+  if(r && DG.Roads) DG.Roads.consider(G, r, consider);
   return best;
 };
 /* ---- the end: which ending, remembered between runs ---- */
@@ -835,6 +840,7 @@ proto.useKey = function(){ const p = this.player; if(p.keys <= 0) return false; 
 proto.unlockDoor = function(d){
   const G = this;
   if(!d.locked) return;
+  if(d.sealed){ G.say(DG.ROT.lines.sealed, 3.5); G.emit("broke"); return; }
   if(!G.useKey()){ G.say("Locked. Somewhere down here there's a key for it."); G.emit("broke"); return; }
   d.locked = false; d.open = true; G.D.ver = (G.D.ver || 0) + 1;
   G.emit("unlock", { x:d.x, y:d.y, door:d.id });
@@ -852,6 +858,7 @@ proto.interact = function(){
   if(!tg) return;
   const o = tg.o;
   if(o.pz){ DG.Puzzles.use(G, o); return; }
+  if(o.dive !== undefined){ DG.Roads.dive(G, o); return; }
   if(G.interactSpecial(o)) return;
   if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }
@@ -876,7 +883,11 @@ proto.interact = function(){
     else if(of.kind === "gun") G.takeItem(of.gun, null);
     else if(of.kind === "heal"){ G.heal(of.amount); G.say("Tastes like boots. You feel better."); }
     else if(of.kind === "ward") G.addWards(of.n);
-    else if(of.kind === "quest"){ p.quests[of.id] = true; G.emit("quest", { id:of.id, name:of.name }); G.say(of.id === "ember" ? "The Ember is warm in your hand. Far below, something answers it." : "Gribbus puts on the Crown. He does not take it off.", 3.5); }
+    else if(of.kind === "quest"){
+      p.quests[of.id] = true; G.emit("quest", { id:of.id, name:of.name });
+      if(of.id === "crown" && DG.Roads) DG.Roads.takeCrown(G);
+      G.say(of.id === "ember" ? "The Ember is warm in your hand. Far below, something answers it." : DG.ROT.lines.crown, 3.5);
+    }
     else if(of.kind === "key"){ p.keys += of.n; G.emit("key", { x:o.x + 0.5, y:o.y + 0.5, keys:p.keys }); }
     else if(of.kind === "active") G.giveActive(of.id);
     // a treasure room's choice: the other pedestals sink
@@ -1006,12 +1017,12 @@ proto.springCage = function(r){
 };
 proto.clearSpecial = function(r){
   const G = this;
-  if(r.type === "lair" && !r.lairPaid){
-    // the lair's hoard: something good, a key, and a breather
+  if(r.lair && !r.lairPaid){
+    // the lair's hoard: something good, a key, and a breather (the shrine's is its crown)
     r.lairPaid = true; G.stats.lairs++;
     const x = Math.floor(r.cxw), y = Math.floor(r.cyw);
-    G.addProp(r, { kind:"pedestal", x, y, pool:G.floor >= 3 ? "x" : "t" });
-    G.addPickup("key", x + 1.5, y + 0.5, 1);
+    if(r.type === "shrine") DG.Roads.shrineClear(G, r);
+    else { G.addProp(r, { kind:"pedestal", x, y, pool:G.floor >= 3 ? "x" : "t" }); G.addPickup("key", x + 1.5, y + 0.5, 1); }
     G.addPickup("heart", x - 1, y + 0.5, 25);
     G.lairRef = null;
     G.say(DG.LAIRS[r.lair].name + " is dead. Its hoard is yours.", 3.5);

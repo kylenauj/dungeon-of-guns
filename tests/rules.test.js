@@ -371,8 +371,9 @@ test("a frog pond: one lily pad teaches Gribbus a trick, the others sink", ()=>{
   const G = game("POND");
   const r = G.D.rooms.find(x=> x.type === "pond");
   DG.Gribbus.offerPond(G, r);
-  const pads = r.props.filter(p=> p.kind === "lilypad");
+  const pads = r.props.filter(p=> p.kind === "lilypad" && !p.gloom);
   assert.equal(pads.length, 3);
+  assert.equal(r.props.filter(p=> p.kind === "lilypad" && p.gloom).length, 1, "and the black one, on floor 1");
   assert.ok(pads.every(p=> p.buff));
   DG.Gribbus.choosePad(G, pads[1]);
   assert.ok(G.gribbus.buffs.indexOf(pads[1].buff) >= 0);
@@ -1191,18 +1192,28 @@ function killBoss(G){
 }
 function takePortal(G){ G.player.x = G.portal.x; G.player.y = G.portal.y; G.interact(); }
 
-test("the quest rooms turn up early, behind a locked door, with their relic", ()=>{
+test("the quest rooms: the Reliquary turns up early behind a locked door; the Drowned Shrine only on the Rot road, sealed with water", ()=>{
   const seen = { reliquary:0, shrine:0 };
   for(let s=1; s<=60; s++) for(const floor of [1, 2, 3]){
     const D = DG.Dungeon.generate(s*7349 >>> 0, floor);
-    D.rooms.filter(r=> r.type === "reliquary" || r.type === "shrine").forEach(r=>{
+    assert.ok(!D.rooms.some(r=> r.type === "shrine"), "no shrine off the road");
+    D.rooms.filter(r=> r.type === "reliquary").forEach(r=>{
       seen[r.type]++;
       assert.ok(r.type === "reliquary" ? floor <= 2 : floor >= 2, r.type + " on floor " + floor);
       assert.ok(D.doors.some(d=> d.locked && !d.open && d.into === r.id), "locked");
       assert.ok(r.props.some(p=> p.kind === "pedestal" && p.quest === (r.type === "reliquary" ? "ember" : "crown")));
     });
   }
-  assert.ok(seen.reliquary > 5 && seen.shrine > 5, JSON.stringify(seen));
+  for(let s=1; s<=20; s++){
+    const D = DG.Dungeon.generate(s*7349 >>> 0, 3, { shrine:true, rot:2 });
+    const r = D.rooms.find(o=> o.type === "shrine"); if(!r) continue;
+    seen.shrine++;
+    assert.ok(D.doors.some(d=> d.locked && d.sealed && d.into === r.id), "sealed");
+    assert.equal(r.lair, "leech");
+    assert.ok(!r.props.some(p=> p.quest), "the crown waits for the Leech Mother to die");
+    assert.ok(D.rooms.some(o=> o.type === "pond" && o.corrupt), "the pond is black");
+  }
+  assert.ok(seen.reliquary > 5 && seen.shrine > 15, JSON.stringify(seen));
 });
 // regression: a quest room could be a goblin room with two ways out, and with
 // its doors locked it could cut a keyless player off from the boss
@@ -1228,12 +1239,16 @@ test("Dawn: kill the Gloom Heart, take the way out", ()=>{
   assert.ok(G.meta.endings.dawn, "remembered");
 });
 
-test("King of the Bog: with the Crown, Gribbus eats the Heart", ()=>{
-  const G = game("BOGEND", 5); G.player.quests.crown = true;
+test("King of the Bog: with the Crown, and split at least once, Gribbus eats the Heart", ()=>{
+  const G = game("BOGEND", 5); G.player.quests.crown = true; G.roads.rot.crown = true; G.roads.rot.stage = 2;
   killBoss(G);
   assert.ok(G.drain().length >= 0);
   step(G, 4);
   assert.equal(G.state, "won"); assert.equal(G.ending, "bog");
+  // a crown alone isn't the road: that's the dawn
+  const H = game("BOGNOT", 5); H.player.quests.crown = true; H.roads.rot.crown = true; H.roads.rot.stage = 1;
+  killBoss(H); step(H, 4);
+  assert.ok(H.ending !== "bog");
 });
 
 test("The First Flame: the Ember opens the Kiln, and the Hollow Wizard waits there", ()=>{
@@ -1625,4 +1640,80 @@ test("a frog build's treasure room keeps one frog thing on offer", ()=>{
     if(r.props.some(pr=> pr.offer && pr.offer.kind === "item" && DG.Items.tagsOf(DG.ITEMS[pr.offer.id]).indexOf("frog") >= 0)) hits++;
   }
   assert.equal(hits, n);
+});
+
+/* ---- the Rot road ---- */
+function pondOf(G){ return G.D.rooms.find(x=> x.type === "pond"); }
+test("the Rot: the Gloom Lily floats only on floors 1 to 3 while the road is open; drinking it taints him and blackens the pond", ()=>{
+  const H = game("NOLILY", 4); DG.Gribbus.offerPond(H, pondOf(H));
+  assert.ok(!pondOf(H).props.some(p=> p.gloom), "not on floor 4");
+  const C = game("SHUTLILY", 2); C.roads.rot.closed = true; DG.Gribbus.offerPond(C, pondOf(C));
+  assert.ok(!pondOf(C).props.some(p=> p.gloom), "not once the road's shut");
+  const G = game("LILY", 2), r = pondOf(G); DG.Gribbus.offerPond(G, r);
+  const pad = r.props.find(p=> p.gloom); assert.ok(pad);
+  const p0 = DG.Gribbus.power(G);
+  DG.Gribbus.choosePad(G, pad);
+  assert.equal(G.roads.rot.stage, 1); assert.ok(r.corrupt);
+  assert.equal(G.gribbus.buffs.length, 0, "instead of a trick, not as well as");
+  assert.ok(r.props.filter(p=> p.kind === "lilypad" && !p.gloom).every(p=> p.sunk));
+  assert.ok(DG.Gribbus.power(G) > p0*1.2);
+});
+test("the Rot: only his own kills feed him; fed, he molts at a pond, and the first molt shuts the Lantern road", ()=>{
+  const G = game("MOLT", 2), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; G.god = true;
+  G.roads.rot.stage = 1;
+  for(let i=0;i<30;i++){ const e = addEnemy(G, r, s.x, s.y); G.damageEnemy(e, 1e6, {}); }
+  assert.equal(G.roads.rot.hunger, 0, "Zippy's kills don't feed him");
+  for(let i=0;i<30 && !DG.Roads.hungerFull(G);i++){ const e = addEnemy(G, r, s.x, s.y); G.damageEnemy(e, 1e6, { from:"gribbus" }); }
+  assert.ok(DG.Roads.hungerFull(G));
+  DG.Roads.enterPond(G, pondOf(G));
+  assert.equal(G.roads.rot.stage, 2);
+  assert.ok(G.roads.lantern.closed);
+  assert.equal(G.roads.rot.hunger, 0);
+});
+test("the Rot: on the next floor from 3, the Drowned Shrine is sealed; you dive in from the black pond; the Leech Mother keeps the crown", ()=>{
+  let G = null;
+  for(let s=1; s<30 && !G; s++){
+    const H = game("DIVE" + s, 2); H.god = true; H.roads.rot.stage = 2;
+    H.enterFloor(3);
+    if(H.D.rooms.some(o=> o.type === "shrine")) G = H;
+  }
+  assert.ok(G, "a shrine turned up");
+  const shrine = G.D.rooms.find(o=> o.type === "shrine"), pond = pondOf(G), door = G.D.doors.find(d=> d.into === shrine.id);
+  const keys = G.player.keys; G.unlockDoor(door);
+  assert.ok(door.locked && G.player.keys === keys, "a key does nothing");
+  G.player.x = pond.cxw; G.player.y = pond.cyw + 1.2; G.room = pond;
+  const tg = G.target(); assert.ok(tg && tg.o.dive !== undefined, "E dives");
+  G.interact();
+  assert.ok(G.inRoom(shrine, G.player.x, G.player.y), "inside");
+  step(G, 0.3);
+  assert.ok(shrine.active);
+  const mom = G.enemies.find(e=> e.lair === "leech" && !e.dead); assert.ok(mom);
+  G.enemies.filter(e=> e.room === shrine.id && !e.dead).forEach(e=> G.killEnemy(e, {}));
+  step(G, 0.5);
+  const ped = shrine.props.find(p=> p.quest === "crown"); assert.ok(ped, "the crown");
+  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2;
+  G.interact();
+  assert.ok(G.roads.rot.crown && G.player.quests.crown);
+  // the road ahead: no shrine once he wears it, and floor 5 floods
+  const o4 = DG.Roads.genOpts(G, 4), o5 = DG.Roads.genOpts(G, 5);
+  assert.ok(!o4.shrine && o5.drowned);
+});
+test("the Rot's last fight: the Heart drags Gribbus in; hurt it and it chokes; low enough, he eats it", ()=>{
+  const G = game("FEAST", 5); G.god = true; G.player.quests.crown = true; G.roads.rot.crown = true; G.roads.rot.stage = 2;
+  const r = G.D.rooms.find(x=> x.type === "boss"), s = G.freeSpot(r, r.cxw, r.cyw + 2); G.player.x = s.x; G.player.y = s.y;
+  step(G, 1);
+  const h = G.enemies.find(e=> e.boss && !e.dead); assert.ok(h);
+  h.spawn = 0; h.ai.devCd = 0; step(G, 0.1);
+  assert.ok(h.ai.devour, "it opens");
+  const f = G.gribbus, d0 = DG.dist(f.x, f.y, h.x, h.y);
+  step(G, 0.5);
+  assert.ok(DG.dist(f.x, f.y, h.x, h.y) < d0, "he's dragged in");
+  G.damageEnemy(h, h.maxHp*0.06, {});
+  step(G, 0.1);
+  assert.ok(!h.ai.devour && h.st.stun > 0, "it chokes");
+  // and at the end, he eats it
+  h.hp = h.maxHp*0.1; step(G, 4);
+  assert.ok(h.dead);
+  step(G, 4);
+  assert.equal(G.ending, "bog");
 });

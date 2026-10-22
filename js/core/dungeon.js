@@ -41,6 +41,7 @@ function tryGenerate(rng, floor, seed, opts){
   const W = CW*GW, H = CH*GH;
   const D = { seed, floor, w:W, h:H, tiles:new Uint8Array(W*H), rooms:[], doors:[], corridors:[], painted:[], fakes:[], breakables:[], decor:[], ver:0,
               theme:opts.theme || DG.FLOORS[(floor - 1) % DG.FLOORS.length] };
+  D.drowned = !!opts.drowned;
   D.at = (x, y)=> (x < 0 || y < 0 || x >= W || y >= H) ? T.SOLID : D.tiles[y*W + x];
   D.set = (x, y, v)=>{ if(x >= 0 && y >= 0 && x < W && y < H) D.tiles[y*W + x] = v; };
 
@@ -83,8 +84,8 @@ function tryGenerate(rng, floor, seed, opts){
   /* ---- the quest rooms: rare, early, behind a locked door. The Sealed
      Reliquary (floors 1-2) holds the Ember of the First Flame; the Drowned
      Shrine (floors 2-3) the Crown of the Bog. Each starts an alternative ending. ---- */
-  const quest = (floor === 1 && rng.chance(0.25)) || (floor === 2 && rng.chance(0.2)) ? "reliquary"
-    : (floor === 2 && rng.chance(0.25)) || (floor === 3 && rng.chance(0.25)) ? "shrine" : null;
+  // (the Drowned Shrine now belongs to the Rot road: it's only here when Gribbus has split once and has no crown yet)
+  const quest = opts.shrine ? "shrine" : (floor === 1 && rng.chance(0.25)) || (floor === 2 && rng.chance(0.2)) ? "reliquary" : null;
   // it grows off a goblin room into an empty cell with specialRooms below, so it is
   // always a dead end: its door locks, and it must never stand between you and the boss
 
@@ -171,7 +172,7 @@ function tryGenerate(rng, floor, seed, opts){
 
   /* ---- 4. contents ---- */
   rooms.forEach(r=>{
-    r.waves = []; r.traps = []; r.props = []; r.cleared = r.type !== "combat" && r.type !== "boss" && r.type !== "lair";
+    r.waves = []; r.traps = []; r.props = []; r.cleared = r.type !== "combat" && r.type !== "boss" && !r.lair;
     if(r.type === "combat"){ furnish(D, rng, r); breakables(D, rng, r); trapRoom(D, rng, r, S); populate(D, rng, r, floor, S); }
   });
   const st = rooms[0];
@@ -198,8 +199,9 @@ function tryGenerate(rng, floor, seed, opts){
       const sells = ["item"].concat(rng.shuffle(["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal", "key"]).slice(0, n - 1));
       sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - (n - 1) + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
     }
-    if(r.type === "pond") makePond(D, rng, r);
-    if(r.type === "reliquary" || r.type === "shrine"){
+    if(r.type === "pond"){ makePond(D, rng, r); if(opts.rot) r.corrupt = true; }
+    if(r.type === "shrine" && r.road){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS. SOMETHING ELSE REMEMBERS IT." }); }
+    else if(r.type === "reliquary" || r.type === "shrine"){
       r.props.push({ kind:"pedestal", x:cx, y:cy, quest:r.type === "reliquary" ? "ember" : "crown" });
       r.props.push({ kind:"sign", x:cx, y:r.y1, text:r.type === "reliquary" ? "SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME." : "THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS." });
     }
@@ -284,7 +286,7 @@ function furnish(D, rng, r){
   const w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1, theme = D.theme.decor;
   const styles = [
     { s:"pillars", w:3 }, { s:"pit", w:w >= 15 && h >= 11 ? 2 : 0 }, { s:"crates", w:2.5 }, { s:"cross", w:w >= 15 ? 1.5 : 0 }, { s:"empty", w:1 },
-    { s:"ring", w:w >= 15 && h >= 11 ? 1.5 : 0 }, { s:"graves", w:theme === "crypt" ? 3 : 0 }, { s:"pools", w:theme === "gloomwood" || theme === "forest" ? 2 : theme === "undercroft" ? 1 : 0.5 },
+    { s:"ring", w:w >= 15 && h >= 11 ? 1.5 : 0 }, { s:"graves", w:theme === "crypt" ? 3 : 0 }, { s:"pools", w:(theme === "gloomwood" || theme === "forest" ? 2 : theme === "undercroft" ? 1 : 0.5)*(D.drowned ? 6 : 1) },
     { s:"islands", w:r.jumbo ? 2.5 : 0 }, { s:"maze", w:r.jumbo ? 1.5 : 0 }
   ];
   const style = rng.weighted(styles).s;
@@ -614,6 +616,8 @@ function specialRooms(D, rng, floor, C, quest){
     r.c0x = r.c1x = c.cx; r.c0y = r.c1y = c.cy; r.dist = host.r.dist + 1;
     C.link(host.r, r, host.c, [c.cx, c.cy]);
     if(type === "vault" || type === "reliquary" || type === "shrine") r.lockedIn = true;
+    // the Rot road's shrine: sealed with water, not a lock (you dive in from the floor's pond), and the Leech Mother lives in it
+    if(type === "shrine"){ r.sealed = true; r.road = "rot"; r.lair = "leech"; }
     if(type === "lair"){
       const f = ((floor - 1) % DG.FLOORS.length) + 1;
       r.lair = rng.pick(Object.keys(DG.LAIRS).filter(id=> DG.LAIRS[id].floors.indexOf(f) >= 0));
@@ -626,7 +630,7 @@ function lockRooms(D){
     if(!r.lockedIn) return;
     D.corridors.forEach(c=>{
       if(c.a !== r.id && c.b !== r.id) return;
-      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; } });
+      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; if(r.sealed) d.sealed = true; } });
     });
   });
 }

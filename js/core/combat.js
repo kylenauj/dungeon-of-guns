@@ -523,6 +523,7 @@ proto.killEnemy = function(e, src, fell){
   G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
   if(src.from === "gribbus" || src.from === "tadpole" || src.frog){
     if(DG.Gribbus.gainXp) DG.Gribbus.gainXp(G, e.boss ? 40 : Math.round((e.def.cost || 1)*5));
+    if(DG.Roads) DG.Roads.frogKill(G, e);
     if(M.special.hungry && G.t >= (p.hungryT || 0)){ p.hungryT = G.t + 0.25; G.heal(1); }
   }
   // the gun in your hand learns from every kill

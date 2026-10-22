@@ -1048,12 +1048,13 @@ function fSkin(r, ws, hs, amt, freq, seed, c1, c2, belly){
 Models.frog = function(twin, buffs, opts){
   buffs = buffs || []; opts = opts || {};
   const shine = !!opts.redeemed;   // the ending: the Gloom lets go, and he's a bright green frog with orange hands again
+  const rot = shine || twin ? 0 : (opts.rot || 0);   // the Rot road: I tainted, II split, III bloated
   const has = id=> buffs.indexOf(id) >= 0;
   const R = rig("frog"), b = R.body;
   R.anim = [];
   // Gribbus: ditch-water olive and mud; Grobbus: the grey-green of an old pond
-  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : 0x45432f, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : 0x2a281c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : 0x847a64;
-  const WART = shine ? 0x72e050 : twin ? 0x56625a : 0x5a553e, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : 0xc8902a;
+  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : rot ? 0x2a2e22 : 0x45432f, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : rot ? 0x121410 : 0x2a281c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : rot ? 0x5c5a46 : 0x847a64;
+  const WART = shine ? 0x72e050 : twin ? 0x56625a : rot ? 0x3a3826 : 0x5a553e, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : rot ? 0xb8d040 : 0xc8902a;
   const HAND = shine ? 0xff8a2a : G2;
   const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
@@ -1173,6 +1174,7 @@ Models.frog = function(twin, buffs, opts){
   for(let i=0;i<5;i++){ const a = i/5*PI*2; P(crown, CO(0.025, 0.09, 6), 0x8a6a2e, Math.cos(a)*0.11, 0.07, Math.sin(a)*0.11); P(crown, zs(0.012), 0x6a1a14, Math.cos(a)*0.118, 0.0, Math.sin(a)*0.118); }
   // what he's learned, he wears
   buffs.forEach(id=>{ if(FROG_OUTFIT[id]) FROG_OUTFIT[id]({ R, b, h:H, G1, G2 }); });
+  if(rot) frogRot(R, b, H, TH, rot, G1, G2);
   // the tongue: not baked, so the view can stretch it
   const tongue = new THREE.Mesh(CY(0.035, 0.05, 1, 8), K.lambert(0x8a3e48));
   tongue.geometry = tongue.geometry.clone(); tongue.geometry.rotateX(PI/2); tongue.geometry.translate(0, 0, 0.5);
@@ -1184,6 +1186,40 @@ Models.frog = function(twin, buffs, opts){
   if(shine){ const m2 = K.figure(); m2.emissive.setHex(0x183a10); R.root.traverse(o=>{ if(o.userData.baked) o.material = m2; }); halo(R, R.body, 0xb8ff7a, 1.6, 0, 0.35, 0, 0.35); }
   return R;
 };
+
+/* the Rot, worn. I: a third eye opens on his crown, black drool, the skin gone
+   oily-dark. II: his throat splits into a second mouth, teeth in it; boils
+   along his back that glow from inside. III: bloated, the boils everywhere,
+   a crust of black growth down his flanks. */
+function frogRot(R, b, H, TH, rot, G1, G2){
+  const SICK = 0xb8d040, PUS = 0xd8e070, rnd = (()=>{ let sd = 77; return ()=> (sd = (sd*16807) % 2147483647)/2147483647; })();
+  // the third eye, in a puckered socket on top of his head
+  P(H, fSkin(0.06, 16, 12, 0.004, 25, 31, G1, G2), 0xffffff, 0, 0.53, 0.12, -0.3, 0, 0, 1, 0.8, 1);
+  P(H, zs(0.038, 12, 10), 0x2a2a14, 0, 0.565, 0.145);
+  glow(R, H, 0.03, SICK, 0, 0.57, 0.165).scale.set(0.5, 1, 0.5);
+  halo(R, H, SICK, 0.18, 0, 0.58, 0.18, 0.3);
+  // black drool from the corners of his mouth
+  [-1, 1].forEach(s=>{ const len = 0.1 + rnd()*0.06; P(H, zTaper([[s*0.27, 0.26, 0.27], [s*0.28, 0.2, 0.28], [s*0.275, 0.26 - len, 0.29]], 0.012, 0.004, 8, 6), 0x0a0c06); P(H, zs(0.013), 0x0a0c06, s*0.275, 0.26 - len, 0.29); });
+  if(rot >= 2){
+    // the second mouth: a split down the throat, lipped, with teeth
+    const pts = [[0, 0.33, 0.37], [0, 0.26, 0.38], [0, 0.18, 0.36], [0, 0.12, 0.31]];
+    P(TH, K.tube(pts, 0.03, 12, 8), 0x3a0a0c);
+    [-1, 1].forEach(s=> P(TH, K.tube(pts.map(q=> [s*0.034, q[1], q[2] + 0.004]), 0.016, 12, 6), 0x7a3a34));
+    for(let i=0;i<6;i++){ const y = 0.31 - i*0.035, z = 0.37 - i*0.01; [-1, 1].forEach(s=> P(TH, CO(0.008, 0.035, 4), 0xc8bc98, s*0.022, y, z, 0, 0, -s*PI/2)); }
+    // boils down his back, lit from inside
+    for(let i=0;i<(rot >= 3 ? 16 : 7);i++){
+      const u = PI*0.55 + rnd()*PI*0.9, v = 0.2 + rnd()*0.95, r = 0.022 + rnd()*0.03;
+      const x = Math.sin(u)*Math.cos(v)*0.33, y = 0.24 + Math.sin(v)*0.21, z = -0.07 + Math.cos(u)*Math.cos(v)*0.44;
+      P(b, zs(r*1.3), G2, x, y - r*0.3, z);
+      glow(R, b, r, i % 3 ? PUS : SICK, x, y, z);
+    }
+  }
+  if(rot >= 3){
+    // bloated: the belly sags, the flanks crust over with black growth
+    P(b, fSkin(0.3, 26, 18, 0.02, 20, 41, G1, G2), 0xffffff, 0, 0.17, -0.02, 0, 0, 0, 1.15, 0.55, 1.2);
+    for(let i=0;i<14;i++){ const s = i % 2 ? 1 : -1, z = 0.15 - (i >> 1)*0.07; P(b, K.shard(0.06 + rnd()*0.08, 0.025, -0.4, 5, 60 + i), 0x0e100a, s*(0.31 + rnd()*0.03), 0.18 + rnd()*0.1, z, -0.3, 0, -s*(1.2 + rnd()*0.4)); }
+  }
+}
 
 /* Gribbus' tricks, worn (head at about (0, 0.37, 0.18), eyes on top at (±0.15, 0.49, 0.25)) */
 const FROG_OUTFIT = {
@@ -3904,7 +3940,7 @@ Models.frogBuffIcon = function(id){
     : new THREE.MeshBasicMaterial({ map:K.textTex([d.name[0]], 32, 32, { size:24, bg:"#1a2e14", fg:"#d8f0a8" }) }));
   face.position.z = 0.035; root.add(face);
   const back = face.clone(); back.rotation.y = PI; back.position.z = -0.035; root.add(back);
-  halo(R, root, 0x9cff6a, 1, 0, 0, 0, 0.35);
+  halo(R, root, id === "gloom" ? 0x6a3a8a : 0x9cff6a, 1, 0, 0, 0, 0.35);
   if(d.locked) halo(R, root, 0xffd23d, 1.4, 0, 0, 0, 0.45);
   finish(R, { w:0.015 });
   return g;

@@ -507,6 +507,15 @@ H.draw = function(G, dt, opts){
     const lw = Math.min(ps + 4, measure(g, label, lsz, "700", SERIF, lsz*0.15) + 24);
     frame(g, px + ps/2 - lw/2, py - 15*k, lw, 18*k, forms.length ? "rgba(40,14,36,.96)" : "rgba(12,10,10,.97)", false);
     text(g, label, px + ps/2, py - 6*k, lsz, forms.length ? "#d8a0c8" : GOLD, "center", "700", SERIF, lsz*0.15);
+    // the Rot: his hunger, filling with his own kills (a molt at the next pond when it's full)
+    const RT = G.roads && G.roads.rot;
+    if(RT && RT.stage >= 1){
+      const need = DG.ROT.need[RT.stage], full = RT.stage < 3 && RT.hunger >= need, hk = RT.stage >= 3 ? 1 : Math.min(1, RT.hunger/need);
+      const tx = px + 8, ty = py + 14;
+      text(g, DG.ROT.stages[RT.stage].name.toUpperCase() + (RT.stage < 3 ? (full ? " · FED: FIND A POND" : " · HUNGRY") : " · BLOATED"), tx, ty, 10*k, full ? "#d8e070" : "#9aa04a", "left", "700", SERIF, 1.5);
+      g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(R2(tx), R2(ty + 4), R2(80*k), 3);
+      g.fillStyle = full ? "#d8e070" : "#6a7a2a"; g.fillRect(R2(tx), R2(ty + 4), R2(80*k*hk), 3);
+    }
     // Gribbus' rank, earned with his own kills, and how far to the next
     const fr = G.gribbus;
     if(fr && fr.level){

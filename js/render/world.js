@@ -670,14 +670,15 @@ proto.buildWater = function(){
     const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, -0.12, y + 0.5);
     (by[a] = by[a] || []).push(g);
   }
-  const col = new THREE.Color(W.th.water || 0x2a8a7a);
+  const rotten = D.rooms.some(r=> r.corrupt) || D.drowned;
+  const col = new THREE.Color(rotten ? 0x080a06 : (W.th.water || 0x2a8a7a));
   W.waterMat = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{ value:0 }, uCol:{ value:col } }, transparent:true, depthWrite:false,
+    uniforms:{ uTime:{ value:0 }, uCol:{ value:col }, uA:{ value:rotten ? 0.96 : 0.72 }, uHi:{ value:rotten ? 0.18 : 0.5 } }, transparent:true, depthWrite:false,
     vertexShader:"varying vec2 vW; void main(){ vec4 w = modelMatrix*vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix*viewMatrix*w; }",
-    fragmentShader:["uniform float uTime; uniform vec3 uCol; varying vec2 vW;",
+    fragmentShader:["uniform float uTime; uniform vec3 uCol; uniform float uA; uniform float uHi; varying vec2 vW;",
       "void main(){ float r = sin(vW.x*3.1 + uTime*1.3)*sin(vW.y*2.7 - uTime*1.1) + sin((vW.x + vW.y)*5.0 + uTime*2.0)*0.5;",
       "  float hi = smoothstep(0.75, 1.2, r);",
-      "  gl_FragColor = vec4(uCol*(0.7 + 0.3*r) + vec3(hi*0.5), 0.72); }"].join("\n")
+      "  gl_FragColor = vec4(uCol*(0.7 + 0.3*r) + vec3(hi*uHi), uA); }"].join("\n")
   });
   K.timed.push(W.waterMat);
   for(const a in by) W.areaGroup(+a).add(new THREE.Mesh(K.merge(by[a]), W.waterMat));
@@ -1114,6 +1115,14 @@ proto.addProp = function(p){
     }
     o.holder = new THREE.Group(); o.holder.position.y = 1.2; g.add(o.holder);
     o.shown = null; o.sink = 0;
+  } else if(p.kind === "lilypad" && p.gloom){
+    // the Gloom Lily: black and oily, veined, a bud of something closed in its middle
+    P(g, K.sculpt(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 18, 1, false, 0.3, PI*2 - 0.6), 0.02, 8, 3), 0x101208, 0, -0.08, 0);
+    for(let k=0;k<7;k++){ const a = 0.4 + k/7*(PI*2 - 0.8); P(g, new THREE.BoxGeometry(0.42, 0.012, 0.018), 0x3a1a3a, Math.cos(a)*0.22, -0.055, Math.sin(a)*0.22, 0, -a, 0); }
+    P(g, K.lump(0.1, 1, 0.4, 7), 0x1a0c1e, 0, 0.02, 0, 0, 0, 0, 1, 1.4, 1);
+    K.bake(g, { w:0.015 });
+    const sp = K.sprite(0x6a3a8a, 1.4, 0.5); sp.position.y = 0.2; g.add(sp);
+    o.holder = new THREE.Group(); o.holder.position.y = 0.7; g.add(o.holder); o.shown = null; o.sink = 0;
   } else if(p.kind === "lilypad"){
     P(g, new THREE.CylinderGeometry(0.45, 0.45, 0.04, 16, 1, false, 0.3, PI*2 - 0.6), 0x4aa83a, 0, -0.08, 0);
     P(g, new THREE.TorusGeometry(0.4, 0.03, 6, 16), 0x3a8a2a, 0, -0.06, 0, PI/2);

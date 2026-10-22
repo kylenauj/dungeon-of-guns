@@ -650,6 +650,35 @@ const BEHAVIOUR = {
       else G.ring(e.x, e.y, 10 + phase*4, 4 + phase*0.6, e.dmg*0.55, A.n*0.07, "blood");
       if(phase >= 1 && A.n % 4 === 1){ const s = spotNear(G, e, p.x, p.y, 2.5); slam(G, s.x, s.y, 1.3, e.dmg, 0.9, "vein"); }
     }
+    // the Rot road: the Heart knows what's coming for it, and tries to eat him first.
+    // It opens and drags Gribbus in; hurt it enough while it pulls and it chokes.
+    // If it gets him, it spits him out dazed and heals. Low enough, he eats it.
+    if(DG.Roads && DG.Roads.canFeast(G)){
+      const f = G.gribbus;
+      A.devCd = (A.devCd === undefined ? 7 : A.devCd) - dt;
+      if(A.devour){
+        const V = A.devour; V.t -= dt;
+        if(e.hp <= V.hp0 - e.maxHp*0.05){ A.devour = null; e.st.stun = 1.6; f.held = 0; G.emit("choke", { id:e.id, x:e.x, y:e.y }); G.say("The Heart chokes on its own blood. Gribbus tears free.", 2.5); }
+        else {
+          const d = DG.dist(f.x, f.y, e.x, e.y) || 1;
+          f.held = 0.2; f.x += (e.x - f.x)/d*2.6*dt; f.y += (e.y - f.y)/d*2.6*dt;
+          if(d < e.r + 0.6){
+            A.devour = null; e.hp = Math.min(e.maxHp, e.hp + e.maxHp*0.05);
+            G.emit("heal", { x:e.x, y:e.y, amt:0, enemy:true }); G.emit("spitOut", { x:e.x, y:e.y });
+            DG.Gribbus.recall(G, f); f.held = 2.5;
+            G.say("It spits him out, dazed. It's stronger for the taste.", 2.5);
+          } else if(V.t <= 0){ A.devour = null; f.held = 0; }
+        }
+      } else if(A.devCd <= 0 && !A.eaten){
+        A.devCd = 9; A.devour = { t:3.4, hp0:e.hp };
+        tell(G, e, "devour", 0.8); G.say("THE HEART OPENS. IT WANTS THE FROG. Hurt it!", 2.5);
+      }
+      if(e.hp < e.maxHp*0.12 && !A.eaten){
+        A.eaten = true; A.devour = null; f.held = 1.2;
+        G.emit("frogLeap", { x1:f.x, y1:f.y, x2:e.x, y2:e.y });
+        G.pending.push({ t:1.1, fn:()=>{ if(!e.dead){ f.x = e.x; f.y = e.y + e.r; G.killEnemy(e, { from:"gribbus" }); } } });
+      }
+    }
     // arteries: rotating beams from phase 2
     if(phase === 2 && A.cd <= 0){
       A.cd = 5;

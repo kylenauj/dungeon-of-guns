@@ -240,3 +240,10 @@ body.cinema #hud{display:none;}
 .journal .roots li.here .bs{color:#d8a050;}
 .journal .tally{font-size:13px;color:#a89878;margin:4px 0;}
 .journal .tally b{color:#e8d0a0;}
+.journal h4.road{margin:12px 0 4px;}
+.journal h4.road.rot{color:#a8b850;}
+.journal .steps{margin:0 0 6px;padding-left:22px;font-size:14px;color:#9a9078;}
+.journal .steps li{margin:2px 0;}
+.journal .steps li.done{color:#c8d088;}
+.journal .steps li.done::marker{content:"✓  ";color:#a8c850;}
+.journal .tally.shut{font-style:italic;color:#7a6a58;}

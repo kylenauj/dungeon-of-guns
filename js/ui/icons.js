@@ -822,7 +822,7 @@ Icons.ACTIVES = {
 };
 Icons.FROG = {
   tongue:"tongue", spit:"droplet@poison", croak:"nova@frost", hop:"bolt@shock", brood:"tadpole", lily:"lily", gulp:"uturn", crown:"crown",
-  bigboy:"frog", flyhunt:"fly", mirror:"mirror", bubble:"bubble", doom:"skull+waves", twin:"frog*2", zoomies:"comet", sticky:"tongue+droplet"
+  bigboy:"frog", flyhunt:"fly", mirror:"mirror", bubble:"bubble", doom:"skull+waves", twin:"frog*2", zoomies:"comet", sticky:"tongue+droplet", gloom:"lily+skull"
 };
 Icons.GUNS = { pistol:"gun", smg:"smg", shotgun:"shotgun", rifle:"rifle", launcher:"launcher" };
 Icons.SETS = {

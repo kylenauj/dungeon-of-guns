@@ -424,6 +424,7 @@ DG.FROG_BUFFS = {
   doom:     { name:"Croak of Doom",  desc:"Every 10 seconds, a croak stuns every goblin in the room.", g:{ doom:1 }, locked:3 },
   twin:     { name:"Twin Frog",      desc:"Gribbus' twin brother Grobbus joins the party.",  g:{ twin:1 }, locked:4 },
   zoomies:  { name:"Frog Zoomies",   desc:"Gribbus attacks 50% faster.",                    g:{ rate:0.5 } },
+  gloom:    { name:"The Gloom Lily",  desc:"Black, oily, veined. Something in the water. He'd be stronger. He wouldn't be right.", g:{}, hidden:true },
   sticky:   { name:"Sticky Tongue",  desc:"Gribbus' tongue drags goblins in and slows them.", g:{ sticky:1 } }
 };
 

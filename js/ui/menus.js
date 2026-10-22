@@ -126,13 +126,18 @@ UI.journal = function(G){
   }).join("");
   const roads = [];
   if(p.quests.ember) roads.push(`<span class="chipx" style="--c:#ff9a4a">The Ember: it wants to go down, past the Heart</span>`);
-  if(p.quests.crown) roads.push(`<span class="chipx" style="--c:#7ac84a">The Crown of the Bog: Gribbus has plans</span>`);
+  if(p.quests.crown && !(G.roads && G.roads.rot.stage)) roads.push(`<span class="chipx" style="--c:#7ac84a">The Crown of the Bog: Gribbus has plans</span>`);
+  // the Rot road, once he's drunk from the lily: every step, done or not
+  const rot = G.roads && G.roads.rot;
+  const rotRoad = rot && rot.stage >= 1 && DG.Roads ? `<h4 class="road rot">The Rot</h4><ol class="steps">${DG.Roads.rotSteps(G).map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>` : "";
+  const shut = G.roads && G.roads.lantern.closed ? `<p class="tally shut">The Lantern road is shut.</p>` : "";
   return `<div class="journal">
       <h4>The road down</h4>
       <p class="mission">The Gloom is a rot coming up from the Heart at the bottom of the Keep. Each warden below is one of its roots. Go down. Cut them. Still the Heart.</p>
       <ol class="roots">${rows}</ol>
       <p class="tally">Lairs cleared: <b>${G.stats.lairs || 0}</b> · Puzzles solved: <b>${G.stats.puzzles || 0}</b> · Secrets: <b>${G.stats.secrets || 0}</b></p>
       ${roads.length ? `<div class="chips">${roads.join("")}</div>` : ""}
+      ${rotRoad}${shut}
     </div>`;
 };
 

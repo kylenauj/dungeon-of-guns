@@ -348,6 +348,14 @@ proto.handle = function(ev){
     case "lair": play("boss"); S.shake(0.4); break;
     case "hookThrow": play("arrow"); FX.burst(ev.x + Math.cos(ev.a)*1.2, 1.0, ev.y + Math.sin(ev.a)*1.2, 0x8a8278, 8, 4, 0.12, 0.4); break;
     case "hooked": S.shake(0.45); FX.burst(ev.x, 1.0, ev.y, 0xc8c0b0, 14, 3, 0.2, 0.5); play("bonk"); break;
+    case "corrupt": if(V.world && V.world.waterMat){ const u = V.world.waterMat.uniforms; u.uCol.value.setHex(0x080a06); u.uA.value = 0.96; u.uHi.value = 0.18; } if(V.world && V.world.corruptPond) V.world.corruptPond(ev.room); FX.smoke(ev.x, 0.3, ev.y, 0x1a1020, 26, 0.9, 2.2, { spread:2.4, rise:0.2 }); S.shake(0.3); play("illusion"); break;
+    case "molt": { const f = G.gribbus; FX.burst(f.x, 0.5, f.y, 0x9ab040, 26, 3.5, 0.3, 0.9, { up:1 }); FX.smoke(f.x, 0.4, f.y, 0x14160e, 18, 0.7, 1.8); S.shake(0.5); play("tellBig"); break; }
+    case "hungry": play("gulp"); break;
+    case "dive": FX.burst(ev.x, 0.2, ev.y, 0x0a0c08, 30, 4, 0.3, 0.8, { up:2 }); FX.smoke(ev.x2, 0.3, ev.y2, 0x10141a, 22, 0.8, 2); S.shake(0.4); play("illusion"); break;
+    case "roadShut": break;
+    case "choke": S.shake(0.5); FX.burst(ev.x, 1.2, ev.y, 0x8a1a10, 24, 4, 0.3, 0.6); play("tellBig"); break;
+    case "spitOut": FX.burst(ev.x, 0.8, ev.y, 0x3a0a0a, 20, 4, 0.25, 0.6); play("gulp"); break;
+    case "frogLeap": S.shake(0.6); FX.rise(ev.x2, ev.y2, 0x9ab040, 30, 1); play("gulp"); break;
     case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
     case "swallow": FX.smoke(ev.x, 0.6, ev.y, 0x4a5a2a, 8, 0.5, 0.8); S.shake(0.15); play("gulp"); break;
     case "frogRank": FX.rise(ev.x, ev.y, 0x9cff6a, 18, 0.6); play("duo"); break;
@@ -631,19 +639,20 @@ proto.updatePortrait = function(dt, t){
 proto.updateFrogs = function(dt, t){
   const V = this, G = V.G;
   // Gribbus wears his tricks: rebuild the frogs whenever he learns one
-  const fk = G.gribbus.buffs.join(",");
+  const rot = G.roads ? G.roads.rot.stage : 0;
+  const fk = G.gribbus.buffs.join(",") + "|" + rot;
   if(fk !== V.frogKey){
     V.frogKey = fk; V.frogs.forEach(R=> S.scene.remove(R.root)); V.frogs = [];
     const P = S.portrait;
     if(V.pzFrog) P.root.remove(V.pzFrog.root);
-    V.pzFrog = M.frog(false, G.gribbus.buffs); V.pzFrog.root.position.set(0.72, 0, 0.7); V.pzFrog.root.scale.setScalar(1.15); P.root.add(V.pzFrog.root);
+    V.pzFrog = M.frog(false, G.gribbus.buffs, { rot }); V.pzFrog.root.position.set(0.72, 0, 0.7); V.pzFrog.root.scale.setScalar(1.15); P.root.add(V.pzFrog.root);
   }
-  while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
+  while(V.frogs.length < G.frogs.length){ const R = M.frog(V.frogs.length === 1, G.gribbus.buffs, { rot }); R.root.add(shadowBlob(0.3)); S.scene.add(R.root); V.frogs.push(R); }
   G.frogs.forEach((f, i)=>{
     const R = V.frogs[i], g = G.gribbus.g;
     R.root.position.set(S.ix(f), f.hop || 0, S.iy(f));
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
-    const sz = (1 + 0.5*(g.size || 0))*(f.twin ? 0.9 : 1);
+    const sz = (1 + 0.5*(g.size || 0) + (f.twin ? 0 : rot >= 3 ? 0.3 : rot >= 2 ? 0.12 : 0))*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
     // the hop: load, kick, reach, land hard (Models.hop)
     const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/0.18 : 0 }, t + i*1.7, dt);
