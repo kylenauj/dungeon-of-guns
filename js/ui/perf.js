@@ -89,11 +89,13 @@ function hookStage(){
     // browser did after it (drawing, the GPU, garbage collection): a long one is the last frame's fault
     if(prev) hitch(gap, prev);
     const info = R.info, before = { prog:(info.programs || []).length, geo:info.memory.geometries, tex:info.memory.textures };
+    const progs0 = info.programs ? info.programs.slice() : [];
     frameSelf = {}; frameEvents = {};
     loop.apply(this, arguments);
     const js = now() - t;
     prev = { at:t - P.t0, js, self:frameSelf, events:frameEvents, calls:info.render.calls, tris:info.render.triangles,
-      prog:(info.programs || []).length - before.prog, geo:info.memory.geometries - before.geo, tex:info.memory.textures - before.tex };
+      prog:(info.programs || []).length - before.prog, geo:info.memory.geometries - before.geo, tex:info.memory.textures - before.tex,
+      progNames:(info.programs || []).filter(q=> progs0.indexOf(q) < 0).map(q=> q.name || "?") };
     P.frames.push({ gap, js }); if(P.frames.length > 1200) P.frames.shift(); P.count = (P.count || 0) + 1;
     for(const k in frameSelf) P.totals[k] = (P.totals[k] || 0) + frameSelf[k];
   };
@@ -105,7 +107,7 @@ function hitch(gap, f){
   const top = Object.keys(f.self).map(k=> [k, f.self[k]]).sort((a, b)=> b[1] - a[1]).slice(0, 6).filter(x=> x[1] > 0.5);
   const lt = P.longtasks.filter(l=> l.at > performance.now() - gap - 200);
   const G = DG.app && DG.app.G;
-  P.hitches.push({ at:f.at, gap, js:f.js, top, events:Object.assign({}, f.events), prog:f.prog, geo:f.geo, tex:f.tex, calls:f.calls, tris:f.tris,
+  P.hitches.push({ at:f.at, gap, js:f.js, top, events:Object.assign({}, f.events), prog:f.prog, progNames:f.progNames, geo:f.geo, tex:f.tex, calls:f.calls, tris:f.tris,
     longtask:lt.length ? Math.round(Math.max(...lt.map(l=> l.ms))) : 0,
     where:G ? { floor:G.floor, room:G.room ? G.room.type + (G.room.active ? " (fighting)" : "") : "corridor", enemies:(G.enemies || []).filter(e=> !e.dead).length,
       shots:(G.shots || []).length, hazards:(G.hazards || []).length, mode:DG.app.mode } : null, dyn:S.dyn });
@@ -159,7 +161,8 @@ P.report = function(){
       + (h.longtask ? "; browser long task " + h.longtask + " ms" : ""));
     if(h.top.length) out.push("    slowest: " + h.top.map(x=> x[0] + " " + r1(x[1])).join(", "));
     const ev = Object.keys(h.events); if(ev.length) out.push("    events: " + ev.map(k=> k + "×" + h.events[k]).join(" "));
-    if(h.prog || h.geo || h.tex) out.push("    new on the GPU: " + [h.prog ? h.prog + " shader programs" : "", h.geo ? h.geo + " meshes" : "", h.tex ? h.tex + " textures" : ""].filter(Boolean).join(", "));
+    if(h.prog || h.geo || h.tex) out.push("    new on the GPU: " + [h.prog ? h.prog + " shader programs (" + (h.progNames || []).join(", ") + ")" : "", h.geo ? h.geo + " meshes" : "", h.tex ? h.tex + " textures" : ""].filter(Boolean).join(", "));
+    if(h.gap - h.js > 500 && !h.longtask && h.js < 20) out.push("    the page sat idle waiting: the browser's graphics process was busy (on Windows, usually DirectX compiling a shader for something drawn for the first time)");
     out.push("    draw calls " + h.calls + ", triangles " + h.tris + (h.where ? ", floor " + h.where.floor + ", " + h.where.room + ", " + h.where.enemies + " enemies, " + h.where.shots + " shots, " + h.where.hazards + " hazards, mode " + h.where.mode : ""));
   });
   return out.join("\n");

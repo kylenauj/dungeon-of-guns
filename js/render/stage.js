@@ -29,6 +29,9 @@ S.TORCH_LIGHTS = 6;
 
 S.init = function(){
   const r = S.renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
+  // reading back each shader's error log makes the browser stop and wait for that compile
+  // to finish, right then (on Windows, often a long wait); only do it when debugging
+  r.debug.checkShaderErrors = /[?&]debug\b/.test(location.search);
   r.setPixelRatio(1);
   document.getElementById("view").appendChild(r.domElement);
   // full resolution by default now (P still gives the old chunky pixels)

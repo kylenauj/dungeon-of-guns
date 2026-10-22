@@ -88,6 +88,9 @@ proto.buildFloor = function(){
   S.theme(G.D.theme, G.curses);
   V.floor = G.floor; V.builtD = G.D;
   S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true);
+  // Zippy, the frogs and the portrait's two of them exist before the warm-up, so their
+  // shaders (the portrait's are its own: it has its own lights) compile behind the card
+  try{ V.update(1/60, 0); }catch(e){ console.warn("warm: dress", e); }
   // every shader the floor can need compiles now, behind the area card, not mid-fight
   V.warmAll();
   // and the floor's enemies are built ahead, one a frame while you explore, so a
@@ -96,6 +99,18 @@ proto.buildFloor = function(){
   V.pool = {}; V.warm = [];
   if(th.boss) V.warm.push((DG.BOSSES[th.boss] && DG.BOSSES[th.boss].model) || th.boss);
   for(let n=0;n<4;n++) kinds.forEach(k=> V.warm.push(k));
+  // and the ones that come from elsewhere: a lair's beast and what it calls in, a boss's adds,
+  // the vigil's ghosts, the climb's: each would otherwise be built and compiled mid-fight
+  const extra = new Set(), ADDS = { king:["grunt", "slinger"], matriarch:["puffling", "shroomkin"], heart:["blob", "tentacle", "ghost", "watcher"],
+    gaoler:["grunt", "slinger"], warden:["skeleton"] };
+  (ADDS[th.boss] || []).forEach(k=> extra.add(k));
+  G.D.rooms.forEach(r=>{
+    if(r.lair && DG.LAIRS[r.lair]){ extra.add(DG.LAIRS[r.lair].base); (ADDS[r.lair] || []).forEach(k=> extra.add(k)); }
+    if(r.props.some(pr=> pr.kind === "wick")){ extra.add("ghost"); extra.add("banshee"); }
+  });
+  if(G.D.climb) extra.add("ghost");
+  extra.forEach(k=>{ const m = (DG.ENEMIES[k] && DG.ENEMIES[k].model) || k; if(kinds.indexOf(m) < 0) for(let n=0;n<2;n++) V.warm.push(m); });
+  if(DG.Roads && DG.Roads.olmAlly(G) && G.floor >= DG.FINAL_FLOOR) V.warm.push("@olm");
   V.endRigs = null;
   if(G.floor >= DG.FINAL_FLOOR) V.warm.push("@ending");
   // all of it is built now, behind the veil (main.js): one of each kind (and its
@@ -139,6 +154,16 @@ proto.warmAll = function(){
     const D = G.D, top = new THREE.OrthographicCamera(-D.w/2 - 2, D.w/2 + 2, D.h/2 + 2, -D.h/2 - 2, 1, 80);
     top.position.set(D.w/2, 40, D.h/2); top.up.set(0, 0, -1); top.lookAt(D.w/2, 0, D.h/2); top.updateMatrixWorld();
     R.render(S.scene, top);
+    // the particles, shots, a bomb and a floor warning (none of these is drawn until one exists)
+    const x = p.x, y = p.y, fake = { t:0, marks:[{ kind:"slam", x, y:y + 1, r:1, t:1, max:1 }], bombs:[{ id:-1, x, y, tx:x + 1, ty:y, t:0.3, flight:1, fuse:1, r:1, team:"e" }],
+      bullets:[{ id:-2, team:"p", x:x + 0.5, y, vx:9, vy:0, r:0.15, els:[G.gun().element], kind:"bolt", t:0 }, { id:-3, team:"e", x:x - 0.5, y, vx:-6, vy:0, r:0.18, kind:"orb", t:0 }] };
+    FX.burst(x, 1, y, 0xffffff, 6, 2, 0.2, 0.5); FX.smoke(x, 1, y, 0x404040, 4, 0.5, 1); FX.ring(x, y, 1, 0xffffff, 0.5); FX.rise(x, y, 0xffffff, 4, 0.5);
+    FX.update(1/60, fake);
+    V.lanternBeam({ x, y, a:0, len:3 });
+    R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
+    if(S.portrait && S.portrait.scene) R.render(S.portrait.scene, S.portrait.cam);
+    FX.update(0, { t:0, marks:[], bombs:[], bullets:[] }); FX.clear();
+    (V.lbeams || []).forEach(b=> S.scene.remove(b.g)); V.lbeams = [];
     R.setRenderTarget(null); rt.dispose();
   }catch(e){ console.warn("warm:", e); }
   S.scene.remove(g);
@@ -152,10 +177,13 @@ proto.warmRig = function(R){
   const r = S.renderer;
   try{
     if(!WARM.rt){ WARM.rt = new THREE.WebGLRenderTarget(32, 32); WARM.cam = new THREE.PerspectiveCamera(100, 1, 0.5, 30); WARM.cam.position.set(0, -74, 7); WARM.cam.lookAt(0, -79, 0); }
-    R.root.position.set(0, -80, 0); S.scene.add(R.root); R.root.updateMatrixWorld(true);
+    // drawn at Zippy's feet, into a scrap target, with the shadows on: on Windows the shadow
+    // pass and the real camera's draw each have their own compile, and both happen now
+    const G = this.G, p = G && G.player;
+    R.root.position.set(p ? p.x + 0.8 : 0, 0, p ? p.y + 0.8 : 0); S.scene.add(R.root); R.root.updateMatrixWorld(true);
     r.compile(S.scene, S.camera);
-    const sm = r.shadowMap.needsUpdate; r.shadowMap.needsUpdate = false;
-    r.setRenderTarget(WARM.rt); r.render(S.scene, WARM.cam); r.setRenderTarget(null);
+    const sm = r.shadowMap.needsUpdate; r.shadowMap.needsUpdate = true;
+    r.setRenderTarget(WARM.rt); r.render(S.scene, S.camera); r.setRenderTarget(null);
     r.shadowMap.needsUpdate = sm;
   }catch(e){ r.setRenderTarget(null); }
   S.scene.remove(R.root);
@@ -174,7 +202,8 @@ proto.warmUp = function(now){
   if(!now){ const t = performance.now(); if(t - (V.warmAt || 0) < 200) return; V.warmAt = t; }
   const k = V.warm.shift();
   try{
-    if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); }
+    if(k === "@olm"){ V.warmRig(M.olm()); }
+    else if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); }
     else {
       // the first of a kind is built (and its shaders warmed), the rest are copies of it
       V.tpl = V.tpl || {};
