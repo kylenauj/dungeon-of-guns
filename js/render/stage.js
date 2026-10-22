@@ -23,9 +23,9 @@
 const DG = window.DG, K = DG.Kit;
 const S = DG.Stage = {};
 
-// every light costs every lit pixel (the floors are physically based): six torches
+// every light costs every lit pixel (the floors are physically based): eight torches
 // light the room you're in; the rest of the dungeon stays dark anyway
-S.TORCH_LIGHTS = 6;
+S.TORCH_LIGHTS = 8;
 
 S.init = function(){
   const r = S.renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
@@ -210,6 +210,8 @@ S.initPost = function(){
       "  float dk = 1.0 - smoothstep(0.0, 0.5, l);",
       "  col += ((n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk)*(1.0 - uPsx);",
       // the PSX: 32 levels a channel (15-bit colour), stepped through the dither
+      // (lifted first: 15-bit colour and a dither swallow the dark, so the shadows come up a little)
+      "  if(uPsx > 0.5) col = pow(max(col, 0.0), vec3(0.8))*1.06;",
       "  if(uPsx > 0.5) col = floor(clamp(col, 0.0, 1.0)*31.0 + bayer4(gl_FragCoord.xy))/31.0;",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
@@ -253,7 +255,7 @@ S.theme = function(th, curses){
   // etched, the room is lit by its lights, not by a flat wash: the ambient drops,
   // the lantern and torches carry the picture, and shadow becomes hatching (never black)
   // the room is lit by its lights, not a flat wash: a low ambient, the lantern and torches carry it
-  const amb = 0.16;
+  const amb = 0.2;
   S.scene.background = new THREE.Color(th.fog);
   S.scene.fog = new THREE.Fog(th.fog, fog ? 12 : 22, fog ? 27 : 48);
   S.hemi.color.setHex(th.ambient || 0xa8b0d8);

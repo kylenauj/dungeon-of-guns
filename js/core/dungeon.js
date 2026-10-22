@@ -508,17 +508,18 @@ Dungeon.paintDoor = paintDoor;
 function dress(D, rng){
   const theme = D.theme.decor;
   const floorKinds = {
-    castle:["bones", "candlecluster", "brazier", "deadknight", "skullpile", "brokenstatue", "spikes", "cage", "candelabra", "weaponrack", "rubble", "barrelstack", "stocks", "guillotine", "xstocks"],
-    undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack", "stocks", "gallows"],
-    crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots", "gallows"],
+    // (glowcaps everywhere now: the Gloom's neon green, creeping up from below)
+    castle:["bones", "candlecluster", "brazier", "brazier", "deadknight", "skullpile", "brokenstatue", "spikes", "cage", "candelabra", "weaponrack", "rubble", "barrelstack", "stocks", "guillotine", "xstocks", "glowcap", "glowcap"],
+    undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack", "stocks", "gallows", "glowcap", "glowcap", "glowcap"],
+    crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots", "gallows", "glowcap", "glowcap"],
     gloomwood:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "roots", "rotpod", "fallenpillar", "toadstools", "bones", "fern"],
     forest:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "log", "ribcage", "roots", "rotpod", "toadstools", "fern", "glowcap"],
     bog:["glowcap", "bigfern", "lotusbud", "mossylog", "toadstools", "glowcap", "reeds", "rotpod", "fern", "glowcap"],
     flesh:["bookpile", "scrollpile", "candlecluster", "soulcandles", "fleshpile", "bones", "lectern", "bookpile", "eyestalk", "urns"]
   }[theme] || ["bones"];
   const wallKinds = {
-    castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall", "spikewall", "shacklewall"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled", "shacklewall"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains"],
-    gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"],
+    castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall", "spikewall", "shacklewall", "glowmoss"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled", "shacklewall", "glowmoss", "glowmoss"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains", "glowmoss"],
+    gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps", "glowmoss"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"],
     bog:["glowmoss", "junglevines", "wallcaps", "hangingmoss", "glowmoss"], flesh:["bookshelf", "walleye", "bookshelf", "fleshwall", "walleye", "candleshelf"]
   }[theme] || ["banner"];
   D.rooms.forEach(r=>{

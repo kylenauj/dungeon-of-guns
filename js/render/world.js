@@ -814,7 +814,7 @@ proto.markPainted = function(i){
 proto.buildTorches = function(){
   const W = this, D = W.D;
   D.rooms.forEach(r=>{
-    const y = r.y1 - 1, step = 5, off = (r.x1 + r.id) % step;
+    const y = r.y1 - 1, step = 3, off = (r.x1 + r.id) % step;   // a torch every three tiles: the rooms read, even in the PSX look
     for(let x=r.x1 + 1; x<r.x2; x++){
       if((x - r.x1 - off) % step !== 0) continue;
       if(D.at(x, y) !== T.SOLID || D.painted.some(p=> p.x === x && p.y === y)) continue;
@@ -842,7 +842,7 @@ proto.buildTorches = function(){
         Dc.skull(g, 0, 0.1, 0.13, 0.085, 0, -0.15, 0xa89c84);
         K.bake(g, { w:0.015 });
         const flame = K.sprite(W.th.torch, 0.6, 0.9); flame.position.set(0, 0.36, 0.13); g.add(flame);
-        const core = K.sprite(0xe0f4ff, 0.22, 0.85); core.position.set(0, 0.32, 0.13); g.add(core);
+        const core = K.sprite(0xe0ffe8, 0.22, 0.85); core.position.set(0, 0.32, 0.13); g.add(core);
         W.areaGroup(r.id).add(g);
         W.flames.push({ flame, s:0.6, ph:W.rnd()*6 });
         W.lights.push({ x:x + 0.5, y:1.5, z:y + 1.4, c:W.th.torch, i:1.6, room:r.id, ph:W.rnd()*6 });
@@ -858,8 +858,9 @@ proto.buildTorches = function(){
       P(g, new THREE.TorusGeometry(0.1, 0.012, 4, 12), 0x3a3a3e, 0, 0.3, 0.18, PI/2);
       K.bake(g, { w:0.015 });
       const flame = K.sprite(W.th.torch, 0.7, 0.95); flame.position.set(0, 0.42, 0.18); g.add(flame);
-      const flame2 = K.sprite(0xff5a1a, 1.2, 0.35); flame2.position.set(0, 0.48, 0.2); g.add(flame2);
-      const core = K.sprite(0xffe8b0, 0.24, 0.9); core.position.set(0, 0.36, 0.18); g.add(core);
+      // the fire burns the Gloom's green now: a neon flame, a deep green halo, a pale core
+      const flame2 = K.sprite(0x2aa81a, 1.2, 0.35); flame2.position.set(0, 0.48, 0.2); g.add(flame2);
+      const core = K.sprite(0xe8ffd0, 0.24, 0.9); core.position.set(0, 0.36, 0.18); g.add(core);
       W.areaGroup(r.id).add(g);
       W.flames.push({ flame, s:0.7, ph:W.rnd()*6 }, { flame:flame2, s:1.2, ph:W.rnd()*6 });
       W.lights.push({ x:x + 0.5, y:1.5, z:y + 1.4, c:W.th.torch, i:1.8, room:r.id, ph:W.rnd()*6 });
@@ -1476,7 +1477,7 @@ proto.update = function(G, dt, t){
     if(l === S.held) return;
     const o = near[i];
     if(!o){ l.intensity = 0; return; }
-    l.color.setHex(o.c); l.distance = o.small ? 5 : 8;   // pools of light, with dark between them
+    l.color.setHex(o.c); l.distance = o.small ? 5.5 : 9.5;   // pools of light, with dark between them
     const gust = o.small ? 0 : Math.max(0, Math.sin(t*0.7 + o.ph*3))**12, fl = o.small ? 0.88 + 0.12*Math.sin(t*11 + o.ph) : (0.78 + 0.13*Math.sin(t*9 + o.ph) + 0.09*Math.sin(t*23 + o.ph*2))*(1 - gust*0.4);
     l.position.set(o.x + (o.small ? 0 : Math.sin(t*7 + o.ph)*0.06), o.y, o.z + (o.small ? 0 : Math.cos(t*5 + o.ph)*0.04)); l.intensity = o.i*dark*fl*1.3;
   });
