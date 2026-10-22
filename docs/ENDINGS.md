@@ -293,3 +293,38 @@ goes out after each phase.
    an ally, and the Kiln ending in both versions.
 5. **The Mission.** Roots and the Heart's phases, the climb out, the DAWN
    scene, the road locks, and the meta progress on the title screen.
+
+---
+
+## 8. As built
+
+All five phases are in. Where the build differs from the plan above:
+
+- **Sic 'Em** wasn't added as a new active. The existing **Frog Cannon**
+  already launches Gribbus at your aim point, so it now hits as hard as
+  he does instead (it scales with every frog multiplier).
+- **Frog items:** Bog Pact is ×1.75, not ×2 (tuned with `npm run power`).
+- **The Rot's hunger** needs 26 points for Rot II and 44 for Rot III (an
+  enemy's worth is its cost). The **Drowned Shrine** turns up from floor 3
+  on any floor where Gribbus is split and uncrowned, not only floor 3. The
+  **"brood"** (rot-tadpoles from his kills) starts once he wears the crown,
+  not only on floor 4. The half of the room that turns to bog wasn't built.
+- **The bog ending** needs the crown plus Rot II. A crown alone is no
+  longer an ending.
+- **Rites:** the Rite of Wax is a flat quarter off the mana cost, not a
+  refund on three hits. The Lamplighter's Staff makes every spell a beam,
+  at half the mana.
+- **Olm** finds you on floor 1 on about 60% of seeds (chosen by the seed,
+  so it doesn't disturb the game's dice), otherwise on floor 2. Each wick
+  gives one Rite in order (Wick, Wax, Keeper). The Reliquary appears on
+  floors 2 and 3 for anyone carrying the lantern without the Ember.
+- **Lairs:** the road lairs (the Warden and the Leech Mother) guard the
+  Reliquary and the Shrine. They also turn up as ordinary lairs on their
+  floors.
+- **The Heart's roots:** a clean kill (no damage taken during the boss
+  fight) trims the Heart's health by 10%, up to four, rather than
+  removing a phase.
+- **The climb out** is 96 tiles of shaft, with falling stone and the
+  fleeing Gloom. It's about half a minute at a run.
+- **Not built yet:** title-screen progress for each road's steps (the steps
+  are saved in `meta.roads` already), and the Gloom Lily's "bog" terrain.
