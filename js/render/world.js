@@ -1343,7 +1343,10 @@ proto.buildPuzzle = function(r){
       K.bake(g, { w:0.016 });
       const coal = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.05, 10), K.basic(0x1a120e)); coal.position.y = 0.8; g.add(coal);
       const flame = K.sprite(0xff7a2a, 1.3, 0.9); flame.position.y = 1.08; g.add(flame);
-      add(g); out.items.push({ g, flame, coal });
+      // a faint ring on the floor: lit while E is on a brazier that would flip this one
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 20), new THREE.MeshBasicMaterial({ color:0xffb060, transparent:true, opacity:0.6, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide }));
+      ring.rotation.x = -PI/2; ring.position.y = 0.04; ring.visible = false; g.add(ring);
+      add(g); out.items.push({ g, flame, coal, ring });
     });
     // the candle stand, by the sign: one candle for each try left
     const sx = Math.floor(r.cxw) + 2.2, sz = r.y1 + 0.7, stand = new THREE.Group(); stand.position.set(sx, 0, sz);
@@ -1544,6 +1547,10 @@ proto.update = function(G, dt, t){
     const o = W.pz[id], pz = o.r.puzzle;
     if(pz.kind === "embers"){
       o.items.forEach((it, i)=>{ const lit = pz.lit[i], f = lit ? 1 + 0.12*Math.sin(t*14 + i) : 0; it.flame.scale.setScalar(1.3*f + 0.001); it.coal.material.color.setHex(lit ? 0xd8480e : 0x1a120e); });
+      // what a stir would do: the brazier E is on, and every one it would flip, ringed
+      const tg = !pz.solved && G.state === "play" && G.room === o.r ? G.target() : null, at = tg && tg.o && tg.o.pz && tg.o.part === "brazier" ? tg.o.i : -1;
+      const mask = at >= 0 ? pz.masks[at] : 0;
+      o.items.forEach((it, i)=>{ const on = !!((mask >> i) & 1); it.ring.visible = on; if(on){ it.ring.material.opacity = (i === at ? 0.85 : 0.45) + 0.12*Math.sin(t*6); it.ring.scale.setScalar(i === at ? 1.12 : 1); } });
       const left = pz.solved ? 0 : pz.budget - pz.moves;
       o.candles.forEach((c, k)=>{ c.c.visible = k < pz.budget; c.f.visible = k < left; c.f.scale.setScalar(0.35*(1 + 0.15*Math.sin(t*11 + k))); });
     }

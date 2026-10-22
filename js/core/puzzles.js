@@ -85,7 +85,7 @@ const GEN = Pz.GEN = {
     pz.masks = items.map((_, i)=> flipMask(pz, i));
     scrambleEmbers(pz, rng, floor);
     r.puzzle = pz;
-    r.props.push({ kind:"sign", x:Math.floor(r.cxw), y:r.y1, text:"LIGHT THEM ALL. Every one you touch, its neighbours answer." + (knight.length ? " The marked ones answer like a knight moves." : "") + " The candles count your tries." });
+    r.props.push({ kind:"sign", x:Math.floor(r.cxw), y:r.y1, text:"LIGHT THEM ALL. Stir one and it flips, and so do the ones beside it (not the corners)." + (knight.length ? " The marked ones flip the ones a knight's move away instead." : "") + " The candles count your tries." });
     return true;
   },
 
@@ -300,12 +300,14 @@ Pz.emberPar = function(pz){
 };
 function scrambleEmbers(pz, rng, floor){
   pz.lit = pz.lit.map(()=> 1);
-  const N = pz.items.length, presses = rng.shuffle([...Array(N).keys()]).slice(0, rng.int(pz.n === 4 ? 4 : 3, pz.n === 4 ? 7 : 5));
+  // a few stirs from all-lit (lights-out is hard to read: past three or four
+  // stirs nobody can see the way back), and room to make a couple of mistakes
+  const N = pz.items.length, presses = rng.shuffle([...Array(N).keys()]).slice(0, pz.n === 4 ? rng.int(3, 5) : rng.int(2, 3));
   presses.forEach(i=> flipEmber(pz, i));
   if(pz.lit.every(v=> v)) flipEmber(pz, Math.floor(N/2));
   pz.par = Pz.emberPar(pz);
   if(pz.par === Infinity){ pz.lit = pz.lit.map(()=> 1); flipEmber(pz, 0); pz.par = 1; }
-  pz.budget = pz.par + (floor <= 2 ? 3 : 2); pz.moves = 0;
+  pz.budget = pz.par + (floor <= 2 ? 4 : 3); pz.moves = 0;
 }
 
 /* ---- Weighing Stones ---- */
@@ -416,8 +418,11 @@ Pz.use = function(G, o){
     flipEmber(pz, o.i); pz.moves++;
     G.emit("brazier", { room:r.id, i:o.i, lit:pz.lit.slice(), left:pz.budget - pz.moves });
     if(pz.lit.every(v=> v)){ G.solvePuzzle(r); return; }
-    if(pz.moves >= pz.budget){
-      fail(G, r, "The braziers gutter out. Something in the dark noticed.");
+    // too few candles left to light them all, even perfectly: say so now, not
+    // after you've burnt the rest of them on a puzzle that can't come out
+    const dead = pz.moves >= pz.budget || Pz.emberPar(pz) > pz.budget - pz.moves;
+    if(dead){
+      fail(G, r, pz.moves >= pz.budget ? "The braziers gutter out. Something in the dark noticed." : "Too few candles left to light them all. The braziers gutter out, and something in the dark noticed.");
       scrambleEmbers(pz, G.rng, G.floor);
       G.emit("gutter", { room:r.id, lit:pz.lit.slice() });
       G.ambush(r);

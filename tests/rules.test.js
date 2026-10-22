@@ -727,18 +727,34 @@ test("Embers: the candles count; the fewest moves always fit; over budget it gut
     assert.equal(r.props.find(p=> p.kind === "chest").tier, f >= 3 ? 3 : 2);
   });
   const { G, r } = puzzleRoom("embers", 1), pz = r.puzzle;
-  // waste the budget pressing one brazier back and forth
-  let guard = 50;
-  while(pz.moves < pz.budget - 1 && guard--) usePz(G, pz.items[0]);
+  // waste the candles pressing one brazier back and forth: it gutters as soon as
+  // too few are left to finish, not only when the last one's gone
+  let guard = 50, gutter = false;
+  while(!pz.solved && !gutter && guard--){ const m = pz.moves; usePz(G, pz.items[0]); gutter = pz.moves === 0 && m > 0; }
   if(!pz.solved){
-    usePz(G, pz.items[0]);
-    if(!pz.solved){
-      assert.equal(pz.moves, 0, "a fresh scramble");
-      assert.ok(r.active, "the dark noticed");
-      assert.equal(r.props.find(p=> p.kind === "chest").tier, 1);
-      assert.ok(pz.flawless === false);
-    }
+    assert.ok(gutter, "it gutters");
+    assert.ok(r.active, "the dark noticed");
+    assert.equal(r.props.find(p=> p.kind === "chest").tier, 1);
+    assert.ok(pz.flawless === false);
   }
+});
+test("Embers never strands you: a stir that leaves too few candles to finish gutters at once; early floors scramble only a few", ()=>{
+  // the state from a played run: four dark (top middle, top right, middle right,
+  // bottom right) needs four stirs, and only three candles were left
+  const { G, r } = puzzleRoom("embers", 1), pz = r.puzzle;
+  let seen = 0;
+  for(let k=0; k<300 && seen < 30; k++){
+    const D = DG.Dungeon.generate(k*7919 + 13, 1 + (k % 2)), q = D.rooms.find(x=> x.puzzle && x.puzzle.kind === "embers");
+    if(!q) continue; seen++;
+    assert.ok(q.puzzle.par <= 3 && q.puzzle.budget >= q.puzzle.par + 4, "par " + q.puzzle.par + " budget " + q.puzzle.budget);
+  }
+  assert.ok(seen >= 10);
+  pz.lit = [1, 0, 0, 1, 1, 0, 1, 1, 0];
+  assert.equal(DG.Puzzles.emberPar(pz), 4);
+  pz.budget = 5; pz.moves = 1;   // four candles left: still possible
+  usePz(G, pz.items[4]);          // a stir that doesn't help: now 5 needed, 3 left
+  assert.equal(pz.moves, 0, "it gutters at once and rescrambles");
+  assert.ok(r.active, "and the dark noticed");
 });
 test("Weighing Stones: built backwards, so the recorded pushes solve it; the reset rune costs blood", ()=>{
   [1, 3, 5].forEach(f=>{
