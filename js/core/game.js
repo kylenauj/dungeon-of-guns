@@ -690,6 +690,8 @@ proto.activate = function(r){
   }
   G.spawnWave(r, r.waves[0]); r.wave = 1;
 };
+/* which of its two bosses floor n holds this run (the seed picks; Dungeon.floorTheme) */
+proto.bossOf = function(n){ return DG.Dungeon.floorTheme((this.seed + n*104729) >>> 0, n).boss; };
 proto.bossName = function(){
   const key = this.D.theme.boss || "king", n = DG.BOSSES[key].name, loop = Math.floor((this.floor - 1)/DG.FLOORS.length);
   return n + (loop ? " +" + loop : "");

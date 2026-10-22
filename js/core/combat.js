@@ -862,6 +862,7 @@ proto.updateHazards = function(dt){
         break;
       /* the enemies' */
       case "spores": if(fire && DG.dist(h.x, h.y, p.x, p.y) < h.r + p.r*0.5) G.hurtPlayer(h.dmg, "spores"); break;
+      case "grave":  if(DG.dist(h.x, h.y, p.x, p.y) < h.r + p.r*0.5) p.chill = Math.max(p.chill, 0.45); break;
       case "slime":  if(DG.dist(h.x, h.y, p.x, p.y) < h.r + p.r*0.5) p.chill = Math.max(p.chill, 0.3); break;
       case "fireline": if(fire && DG.dist(h.x, h.y, p.x, p.y) < h.r + p.r*0.5) G.hurtPlayer(h.dmg, "fire"); break;
       case "shockwave": {

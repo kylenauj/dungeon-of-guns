@@ -37,6 +37,8 @@ Gallery.start = function(){
     { name:"THE WEIRD", gap:2.4, items:["watcher", "blob", "blobling", "tentacle"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"THE GLOOM", gap:2.4, items:["rotling", "spitter", "bloater", "husk"].map(k=> [k, ()=> M.enemy(k)]) },
     { name:"BOSSES", gap:5, items:["king", "matriarch", "bride", "eye", "heart", "hollow"].map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"THE OTHER BOSSES", gap:5, items:["gibbet", "ratking", "gravedigger", "antlered"].filter(k=> M[k]).map(k=> [k, ()=> M.enemy(k)]) },
+    { name:"LAIRS", gap:4, items:Object.keys(DG.LAIRS).filter(k=> M["lair_" + k]).map(k=> [DG.LAIRS[k].name.split(",")[0], ()=> M.enemy("lair_" + k)]) },
     { name:"REDEEMED", gap:2.4, items:[["grey wizard", ()=> M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] })], ["Gribbus", ()=>{ const R = M.frog(false, [], { redeemed:true }); R.root.scale.setScalar(1.3); return R; }],
       ["King of the Bog", ()=>{ const R = M.frog(false, ["crown"], { redeemed:true }); if(R.parts.crown) R.parts.crown.visible = true; R.root.scale.setScalar(2.2); return R; }]] },
     { name:"LOOT", gap:1.6, items:[...["gold", "heart", "mana", "ward", "fly"].map(k=> [k, ()=>{ const g = M.pickup({ kind:k, value:5 }); g.position.y = 0.5; return { root:g }; }]),

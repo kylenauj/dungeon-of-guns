@@ -10,7 +10,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 | `npm run balance` | A bot plays full runs, no cheats. Quote it before and after any balance change. |
 | `npm run look` | Screenshots floors 1, 3 and 5 and two gallery rows headless and measures them against the look contract (docs/ART_DIRECTION.md). Quote it before and after any change to the look. |
 | `npm run power` | Rolls floor-4 builds and reports their power spread and peak shot count. Quote it before and after any change to items or combat numbers. |
-| `npm start` | Serves the game on http://localhost:8080. Shortcuts: `?play&seed=WORD&floor=3&god`. |
+| `npm start` | Serves the game on http://localhost:8080. Shortcuts: `?play&seed=WORD&floor=3&god`, plus `&boss=gibbet` (any `DG.BOSSES` key) and `&lair=hound` (any `DG.LAIRS` id). |
 
 ## Layout
 
@@ -27,7 +27,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 - `tools/bot.js` is a pathfinding bot used by the tests, `npm run balance` and the title-screen attract mode.
 - `js/render/` is three.js.
   - Everything solid uses one ink material (`K.ink` in `kit.js`), and `stage.js` runs one post pass. Keep new materials on `K.ink` / `K.toon` so the look stays consistent. The look is grimdark: no chibi proportions or cartoon eyes, muted earthy colours with light as the accent, and budgets of about 25k triangles per enemy, 35k for Zippy and 70k per boss (see docs/DESIGN.md §10).
-  - Models are parts baked per rig (`models.js`). `decor.js` builds the map dressing, and `vanity.js` adds view-only decals, mist, light shafts, critters and splats.
+  - Models are parts baked per rig (`models.js`). The mini-bosses (`Models.lair_<id>`, built at full size) and the newer floor bosses live in `js/render/rigs-*.js`, built from the kit in `Models.H`; each poses itself through `Models.MOVES[kind]` (called from `Models.creep` with the wind-up, the strike and the rest of the frame). `decor.js` builds the map dressing, and `vanity.js` adds view-only decals, mist, light shafts, critters and splats.
   - `?gallery` lines up every model; `?gallery&sil` draws them as flat black silhouettes.
   - `view.js` reads the game state and its event list; it never writes to the game.
 - `js/ui/` holds `hud.js` (a canvas HUD), `menus.js` (DOM screens) and `icons.js` (`DG.Icons`: a procedural medallion for every item, active, frog trick and gun, used by the HUD, the satchel and the pedestals). A new item needs a glyph in `DG.Icons.ITEMS` (the tests check); `tools/icons.html` is the contact sheet.

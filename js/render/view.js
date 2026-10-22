@@ -22,6 +22,7 @@ const SPLAT = { grunt:0x2a5a14, slinger:0x2a5a14, bomber:0x2a5a14, shaman:0x2a5a
   watcher:0x7a1a4a, blob:0x5aa82a, blobling:0x6ab83a, tentacle:0x5a1a5a, eye:0x8a1a2a, heart:0x5a0a3a,
   rotling:0x3a1a3e, spitter:0x5a6a2a, bloater:0x5a2a4a, husk:0x5a4a5a };
 
+const LICK = 0.3;     // a lick, start to finish: the wind-up, the tongue, the gulp (Models.hop)
 function shadowBlob(r){
   const s = new THREE.Mesh(K.glowPlane, new THREE.MeshBasicMaterial({ map:K.glowTex, color:0x000000, transparent:true, opacity:0.55, depthWrite:false }));
   s.scale.set(r*3.4, 1, r*3.4); s.position.y = 0.03; return s;
@@ -102,10 +103,10 @@ proto.buildFloor = function(){
   // and the ones that come from elsewhere: a lair's beast and what it calls in, a boss's adds,
   // the vigil's ghosts, the climb's: each would otherwise be built and compiled mid-fight
   const extra = new Set(), ADDS = { king:["grunt", "slinger"], matriarch:["puffling", "shroomkin"], heart:["blob", "tentacle", "ghost", "watcher"],
-    gaoler:["grunt", "slinger"], warden:["skeleton"] };
+    gaoler:["grunt", "slinger"], warden:["skeleton"], ratking:["rotling"], gravedigger:["skeleton"], mothwidow:["ghost"] };
   (ADDS[th.boss] || []).forEach(k=> extra.add(k));
   G.D.rooms.forEach(r=>{
-    if(r.lair && DG.LAIRS[r.lair]){ extra.add(DG.LAIRS[r.lair].base); (ADDS[r.lair] || []).forEach(k=> extra.add(k)); }
+    if(r.lair && DG.LAIRS[r.lair]){ extra.add(lairKind(r.lair)); (ADDS[r.lair] || []).forEach(k=> extra.add(k)); }
     if(r.props.some(pr=> pr.kind === "wick")){ extra.add("ghost"); extra.add("banshee"); }
   });
   if(G.D.climb) extra.add("ghost");
@@ -140,7 +141,7 @@ proto.warmAll = function(){
   add(()=> M.item(gun));
   if(activeId) add(()=> M.item({ kind:"active", id:activeId }));
   add(()=> M.pickup({ kind:"item", item:gun }));
-  ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum"].forEach(k=> add(()=> hazardMesh({ kind:k, r:1, t:1, max:1, id:0 })));
+  ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum", "grave"].forEach(k=> add(()=> hazardMesh({ kind:k, r:1, t:1, max:1, id:0 })));
   ["bee", "hat", "moon", "shadow", "tadpole", "turret", "wisp"].forEach(k=> add(()=> allyMesh({ kind:k, el:"arcane", id:0 })));
   add(()=> shadowBlob(0.4));
   const hadPortal = V.portal; V.makePortal(0, 0); if(V.portal && V.portal !== hadPortal){ S.scene.remove(V.portal); g.add(V.portal); V.portal = hadPortal; }
@@ -241,7 +242,7 @@ proto.handle = function(ev){
     case "floor": if(V.builtD !== G.D) V.buildFloor(); play("descend"); break;
     // King of the Bog: Gribbus lunges and swallows the Heart whole
     case "feast": {
-      V.frogs.forEach(f=>{ f.lick = 0.18; f.lickX = ev.x; f.lickY = ev.y; });
+      V.frogs.forEach(f=>{ f.lick = LICK; f.lickX = ev.x; f.lickY = ev.y; });
       play("lick"); setTimeout(()=> play("croak"), 900);
       S.shake(0.6); FX.burst(ev.x, 1, ev.y, 0x72e050, 40, 6, 0.3, 1, { col2:0x5a0a3a, up:1 });
       FX.ring(ev.x, ev.y, 3, 0x72e050, 0.9); FX.smoke(ev.x, 0.2, ev.y, 0x2a4a1a, 10, 1, 1.6, { spread:1.4, rise:0.6 });
@@ -375,6 +376,7 @@ proto.handle = function(ev){
     case "dizzy": FX.burst(ev.x, 1.6, ev.y, 0xffe680, 8, 2, 0.25, 0.8, { up:1 }); play("thud"); S.shake(0.3); break;
     case "boss": play("boss"); break;
     case "lair": play("boss"); S.shake(0.4); break;
+    case "swing": play("swing"); break;
     case "hookThrow": play("arrow"); FX.burst(ev.x + Math.cos(ev.a)*1.2, 1.0, ev.y + Math.sin(ev.a)*1.2, 0x8a8278, 8, 4, 0.12, 0.4); break;
     case "hooked": S.shake(0.45); FX.burst(ev.x, 1.0, ev.y, 0xc8c0b0, 14, 3, 0.2, 0.5); play("bonk"); break;
     case "corrupt": if(V.world && V.world.waterMat){ const u = V.world.waterMat.uniforms; u.uCol.value.setHex(0x080a06); u.uA.value = 0.96; u.uHi.value = 0.18; } if(V.world && V.world.corruptPond) V.world.corruptPond(ev.room); FX.smoke(ev.x, 0.3, ev.y, 0x1a1020, 26, 0.9, 2.2, { spread:2.4, rise:0.2 }); S.shake(0.3); play("illusion"); break;
@@ -411,9 +413,9 @@ proto.handle = function(ev){
     case "shatter": FX.burst(ev.x, 0.5, ev.y, 0xcff0ff, 12, 4, 0.22, 0.4); play("shatter"); break;
     case "ally": if(ev.kind === "wisp") FX.burst(ev.x, 0.8, ev.y, ELC(ev.el), 8, 2, 0.25, 0.3); break;
     case "allyHit": FX.burst(ev.x, 0.8, ev.y, ev.kind === "wisp" ? ELC(ev.el) : 0x9cff6a, 3, 2, 0.15, 0.2); break;
-    case "lick": { const f = V.frogs[ev.frog]; if(f){ f.lick = 0.18; f.lickX = ev.tx; f.lickY = ev.ty; } play("lick"); break; }
-    case "spit": play(ev.bubble ? "bubble" : "spit"); break;
-    case "croak": FX.ring(ev.x, ev.y, ev.kind === "doom" ? 10 : 3, ev.kind === "doom" ? 0x9cff3a : 0x8ad8ff, 0.6); play("croak"); break;
+    case "lick": { const f = V.frogs[ev.frog]; if(f){ f.lick = LICK; f.lickX = ev.tx; f.lickY = ev.ty; } play("lick"); break; }
+    case "spit": { const f = V.frogs[ev.frog]; if(f) f.spitT = 0.4; play(ev.bubble ? "bubble" : "spit"); break; }
+    case "croak": { const fr = G.frogs.map((f, i)=> [DG.dist(f.x, f.y, ev.x, ev.y), i]).sort((a, b)=> a[0] - b[0])[0]; if(fr && V.frogs[fr[1]]) V.frogs[fr[1]].croakT = 0.6; } FX.ring(ev.x, ev.y, ev.kind === "doom" ? 10 : 3, ev.kind === "doom" ? 0x9cff3a : 0x8ad8ff, 0.6); play("croak"); break;
     case "gulp": play("gulp"); break;
     case "frogbuff": play("frog"); FX.rise(G.gribbus.x, G.gribbus.y, 0x9cff6a, 20, 0.5, { v:3 }); break;
     case "item": {
@@ -558,6 +560,12 @@ function hazardMesh(h){
     case "rune": { const ring = new THREE.Mesh(new THREE.TorusGeometry(h.r, 0.04, 4, 24), K.basic(0xb36bff)); ring.rotation.x = -PI/2; ring.position.y = 0.05; g.add(ring); const ring2 = new THREE.Mesh(new THREE.RingGeometry(h.r*0.4, h.r*0.5, 3), K.basic(0xd8a8ff)); ring2.rotation.x = -PI/2; ring2.position.y = 0.06; g.add(ring2); disc(0xb36bff, h.r, 0.3); g.userData.spin = ring2; break; }
     case "blackhole": { const c = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), K.basic(0x050008)); c.position.y = 0.8; g.add(c); const r = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.06, 6, 20), K.basic(0xb36bff)); r.position.y = 0.8; r.rotation.x = 1.2; g.add(r); g.userData.spin = r; disc(0x6a2aff, 1.4, 0.5); g.userData.suck = true; break; }
     case "spores": disc(0xa8b83a, h.r, 0.3); g.userData.cloud = 0xb8c84a; break;
+    case "grave": {
+      // an open grave: a black pit, the dirt heaped round it
+      const pit = new THREE.Mesh(new THREE.CircleGeometry(h.r*0.8, 16), K.basic(0x050404)); pit.rotation.x = -PI/2; pit.position.y = 0.03; pit.scale.set(0.7, 1.25, 1); g.add(pit);
+      const heap = new THREE.Mesh(new THREE.TorusGeometry(h.r*0.85, 0.16, 5, 16), new THREE.MeshLambertMaterial({ color:0x2e261e })); heap.rotation.x = -PI/2; heap.position.y = 0.04; heap.scale.set(0.75, 1.3, 0.6); g.add(heap);
+      break;
+    }
     case "slime": { const m = new THREE.Mesh(new THREE.CircleGeometry(h.r, 14), new THREE.MeshPhongMaterial({ color:0x8ad83a, transparent:true, opacity:0.55, shininess:90 })); m.rotation.x = -PI/2; m.position.y = 0.035; g.add(m); break; }
     case "shockwave": { const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color:0xff2a3a, transparent:true, opacity:0.85, side:THREE.DoubleSide, depthWrite:false })); r.rotation.x = -PI/2; r.position.y = 0.08; g.add(r); g.userData.wave = r; break; }
     case "fireline": disc(0xff4a1a, h.r, 0.5); g.userData.fire = true; break;
@@ -695,7 +703,9 @@ proto.updateFrogs = function(dt, t){
     const sz = (1 + 0.5*(g.size || 0) + (f.twin ? 0 : rot >= 3 ? 0.3 : rot >= 2 ? 0.12 : 0))*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
     // the hop: load, kick, reach, land hard (Models.hop)
-    const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/0.18 : 0 }, t + i*1.7, dt);
+    if(R.spitT > 0) R.spitT -= dt; if(R.croakT > 0) R.croakT -= dt;
+    const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/LICK : 0,
+      spit:R.spitT > 0 ? 1 - R.spitT/0.4 : 0, croak:R.croakT > 0 ? 1 - R.croakT/0.6 : 0 }, t + i*1.7, dt);
     if(mo.tookOff){ V.play("frogHop", { x:f.x, y:f.y }); FX.smoke(f.x, 0.05, f.y, 0x2a2420, 2, 0.3, 0.5, { spread:0.3, rise:0.15 }); }
     if(mo.landed){ V.play("frogLand", { x:f.x, y:f.y }); FX.burst(f.x, 0.05, f.y, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 4, 1, 0.22, 0.45, { up:0.4, drag:5 }); }
     if(R.parts.crown) R.parts.crown.visible = !!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0;
@@ -705,7 +715,9 @@ proto.updateFrogs = function(dt, t){
     if(R.lick > 0){
       R.lick -= dt;
       const d = Math.max(0.3, DG.dist(f.x, f.y, R.lickX, R.lickY)/(sz*1.3) - 0.2);
-      tg.visible = true; tg.scale.set(1, 1, d*Math.sin(Math.max(0, R.lick)/0.18*PI));
+      // it shoots out as he lunges (a third of the way in) and is back by three quarters
+      const lk = 1 - Math.max(0, R.lick)/LICK, ext = lk < 0.3 ? 0 : lk < 0.42 ? (lk - 0.3)/0.12 : Math.max(0, 1 - (lk - 0.42)/0.33);
+      tg.visible = ext > 0.01; tg.scale.set(1, 1, Math.max(0.01, d*ext));
       tg.parent.updateMatrixWorld();
     } else tg.visible = false;
     M.tint(R, g.mirrorEls ? ELC(G.gun().element) : 0x000000, g.mirrorEls ? 0.25 : 1);
@@ -741,6 +753,8 @@ proto.updateMoans = function(dt){
   R.act = 1;
   V.play("moan", { kind, x:e.x, y:e.y });
 };
+/* a lair's mini-boss has a rig of its own (Models.lair_<id>), built at its full size */
+function lairKind(id){ return M["lair_" + id] ? "lair_" + id : DG.LAIRS[id].base; }
 proto.updateEnemies = function(dt, t){
   const V = this, G = V.G, p = G.player;
   const live = {};
@@ -749,7 +763,9 @@ proto.updateEnemies = function(dt, t){
     live[e.id] = 1;
     let R = V.rigs[e.id];
     if(!R){
-      R = V.rigs[e.id] = V.takeRig(e.def.model || e.type);
+      const own = e.lair && M["lair_" + e.lair];
+      R = V.rigs[e.id] = V.takeRig(own ? "lair_" + e.lair : e.def.model || e.type);
+      R.full = own ? DG.LAIRS[e.lair].size || 1 : 1;
       if(e.affix){
         const a = DG.AFFIXES[e.affix], sz = a.size || 1;
         const aura = new THREE.Mesh(K.glowPlane, K.glowMat(a.tint, 0.55)); aura.scale.set(2.4, 1, 2.4); aura.position.y = 0.05; R.root.add(aura); R.aura = aura;
@@ -759,7 +775,7 @@ proto.updateEnemies = function(dt, t){
       S.scene.add(R.root);
     }
     R.root.position.set(S.ix(e), 0, S.iy(e));
-    const es = e.def.radius ? e.r/e.def.radius : (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1);   // elites, lair bosses and shrunk things alike
+    const es = (e.def.radius ? e.r/e.def.radius : (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1))/R.full;   // elites, lair bosses and shrunk things alike
     R.root.scale.set(es, es*STRETCH, es);
     if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
     const want = PI/2 - e.face;
@@ -770,11 +786,11 @@ proto.updateEnemies = function(dt, t){
     let tellK = -1;
     if(R.tell > 0){ R.tell -= dt; tellK = Math.min(1, 1 - Math.max(0, R.tell)/R.tellMax); }
     // burrowed tentacles sink into the floor
-    if(e.def.ai === "tentacle"){ const want = e.hidden ? -1.8 : 0; R.sinkY = (R.sinkY || 0) + (want - (R.sinkY || 0))*(1 - Math.exp(-dt*12)); }
+    if(e.def.ai === "tentacle" || e.def.ai === "ratking"){ const want = e.hidden ? -1.8 : 0; R.sinkY = (R.sinkY || 0) + (want - (R.sinkY || 0))*(1 - Math.exp(-dt*12)); }
     let mo = null;
     if(!frozen){
       mo = M.creep(R, { speed:stunned ? 0 : Math.hypot(e.vx, e.vy), tell:tellK, tellKind:R.tellKind, flinch:e.flash, act:R.act, stunned,
-        hop:e.hop, swell:e.swell, pulse:e.pulse, sink:e.def.ai === "tentacle" ? R.sinkY : undefined }, t, dt);
+        hop:e.hop, swell:e.swell, pulse:e.pulse, sink:e.def.ai === "tentacle" || e.def.ai === "ratking" ? R.sinkY : undefined }, t, dt);
       R.act = 0;
       V.creepSounds(e, R, mo, t);
     }
@@ -797,7 +813,7 @@ proto.updateEnemies = function(dt, t){
     else if(e.st.confused > 0) { tc = 0xff6ad8; tk = 0.2 + 0.15*Math.sin(t*9 + e.id); }
     M.tint(R, tc, tk);
     const ghostA = R.ghostly ? 0.72 : 1;
-    M.fade(R, e.hidden ? (e.def.ai === "tentacle" ? 1 : 0.22 + 0.1*Math.sin(t*5 + e.id)) : e.decoy ? 0.6 : ghostA);
+    M.fade(R, e.hidden ? (e.def.ai === "tentacle" || e.def.ai === "ratking" ? 1 : 0.22 + 0.1*Math.sin(t*5 + e.id)) : e.decoy ? 0.6 : ghostA);
     if(e.hidden && e.def.ai === "sneak" && Math.random() < 0.25) FX.emit(e.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, e.y + (Math.random() - 0.5)*0.6, 0, 0.3, 0, 0x9cff3a, 0.16, 0.4, 0, 1);
     if(R.aura) R.aura.material.opacity = 0.4 + 0.2*Math.sin(t*4 + e.id);
     if(e.st.trapped > 0 && Math.random() < 0.3) FX.emit(e.x + (Math.random() - 0.5)*0.8, 0.5 + Math.random()*0.8, e.y, 0, 0.4, 0, 0xb8f0ff, 0.3, 0.4, 0, 1);
@@ -833,8 +849,8 @@ const DIE = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"goblin"
   ghost:"haunt", banshee:"haunt", skeleton:"haunt", poltergeist:"haunt", bride:"haunt",
   watcher:"weird", blob:"weird", blobling:"weird", tentacle:"weird", eye:"weird",
   rotling:"gloom", spitter:"gloom", bloater:"gloom", husk:"gloom", heart:"gloom" };
-const RISE = { ghost:1, banshee:1, poltergeist:1, bride:1, watcher:1, eye:1 };
-const SOUL = { ghost:0xa8c8e8, banshee:0xa8b8f0, poltergeist:0x9cffc8, bride:0xb8d0ff, watcher:0xff8a9a, eye:0xff8a9a };
+const RISE = { ghost:1, banshee:1, poltergeist:1, bride:1, watcher:1, eye:1, lair_manyeyed:1, lair_mothwidow:1 };
+const SOUL = { ghost:0xa8c8e8, banshee:0xa8b8f0, poltergeist:0x9cffc8, bride:0xb8d0ff, watcher:0xff8a9a, eye:0xff8a9a, lair_manyeyed:0xff8a9a, lair_mothwidow:0xd8ccb0 };
 proto.dissolve = function(d, dt, t){
   const R = d.R, b = R.body, P = R.parts, boss = d.boss;
   if(d.dur === undefined){
@@ -965,7 +981,7 @@ proto.updateBeams = function(dt, t){
     let m = V.beams[b.id];
     if(!m){
       m = new THREE.Group();
-      const core = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color:0xff2a4a, transparent:true, opacity:0.4, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+      const core = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color:b.kind === "lantern" ? 0x7ab8ff : 0xff2a4a, transparent:true, opacity:0.4, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
       core.geometry.translate(0.5, 0, 0); core.rotation.x = -PI/2; m.add(core); m.userData.core = core;
       const white = core.clone(); white.material = core.material.clone(); white.material.color.setHex(0xffffff); white.position.y = 0.01; m.add(white); m.userData.white = white;
       S.scene.add(m); V.beams[b.id] = m;
@@ -976,7 +992,7 @@ proto.updateBeams = function(dt, t){
     if(b.live){
       m.userData.core.scale.set(L, b.w*2.6, 1); m.userData.core.material.opacity = 0.75 + 0.2*Math.sin(t*40);
       m.userData.white.scale.set(L, b.w*0.9, 1); m.userData.white.material.opacity = 0.9;
-      if(Math.random() < 0.6){ const d = Math.random()*L; FX.emit(b.x + Math.cos(b.a)*d, 0.9, b.y + Math.sin(b.a)*d, (Math.random() - 0.5)*2, 1, (Math.random() - 0.5)*2, 0xff4a6a, 0.3, 0.3, 0, 2); }
+      if(Math.random() < 0.6){ const d = Math.random()*L; FX.emit(b.x + Math.cos(b.a)*d, 0.9, b.y + Math.sin(b.a)*d, (Math.random() - 0.5)*2, 1, (Math.random() - 0.5)*2, b.kind === "lantern" ? 0xb8dcff : 0xff4a6a, 0.3, 0.3, 0, 2); }
     } else {
       const k = b.t/b.tell;
       m.userData.core.scale.set(L, 0.08 + k*0.1, 1); m.userData.core.material.opacity = 0.3 + 0.5*Math.abs(Math.sin(t*20*(0.5 + k)));

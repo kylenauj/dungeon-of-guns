@@ -643,6 +643,202 @@ const BEHAVIOUR = {
     else { const tl = pick === "gaze" ? 0.5 : 0.4; tell(G, e, pick, tl); A.state = pick; A.t = pick === "gaze" ? 1.6 + tl : tl; }
   },
 
+  /* ---- Sir Hollin in the Gibbet (floor 1's other boss): a hanged knight with a
+     greatsword. Wide sweeps you must get behind or outrun, a leap that lands
+     where you stood, and the crows that live in his cage ---- */
+  gibbet(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("SIR HOLLIN: \"The cage is open. So am I.\"", 2.5); }
+    if(leap(G, e, dt, { air:0.8, h:3.2, r:2.3, dmg:1.2, ring:rage ? 14 : 10, kind:"rock", rec:0.5 })) return;
+    const d = DG.dist(e.x, e.y, p.x, p.y);
+    switch(A.state){
+      case "sweep":
+        A.t -= dt;
+        if(A.t <= 0){
+          G.emit("swing", { id:e.id, x:e.x, y:e.y, a:A.a });
+          if(rage && !A.back){ A.back = true; A.a = aimAt(e, p); sweepMarks(G, e, A.a, 0.55, -1); A.t = 0.55; return; }
+          A.back = false; A.state = "walk"; A.cd = rage ? 0.9 : 1.4;
+        }
+        return;
+      case "crows":
+        A.t -= dt;
+        if(A.t <= 0){
+          shoot(G, e, aimAt(e, p) + (A.n % 2 ? 0.18 : -0.18), 7.5, rage ? 6 : 5, 70, "crow", { r:0.2, dmg:e.dmg*0.5 });
+          A.n++; A.t = 0.3;
+          if(A.n >= (rage ? 4 : 3)){ A.state = "walk"; A.cd = 1.2; }
+        }
+        return;
+      case "tell": case "lunge": case "recover":
+        melee(G, e, dt, p, { reach:3.2, tell:0.45, lunge:12, cd:1.2 });
+        if(A.state === "chase"){ A.state = "walk"; A.cd = 0.8; }
+        return;
+    }
+    A.state = "walk";
+    if(d > 2.6) approach(G, e, p, dt, rage ? 1.2 : 1); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const order = d < 3.4 ? ["sweep", "stab", "sweep", "leap"] : ["leap", "crows", "sweep", "crows"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.n = 0; A.cd = rage ? 1 : 1.5;
+    if(pick === "sweep"){ A.a = aimAt(e, p); tell(G, e, "sweep", 0.8, { a:A.a }); sweepMarks(G, e, A.a, 0.8, 1); A.state = "sweep"; A.t = 0.8; }
+    else if(pick === "stab"){ A.a = aimAt(e, p); tell(G, e, "stab", 0.45, { a:A.a }); }
+    else if(pick === "leap"){ leapAt(G, e, p, { kind:"leap", tell:0.65, air:0.8, r:2.3 }); }
+    else { tell(G, e, "crows", 0.7); A.state = "crows"; A.t = 0.7; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"Feed, my lovelies." }); }
+  },
+
+  /* ---- The Rat King (floor 2's other boss): a knot of rats tied by the tails.
+     It pours rats at you, whips its tails in a ring, sinks into the muck and
+     comes up under you, and sheds its young ---- */
+  ratking(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE RAT KING: \"bite bite bite BITE\"", 2.5); }
+    switch(A.state){
+      case "stream":
+        A.t -= dt; A.fire = (A.fire || 0) - dt; A.sw = (A.sw || 0) + dt;
+        if(A.t < A.dur && A.fire <= 0){
+          A.fire = rage ? 0.05 : 0.07;
+          const base = aimAt(e, p), n = rage ? 2 : 1;
+          for(let k=0;k<n;k++) shoot(G, e, base + Math.sin(A.sw*3.2 + k*Math.PI)*0.55, 7 + G.rng.next()*1.5, 1, 0, "rat", { r:0.17, dmg:e.dmg*0.45 });
+        }
+        if(A.t <= 0){ A.state = "walk"; A.cd = rage ? 0.9 : 1.4; }
+        return;
+      case "lash":
+        A.t -= dt;
+        if(A.t <= 0){
+          G.explode(e.x, e.y, e.r + 1.6, e.dmg, "e", { skip:e.id, why:"ratking" });
+          G.ring(e.x, e.y, rage ? 22 : 16, 4.2, e.dmg*0.5, G.rng.next(), "rat");
+          A.state = "walk"; A.cd = 1.2;
+        }
+        return;
+      case "burrow":
+        A.t -= dt;
+        if(A.t <= A.up && !A.marked){ A.marked = true; const s = spotNear(G, e, p.x, p.y, 0.8); A.tx = s.x; A.ty = s.y; G.marks.push({ kind:"flop", x:s.x, y:s.y, r:2.2, t:A.up, max:A.up }); }
+        if(A.t <= 0){
+          e.x = A.tx; e.y = A.ty; e.hidden = false; e.untargetable = false;
+          G.explode(e.x, e.y, 2.2, e.dmg*1.1, "e", { skip:e.id, why:"ratking" });
+          G.ring(e.x, e.y, rage ? 16 : 12, 4.6, e.dmg*0.5, G.rng.next(), "rat");
+          G.emit("appear", { id:e.id, x:e.x, y:e.y }); G.emit("land", { id:e.id, x:e.x, y:e.y });
+          A.state = "walk"; A.cd = 1.3;
+        }
+        return;
+      case "summon":
+        A.t -= dt;
+        if(A.t <= 0){ summon(G, e, rage ? 4 : 3, ["rotling"]); A.state = "walk"; A.cd = 1; }
+        return;
+    }
+    A.state = "walk";
+    const d = DG.dist(e.x, e.y, p.x, p.y);
+    if(d > 3.5) approach(G, e, p, dt, rage ? 1.15 : 1); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const adds = G.enemies.filter(o=> o.room === e.room && o !== e && !o.dead).length;
+    const order = ["stream", d < 3.6 ? "lash" : "burrow", "stream", adds < 5 ? "summon" : "lash", "burrow"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = rage ? 1 : 1.5;
+    if(pick === "stream"){ tell(G, e, "stream", 0.6); A.state = "stream"; A.dur = rage ? 2.2 : 1.7; A.t = 0.6 + A.dur; A.sw = 0; A.fire = 0; }
+    else if(pick === "lash"){ tell(G, e, "lash", 0.7); A.state = "lash"; A.t = 0.7; mark(G, "swipe", e.x, e.y, e.r + 1.6, 0.7); }
+    else if(pick === "burrow"){ tell(G, e, "burrow", 0.5); A.state = "burrow"; A.up = 0.75; A.t = 0.5 + 0.6 + A.up; A.marked = false; G.pending.push({ t:0.5, fn:()=>{ if(!e.dead){ e.hidden = true; e.untargetable = true; G.emit("burrow", { id:e.id, x:e.x, y:e.y }); } } }); }
+    else { tell(G, e, "summon", 0.8); A.state = "summon"; A.t = 0.8; }
+  },
+
+  /* ---- Old Mattock, the Gravedigger (floor 3's other boss): every swing of
+     his spade opens a grave (they drag at your feet), his lantern sweeps the
+     room, he flings the dirt, and what's in the graves gets up ---- */
+  gravedigger(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("OLD MATTOCK: \"Plenty of room. Plenty.\"", 2.5); }
+    switch(A.state){
+      case "dig":
+        A.t -= dt;
+        if(A.t <= 0){
+          G.emit("land", { id:e.id, x:A.tx, y:A.ty });
+          if(G.hazards.filter(h=> h.kind === "grave").length < 6) G.addHazard({ kind:"grave", x:A.tx, y:A.ty, r:0.85, t:14, team:"e" });
+          A.n++;
+          if(rage && A.n < 2){ const s = spotNear(G, e, p.x, p.y, 0.5); A.tx = s.x; A.ty = s.y; slam(G, s.x, s.y, 1.4, e.dmg*1.1, 0.6, "grave"); tell(G, e, "dig", 0.6); A.state = "dig"; A.t = 0.6; return; }
+          A.state = "walk"; A.cd = 1.2;
+        }
+        return;
+      case "fling":
+        A.t -= dt;
+        if(A.t <= 0){
+          const a = aimAt(e, p);
+          for(let k=0;k<(rage ? 11 : 8);k++) shoot(G, e, a + (G.rng.next() - 0.5)*0.95, 6 + G.rng.next()*4.5, 1, 0, "dirt", { r:0.19, dmg:e.dmg*0.5 });
+          A.state = "walk"; A.cd = 1;
+        }
+        return;
+      case "lantern": A.t -= dt; if(A.t <= 0){ A.state = "walk"; A.cd = 0.9; } return;
+      case "raise":
+        A.t -= dt;
+        if(A.t <= 0){
+          const r = G.D.rooms[e.room], graves = G.hazards.filter(h=> h.kind === "grave");
+          const adds = G.enemies.filter(o=> o.room === e.room && o !== e && !o.dead).length;
+          let n = Math.min(rage ? 4 : 3, Math.max(0, 6 - adds));
+          graves.slice(0, n).forEach(h=>{ G.spawnEnemy(r, { type:"skeleton", x:h.x, y:h.y, elite:null, quick:true }); h.t = Math.min(h.t, 0.5); n--; });
+          if(n > 0) summon(G, e, Math.min(2, n), ["skeleton"]); else G.emit("summon", { id:e.id });
+          A.state = "walk"; A.cd = 1.4;
+        }
+        return;
+    }
+    A.state = "walk";
+    const d = DG.dist(e.x, e.y, p.x, p.y);
+    if(d > 4.5) approach(G, e, p, dt, rage ? 1.15 : 1); else if(d < 2.5) walk(G, e, e.x - p.x, e.y - p.y, 0.6, dt); else e.face = aimAt(e, p);
+    e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const graves = G.hazards.filter(h=> h.kind === "grave").length;
+    const order = ["dig", "fling", "lantern", "dig", graves >= 2 ? "raise" : "fling"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.n = 0; A.cd = rage ? 1 : 1.5;
+    if(pick === "dig"){ const s = spotNear(G, e, p.x, p.y, 0.5); A.tx = s.x; A.ty = s.y; tell(G, e, "dig", 0.9); slam(G, s.x, s.y, 1.4, e.dmg*1.1, 0.9, "grave"); A.state = "dig"; A.t = 0.9; }
+    else if(pick === "fling"){ tell(G, e, "fling", 0.55, { a:aimAt(e, p) }); A.state = "fling"; A.t = 0.55; }
+    else if(pick === "lantern"){
+      const a = aimAt(e, p), side = G.rng.sign();
+      G.addBeam({ owner:e.id, x:e.x, y:e.y, a:a - side*0.9, tell:0.8, time:rage ? 2.6 : 2.1, dmg:e.dmg*0.75, w:0.42, sweep:side*(rage ? 1.0 : 0.85), max:15, kind:"lantern" });
+      tell(G, e, "lantern", 0.8); A.state = "lantern"; A.t = 0.8 + (rage ? 2.6 : 2.1);
+    }
+    else { tell(G, e, "raise", 0.9); A.state = "raise"; A.t = 0.9; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"Up you get. Work to do." }); }
+  },
+
+  /* ---- The Antlered Hunger (floor 4's other boss): a starved thing of the
+     woods. It pounces, charges with its antlers down, screams, and drives
+     its claws into the ground so roots burst up in lines toward you ---- */
+  antlered(G, e, dt, p){
+    const A = e.ai, rage = e.hp/e.maxHp < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); e.speed *= 1.2; G.say("THE ANTLERED HUNGER: \"HHHHUNGRY\"", 2.5); }
+    if(leap(G, e, dt, { air:0.6, h:2.6, r:1.9, dmg:1.15, ring:rage ? 12 : 0, kind:"wail", rec:0.4 })) return;
+    if(charge(G, e, dt, p, { time:0.8, speed:13, stun:1.3 })) return;
+    switch(A.state){
+      case "recover": A.t -= dt; if(A.t <= 0){ A.state = "walk"; A.cd = 0.8; } return;
+      case "scream":
+        A.t -= dt;
+        if(A.t <= 0){
+          G.ring(e.x, e.y, rage ? 24 : 18, 5, e.dmg*0.5, A.n*0.13, "wail"); A.n++;
+          if(A.n < (rage ? 2 : 1)){ A.t = 0.4; return; }
+          A.state = "walk"; A.cd = 1;
+        }
+        return;
+      case "roots":
+        A.t -= dt;
+        if(A.t <= 0){ A.state = "walk"; A.cd = 1.1; }
+        return;
+    }
+    A.state = "walk";
+    const d = DG.dist(e.x, e.y, p.x, p.y);
+    if(d > 3) approach(G, e, p, dt, 1); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const order = ["pounce", "roots", "charge", "scream", "pounce", "charge"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.n = 0; A.cd = rage ? 0.9 : 1.4;
+    if(pick === "pounce") leapAt(G, e, p, { kind:"pounce", tell:0.6, air:0.6, r:1.9 });
+    else if(pick === "charge" && d > 2.5 && G.los(e.x, e.y, p.x, p.y)){ A.a = aimAt(e, p); tell(G, e, "charge", 0.8, { a:A.a }); A.state = "ctell"; A.t = 0.8; }
+    else if(pick === "roots"){
+      tell(G, e, "roots", 0.7); A.state = "roots"; A.t = 0.7 + 0.8;
+      const a = aimAt(e, p), lines = rage ? 5 : 3;
+      for(let l=0;l<lines;l++){
+        const b = a + (l - (lines - 1)/2)*0.38;
+        for(let k=1;k<=7;k++){ const x = e.x + Math.cos(b)*k*1.15, y = e.y + Math.sin(b)*k*1.15; if(G.bulletBlocked(x, y)) break; slam(G, x, y, 0.7, e.dmg*0.8, 0.7 + k*0.1, "roots"); }
+      }
+    }
+    else { tell(G, e, "scream", 0.7); A.state = "scream"; A.t = 0.7; }
+  },
+
   /* ---- The Gloom Heart: it beats, and every beat is a shockwave ---- */
   heart(G, e, dt, p){
     const A = e.ai, f = e.hp/e.maxHp, phase = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
@@ -717,6 +913,50 @@ function charge(G, e, dt, p, C){
     return true;
   }
   return false;
+}
+/* a leap: crouched in the tell, then through the air onto where Zippy stood,
+   landing in a blast (and a ring of shots, if L.ring). leapAt starts one;
+   leap runs it and says whether it's busy. e.hop is the height (the view
+   lifts the rig by it) */
+function leapAt(G, e, p, L){
+  const A = e.ai, s = spotNear(G, e, p.x, p.y, 0.3);
+  A.a = aimAt(e, p); A.tx = s.x; A.ty = s.y;
+  tell(G, e, L.kind || "pounce", L.tell, { a:A.a });
+  A.state = "crouch"; A.t = L.tell;
+  G.marks.push({ kind:"pounce", x:s.x, y:s.y, r:L.r, t:L.tell + L.air, max:L.tell + L.air });
+}
+function leap(G, e, dt, L){
+  const A = e.ai;
+  if(A.state === "crouch"){
+    A.t -= dt; e.face = A.a;
+    if(A.t <= 0){ A.state = "air"; A.t = L.air; e.airborne = true; A.fx = e.x; A.fy = e.y; G.emit("jump", { id:e.id }); }
+    return true;
+  }
+  if(A.state === "air"){
+    A.t -= dt;
+    const k = 1 - Math.max(0, A.t)/L.air;
+    e.x = A.fx + (A.tx - A.fx)*k; e.y = A.fy + (A.ty - A.fy)*k; e.hop = Math.sin(k*Math.PI)*L.h; e.vx = e.vy = 0;
+    if(A.t <= 0){
+      e.airborne = false; e.hop = 0;
+      if(G.blocked(Math.floor(e.x), Math.floor(e.y), "enemy")){ e.x = A.fx; e.y = A.fy; }
+      G.explode(e.x, e.y, L.r, e.dmg*(L.dmg || 1), "e", { skip:e.id, why:e.type });
+      if(L.ring) G.ring(e.x, e.y, L.ring, 4.5, e.dmg*0.5, G.rng.next(), L.kind || "rock");
+      G.emit("land", { id:e.id, x:e.x, y:e.y });
+      A.state = "landed"; A.t = L.rec || 0.4;
+    }
+    return true;
+  }
+  if(A.state === "landed"){ A.t -= dt; if(A.t <= 0){ A.state = "chase"; A.cd = Math.max(A.cd, 0.3); } return true; }
+  return false;
+}
+/* a mark on the floor only: the blow itself lands by other means */
+function mark(G, kind, x, y, r, t){ G.marks.push({ kind, x, y, r, t, max:t }); }
+/* a greatsword's arc, marked on the floor: a fan in front, out to 3.4 */
+function sweepMarks(G, e, a, delay, dir){
+  for(let k=0;k<7;k++){
+    const b = a + (k/6 - 0.5)*2.3*dir;
+    [1.6, 3.0].forEach(rr=> slam(G, e.x + Math.cos(b)*rr, e.y + Math.sin(b)*rr, 0.85, e.dmg*0.9, delay + k*0.03, "sweep"));
+  }
 }
 function secondWind(G, e, line){
   const A = e.ai;
@@ -844,6 +1084,85 @@ const LAIR = {
     }
     if(A.ringCd <= 0){ A.ringCd = A.raged ? 2.6 : 3.6; G.ring(e.x, e.y, A.raged ? 16 : 12, 4.5, e.dmg*0.5, G.rng.next(), "tear"); G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind:"ring" }); }
     keepAway(G, e, p, dt, [5, 9]);
+  },
+  /* Gnaw, the Kennel Hound: circles you fast, pounces where you stand, snaps
+     when you're close; at half health it howls and gets quicker */
+  hound(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e)){ e.speed *= 1.25; tell(G, e, "howl", 0.8); A.state = "howl"; A.t = 0.8; }
+    if(A.state === "howl"){ A.t -= dt; if(A.t <= 0){ A.state = "chase"; G.ring(e.x, e.y, 14, 4.5, e.dmg*0.4, G.rng.next(), "wail"); } return; }
+    if(leap(G, e, dt, { air:0.5, h:1.7, r:1.35, dmg:1, rec:0.45 })) return;
+    A.pounceCd = (A.pounceCd === undefined ? 1.6 : A.pounceCd) - dt;
+    const busy = A.state === "tell" || A.state === "lunge" || A.state === "recover";
+    if(!busy && A.pounceCd <= 0 && d > 2.6 && d < 9 && G.los(e.x, e.y, p.x, p.y)){
+      A.pounceCd = A.raged ? 1.9 : 2.7;
+      leapAt(G, e, p, { kind:"pounce", tell:0.55, air:0.5, r:1.35 });
+      return;
+    }
+    if(busy || d < 2.4){ melee(G, e, dt, p, { reach:2.3, tell:0.32, lunge:11, cd:0.9 }); return; }
+    keepAway(G, e, p, dt, [3, 5.5]);
+  },
+  /* the Bell-Ringer: tolls his great bell on the floor (a ring of sound to
+     blink through) and swings it when you're close; at half health he
+     rings it three times running */
+  bellringer(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e, "FOR YOU. FOR YOU. FOR YOU.")) A.tollCd = 0;
+    A.tollCd = (A.tollCd === undefined ? 2.2 : A.tollCd) - dt;
+    if(A.state === "toll"){
+      A.t -= dt;
+      if(A.t <= 0){
+        G.explode(e.x + Math.cos(e.face)*1.2, e.y + Math.sin(e.face)*1.2, 1.6, e.dmg, "e", { skip:e.id, why:"bell" });
+        G.addHazard({ kind:"shockwave", x:e.x, y:e.y, r:10, t:1.5, dmg:e.dmg*0.8, team:"e" });
+        G.emit("toll", { id:e.id, x:e.x, y:e.y });
+        A.n = (A.n || 0) + 1;
+        if(A.raged && A.n < 3){ tell(G, e, "toll", 0.55); A.state = "toll"; A.t = 0.55; return; }
+        A.n = 0; A.state = "chase"; A.tollCd = A.raged ? 4.2 : 3.6;
+      }
+      return;
+    }
+    if(A.state === "swing"){
+      A.t -= dt;
+      if(A.t <= 0){
+        G.explode(e.x + Math.cos(A.a)*1.5, e.y + Math.sin(A.a)*1.5, 1.8, e.dmg*1.1, "e", { skip:e.id, why:"bell" });
+        G.emit("swing", { id:e.id, x:e.x, y:e.y, a:A.a });
+        A.state = "chase"; A.cd = 1.3;
+      }
+      return;
+    }
+    A.state = "chase";
+    if(A.tollCd <= 0 && d < 9){ tell(G, e, "toll", 0.8); A.state = "toll"; A.t = 0.8; A.n = 0; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(DG.LAIRS.bellringer.lines) }); return; }
+    if(d < 3 && A.cd <= 0){ A.a = aimAt(e, p); e.face = A.a; tell(G, e, "swing", 0.55, { a:A.a }); A.state = "swing"; A.t = 0.55; mark(G, "swipe", e.x + Math.cos(A.a)*1.5, e.y + Math.sin(A.a)*1.5, 1.8, 0.55); return; }
+    approach(G, e, p, dt, 0.85);
+  },
+  /* the Moth-Widow: hangs back and sheds spirals of dust, then dives across
+     the room leaving spores in her wake; at half health the dead come to her */
+  mothwidow(G, e, dt, p){
+    const A = e.ai, d = DG.dist(e.x, e.y, p.x, p.y);
+    if(secondWind(G, e, "Come, children. To the light.")){ tell(G, e, "summon", 0.8); A.state = "summon"; A.t = 0.8; }
+    if(A.state === "summon"){ A.t -= dt; if(A.t <= 0){ summon(G, e, 3, ["ghost"]); A.state = "drift"; } return; }
+    if(A.state === "charging"){
+      A.trail = (A.trail || 0) - dt;
+      if(A.trail <= 0){ A.trail = 0.12; G.addHazard({ kind:"spores", x:e.x, y:e.y, r:0.75, t:2.4, every:0.5, dmg:e.dmg*0.3, team:"e" }); }
+    }
+    if(charge(G, e, dt, p, { time:0.65, speed:13, stun:0.3 })) return;
+    if(A.state === "recover"){ A.t -= dt; if(A.t <= 0) A.state = "drift"; return; }
+    if(A.state === "dust"){
+      A.t -= dt; A.fire = (A.fire || 0) - dt; A.spin = (A.spin || 0) + dt*(A.raged ? 2.4 : 1.9);
+      if(A.t < 1.6 && A.fire <= 0){
+        A.fire = 0.11;
+        const arms = A.raged ? 4 : 3;
+        for(let k=0;k<arms;k++){ const a = A.spin + k*TAU/arms; G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(a)*4.4, vy:Math.sin(a)*4.4, r:0.2, dmg:e.dmg*0.45, life:4, kind:"dust" }); }
+      }
+      if(A.t <= 0){ A.state = "drift"; A.dustCd = A.raged ? 3.2 : 4.2; }
+      return;
+    }
+    A.state = "drift";
+    A.dustCd = (A.dustCd === undefined ? 1.5 : A.dustCd) - dt;
+    A.diveCd = (A.diveCd === undefined ? 3.5 : A.diveCd) - dt;
+    if(A.dustCd <= 0){ tell(G, e, "dust", 0.7); A.state = "dust"; A.t = 0.7 + 1.6; A.spin = G.rng.next()*TAU; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(DG.LAIRS.mothwidow.lines) }); return; }
+    if(A.diveCd <= 0 && d > 2.5 && d < 11){ A.diveCd = A.raged ? 3 : 4.2; A.a = aimAt(e, p); tell(G, e, "dive", 0.6, { a:A.a }); A.state = "ctell"; A.t = 0.6; return; }
+    keepAway(G, e, p, dt, [4, 7]);
   },
   /* the Choir of Husks: three that charge like husks; hurt one and the
      other two scream at you */

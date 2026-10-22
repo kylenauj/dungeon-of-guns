@@ -36,11 +36,18 @@ Dungeon.generate = function(seed, floor, opts){
   throw new Error("dungeon: no layout for seed " + seed);
 };
 
+/* the floor's look and its boss: each floor has two bosses, and the seed picks one */
+function floorTheme(seed, floor){
+  const th = DG.FLOORS[(floor - 1) % DG.FLOORS.length];
+  if(!th.alt || (Math.imul((seed >>> 0) ^ 0x9e3779b9, 31 + floor*2) >>> 7) % 2 === 0) return th;
+  return Object.assign({}, th, { boss:th.alt });
+}
+Dungeon.floorTheme = floorTheme;
 function tryGenerate(rng, floor, seed, opts){
   const S = DG.FLOOR_SCALE(floor);
   const W = CW*GW, H = CH*GH;
   const D = { seed, floor, w:W, h:H, tiles:new Uint8Array(W*H), rooms:[], doors:[], corridors:[], painted:[], fakes:[], breakables:[], decor:[], ver:0,
-              theme:opts.theme || DG.FLOORS[(floor - 1) % DG.FLOORS.length] };
+              theme:opts.theme || floorTheme(seed, floor) };
   D.drowned = !!opts.drowned;
   D.at = (x, y)=> (x < 0 || y < 0 || x >= W || y >= H) ? T.SOLID : D.tiles[y*W + x];
   D.set = (x, y, v)=>{ if(x >= 0 && y >= 0 && x < W && y < H) D.tiles[y*W + x] = v; };

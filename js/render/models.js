@@ -3238,7 +3238,10 @@ Models.stalk = function(R, o, t, dt){
    out straight behind him, the front legs reach in the air, he lands hard
    on his belly and the legs fold back under. On the ground: a slow throat,
    a blink now and then, and every so often a shift of his whole weight.
-   o: { k (0..1 through a hop, < 0 on the ground), lick (0..1) }.
+   His tongue: a snap back (the head up, the throat full, the front feet
+   braced), the lunge (the whole body thrown after the tongue), then the
+   gulp. A spit is drawn back further and kicks; a croak fills the throat.
+   o: { k (0..1 through a hop, < 0 on the ground), lick, spit, croak (each 0..1 through it) }.
    Sets m.tookOff / m.landed on those frames. */
 Models.hop = function(R, o, t, dt){
   const m = R.mo || (R.mo = { air:false, land:9, sq:{ x:0, v:0 }, pitch:{ x:0, v:0 }, blink:0, nextBlink:2 + Math.random()*3, shift:0, shiftT:4 + Math.random()*4, shiftTo:0, roll:{ x:0, v:0 } });
@@ -3260,9 +3263,15 @@ Models.hop = function(R, o, t, dt){
   if(m.shiftT <= 0 && !air){ m.shiftTo = m.shiftTo ? 0 : (Math.random() < 0.5 ? -1 : 1)*(0.06 + Math.random()*0.04); m.shiftT = m.shiftTo ? 0.9 + Math.random()*0.8 : 3 + Math.random()*5; }
   const roll = spring(m.roll, air ? 0 : m.shiftTo, 25, 9, dt);
   const breath = Math.sin(t*1.9);
-  b.scale.set(1 - sq*0.45 + breath*0.012, 1 + sq*0.55 - 0.12*load - breath*0.012, 1 + sq*0.9);
-  b.rotation.set(pitch, 0, roll);
-  b.position.set(roll*0.25, -0.03*load, 0);
+  // the attacks: back (the wind-up), out (the strike), and the gulp after
+  const lk = o.lick || 0, spt = o.spit || 0, crk = o.croak > 0 ? Math.sin(Math.min(1, o.croak)*PI) : 0;
+  const lBack = lk > 0 ? smooth(0, 0.28, lk)*(1 - smooth(0.28, 0.4, lk)) : 0, lOut = lk > 0 ? smooth(0.28, 0.4, lk)*(1 - smooth(0.5, 1, lk)) : 0;
+  const gulp = lk > 0.55 ? Math.sin((lk - 0.55)/0.45*PI) : 0;
+  const sBack = spt > 0 ? smooth(0, 0.42, spt)*(1 - smooth(0.42, 0.52, spt)) : 0, sOut = spt > 0 ? smooth(0.42, 0.52, spt)*(1 - smooth(0.6, 1, spt)) : 0;
+  const back = lBack + sBack*1.3, out = lOut + sOut*0.8;
+  b.scale.set(1 - sq*0.45 + breath*0.012 + 0.05*back, 1 + sq*0.55 - 0.12*load - breath*0.012 - 0.1*back + 0.05*crk, 1 + sq*0.9 + 0.2*out - 0.05*back);
+  b.rotation.set(pitch - 0.2*back + 0.24*out - 0.12*crk, 0, roll);
+  b.position.set(roll*0.25, -0.03*load - 0.02*back + 0.03*crk, -0.07*back + 0.13*out);
   // legs: phase weights through the hop
   const kick = air ? smooth(0, 0.14, k)*(1 - smooth(0.58, 0.88, k)) : 0;      // hind legs out straight behind
   const reach = air ? smooth(0.1, 0.4, k) : 0;                                   // front legs forward in the air
@@ -3273,12 +3282,11 @@ Models.hop = function(R, o, t, dt){
   if(p.thighs) p.thighs.forEach((g, i)=>{ g.rotation.x = 2.1*kick - 0.12*load + 0.1*fold; g.rotation.z = (i ? 1 : -1)*(0.12*kick - 0.05*load); });
   if(p.hind) p.hind.forEach(g=>{ g.rotation.x = -2.05*kick + 0.1*load - 0.08*fold; });
   if(p.feet) p.feet.forEach(g=>{ g.rotation.x = 2.4*smooth(0.1, 1, kick) - 0.1*load; });
-  if(p.front) p.front.forEach((g, i)=>{ g.rotation.x = -1.05*reach*(1 - catchUp) - 0.35*catchUp + 0.45*fold + 0.12*load - pitch*0.6; g.rotation.z = (i ? -1 : 1)*0.15*reach; });
-  // the head: low and heavy, jerked forward when the tongue goes out
-  const lk = o.lick || 0, jerk = lk > 0 ? Math.sin(Math.min(1, lk)*PI) : 0;
-  if(p.head){ p.head.rotation.x = -pitch*0.4 + 0.22*jerk + 0.05*load; p.head.position.z = 0.06 + 0.07*jerk; }
-  // a slow throat, swelling and letting go
-  if(p.throat){ const th = Math.pow(Math.max(0, Math.sin(t*1.25 + 0.4)), 3); p.throat.scale.set(1 + 0.1*th, 1 + 0.32*th, 1 + 0.14*th); }
+  if(p.front) p.front.forEach((g, i)=>{ g.rotation.x = -1.05*reach*(1 - catchUp) - 0.35*catchUp + 0.45*fold + 0.12*load - pitch*0.6 + 0.35*back - 0.25*out; g.rotation.z = (i ? -1 : 1)*(0.15*reach + 0.12*back); });
+  // the head: low and heavy; thrown up and back, then forward after the tongue
+  if(p.head){ p.head.rotation.x = -pitch*0.4 + 0.05*load - 0.3*back + 0.4*out - 0.15*crk; p.head.position.z = 0.06 - 0.03*back + 0.1*out; }
+  // a slow throat, swelling and letting go (full before a spit, a gulp after a lick, huge in a croak)
+  if(p.throat){ const th = Math.pow(Math.max(0, Math.sin(t*1.25 + 0.4)), 3) + 0.5*gulp + 0.9*sBack + 1.4*crk; p.throat.scale.set(1 + 0.1*th, 1 + 0.32*th, 1 + 0.14*th); }
   // blinks: both lids, quick, every few seconds (and on landing)
   m.nextBlink -= dt; if(m.nextBlink <= 0 || m.landed){ m.blink = 0.16; m.nextBlink = 2.5 + Math.random()*4.5; }
   if(m.blink > 0) m.blink -= dt;
@@ -3306,6 +3314,22 @@ const FAMILY = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"gobl
   rotling:"crab", spitter:"spitter", bloater:"bloater", heart:"heart" };
 Models.FAMILY = FAMILY;
 const BOSSES = { king:1, matriarch:1, bride:1, eye:1, heart:1 };
+Models.BOSSES = BOSSES;
+/* wind-ups that end in a shot, not a blow */
+const SHOTS = { aim:1, throw:1, spit:1, spray:1, hex:1, heal:1, puff:1, boo:1, inhale:1, glare:1, lasers:1, gaze:1, tentacles:1, scream:1, summon:1, arteries:1 };
+/* moves of a rig's own: MOVES[kind](c) poses the rig's parts for this frame and
+   returns the body's offset { y, z, rx, ry, rz, sx, sy, sz } (rx: the body's pitch;
+   anything left out takes the common lean and bob). c carries the frame: t, dt, s
+   (0..1 how fast it's going), ph (stride phase), fall (1 at a footfall), wind (0..1
+   the wind-up), st (the release: up to 1 at once, then back slowly), kind (the
+   wind-up's or the strike's kind: "hook", "charge"...), tell (0..1 through the
+   wind-up, < 0 for none), fl (a flinch, 1 to 0), fit (an idle fit, 1 to 0),
+   breath (-1..1), shake (the wind-up's tremble), sz, boss, o (what the view passed:
+   hop, sink, stunned...), m (state kept on the rig), P (parts), and the helpers
+   pose(node, px, py, pz, rx, ry, rz, sx, sy, sz) (offsets from the rest pose),
+   glance(every[], range, k) (sets m.gx.x, m.gy.x: a twitchy look-around), snap, smooth.
+   FAMILY[kind] still picks the stride rate, the footfall sounds and the moans. */
+const MOVES = Models.MOVES = {};
 /* the rest pose of everything that moves, kept once so motion is always rest + offset */
 function rest(m, o){
   if(!o) return null;
@@ -3341,10 +3365,18 @@ Models.creep = function(R, o, t, dt){
   m.struck = false;
   if(m.lastTell >= 0 && tk < 0){ m.strike = 1; m.struck = true; m.strikeKind = m.tellKind; }
   m.lastTell = tk; if(tk >= 0) m.tellKind = o.tellKind;
-  m.strike = Math.max(0, m.strike - dt/(boss ? 0.5 : 0.32));
-  const wind = tk >= 0 ? smooth(0, 0.75, tk) : 0;
-  const shake = tk >= 0 ? smooth(0.35, 1, tk)*Math.sin(t*47 + sd)*(boss ? 0.025 : 0.018) : 0;
-  const st = m.strike > 0 ? Math.sin(Math.min(1, (1 - m.strike)*3.5)*PI*0.5)*m.strike : 0;   // out fast, back slow
+  m.strike = Math.max(0, m.strike - dt/(boss ? 0.62 : 0.45));
+  // the wind-up: drawn back quickly, then held for the last third, trembling with it
+  const windRaw = tk >= 0 ? smooth(0, 0.6, tk) : 0, hold = tk >= 0 ? smooth(0.55, 1, tk) : 0;
+  const shake = hold*Math.sin(t*47 + sd)*(boss ? 0.03 : 0.024);
+  // the release: out in a blink, a little past where it stops, then back slowly
+  const sk = 1 - m.strike;
+  // the wind-up doesn't vanish the frame it's let go: it's carried into the first
+  // fifth of the strike, so the blow sweeps through from the drawn-back pose instead
+  // of snapping to rest first (the rigs with moves of their own get it raw)
+  if(tk >= 0) m.lastWind = windRaw;
+  const wind = tk >= 0 ? windRaw : m.strike > 0 ? (m.lastWind || 0)*(1 - smooth(0, 0.2, sk)) : 0;
+  const st = m.strike > 0 ? (sk < 0.14 ? Math.sin(sk/0.14*PI*0.5) : Math.cos((sk - 0.14)/0.86*PI*0.5)*(1 + 0.22*Math.sin((sk - 0.14)*PI*3.5)*(1 - sk))) : 0;
   // a hit: a jolt back
   if(o.flinch > 0 && !m.wasHit) m.fl = 1;
   m.wasHit = o.flinch > 0; m.fl = Math.max(0, m.fl - dt*5);
@@ -3363,25 +3395,49 @@ Models.creep = function(R, o, t, dt){
   m.step = stepped && (fam === "goblin" || fam === "skel" || fam === "crab" || fam === "shroom" || fam === "puff" || fam === "spitter");
   m.stomp = stepped && (fam === "brute" || fam === "king" || fam === "husk" || fam === "matriarch" || fam === "bloater");
   const ph = m.ph, fall = 1 - Math.abs(Math.sin(ph));
-  // common: the wind-up rears back and rises, the release throws it forward
-  let bx = -0.3*wind + 0.42*st - 0.2*fl + shake, by = 0.04*wind*sz, bz = (0.16*st - 0.06*fl)*sz, brz = 0, bry = 0;
-  let bsx = 1, bsy = 1, bsz = 1;
-  let armUp = -2.3*wind + 1.0*st;
-  if((tk >= 0 ? o.tellKind : m.strikeKind) === "charge"){
-    // a charge is wound up low: head down, weight forward, a foot pawing the floor
-    bx = 0.3*wind + 0.25*st - 0.2*fl + shake; by = -0.06*wind*sz; bz = 0.25*st*sz; armUp = 0.5*wind - 0.3*st;
+  // common. A blow is cocked (twisted away, weight back, a little crouch) and thrown
+  // (a lunge, a twist through, stretched along it); a shot is drawn back and kicks.
+  // Seen from above, the lunge and the twist are what read, so they carry it.
+  const kd = tk >= 0 ? o.tellKind : m.strikeKind, shot = !!SHOTS[kd];
+  let bx, by, bz, brz = 0, bry, bsx = 1, bsy = 1, bsz = 1, armUp;
+  if(shot){
+    bx = -0.22*wind + 0.18*st - 0.2*fl + shake; by = 0.03*wind*sz; bz = (-0.08*wind - 0.1*st - 0.06*fl)*sz; bry = 0;
+    bsy = 1 + 0.05*wind - 0.06*st; armUp = -2.0*wind + 0.6*st;
+  } else {
+    bx = -0.25*wind + 0.16*st - 0.2*fl + shake; by = (0.05*wind - 0.03*hold - 0.05*st)*sz; bz = (-0.14*wind + 0.3*st - 0.06*fl)*sz;
+    bry = -0.5*wind + 0.45*st; bsy = 1 - 0.05*hold - 0.06*st; bsz = 1 + 0.16*st; armUp = -2.4*wind + 1.35*st;
   }
-  if(fam === "goblin"){
+  if(kd === "charge"){
+    // a charge is wound up low: head down, weight forward, a foot pawing the floor
+    bx = 0.32*wind + 0.25*st - 0.2*fl + shake; by = -0.08*wind*sz; bz = (-0.1*wind + 0.3*st)*sz; bry = 0; armUp = 0.6*wind - 0.3*st;
+    bsy = 1 - 0.08*wind; bsz = 1 + 0.12*st;
+  }
+  const own = MOVES[R.kind];
+  if(own){
+    // a rig with moves of its own (the mini-bosses and the newer bosses: see Models.MOVES)
+    const out = own({ R, m, P, b, o, t, dt, s, ph, fall, wind:windRaw, st, fl, fit, breath, shake, sz, boss, tell:tk, strike:m.strike,
+      kind:tk >= 0 ? o.tellKind : m.strikeKind, pose:(n, px, py, pz, rx, ry, rz, sx, sy, sz2)=> pose(m, n, px, py, pz, rx, ry, rz, sx, sy, sz2),
+      glance:(every, range, k)=> glance(m, dt, every, range, k), snap, smooth }) || {};
+    bx = out.rx !== undefined ? out.rx : bx; by = out.y !== undefined ? out.y : by; bz = out.z !== undefined ? out.z : bz;
+    brz = out.rz || 0; bry = out.ry !== undefined ? out.ry : 0; bsx = out.sx || 1; bsy = out.sy || 1; bsz = out.sz || 1;
+  } else if(fam === "goblin"){
     // a hunched lope that hitches, legs snapping, head jerking about
     glance(m, dt, [0.25, 1.4], 0.75);
     by += Math.abs(Math.sin(ph))*0.06*s - 0.015*fall*s + breath*0.005;
     bx += 0.16*s; brz += Math.sin(ph*0.5)*0.025*s;
-    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.85*s));
-    pose(m, R.tor, 0, 0, 0, 0.12*s + 0.04*breath - 0.15*wind + 0.2*st);
+    // a blow: the back foot plants, the front foot steps into it
+    const plant = shot ? 0 : -0.45*wind + 0.7*st;
+    if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, snap(Math.sin(ph + i*PI))*0.85*s + (i ? -0.6*plant : plant)));
+    pose(m, R.tor, 0, 0, 0, 0.12*s + 0.04*breath - 0.2*wind + 0.06*st, -0.25*wind + 0.3*st);
     const tw = fit > 0.6 ? Math.sin(t*70)*0.12*(fit - 0.6)/0.4 : 0;
-    pose(m, P.head, 0, 0, 0, m.gx.x - 0.12*s + 0.25*wind - 0.3*fl, m.gy.x, m.gz.x + tw);
-    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.55*s + Math.sin(t*2.3 + sd)*0.06 + armUp);
-    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.55*s + Math.sin(t*2.1 + sd)*0.06 - 0.6*wind);
+    // the head: chin up and back in the wind-up, snapping forward (a snarl) on the blow
+    pose(m, P.head, 0, 0, 0.04*st, m.gx.x*(1 - wind) - 0.12*s + 0.3*wind - 0.35*st - 0.3*fl, m.gy.x*(1 - wind), m.gz.x + tw);
+    let aR = armUp, aRz = 0, aL = -0.6*wind + 0.3*st, aLz = 0;
+    if(kd === "aim"){ aR = -1.3*wind + 0.9*st; aRz = Math.sin(t*22)*0.55*wind; }                          // the sling, whirled
+    else if(kd === "hex" || kd === "heal"){ aR = -2.5*wind + 0.5*st; aL = -2.5*wind + 0.5*st; aRz = 0.3*wind; aLz = -0.3*wind; }   // both hands up
+    else if(kd === "throw"){ aR = -2.6*wind + 1.6*st; aL = -0.9*wind + 0.6*st; }                          // overhand
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.55*s + Math.sin(t*2.3 + sd)*0.06 + aR, 0, aRz);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.55*s + Math.sin(t*2.1 + sd)*0.06 + aL, 0, aLz);
   } else if(fam === "brute" || fam === "king" || fam === "husk"){
     // weight: the whole bulk rolls onto each foot as it comes down
     const kb = fam === "king" ? 1.3 : 1;
@@ -3390,10 +3446,12 @@ Models.creep = function(R, o, t, dt){
     brz += Math.sin(ph)*0.09*s; bx += 0.08*s;
     bsy *= 1 + breath*0.015*kb; bsx *= 1 - breath*0.008*kb;
     if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.5*s - 0.25*wind*(i ? 0 : 1)*(1 + Math.sin(t*11))));
-    pose(m, R.tor, 0, 0, 0, 0.04*breath*kb - 0.12*wind + 0.18*st);
-    pose(m, P.head, 0, 0, 0, (fam === "husk" ? 0 : m.gx.x) + 0.1*s + 0.06*breath - 0.25*fl + 0.15*wind, fam === "husk" ? Math.sin(t*0.6 + sd)*0.25 : m.gy.x, fam === "husk" && fit > 0.5 ? Math.sin(t*50)*0.1*fit : 0);
-    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*1.05);
-    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (fam === "king" ? armUp*0.8 : -0.4*wind));
+    pose(m, R.tor, 0, 0, 0, 0.04*breath*kb - 0.2*wind + 0.08*st, kd === "charge" ? 0 : -0.3*wind + 0.35*st);
+    pose(m, P.head, 0, 0, 0, (fam === "husk" ? 0 : m.gx.x) + 0.1*s + 0.06*breath - 0.25*fl + 0.15*wind - 0.15*st, fam === "husk" ? Math.sin(t*0.6 + sd)*0.25 : m.gy.x, fam === "husk" && fit > 0.5 ? Math.sin(t*50)*0.1*fit : 0);
+    // both fists come up for a blow and come down together; in a charge they swing back
+    const two = kd !== "charge" && !shot;
+    pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*1.05, 0, two ? 0.25*wind : 0);
+    pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (fam === "king" || two ? armUp*0.9 : -0.4*wind), 0, two ? -0.25*wind : 0);
     if(fam === "king" && P.crown) pose(m, P.crown, 0, 0, 0, 0, 0, Math.sin(ph)*0.05*s);
   } else if(fam === "shroom" || fam === "matriarch"){
     // swaying on a stalk, shuddering in fits, the cap twitching
@@ -3404,14 +3462,16 @@ Models.creep = function(R, o, t, dt){
     if(big){ bsy *= 1 + breath*0.02; bsx *= 1 - breath*0.01; }
     if(P.legs) P.legs.forEach((l, i)=> pose(m, l, 0, 0, 0, Math.sin(ph + i*PI)*0.55*s));
     const capT = fit > 0.7 ? Math.sin(t*38)*0.25*(fit - 0.7)/0.3 : 0;
-    pose(m, P.head, 0, 0, 0, -0.35*wind + 0.3*st + Math.sin(t*1.3 + sd)*0.05, Math.sin(t*0.5 + sd)*0.15, capT + Math.sin(t*0.8 + sd)*0.06);
+    pose(m, P.head, 0, -0.04*wind, 0.06*st, -0.55*wind + 0.55*st + Math.sin(t*1.3 + sd)*0.05, Math.sin(t*0.5 + sd)*0.15*(1 - wind), capT + Math.sin(t*0.8 + sd)*0.06, 1 + 0.08*wind, 1 - 0.1*wind + 0.1*st, 1 + 0.08*wind);
     pose(m, P.armR, 0, 0, 0, -Math.sin(ph)*0.4*s + armUp*(big ? 0.7 : 1) + Math.sin(t*1.7 + sd)*0.05);
     pose(m, P.armL, 0, 0, 0, Math.sin(ph)*0.4*s + (big ? armUp*0.7 : -0.3*wind) + Math.sin(t*1.5 + sd)*0.05);
   } else if(fam === "puff" || fam === "stool"){
     // spore things: a slow breath that fills them, a shudder, a lean as they creep
     const shud = fit > 0 ? Math.sin(t*55 + sd)*0.06*fit : 0;
     const inf = 0.06*Math.pow(Math.max(0, breath), 2);
-    bsx *= 1 + inf + (o.swell || 0)*0.5; bsy *= 1 + inf*0.6 + (o.swell || 0)*0.3 - 0.12*wind; bsz *= 1 + inf + (o.swell || 0)*0.5;
+    const fill = 0.3*wind + 0.06*Math.sin(t*30)*hold, burst = st;
+    bsx *= 1 + inf + (o.swell || 0)*0.5 + fill + 0.2*burst; bsy *= 1 + inf*0.6 + (o.swell || 0)*0.3 - 0.12*wind + 0.1*fill - 0.3*burst; bsz *= 1 + inf + (o.swell || 0)*0.5 + fill + 0.2*burst;
+    bry = 0; bz = 0.05*st*sz;
     brz += Math.sin(t*1.1 + sd)*0.08 + shud; bx += 0.15*s + Math.sin(ph)*0.08*s;
     by += Math.abs(Math.sin(ph))*0.05*s;
     if(fam === "stool") pose(m, P.head, 0, -0.05*wind + 0.06*st, 0, Math.sin(t*0.7 + sd)*0.06, 0, Math.sin(t*0.9 + sd)*0.08 + (fit > 0.6 ? Math.sin(t*40)*0.2*(fit - 0.6) : 0), 1 + 0.15*wind, 1 - 0.25*wind + 0.25*st, 1 + 0.15*wind);
@@ -3420,10 +3480,12 @@ Models.creep = function(R, o, t, dt){
     const f = P.head, big = fam === "bride";
     const lunge = fit > 0 ? (fit > 0.85 ? (1 - fit)/0.15 : fit/0.85) : 0;   // out in a blink, back slowly
     const L = lunge*lunge*(big ? 0.35 : 0.3);
-    pose(m, f, Math.sin(t*0.53 + sd)*0.06, Math.sin(t*1.05 + sd)*0.1 + 0.25*wind - 0.1*st + breath*(big ? 0.03 : 0), L + 0.4*st - 0.12*wind,
-      0.22*s + L*0.8 - 0.35*wind + 0.55*st - 0.3*fl, Math.sin(t*0.37 + sd)*0.15, Math.sin(t*0.7 + sd)*0.08 + (lunge > 0.6 ? Math.sin(t*40)*0.06 : 0));
-    bx = shake; by = 0; bz = 0;
-    if(big){ pose(m, P.armR, 0, 0, 0, armUp*0.8 + Math.sin(t*0.9 + sd)*0.08); pose(m, P.armL, 0, 0, 0, -1.4*wind + 0.6*st + Math.sin(t*0.8 + sd + 1)*0.08); }
+    const gs = 1 + 0.12*wind - 0.06*st;
+    pose(m, f, Math.sin(t*0.53 + sd)*0.06*(1 - wind), Math.sin(t*1.05 + sd)*0.1 + 0.35*wind - 0.12*st + breath*(big ? 0.03 : 0), L + 0.5*st - 0.22*wind,
+      0.22*s + L*0.8 - 0.5*wind + 0.8*st - 0.3*fl, Math.sin(t*0.37 + sd)*0.15*(1 - wind), Math.sin(t*0.7 + sd)*0.08 + (lunge > 0.6 ? Math.sin(t*40)*0.06 : 0) + shake*3, gs, gs*(1 + 0.12*st), gs);
+    bx = shake; by = 0; bz = 0; bry = 0; bsx = bsy = bsz = 1;
+    if(big || P.armR) pose(m, P.armR, 0, 0, 0, armUp*0.8 + Math.sin(t*0.9 + sd)*0.08, 0, 0.4*wind);
+    if(big || P.armL) pose(m, P.armL, 0, 0, 0, -1.4*wind + 0.9*st + Math.sin(t*0.8 + sd + 1)*0.08, 0, -0.4*wind);
     if(fam === "polt" && P.orbit){
       // the debris won't keep an orbit: it lurches, stalls, tilts, and pulls in before a throw
       const ou = m.orbit || (m.orbit = { a:0 });
@@ -3443,7 +3505,8 @@ Models.creep = function(R, o, t, dt){
     pose(m, P.head, 0, 0, 0, m.gX + j()*2 - 0.3*fl, m.gY + j()*2, m.gZ + j()*2);
     // the bow arm comes up and holds; the draw hand pulls back
     pose(m, P.armL, 0, 0, 0, -Math.sin(ph)*0.35*s - 1.45*wind + 0.3*st + j(), 0, 0.2*wind);
-    pose(m, P.armR, 0, 0, 0, Math.sin(ph)*0.35*s - 1.3*wind + j(), -0.5*wind, 0);
+    pose(m, P.armR, 0, 0, -0.06*wind - 0.05*st, Math.sin(ph)*0.35*s - 1.3*wind - 0.4*st + j(), -0.5*wind - 0.5*st, 0);
+    bry = 0;
   } else if(fam === "watcher" || fam === "eye"){
     // a pulse like a slow heart; the gaze darts and fixes
     const f = P.head, beat = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd)), 8), beat2 = Math.pow(Math.max(0, Math.sin(t*(fam === "eye" ? 1.6 : 2.2) + sd - 0.5)), 8);
@@ -3451,44 +3514,46 @@ Models.creep = function(R, o, t, dt){
     glance(m, dt, [0.18, 1.1], 0.6, 900);
     if(fam === "watcher") pose(m, f, 0, Math.sin(t*0.9 + sd)*0.08 + 0.15*wind, 0.2*st, m.gx.x + shake*3, m.gy.x, 0, pul, pul, pul);
     else pose(m, f, 0, Math.sin(t*0.6 + sd)*0.1 + 0.2*wind, 0, 0, 0, 0, pul, pul, pul);
-    bx = shake; by = 0; bz = 0;
+    bx = shake; by = 0; bz = 0; bry = 0;
     m.sacc = m.gy.x*0.35; m.saccX = m.gx.x*0.35;
   } else if(fam === "blob"){
     // jelly: it can't stop quivering
     const q = 0.035*Math.sin(t*13 + sd) + 0.02*Math.sin(t*7.3 + sd*2) + 0.05*fit*Math.sin(t*31) + 0.06*s*Math.sin(ph*2);
     const land = o.hop !== undefined ? o.hop : 0;
     bsx *= 1 + q - land*0.15 + 0.1*wind; bsy *= 1 - q + land*0.3 - 0.2*wind + 0.3*st; bsz *= 1 + q - land*0.15 + 0.1*wind;
-    bx = shake; bz = 0.1*st*sz; by = 0;
+    bx = shake; bz = 0.1*st*sz; by = 0; bry = 0;
     if(P.head) pose(m, P.head, Math.sin(t*0.8 + sd)*0.04, Math.sin(t*1.1 + sd)*0.03, Math.cos(t*0.7 + sd)*0.04, Math.sin(t*0.5)*0.4, t*0.3, 0);
     if(P.goo) P.goo.scale.set(1.1 + q*1.4, 0.8 - q*1.4, 1.1 + q*1.4);
   } else if(fam === "tent"){
     // writhing: a wave runs up it, and it coils before it lashes
     if(P.segs) P.segs.forEach((g, i)=>{
       const w = 1 + i*0.18;
-      pose(m, g, 0, 0, 0, Math.cos(t*1.7 - i*0.9 + sd)*0.16*w - 0.38*wind + 0.55*st + (fit > 0 ? Math.sin(t*25 + i)*0.08*fit : 0),
+      pose(m, g, 0, 0, 0, Math.cos(t*1.7 - i*0.9 + sd)*0.16*w*(1 - 0.6*wind) - 0.6*wind*(0.6 + i*0.12) + 0.9*st*(0.5 + i*0.15) + (fit > 0 ? Math.sin(t*25 + i)*0.08*fit : 0) + shake*2,
         0, Math.sin(t*2.3 - i*0.8 + sd)*0.22*w + Math.sin(t*0.6 + i)*0.08);
     });
-    bx = shake; bz = 0;
+    bx = shake; bz = 0; bry = 0; bsx = bsy = bsz = 1;
   } else if(fam === "crab" || fam === "spitter" || fam === "bloater"){
     // the Gloom: rotlings scuttle sideways like crabs; spitters sway on their legs;
     // bloaters drag a wheezing gut that swells and lets go
     if(P.legs) P.legs.forEach((l, i)=>{
       const q = ph + (i % 2)*PI, lift = Math.max(0, Math.sin(q));
       const idle = fam === "crab" ? Math.sin(t*9 + i*2.1)*0.05*(fit + 0.2) : 0;
-      pose(m, l, 0, 0, 0, 0, Math.cos(q)*(fam === "crab" ? 0.4 : 0.25)*s, lift*(fam === "crab" ? 0.55 : 0.35)*s + idle);
+      const rear = fam === "crab" && i < 2 && !shot ? -0.9*wind + 0.6*st : 0;     // the front pair lifts to strike
+      pose(m, l, 0, 0, 0, rear, Math.cos(q)*(fam === "crab" ? 0.4 : 0.25)*s, lift*(fam === "crab" ? 0.55 : 0.35)*s + idle + (i < 2 ? -rear*0.4 : 0));
     });
     if(fam === "crab"){
       glance(m, dt, [0.2, 0.9], 0.5, 700);
-      bry = m.gy.x*0.6; brz += Math.sin(ph)*0.06*s; by += Math.abs(Math.sin(ph*2))*0.025*s - 0.05*wind; bx += -0.3*wind + 0.3*st;
+      bry = m.gy.x*0.6*(1 - wind) - 0.3*wind + 0.3*st; brz += Math.sin(ph)*0.06*s; by += Math.abs(Math.sin(ph*2))*0.025*s + 0.06*wind*sz; bx += -0.15*wind - 0.1*st;
       bz += Math.sin(ph*0.5)*0.03*s;
     } else if(fam === "spitter"){
-      by += breath*0.01; brz += Math.sin(t*0.8 + sd)*0.05;
+      by += breath*0.01; brz += Math.sin(t*0.8 + sd)*0.05; bx += -0.15*wind + 0.2*st;
       pose(m, P.head, 0, 0, 0, Math.sin(t*1.1 + sd)*0.1 - 0.5*wind + 0.6*st, Math.sin(t*0.6 + sd)*0.25, 0, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st, 1 + 0.25*wind - 0.2*st);
     } else {
       // breath in (slow), a shaking catch at the top, out (quick)
       const c = ((t*0.42 + sd) % 1), inh = c < 0.7 ? smooth(0, 0.7, c) : 1 - smooth(0.7, 0.85, c);
       const catchJ = c > 0.62 && c < 0.72 ? Math.sin(t*60)*0.02 : 0;
-      const g = 1 + 0.08*inh + catchJ + 0.12*wind + (o.swell || 0)*0.4;
+      const g = 1 + 0.08*inh + catchJ + 0.2*wind + 0.05*Math.sin(t*28)*hold - 0.12*st + (o.swell || 0)*0.4;
+      bx += -0.1*wind + 0.25*st; bz += 0.1*st*sz; bry *= 0.3;
       pose(m, P.head, 0, -0.03*fall*s, 0, 0.05*s, 0, Math.sin(ph)*0.06*s, g, 1 + 0.06*inh + catchJ + 0.1*wind, g);
       by += -0.03*fall*s; brz += Math.sin(ph)*0.05*s;
       m.wheeze = c > 0.62 && c < 0.64;
@@ -3496,7 +3561,7 @@ Models.creep = function(R, o, t, dt){
   } else if(fam === "heart"){
     const g = 1 + 0.03*breath + 0.15*(o.pulse || 0) + 0.08*wind - 0.1*st;
     pose(m, P.head, 0, 0.05*breath, 0, 0, 0, 0, g, g*(1 + 0.03*Math.sin(t*2.3)), g);
-    bx = shake; by = 0; bz = 0;
+    bx = shake; by = 0; bz = 0; bry = 0;
   }
   // stunned: it sags and wavers
   if(o.stunned){ bx += 0.15; brz += Math.sin(t*2.5 + sd)*0.08; }
@@ -3952,4 +4017,6 @@ Models.frogBuffIcon = function(id){
   return g;
 };
 
+/* the model kit, for the rigs built in their own files (js/render/rigs-*.js) */
+Models.H = { PI, geo, SEG, S, CY, CO, BX, TO, OC, P, rig, group, glow, halo, finish, eyes, zs, zto, zcy, GP, gCage, gRunes, gCandle, belt, brows, mouth, teeth, chain, spikeRing, zCurve, zLathe, zTaper, zPoint, zChain, sculptW, lobes, lumpS, blotch, meat, limb, wraps, links, skull, fetish, hoodGeo, gobSkull, gobHand, gobFoot, capGeo, warts, mycelium, sprouts, strands, bracket, shroud, boneHand, eyeball, fleshGeo, rotFlesh, pustules, rotEyes, rotLegs, cordyceps, gLimb, gLegs, gTorso, BS, ROT, bsRing, bsN, bsPaint, bsBlob, bsLathe, bsCloth, bsPrefab, bsSkull, bsCandleGeo, bsCandle, bsChain, bsTooth, bsJitter, bsTaper, bsUp, bsAim, bsEgg, bsRose, eyeLids, bsEyeball, clamp01, smooth, spring };
 })();

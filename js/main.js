@@ -6,7 +6,7 @@
  *  Behind the title, a bot plays a real run with the sound off (the
  *  attract mode from every arcade cabinet you ever walked past).
  *
- *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery
+ *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery  ?boss=KEY  ?lair=ID
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -64,6 +64,9 @@ app.newRunNow = function(word){
   app.stopRun();
   const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta() });
   if(Q.has("god")) G.god = true;
+  // testing: ?boss=gibbet puts that boss on this floor; ?lair=hound puts that beast in the floor's lair
+  if(DG.BOSSES[Q.get("boss")]) G.D.theme = Object.assign({}, G.D.theme, { boss:Q.get("boss") });
+  if(DG.LAIRS[Q.get("lair")]) G.D.rooms.forEach(r=>{ if(r.type === "lair") r.lair = Q.get("lair"); });
   app.G = G; app.V = new DG.View(G); app.demo = null;
   app.mode = "play"; app.acc = 0; app.pend = {};
   HUD.reset(); UI.hide(); IN.clear();

@@ -784,22 +784,23 @@ test("every enemy type spawns, acts and dies without anything going NaN", ()=>{
   }
 });
 
-test("every boss fights for 25 seconds, stays in its room, and can be killed", ()=>{
-  for(let f=1; f<=5; f++){
+test("every boss (both of each floor's) fights for 25 seconds, stays in its room, and can be killed", ()=>{
+  for(let f=1; f<=5; f++) for(const key of [DG.FLOORS[f - 1].boss, DG.FLOORS[f - 1].alt].filter(Boolean)){
     const G = game("BOSS" + f, f);
+    G.D.theme = Object.assign({}, G.D.theme, { boss:key });
     const r = G.D.rooms.find(x=> x.type === "boss");
     G.player.x = r.cxw; G.player.y = r.y2 - 0.5; G.god = true;
     step(G, 1.6);
     const b = G.bossRef;
-    assert.ok(b && b.type === DG.FLOORS[f - 1].boss, "floor " + f + " boss");
+    assert.ok(b && b.type === key, "floor " + f + " boss " + key);
     for(let i=0;i<60*25;i++){
       G.update(1/60, { mx:Math.sin(i/40), my:Math.cos(i/50)*0.5, ax:b.x, ay:b.y, fire:true });
       G.drain();
       for(const e of G.enemies) if(!e.dead && !e.airborne) assert.ok(G.inRoom(r, e.x, e.y), e.type + " left the boss room");
     }
-    b.invuln = false; b.untargetable = false;
+    b.invuln = false; b.untargetable = false; b.airborne = false;   // (caught mid-leap, it would dodge the blow)
     G.damageEnemy(b, 1e8, {});
-    assert.ok(b.dead && G.portal, "floor " + f + ": boss down, portal open");
+    assert.ok(b.dead && G.portal, "floor " + f + ": " + key + " down, portal open");
   }
 });
 
@@ -1854,4 +1855,52 @@ test("the Drowned Shrine and the Reliquary let you back out: every door between 
   const rel = H.D.rooms.find(o=> o.type === "reliquary"), d = H.D.doors.find(o=> o.into === rel.id);
   H.unlockDoor(d);
   assert.ok(walkOut(H, rel), "into (and out of) the reliquary");
+});
+
+/* ---- the other bosses and the newer lairs ---- */
+test("each floor has two bosses, and the seed picks which: both turn up across seeds", ()=>{
+  for(let f=1; f<=4; f++){
+    const seen = new Set();
+    for(let s=1; s<40; s++) seen.add(game("ALT" + s, f).D.theme.boss);
+    assert.deepEqual([...seen].sort(), [DG.FLOORS[f - 1].boss, DG.FLOORS[f - 1].alt].sort(), "floor " + f);
+    assert.ok(DG.BOSSES[DG.FLOORS[f - 1].alt], DG.FLOORS[f - 1].alt + " is a boss");
+  }
+  assert.equal(game("ALT1", 5).D.theme.boss, "heart");
+});
+test("the Kennel Hound pounces onto where Zippy stood, and lands", ()=>{
+  const G = game("HOUND", 1), r = combatRoom(G), spot = G.freeSpot(r, r.cxw, r.cyw);
+  G.player.x = spot.x; G.player.y = spot.y; G.god = true;
+  const s2 = G.freeSpot(r, spot.x + 5, spot.y);
+  const e = G.spawnEnemy(r, { type:"sneak", x:s2.x, y:s2.y, size:2.4, hpMul:20, lair:"hound" }); e.spawn = 0;
+  e.ai.pounceCd = 0;
+  let flew = false, landed = false;
+  for(let i=0;i<60*3 && !landed;i++){
+    G.update(1/60, {}); const ev = G.drain();
+    if(e.airborne) flew = true;
+    if(ev.some(v=> v.type === "land" && v.id === e.id)) landed = true;
+  }
+  assert.ok(flew && landed, "it leapt and came down");
+  assert.ok(!e.airborne && e.hop === 0);
+  assert.ok(DG.dist(e.x, e.y, spot.x, spot.y) < 1.5, "on Zippy's spot");
+});
+test("the Gravedigger's spade opens a grave that drags at Zippy's feet; the dead climb out of it", ()=>{
+  const G = game("GRAVE", 3);
+  G.D.theme = Object.assign({}, G.D.theme, { boss:"gravedigger" });
+  const r = G.D.rooms.find(x=> x.type === "boss");
+  G.player.x = r.cxw; G.player.y = r.y2 - 0.5; G.god = true;
+  step(G, 1.6);
+  const b = G.bossRef; assert.equal(b.type, "gravedigger");
+  b.ai.k = -1; b.ai.cd = 0; b.ai.state = "walk";     // its next move: a dig
+  step(G, 1.2, {});
+  const grave = G.hazards.find(h=> h.kind === "grave");
+  assert.ok(grave, "a grave");
+  G.player.x = grave.x; G.player.y = grave.y; G.player.chill = 0;
+  G.updateHazards(1/60);
+  assert.ok(G.player.chill > 0, "it slows");
+  // raise: whatever is in the graves gets up
+  G.addHazard({ kind:"grave", x:grave.x + 1, y:grave.y, r:0.85, t:14, team:"e" });
+  b.ai.state = "raise"; b.ai.t = 0.01;
+  const n0 = G.enemies.filter(e=> !e.dead && e.type === "skeleton").length;
+  step(G, 0.1, {});
+  assert.ok(G.enemies.filter(e=> !e.dead && e.type === "skeleton").length > n0, "skeletons rise");
 });

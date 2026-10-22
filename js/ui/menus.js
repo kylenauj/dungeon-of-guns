@@ -120,7 +120,7 @@ UI.pause = function(G){
 UI.journal = function(G){
   const p = G.player, n = DG.FINAL_FLOOR, felled = (G.stats.bosses || []).map(b=> b.floor);
   const rows = DG.FLOORS.slice(0, n).map((F, i)=>{
-    const f = i + 1, B = DG.BOSSES[F.boss], done = felled.indexOf(f) >= 0, here = f === G.floor && !done;
+    const f = i + 1, B = DG.BOSSES[G.bossOf ? G.bossOf(f) : F.boss], done = felled.indexOf(f) >= 0, here = f === G.floor && !done;
     const state = done ? "cut" : here ? "here" : f < G.floor ? "past" : "below";
     return `<li class="${state}"><span class="fl">${f}</span><span class="nm">${esc(F.name)}</span><span class="bs">${done ? "✝ " : ""}${esc(B ? B.name : "")}</span></li>`;
   }).join("");

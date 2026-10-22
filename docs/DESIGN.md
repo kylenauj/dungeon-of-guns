@@ -216,6 +216,19 @@ The dungeon starts as a castle, and the **Gloom** (Gloom Shooter's rot, mould an
 | 4 | **The Gloomwood** | 0.78 | Walls half bark, mossy floors, glowcap stalks, firs beyond | Watchers, blobs, tentacles, the Gloom | **The Eye Below** |
 | 5 | **The Gloom Forest** | 1 | No stone: stumps, glowcaps, rot, bramble gates, glowbugs | **The Gloom:** rotlings, mould spitters, bloaters, blight husks, plus shrooms | **The Gloom Heart:** a rot-flesh knot with eyes and cordyceps; beats in rings, three phases |
 
+**Two bosses a floor.** Floors 1 to 4 each hold one of two bosses, picked by the seed (`alt` in `DG.FLOORS`; `Dungeon.floorTheme`). The Heart always holds floor 5. Each of the other four has its own model (`js/render/rigs-bosses-*.js`) and moves (`ai.js`):
+
+| Floor | The other boss | Its fight |
+|---|---|---|
+| 1 | **Sir Hollin in the Gibbet**: a hanged knight still fused into his cage | Greatsword sweeps marked on the floor (twice running at half health), a leap that lands where you stood, volleys of crows from the cage, a lunging thrust |
+| 2 | **The Rat King**: a knot of rats tied by the tails, crowned | Sweeping streams of rats, a tail-lash ring, burrows and comes up under you, sheds rotlings |
+| 3 | **Old Mattock, the Gravedigger** | Every dig opens a grave that drags at your feet; a lantern beam sweeps the room; flung dirt; the dead climb out of the graves |
+| 4 | **The Antlered Hunger**: a starved stag-skulled thing of the woods | Pounces, antler charges, screaming rings, lines of roots bursting toward you |
+
+**Lairs** (mini-bosses, one a floor) each have a model of their own (`Models.lair_<id>`), not a base mob made bigger: the Gaoler, the Spore-Cook, the Reliquary Warden, the Leech Mother, the Many-Eyed, the Choir of Husks, and three newer ones with fights of their own: **Gnaw, the Kennel Hound** (circles, pounces, snaps; howls at half health), **the Bell-Ringer** (tolls a shockwave to blink through, swings the bell; tolls three times running at half health) and **the Moth-Widow** (spirals of dust, a diving pass that leaves spores, calls the dead at half health).
+
+**Attacks read from above.** Every wind-up draws back fast and then holds, trembling, for its last third; the blow carries through from that pose (no snap to rest), lunges and twists, overshoots and recovers slowly. From the top-down camera the lunge and the twist carry it, not the pitch. Gribbus snaps back before a lick, throws his whole body after his tongue and gulps; his spit and croak have poses of their own.
+
 The Gloom creatures come from Gloom Shooter:
 - **Rotling:** a fast swarm.
 - **Mould Spitter:** spits acid in volleys.
