@@ -117,6 +117,9 @@ proto.buildFloor = function(){
   // all of it is built now, behind the veil (main.js): one of each kind (and its
   // shaders warmed), the rest copies of it, so nearly free (Models.copy)
   while(V.warm.length) V.warmUp(true);
+  // and the HUD's kinds of drawing, then wait for the card to finish it all
+  if(DG.HUD && DG.HUD.warm) DG.HUD.warm(G);
+  V.settle();
 };
 /* A new shader is compiled the first time anything that needs it is drawn, and on
    Windows (where the browser translates every shader for DirectX) that can take a
@@ -148,7 +151,7 @@ proto.warmAll = function(){
   g.position.set(p.x, 0, p.y); S.scene.add(g);
   try{
     R.compile(S.scene, S.camera);
-    const rt = new THREE.WebGLRenderTarget(64, 64); R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
+    const rt = scrapTarget(64, 64); R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
     // and the whole floor once from high above, every room in view: each room's floor,
     // walls and filth go to the graphics card now, not the first time you walk into it
     // (the camera only sees the start room; the rest arrived room by room, a hitch each)
@@ -163,6 +166,8 @@ proto.warmAll = function(){
     V.lanternBeam({ x, y, a:0, len:3 });
     R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
     if(S.portrait && S.portrait.scene) R.render(S.portrait.scene, S.portrait.cam);
+    // and one whole real frame, through the post pass to the screen, the way every frame goes
+    if(S.fancy && S.post){ R.setRenderTarget(S.post.rt); R.render(S.scene, S.camera); R.setRenderTarget(null); R.render(S.post.scene, S.post.cam); }
     FX.update(0, { t:0, marks:[], bombs:[], bullets:[] }); FX.clear();
     (V.lbeams || []).forEach(b=> S.scene.remove(b.g)); V.lbeams = [];
     R.setRenderTarget(null); rt.dispose();
@@ -174,10 +179,28 @@ proto.warmAll = function(){
    scrap target (the drawing sends its meshes to the graphics card, which
    otherwise happens the moment it first appears: a hitch when a wave lands) */
 const WARM = {};
+/* a scrap target made like the one every real frame is drawn into (stage.js's post
+   pass: linear filtering and a depth texture), so what's compiled for it is what
+   the real frame uses */
+function scrapTarget(w, h){
+  const rt = new THREE.WebGLRenderTarget(w, h, { minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter });
+  rt.depthTexture = new THREE.DepthTexture(w, h); rt.depthTexture.type = THREE.UnsignedIntType;
+  return rt;
+}
+/* wait for the graphics card to finish everything sent so far (reading back one
+   pixel can't happen until it has): shader compiles queued in the warm-up finish
+   behind the veil, not in the first seconds of play */
+proto.settle = function(){
+  const r = S.renderer;
+  try{
+    if(!WARM.px){ WARM.px = new Uint8Array(4); WARM.one = scrapTarget(1, 1); }
+    r.readRenderTargetPixels(S.post && S.post.rt ? S.post.rt : WARM.one, 0, 0, 1, 1, WARM.px);
+  }catch(e){}
+};
 proto.warmRig = function(R){
   const r = S.renderer;
   try{
-    if(!WARM.rt){ WARM.rt = new THREE.WebGLRenderTarget(32, 32); WARM.cam = new THREE.PerspectiveCamera(100, 1, 0.5, 30); WARM.cam.position.set(0, -74, 7); WARM.cam.lookAt(0, -79, 0); }
+    if(!WARM.rt){ WARM.rt = scrapTarget(32, 32); WARM.cam = new THREE.PerspectiveCamera(100, 1, 0.5, 30); WARM.cam.position.set(0, -74, 7); WARM.cam.lookAt(0, -79, 0); }
     // drawn at Zippy's feet, into a scrap target, with the shadows on: on Windows the shadow
     // pass and the real camera's draw each have their own compile, and both happen now
     const G = this.G, p = G && G.player;

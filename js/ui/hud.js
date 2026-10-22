@@ -116,6 +116,48 @@ H.handle = function(ev, G){
     case "dice": H.nums.push({ x:p.x, y:p.y, z:2.8, v:"⚄ " + ev.roll + ": " + ev.mul + "x", t:0, col:ev.mul >= 1.2 ? GOLD2 : ev.mul < 1 ? DIM : BONE, crit:true, big:true }); break;
   }
 };
+/* Chrome draws a 2D canvas on the graphics card, and the first time it meets a new
+   kind of drawing (a gradient, a glow, a fade, a weight of text) it compiles a shader
+   for it: on Windows a DirectX compile, and the page stops for it, sometimes for
+   seconds. So behind the loading veil the HUD draws one of everything it ever draws
+   (the floor's title, each banner, a card, numbers, a bark, toasts, the boss's bar,
+   a lair's, the vigil's, the foe count and its arrows, a hurt flash), through its
+   fades, then puts everything back and clears the canvas. Once a page is enough. */
+H.warm = function(G){
+  if(H.warmed || !H.g) return;
+  H.warmed = true;
+  const keep = {}, keys = ["nums", "barks", "toasts", "banner", "card", "area", "hurtT", "bossId", "bossT", "bossLag", "bossLast", "bossHold", "lairId", "lairT", "lairLag", "hpLag", "hpHold"];
+  keys.forEach(k=> keep[k] = H[k]);
+  const gk = { bossRef:G.bossRef, lairRef:G.lairRef, room:G.room, curses:G.curses, enemies:G.enemies, state:G.state };
+  const p = G.player, x = p.x, y = p.y;
+  const fake = (id, extra)=> Object.assign({ id, x:x + 30, y:y + 30, r:0.4, hp:40, maxHp:100, spawn:0, dead:false, ai:{ raged:true }, st:{ poison:{ stacks:2 } }, def:{}, name:"warm", room:-99 }, extra);
+  const kinds = ["felled", "lair", "clear", "transform"];
+  try{
+    G.state = "play";
+    G.curses = Object.keys(DG.CURSES || {}).slice(0, 1);
+    G.enemies = gk.enemies.concat([fake(-91, { affix:Object.keys(DG.AFFIXES)[0], x:x + 1, y:y + 1 }), fake(-92, {})]);
+    G.room = { id:-99, active:true, waves:[1], wave:0, props:[], vigil:{ prop:-1, t:5 } };
+    for(let i=0;i<kinds.length;i++){
+      const t = 0.15 + i*0.9;
+      H.area = { floor:G.floor, name:"warm", t };
+      H.banner = { kind:kinds[i], a:"WARM", b:"warm", t };
+      H.card = { title:"Warm", sub:"warm", flavor:"warm", col:"#c8a85a", tier:"Rare", t, life:4, icons:[Object.keys(DG.ITEMS)[i]] };
+      H.nums = [{ x, y, z:1.4, v:12, t:0.05, col:"#e0d8c0" }, { x, y, z:2, v:"WARM", crit:true, t:0.3, col:"#ff8a5a" }, { x, y, z:2.4, v:"WARM", crit:true, big:true, t:0.6, col:"#e0c060" }];
+      H.barks = [{ id:-1, x, y, text:"warm", t:0.1 + i*0.3 }];
+      H.toasts = [{ text:"warm", who:null, line:null, t, dur:2.6 }, { text:"WARM: warm", who:"WARM", line:"warm", t:t + 0.2, dur:2.6 }];
+      H.hurtT = 0.4;
+      // the boss's bar, then (with no boss) a lair's
+      G.bossRef = i % 2 ? null : fake(-93, { invuln:i === 2 });
+      G.lairRef = [fake(-94, {})];
+      H.draw(G, 1/60, {});
+    }
+  }catch(e){ console.warn("hud warm:", e); }
+  Object.assign(G, gk);
+  keys.forEach(k=> H[k] = keep[k]);
+  // clear it, and read a pixel back: that waits until the card has done all of it
+  const g = H.g; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, H.canvas.width, H.canvas.height);
+  try{ g.getImageData(0, 0, 1, 1); }catch(e){}
+};
 H.toast = function(text, dur){
   H.toasts = H.toasts.filter(t=> t.text !== text);
   const m = /^([^:"]{2,40}): "(.+)"$/.exec(text);   // NAME: "a line"  is someone speaking
