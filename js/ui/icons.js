@@ -822,14 +822,21 @@ Icons.ACTIVES = {
 };
 Icons.FROG = {
   tongue:"tongue", spit:"droplet@poison", croak:"nova@frost", hop:"bolt@shock", brood:"tadpole", lily:"lily", gulp:"uturn", crown:"crown",
-  bigboy:"frog", flyhunt:"fly", mirror:"mirror", bubble:"bubble", doom:"skull+waves", twin:"frog*2", zoomies:"comet", sticky:"tongue+droplet", gloom:"lily+skull"
+  bigboy:"frog", flyhunt:"fly", mirror:"mirror", bubble:"bubble", doom:"skull+waves", twin:"frog*2", zoomies:"comet", sticky:"tongue+droplet",
+  mimic:"frog+gun"
 };
+/* Gribbus' tricks as items (the "f_" ones): his glyph, on a lily pad */
+Object.assign(Icons.ITEMS, {
+  f_tongue:"tongue+lily", f_sticky:"tongue+droplet", f_flyhunt:"fly+lily", f_spit:"droplet+lily@poison", f_croak:"nova+lily@frost",
+  f_hop:"bolt+lily@shock", f_brood:"tadpole+lily", f_lily:"lily", f_gulp:"uturn+lily", f_crown:"crown+lily", f_bigboy:"frog+weight",
+  f_mirror:"mirror+lily", f_bubble:"bubble+lily", f_zoomies:"comet+lily", f_doom:"skull+waves@poison", f_twin:"frog*2", f_mimic:"frog+gun"
+});
 Icons.GUNS = { pistol:"gun", smg:"smg", shotgun:"shotgun", rifle:"rifle", launcher:"launcher" };
 Icons.SETS = {
   pyromancer:"flame@fire", lich:"skull@frost", storm:"cloud@shock", plague:"beak@poison", gardener:"sprout", goldfinger:"crown+coin",
   frogprince:"frog+crown", bloodhunter:"fang+droplet", clown:"mask+die"
 };
-Icons.OFFERS = { heal:"bowl", ward:"rune", key:"key", ember:"bonfire", crown:"crown@poison" };
+Icons.OFFERS = { heal:"bowl", ward:"rune", key:"key", ember:"bonfire", lantern:"lantern+eye", shroom:"mushroom@poison" };
 
 /* a mirror is still a mirror; the tables above name it */
 GL.mirror = function(){
@@ -862,6 +869,7 @@ Icons.spec = function(key){
   if(ns === "item" && DG.ITEMS && DG.ITEMS[id]){
     const d = DG.ITEMS[id]; s = Icons.parse(Icons.ITEMS[id] || "orb"); tier = d.tier; rim = TIERCOL()[d.tier] || rim;
     els = (d.els || []).slice();
+    if(d.frog) shape = "pad";
   } else if(ns === "active"){
     s = Icons.parse(Icons.ACTIVES[id] || "lantern"); shape = "shield"; rim = "#c8a45a";
   } else if(ns === "frog"){
@@ -1044,7 +1052,7 @@ Icons.keyFor = function(o){
   const g = o.kind === "gun" && o.gun ? o.gun : o;
   if(g.kind === "gun" || g.base) return "gun:" + g.base + ":" + (g.element || "") + ":" + (g.rarity || 0);
   if(o.kind === "heal" || o.kind === "ward" || o.kind === "key") return "offer:" + o.kind;
-  if(o.kind === "quest") return "offer:" + (o.id === "ember" ? "ember" : "crown");
+  if(o.kind === "quest") return "offer:" + (o.id === "ember" ? "ember" : o.id === "lantern" ? "lantern" : "shroom");
   return "glyph:orb";
 };
 /* the colour of its rim, for glows and beams */

@@ -1227,9 +1227,31 @@ proto.roomProp = function(p, g, o){
     return true;
   }
   if(p.kind === "olm"){
-    const R = M.olm(); g.add(R.root); o.rig = R;
+    const R = M.olm(); g.add(R.root); o.rig = R; R.root.scale.setScalar(1.05);
     W.lights.push({ x:p.x + 0.2, y:1.4, z:p.y + 1.0, c:0xffa850, i:1.1, room:p.room, ph:0, small:true });
-    const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0xffa040, 0.35)); pool.scale.set(4, 1, 4); pool.position.set(-0.2, 0.04, 0.4); g.add(pool);
+    const pool = new THREE.Mesh(K.glowPlane, K.glowMat(0xffa040, 0.35)); pool.scale.set(5, 1, 5); pool.position.set(-0.2, 0.04, 0.4); g.add(pool);
+    // his ten little frogs, sat round him in a ring with their scrolls, reading
+    const T = M.scrollFrog(0), T2 = M.scrollFrog(1);
+    o.frogs = [];
+    for(let i=0;i<10;i++){
+      const a = -PI*0.95 + i/9*PI*1.9 + PI/2, rr = 1.55 + (i % 2)*0.35;
+      const F = M.copy(i % 3 === 1 ? T2 : T);
+      F.root.position.set(Math.cos(a)*rr, 0, Math.sin(a)*rr*0.85);
+      F.root.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a)) + (W.rnd() - 0.5)*0.5;
+      F.root.scale.setScalar(0.62 + W.rnd()*0.12);
+      g.add(F.root); o.frogs.push(F);
+    }
+    o.frogTpl = [T, T2];
+    return true;
+  }
+  if(p.kind === "glowshroom"){
+    const R = M.glowshroom(); g.add(R.root); o.rig = R; R.root.rotation.y = W.rnd()*6;
+    const pool = new THREE.Mesh(K.glowPlane, K.glowMat(M.NEON, 0.5)); pool.scale.set(3, 1, 3); pool.position.y = 0.04; g.add(pool); o.pool = pool;
+    W.lights.push({ x:p.x + 0.5, y:0.8, z:p.y + 0.5, c:M.NEON, i:0.8, room:p.room, ph:W.rnd()*6, small:true });
+    return true;
+  }
+  if(p.kind === "eyedoor"){
+    const R = M.eyedoor(); g.add(R.root); o.rig = R; R.root.position.z = -0.42; o.openK = p.open ? 1 : 0;
     return true;
   }
   if(p.kind === "message"){
@@ -1254,8 +1276,20 @@ proto.updateRoomProp = function(pr, o, G, dt, t){
     o.ring.material.color.setHex(hp > 0.35 ? 0xffb060 : 0xff4a2a);
   }
   if(pr.kind === "olm" && o.rig){
-    const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 4;
-    M.olmIdle(o.rig, t, near ? DG.clamp(Math.atan2(p.x - pr.x - 0.5, p.y - pr.y - 0.5), -1, 1) : Math.sin(t*0.2)*0.4);
+    const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 5;
+    M.olmIdle(o.rig, t, near ? Math.atan2(p.x - pr.x - 0.5, p.y - pr.y - 0.5) : Math.sin(t*0.2)*0.4);
+    // the little ones read; now and then one looks up, or turns a page
+    (o.frogs || []).forEach((F, i)=>{ const h = F.parts.head; if(h) h.rotation.x = -0.25 + Math.max(0, Math.sin(t*0.4 + i*1.7) - 0.85)*2.5 + Math.sin(t*1.3 + i)*0.03; F.body.position.y = Math.abs(Math.sin(t*0.9 + i*2.3))*0.01; });
+  }
+  if(pr.kind === "glowshroom" && o.rig){
+    const on = !pr.eaten;
+    o.rig.root.visible = on; o.pool.visible = on;
+    if(on){ const f = 0.85 + 0.15*Math.sin(t*2.2 + pr.x); o.rig.glowHalo.material.opacity = 0.55*f; o.pool.material.opacity = 0.4*f; if(Math.random() < 0.08) DG.FX.emit(pr.x + 0.5 + (Math.random() - 0.5)*0.5, 0.5, pr.y + 0.5 + (Math.random() - 0.5)*0.5, 0, 0.6, 0, M.NEON, 0.14, 1.2, 0, 1); }
+  }
+  if(pr.kind === "eyedoor" && o.rig){
+    o.openK += ((pr.open ? 1 : 0) - o.openK)*(1 - Math.exp(-dt*1.5));
+    M.eyedoorOpen(o.rig, o.openK, t);
+    if(pr.open && Math.random() < 0.3) DG.FX.emit(pr.x + 0.5 + (Math.random() - 0.5)*1.2, 0.3 + Math.random()*2, pr.y + 0.2, 0, 0.3, 0.3, M.NEON, 0.16, 1, 0, 1);
   }
   if(o.msg){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.5 ? 1 : 0; o.msgK = (o.msgK || 0) + (near - (o.msgK || 0))*(1 - Math.exp(-dt*4)); o.msg.material.opacity = 0.55 + 0.15*Math.sin(t*1.7 + pr.x) + 0.3*o.msgK; }
   if(o.cage){

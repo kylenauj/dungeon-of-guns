@@ -37,8 +37,6 @@ AI.update = function(G, e, dt){
   }
   e.vx = 0; e.vy = 0;
   if(e.st.frozen > 0 || e.st.stun > 0) return;
-  // a vigil: it drifts for the wick, not for you
-  if(e.vigil && DG.Roads && DG.Roads.vigilMove(G, e, dt)) return;
   // the climb: the last of the Gloom flees down the shaft, and whatever's in its way gets hurt
   if(e.flee){
     e.vx = 0; e.vy = 5.5; e.y += e.vy*dt; e.face = Math.PI/2;
@@ -106,11 +104,24 @@ function tell(G, e, kind, t, extra){
   G.emit("tell", Object.assign({ id:e.id, kind, x:e.x, y:e.y, t }, extra || {}));
 }
 function shoot(G, e, a, speed, n, spreadDeg, kind, extra){
+  extra = extra || {};
   for(let i=0;i<n;i++){
-    const o = a + (n > 1 ? (i/(n - 1) - 0.5)*spreadDeg*Math.PI/180 : 0);
-    G.addBullet(Object.assign({ team:"e", x:e.x + Math.cos(o)*e.r, y:e.y + Math.sin(o)*e.r, vx:Math.cos(o)*speed, vy:Math.sin(o)*speed, r:0.18, dmg:e.dmg, life:4, kind }, extra || {}));
+    const k = n > 1 ? i/(n - 1) - 0.5 : 0, o = a + k*spreadDeg*Math.PI/180;
+    const b = Object.assign({ team:"e", x:e.x + Math.cos(o)*e.r, y:e.y + Math.sin(o)*e.r, vx:Math.cos(o)*speed, vy:Math.sin(o)*speed, r:0.18, dmg:e.dmg, life:4, kind }, extra);
+    // the creepy bits each need their own state: a shot that hangs, bends inward or bursts
+    if(extra.stall) b.stall = Object.assign({}, extra.stall);
+    if(extra.curveIn){ b.curve = -Math.sign(k)*extra.curveIn; delete b.curveIn; }
+    G.addBullet(b);
   }
   G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind });
+}
+/* the shape a kind's shots take, from its data (data.js shot: stall, curve, split) */
+function shotExtra(S, more){
+  const x = Object.assign({}, more || {});
+  if(S.stall) x.stall = S.stall;
+  if(S.curve) x.curveIn = S.curve;
+  if(S.split) x.split = S.split;
+  return x;
 }
 function bark(G, e, chance){
   if(e.def.lines && G.rng.chance(chance || 0.08)) G.emit("bark", { id:e.id, x:e.x, y:e.y, text:G.rng.pick(e.def.lines) });
@@ -159,7 +170,7 @@ function ranged(G, e, dt, p, opts){
   const A = e.ai, S = e.shot || e.def.shot;
   if(A.state === "tell"){
     A.t -= dt; e.face = aimAt(e, p);
-    if(A.t <= 0){ A.state = "move"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, S.speed, S.n, S.spread || 0, S.kind || "rock", opts && opts.extra); }
+    if(A.t <= 0){ A.state = "move"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, S.speed, S.n, S.spread || 0, S.kind || "rock", shotExtra(S, opts && opts.extra)); }
     return;
   }
   A.state = "move";
@@ -215,7 +226,7 @@ const BEHAVIOUR = {
         if(A.tell === "heal"){
           const o = G.enemies.find(x=> x.id === A.target);
           if(o && !o.dead){ o.hp = Math.min(o.maxHp, o.hp + H.amt*G.scale.hp); G.emit("healBeam", { x1:e.x, y1:e.y, x2:o.x, y2:o.y, id:o.id }); }
-        } else shoot(G, e, aimAt(e, p), S.speed, S.n, S.spread, "hex", { slow:1.4 });
+        } else shoot(G, e, aimAt(e, p), S.speed, S.n, S.spread, "hex", shotExtra(S, { slow:1.4 }));
       }
       return;
     }
@@ -304,7 +315,7 @@ const BEHAVIOUR = {
     const fade = Math.sin(A.ph*0.9) < -0.65;
     e.untargetable = fade; e.hidden = fade;
     if(fade){ walk(G, e, p.x - e.x + Math.sin(A.ph*2)*2, p.y - e.y + Math.cos(A.ph*2)*2, 0.6, dt); return; }
-    if(A.state === "tell"){ A.t -= dt; if(A.t <= 0){ A.state = "drift"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, aimAt(e, p), S.speed, 1, 0, "ecto", { r:0.24 }); } return; }
+    if(A.state === "tell"){ A.t -= dt; if(A.t <= 0){ A.state = "drift"; A.cd = S.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, aimAt(e, p), S.speed, S.n || 1, S.spread || 0, "ecto", shotExtra(S, { r:0.24 })); } return; }
     A.state = "drift";
     if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 9){ tell(G, e, "boo", S.tell); bark(G, e, 0.1); return; }
     const a = aimAt(e, p) + Math.sin(A.ph*1.7)*0.9;
@@ -494,8 +505,7 @@ const BEHAVIOUR = {
      and in his rage the dead come when he calls ---- */
   hollow(G, e, dt, p){
     const A = e.ai, rage = e.hp/e.maxHp < 0.5;
-    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE HOLLOW WIZARD: \"I WAS YOU, ONCE. YOU WILL BE ME.\"", 3);
-      if(DG.Roads && DG.Roads.olmAlly(G)) G.pending.push({ t:3.2, fn:()=> G.say("BROTHER OLM: \"Aldous. It's me. It's Olm. I brought it back. I'm sorry. I'm so sorry.\"", 4.5) }); }
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE HOLLOW WIZARD: \"I WAS YOU, ONCE. YOU WILL BE ME.\"", 3); }
     switch(A.state){
       case "volley":
         A.t -= dt; A.fire = (A.fire || 0) - dt;
@@ -839,6 +849,172 @@ const BEHAVIOUR = {
     else { tell(G, e, "scream", 0.7); A.state = "scream"; A.t = 0.7; }
   },
 
+  /* ---- the Lantern Wight: drifts, keeps its distance, and hangs a rosary
+     of green lights round you that closes in a breath later ---- */
+  wight(G, e, dt, p){
+    const A = e.ai, R = e.def.rosary;
+    A.ph = (A.ph || G.rng.next()*6) + dt;
+    if(A.state === "tell"){
+      A.t -= dt; e.face = aimAt(e, p);
+      if(A.t <= 0){
+        A.state = "drift"; A.cd = R.cd*(0.8 + G.rng.next()*0.4);
+        const a0 = G.rng.next()*TAU, cx = p.x, cy = p.y;
+        for(let k=0;k<R.n;k++){ const a = a0 + k/R.n*TAU; G.addBullet({ team:"e", x:cx + Math.cos(a)*R.r, y:cy + Math.sin(a)*R.r, vx:0, vy:0, r:0.19, dmg:e.dmg, life:3, kind:"soul", stall:{ at:0, hold:R.hold, speed:R.speed } }); }
+        G.marks.push({ kind:"rosary", x:cx, y:cy, r:R.r, t:R.hold, max:R.hold });
+        G.emit("eshoot", { id:e.id, x:e.x, y:e.y, kind:"soul" });
+      }
+      return;
+    }
+    A.state = "drift";
+    if(A.cd <= 0 && DG.dist(e.x, e.y, p.x, p.y) < 10){ tell(G, e, "lantern", R.tell); bark(G, e, 0.15); return; }
+    keepAway(G, e, p, dt, e.def.keep);
+  },
+  /* ---- the Gorged Toad: hops at you like a sack of bile, and spits green
+     globs that curve in from the sides ---- */
+  evilfrog(G, e, dt, p){
+    const A = e.ai, B = e.def.bile;
+    if(A.state === "tell"){
+      A.t -= dt; e.face = aimAt(e, p);
+      if(A.t <= 0){ A.state = "squat"; A.t = 0.5; A.cd = B.cd*(0.8 + G.rng.next()*0.4); shoot(G, e, e.face, B.speed, B.n, B.spread, "bile", { curveIn:1.1, r:0.2 }); }
+      return;
+    }
+    if(A.state === "hop"){
+      A.t -= dt;
+      walk(G, e, Math.cos(A.a), Math.sin(A.a), 2.6, dt);
+      e.hop = Math.sin((1 - A.t/0.45)*Math.PI)*0.7;
+      if(A.t <= 0){ e.hop = 0; A.state = "squat"; A.t = 0.35 + G.rng.next()*0.4; G.emit("splat", { x:e.x, y:e.y }); if(DG.dist(e.x, e.y, p.x, p.y) < e.r + p.r + 0.3) G.hurtPlayer(e.dmg, "evilfrog"); }
+      return;
+    }
+    A.t = (A.t || 0) - dt;
+    if(A.t > 0) return;
+    const d = DG.dist(e.x, e.y, p.x, p.y);
+    if(A.cd <= 0 && d < 9 && G.los(e.x, e.y, p.x, p.y)){ tell(G, e, "bile", B.tell); bark(G, e, 0.1); return; }
+    A.state = "hop"; A.t = 0.45; A.a = aimAt(e, p) + (G.rng.next() - 0.5)*1.1;
+    const f = !G.los(e.x, e.y, p.x, p.y) && G.flowDir(e.x, e.y); if(f) A.a = Math.atan2(f.y, f.x);
+  },
+  /* ---- The Bog Lord, Toad King (the Gribbus route): a gluttonous oozing
+     frog. Belly-flops that ring out bile, a tongue that lashes across the
+     room (a beam you can see coming), a fountain of curving bile, and when
+     he's hungry he coughs up his court ---- */
+  toadking(G, e, dt, p){
+    const A = e.ai, f = e.hp/e.maxHp, rage = f < 0.5;
+    if(rage && !A.raged){ A.raged = true; G.emit("bossPhase", { id:e.id }); G.say("THE TOAD KING: \"I WILL EAT YOU, AND THEN I WILL EAT HIM.\"", 3); summon(G, e, 3, ["evilfrog"]); }
+    // he oozes as he goes
+    A.ooze = (A.ooze || 0) - dt;
+    if(A.ooze <= 0 && !e.airborne){ A.ooze = 1.6; G.addHazard({ kind:"slime", x:e.x, y:e.y, r:1.1, t:5, team:"e" }); }
+    switch(A.state){
+      case "squat":
+        A.t -= dt;
+        if(A.t <= 0){ A.state = "air"; A.t = 1; e.airborne = true; A.fx = e.x; A.fy = e.y; A.tx = p.x; A.ty = p.y; G.marks.push({ kind:"flop", x:p.x, y:p.y, r:2.8, t:1, max:1 }); G.emit("jump", { id:e.id }); }
+        return;
+      case "air": {
+        A.t -= dt;
+        const k = 1 - Math.max(0, A.t);
+        e.x = A.fx + (A.tx - A.fx)*k; e.y = A.fy + (A.ty - A.fy)*k; e.hop = Math.sin(k*Math.PI)*4.5;
+        if(A.t <= 0){
+          e.airborne = false; e.hop = 0;
+          if(G.blocked(Math.floor(e.x), Math.floor(e.y), "enemy")){ e.x = A.fx; e.y = A.fy; }
+          G.explode(e.x, e.y, 2.8, e.dmg*1.2, "e", { skip:e.id, why:"toadking" });
+          G.ring(e.x, e.y, rage ? 20 : 14, 4.2, e.dmg*0.55, G.rng.next(), "bile");
+          G.emit("land", { id:e.id, x:e.x, y:e.y });
+          A.state = "walk"; A.cd = rage ? 1 : 1.5;
+        }
+        return;
+      }
+      case "fountain":
+        A.t -= dt; A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = rage ? 0.1 : 0.14; const a = aimAt(e, p) + (G.rng.next() - 0.5)*2.4;
+          G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(a)*5.5, vy:Math.sin(a)*5.5, r:0.22, dmg:e.dmg*0.5, life:4, kind:"bile", curve:(G.rng.next() - 0.5)*1.6 }); }
+        if(A.t <= 0) A.state = "walk";
+        return;
+      case "tongue":
+        A.t -= dt; if(A.t <= 0) A.state = "walk";
+        return;
+      case "cough":
+        A.t -= dt;
+        if(A.t <= 0){ summon(G, e, rage ? 3 : 2, ["evilfrog", "blobling"]); A.state = "walk"; }
+        return;
+    }
+    A.state = "walk";
+    if(DG.dist(e.x, e.y, p.x, p.y) > 3.5) approach(G, e, p, dt, 1); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const court = G.enemies.filter(o=> o.room === e.room && o !== e && !o.dead).length;
+    const order = ["flop", "tongue", "fountain", court < 4 ? "cough" : "flop", "tongue"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = rage ? 1.2 : 1.8;
+    if(pick === "flop"){ tell(G, e, "squat", 0.7); A.state = "squat"; A.t = 0.7; }
+    else if(pick === "tongue"){
+      const n = rage ? 2 : 1, a = aimAt(e, p);
+      for(let k=0;k<n;k++) G.addBeam({ owner:e.id, x:e.x, y:e.y, a:a + (k ? 0.5 : 0), tell:0.9, time:0.45, dmg:e.dmg, w:0.5, max:15, kind:"tongue" });
+      G.emit("tell", { id:e.id, kind:"tongue", x:e.x, y:e.y, t:0.9 });
+      A.state = "tongue"; A.t = 1.4;
+    }
+    else if(pick === "fountain"){ tell(G, e, "fountain", 0.6); A.state = "fountain"; A.t = 0.6 + (rage ? 2.4 : 1.8); }
+    else { tell(G, e, "summon", 0.8); A.state = "cough"; A.t = 0.8; G.emit("bark", { id:e.id, x:e.x, y:e.y, text:"*HHRRRK* My court!" }); }
+  },
+
+  /* ---- The Archivist, Who Wrote the Dark (the Olm route): a knot of flesh
+     and bound books with a great many eyes. Pages that wheel out and bend,
+     an index of eyes that hangs round you and closes in, lines of footnotes
+     with a gap to slip through, and the dead it has written down ---- */
+  archivist(G, e, dt, p){
+    const A = e.ai, f = e.hp/e.maxHp, phase = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
+    if(phase !== (A.phase || 0)){
+      A.phase = phase; G.emit("bossPhase", { id:e.id });
+      G.say(phase === 1 ? "THE ARCHIVIST: \"You are smudging my margins.\"" : "THE ARCHIVIST: \"Then I will write you an ending.\"", 3);
+      summon(G, e, 2 + phase, ["ghost", "wight", "evilfrog"]);
+    }
+    A.ph = (A.ph || 0) + dt;
+    switch(A.state){
+      case "pages":
+        A.t -= dt; A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0){ A.fire = 0.11; A.pa = (A.pa || 0) + 0.27; for(let k=0;k<2 + phase;k++){ const a = A.pa + k*TAU/(2 + phase); G.addBullet({ team:"e", x:e.x, y:e.y, vx:Math.cos(a)*4.4, vy:Math.sin(a)*4.4, r:0.2, dmg:e.dmg*0.5, life:4.5, kind:"page", curve:0.55 }); } }
+        if(A.t <= 0) A.state = "float";
+        return;
+      case "index": {
+        A.t -= dt;
+        if(A.t <= 0){
+          const n = 10 + phase*3, R = 3.2, a0 = G.rng.next()*TAU;
+          for(let k=0;k<n;k++){ const a = a0 + k/n*TAU; G.addBullet({ team:"e", x:p.x + Math.cos(a)*R, y:p.y + Math.sin(a)*R, vx:0, vy:0, r:0.21, dmg:e.dmg*0.6, life:3, kind:"soul", stall:{ at:0, hold:1 + (k % 2)*0.25, speed:7 } }); }
+          G.marks.push({ kind:"rosary", x:p.x, y:p.y, r:R, t:1.25, max:1.25 });
+          A.state = "float";
+        }
+        return;
+      }
+      case "footnotes": {
+        A.t -= dt; A.fire = (A.fire || 0) - dt;
+        if(A.fire <= 0 && (A.rows = (A.rows || 0) + 1) <= 3 + phase){
+          A.fire = 0.55;
+          // a wall of words from one side of the room, with a gap to slip through
+          const r = G.D.rooms[e.room], vert = A.rows % 2 === 0, gap = G.rng.range(0.25, 0.75);
+          const len = vert ? r.y2 - r.y1 : r.x2 - r.x1;
+          for(let i=0; i<=len; i+=0.85){
+            const k = i/len; if(Math.abs(k - gap) < 0.14) continue;
+            if(vert) G.addBullet({ team:"e", x:r.x1 + 0.6, y:r.y1 + 0.5 + i, vx:5, vy:0, r:0.18, dmg:e.dmg*0.5, life:(r.x2 - r.x1)/5 + 0.5, kind:"page" });
+            else G.addBullet({ team:"e", x:r.x1 + 0.5 + i, y:r.y1 + 0.6, vx:0, vy:5, r:0.18, dmg:e.dmg*0.5, life:(r.y2 - r.y1)/5 + 0.5, kind:"page" });
+          }
+        }
+        if(A.t <= 0) A.state = "float";
+        return;
+      }
+      case "write":
+        A.t -= dt;
+        if(A.t <= 0){ summon(G, e, 2 + phase, ["ghost", "evilfrog", "wight"]); A.state = "float"; }
+        return;
+    }
+    A.state = "float";
+    const a = aimAt(e, p) + Math.PI/2*Math.sin(A.ph*0.6);
+    if(DG.dist(e.x, e.y, p.x, p.y) > 5) walk(G, e, Math.cos(a), Math.sin(a), 1, dt); else e.face = aimAt(e, p);
+    if(A.cd > 0) return;
+    const minions = G.enemies.filter(o=> !o.dead && !o.boss && o.room === e.room).length;
+    const order = ["pages", "index", "footnotes", minions < 3 ? "write" : "index"];
+    const pick = order[(A.k = ((A.k || 0) + 1)) % order.length];
+    A.cd = [1.8, 1.4, 1.1][phase]; A.fire = 0; A.rows = 0;
+    const tl = { pages:0.6, index:0.8, footnotes:0.6, write:0.8 }[pick];
+    tell(G, e, pick, tl); A.state = pick;
+    A.t = pick === "pages" ? tl + 2.2 : pick === "footnotes" ? tl + 2.6 : tl;
+  },
+
   /* ---- The Gloom Heart: it beats, and every beat is a shockwave ---- */
   heart(G, e, dt, p){
     const A = e.ai, f = e.hp/e.maxHp, phase = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
@@ -857,10 +1033,10 @@ const BEHAVIOUR = {
       else G.ring(e.x, e.y, 10 + phase*4, 4 + phase*0.6, e.dmg*0.55, A.n*0.07, "blood");
       if(phase >= 1 && A.n % 4 === 1){ const s = spotNear(G, e, p.x, p.y, 2.5); slam(G, s.x, s.y, 1.3, e.dmg, 0.9, "vein"); }
     }
-    // the Rot road: the Heart knows what's coming for it, and tries to eat him first.
+    // the mushroom road: the Heart knows what's coming for it, and tries to eat him first.
     // It opens and drags Gribbus in; hurt it enough while it pulls and it chokes.
     // If it gets him, it spits him out dazed and heals. Low enough, he eats it.
-    if(DG.Roads && DG.Roads.canFeast(G)){
+    if(DG.Roads && DG.Roads.kingReady(G) && !G.player.quests.ember && !G.side){
       const f = G.gribbus;
       A.devCd = (A.devCd === undefined ? 7 : A.devCd) - dt;
       if(A.devour){

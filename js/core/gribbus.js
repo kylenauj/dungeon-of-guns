@@ -4,8 +4,10 @@
  *  He hops after Zippy, picks his own fights anywhere in the room
  *  (finding his way round the furniture), licks goblins that get close
  *  and spits at the ones that don't. He can't be hurt: he is a
- *  very good frog. Frog ponds teach him tricks (one of three lily
- *  pads); golden flies, saved between runs, unlock more tricks.
+ *  very good frog. His tricks are items now: his pond (rare) floats
+ *  three of one tier on its lily pads, and shops, treasure and bosses
+ *  carry some too. On the mushroom road he eats glowing mushrooms,
+ *  grows, and starts demanding praise; give it, and he hits harder.
  * ------------------------------------------------------------------ */
 (function(root){
 "use strict";
@@ -24,11 +26,49 @@ Gr.create = function(G){
   return f;
 };
 
-/* how much harder than plain Gribbus he hits: items, tricks, the Bog Pact, and his own rank */
+/* his mood and his kingdom: praise (or the sulk when you didn't), and on
+   his own floor, the Glutton's Bog, he's the one in charge */
+Gr.mult = function(G){
+  const f = G.gribbus;
+  let m = 1;
+  if(G.t < (f.praisedT || 0)) m *= 1.5;
+  if(G.t < (f.sulkT || 0)) m *= 0.7;
+  if(G.side === "bog" && G.floor === DG.FINAL_FLOOR + 1) m *= 2;
+  return m;
+};
+/* how much harder than plain Gribbus he hits: items, tricks, the Bog Pact, his growths, his rank, his mood */
 Gr.scale = function(G){
   const M = G.mods, f = G.gribbus, g = f.g;
   const rot = DG.Roads ? DG.Roads.frogBonus(G) : {};
-  return (1 + M.frogDmg + (g.dmg || 0) + (rot.dmg || 0))*(M.frogMul || 1)*(1 + 0.08*(f.level || 0));
+  return (1 + M.frogDmg + (g.dmg || 0) + (rot.dmg || 0))*(M.frogMul || 1)*(1 + 0.08*(f.level || 0))*Gr.mult(G);
+};
+/* how big he's drawn and how hard he hits for it */
+Gr.size = function(G){
+  const g = G.gribbus.g, rot = DG.Roads ? DG.Roads.frogBonus(G) : {};
+  return 1 + 0.5*((g.size || 0) + (rot.size || 0)) + (G.side === "bog" && G.floor === DG.FINAL_FLOOR + 1 ? 0.5 : 0);
+};
+/* Mimic Toad: his copies of your volleys, before your own damage bonuses */
+Gr.mimicMul = function(G){ return 0.5*Gr.scale(G); };
+/* on the mushroom road, from four mushrooms on, he wants to be praised. Do
+   it (E, near him) and he's 50% stronger for a while; ignore him and he sulks */
+Gr.praise = function(G){
+  const f = G.gribbus;
+  if(!(f.demand > 0)) return;
+  f.demand = 0; f.praisedT = G.t + 20; f.sulkT = 0;
+  f.nextDemand = G.t + 40 + G.rng.next()*20;
+  G.emit("praise", { x:f.x, y:f.y });
+  G.say(G.rng.pick(["\"Who's a magnificent frog? You are.\" Gribbus swells with pride.", "\"All hail Gribbus.\" He accepts this as his due.", "You bow. Gribbus croaks, regal and satisfied."]), 3);
+};
+Gr.demands = function(G, dt){
+  const f = G.gribbus, n = G.roads ? G.roads.rot.shrooms : 0;
+  if(n < 4 || G.state !== "play") return;
+  if(f.demand > 0){
+    f.demand -= dt;
+    if(f.demand <= 0){ f.sulkT = G.t + 12; f.nextDemand = G.t + 30 + G.rng.next()*20; G.emit("sulk", { x:f.x, y:f.y }); G.say("Gribbus turns his back on you. He sulks.", 2.5); }
+    return;
+  }
+  if(f.nextDemand === undefined) f.nextDemand = G.t + 15;
+  if(G.t >= f.nextDemand){ f.demand = 12; G.emit("demand", { x:f.x, y:f.y }); G.say(G.rng.pick(DG.LINES.praise), 3); }
 };
 /* the strength of a lick (the Bog Pact's toll is on Zippy's shots, not his) */
 Gr.power = function(G){ return 0.45*G.payloadPower()*Gr.scale(G); };
@@ -68,31 +108,39 @@ Gr.spawnPermanents = function(G){
 Gr.giveBuff = function(G, id){
   const f = G.gribbus, B = DG.FROG_BUFFS[id];
   f.buffs.push(id);
-  for(const k in B.g) f.g[k] = (f.g[k] || 0) + B.g[k];
+  // numbers stack; anything else (Toxic Spit's element) is set, not added:
+  // adding it to 0 once made "0poison", which was no element at all
+  for(const k in B.g) f.g[k] = typeof B.g[k] === "number" ? (f.g[k] || 0) + B.g[k] : B.g[k];
   if(id === "twin" && G.frogs.length < 2){ const t = frog("Grobbus"); t.x = f.x; t.y = f.y; t.twin = true; G.frogs.push(t); }
   G.emit("frogbuff", { id, name:B.name, desc:B.desc });
 };
-/* walking into a frog pond: three lily pads, three tricks */
+/* walking into his pond: three lily pads, three tricks, all of one tier (so
+   no pad is the obvious one; it's which kind of frog you want) */
 Gr.offerPond = function(G, r){
   if(r.pondOffered) return;
   r.pondOffered = true;
   const pads = r.props.filter(p=> p.kind === "lilypad");
-  const unlocked = id=> !DG.FROG_BUFFS[id].locked || G.meta.flies >= DG.FROG_BUFFS[id].locked;
-  const have = G.gribbus.buffs;
-  const ids = G.rng.shuffle(Object.keys(DG.FROG_BUFFS).filter(id=> have.indexOf(id) < 0 && unlocked(id) && !DG.FROG_BUFFS[id].hidden));
+  const have = G.gribbus.buffs, F = DG.FROG_BUFFS;
+  const left = Object.keys(F).filter(id=> have.indexOf(id) < 0 && F[id].tier < 3);
+  const w = DG.POOL_TIERS.f, push = 1 + 0.15*(G.floor - 1);
+  let tier = G.rng.weighted(w.map((x, i)=> ({ i, w:x*Math.pow(push, i) }))).i;
+  // three of that tier if there are three left; otherwise the nearest tier that has them
+  const of = t=> left.filter(id=> F[id].tier === t);
+  for(let k=0; k<4 && of(tier).length < 3; k++) tier = of(tier - 1).length >= 3 ? tier - 1 : Math.min(2, tier + 1);
+  let ids = G.rng.shuffle(of(tier));
+  if(ids.length < 3) ids = ids.concat(G.rng.shuffle(left.filter(id=> ids.indexOf(id) < 0)));
+  ids = ids.slice(0, 3);
   pads.forEach((p, i)=>{ p.buff = ids[i] || null; p.taken = !ids[i]; });
-  if(DG.Roads) DG.Roads.offerGloom(G, r);
   if(!ids.length){ r.pondDone = true; G.dropGold(r.cxw, r.cyw + 2, 20); G.say("Gribbus knows every trick there is. Have some gold instead."); }
-  if(r.fly && !r.flyGiven){ r.flyGiven = true; G.addPickup("fly", r.fly.x + 0.5, r.fly.y + 0.5, 1); }
 };
 Gr.choosePad = function(G, pad){
   const r = G.D.rooms[pad.room];
   if(r.pondDone || pad.taken || !pad.buff) return;
-  if(pad.gloom) DG.Roads.chooseGloom(G, pad);
-  else Gr.giveBuff(G, pad.buff);
+  G.giveItem("f_" + pad.buff, true);
+  G.emit("item", { id:"f_" + pad.buff, name:DG.FROG_BUFFS[pad.buff].name, desc:DG.FROG_BUFFS[pad.buff].desc, tier:DG.FROG_BUFFS[pad.buff].tier });
   pad.taken = true; pad.chosen = true; r.pondDone = true;
   r.props.forEach(p=>{ if(p.kind === "lilypad" && p !== pad && !p.taken){ p.taken = true; p.sunk = true; G.emit("sink", { id:p.id }); } });
-  if(!pad.gloom) G.say("Gribbus learned " + DG.FROG_BUFFS[pad.buff].name + "! " + G.rng.pick(DG.LINES.gribbus), 3.5);
+  G.say("Gribbus learned " + DG.FROG_BUFFS[pad.buff].name + "! " + G.rng.pick(DG.LINES.gribbus), 3.5);
 };
 
 /* back to Zippy's side, on open floor */
@@ -150,6 +198,7 @@ function clearHop(G, ax, ay, bx, by){
 
 /* ---- per frame ---- */
 Gr.update = function(G, dt){
+  Gr.demands(G, dt);
   G.frogs.forEach((f, i)=> updateFrog(G, f, i, dt));
 };
 
@@ -168,9 +217,10 @@ function updateFrog(G, f, idx, dt){
   const away = DG.dist(f.x, f.y, p.x, p.y), stuck = f.stuck || 0;
   if(fight ? !G.inRoom(G.room, f.x, f.y) || stuck > 5 : away > 26 || stuck > 2.5) Gr.recall(G, f);
 
-  const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = 1 + 0.5*((g.size || 0) + (rot.size || 0));
+  const reach = 2.1*(1 + (g.reach || 0)), dmg = Gr.power(G)*(f.twin ? 0.7 : 1), size = Gr.size(G);
   // in a fight: the nearest goblin anywhere in the room, however far from Zippy
-  const tg = fight ? G.nearestEnemy(f.x, f.y, 99, null, null, G.room.id) : null;
+  // (as a Mimic Toad, only what comes within reach: he stays at Zippy's side)
+  const tg = fight ? G.nearestEnemy(f.x, f.y, g.mimic && idx === 0 ? reach + 0.6 : 99, null, null, G.room.id) : null;
   const els0 = g.mirrorEls ? G.shotEls(G.gun()) : [];
   // the Rot: what he licks starts to rot
   const els = rotStage >= 1 && els0.indexOf("poison") < 0 ? els0.concat("poison") : els0;

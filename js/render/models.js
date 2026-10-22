@@ -49,7 +49,7 @@ function finish(R, opts){
    deep in each. Pass R and the pinprick glows (pupil: its colour); without R
    it's only a dull bead. look: the pinpricks slide toward the middle */
 function eyes(parent, sep, y, z, r, pupil, look, R){
-  const c = pupil === undefined || pupil === 0x101018 ? 0xffb84a : pupil;
+  const c = pupil === undefined || pupil === 0x101018 ? NEON : pupil;
   [-1, 1].forEach(s=>{
     P(parent, S(r*1.25, 10, 8), 0x1c1416, s*sep, y + r*0.1, z - r*0.45, 0, 0, s*0.3, 1.15, 0.85, 0.5);
     P(parent, S(r*0.9, 10, 8), 0x050304, s*sep, y, z - r*0.2, 0, 0, s*0.25, 1.1, 0.78, 0.5);
@@ -70,6 +70,9 @@ const zs = (r, w, h)=> geo("zs" + r + "," + (w || 8) + "," + (h || 6), ()=> new 
 const zto = (r, t, a)=> geo("zt" + r + "," + t + "," + (a || 0), ()=> new THREE.TorusGeometry(r, t, 6, r > 0.08 ? 28 : 14, a || PI*2));
 const zcy = (rt, rb, h, n)=> geo("zc" + rt + "," + rb + "," + h + "," + (n || 10), ()=> new THREE.CylinderGeometry(rt, rb, h, n || 10));
 const WOOD = 0x7a4a26, WOOD2 = 0x5a3418, BRASS = 0xd8a840, IRON = 0x4a4a58, DARK = 0x2a2a34;
+/* the game's accent: a sickly neon green, the light the dark gives off */
+const NEON = 0x7dff3a, NEON2 = 0xb8ff7a;
+Models.NEON = NEON;
 const GP = { iron:0x232326, iron2:0x38383e, brass:0x6e5428, brass2:0x54401e, bone:0xc0b496, bone2:0x9a8c70, wood:0x3a2618, wood2:0x2a1c12,
   leather:0x3a2a1e, wax:0xd2c6a8, rust:0x5e3420, rune:0x4a4030 };
 /* a cage of prongs round a crystal at (x, y, z), opening toward +z (or up) */
@@ -249,6 +252,8 @@ const DYE = {
   star:  { robe:0x2e2a46, dark:0x1a1828, light:0xc8d8ff, cape:0x181c34, stars:0xa89a6a },
   leaf:  { robe:0x34422a, dark:0x3a2a1a, light:0xb8d86a, cape:0x2a3620, stars:0x8a6a6a },
   grey:  { robe:0x9a9aa4, dark:0x6c6c78, light:0xdcdce6, cape:0x82828e, stars:0xf2f2ff },   // the ending: a grey wizard again
+  white: { robe:0xe8e4d8, dark:0xc8c2b0, light:0xfffbe8, cape:0xd8d2c0, stars:0xfff0b0 },   // the Flesh Library's end: a white wizard
+  olm:   { robe:0x2a4a46, dark:0x16282a, light:0xffc870, cape:0x5a3a1c, stars:0xc8a050 },   // Brother Olm: lantern-keeper's teal and brass
   clown: { robe:0x7a4a30, dark:0x2e4a5a, light:0xffd23d, cape:0x3a6a70, stars:0x8a3a4a }
 };
 Models.DYE = DYE;
@@ -1048,15 +1053,16 @@ function fSkin(r, ws, hs, amt, freq, seed, c1, c2, belly){
 Models.frog = function(twin, buffs, opts){
   buffs = buffs || []; opts = opts || {};
   const shine = !!opts.redeemed;   // the ending: the Gloom lets go, and he's a bright green frog with orange hands again
-  const rot = shine || twin ? 0 : (opts.rot || 0);   // the Rot road: I tainted, II split, III bloated
+  const rot = shine || twin ? 0 : (opts.rot || 0);   // the mushroom road: I fed, II swollen, III bloated
+  const evil = !!opts.evil;        // a Gorged Toad (and the Toad King): bruised black-green, bile for eyes
   const has = id=> buffs.indexOf(id) >= 0;
   const R = rig("frog"), b = R.body;
   R.anim = [];
   // Gribbus: ditch-water olive and mud; Grobbus: the grey-green of an old pond
-  const G1 = shine ? 0x46c838 : twin ? 0x404a42 : rot ? 0x2a2e22 : 0x45432f, G2 = shine ? 0x2a8a26 : twin ? 0x262e28 : rot ? 0x121410 : 0x2a281c, BELLY = shine ? 0xeeeaa8 : twin ? 0x8a9482 : rot ? 0x5c5a46 : 0x847a64;
-  const WART = shine ? 0x72e050 : twin ? 0x56625a : rot ? 0x3a3826 : 0x5a553e, IRIS = shine ? 0xffd23d : twin ? 0x9ab890 : rot ? 0xb8d040 : 0xc8902a;
+  const G1 = shine ? 0x46c838 : evil ? 0x2c3620 : twin ? 0x404a42 : rot ? 0x2a2e22 : 0x45432f, G2 = shine ? 0x2a8a26 : evil ? 0x141a0e : twin ? 0x262e28 : rot ? 0x121410 : 0x2a281c, BELLY = shine ? 0xeeeaa8 : evil ? 0x6a6838 : twin ? 0x8a9482 : rot ? 0x5c5a46 : 0x847a64;
+  const WART = shine ? 0x72e050 : evil ? 0x3e5a22 : twin ? 0x56625a : rot ? 0x3a3826 : 0x5a553e, IRIS = shine ? 0xffd23d : evil ? NEON : twin ? 0x9ab890 : rot ? 0xb8d040 : 0xc8902a;
   const HAND = shine ? 0xff8a2a : G2;
-  const SCARF = has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
+  const SCARF = evil ? 0x1a1a10 : has("doom") ? 0x1e1620 : has("croak") ? 0x4a6a7a : twin ? 0x2a3a5a : 0x5a1a14;
   let sd = twin ? 11 : 5; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
   // the rig: a pivot for each moving bit, with an inner group set back by the
   // pivot so every part is still placed in body coordinates
@@ -1246,7 +1252,7 @@ const FROG_OUTFIT = {
  *  dungeon leaves behind. Long torn ears, needle teeth, eyes like
  *  embers at the bottom of a well; rags, rust and little fetishes.
  * ================================================================== */
-const GOB = { skin:0x5f6a4e, dark:0x3a4232, eye:0xffb83a, cloth:0x4a3e30, metal:0x6a6a70, iron:0x26262a, rib:0x6a755a, wrap:0x4e4636 };
+const GOB = { skin:0x5f6a4e, dark:0x3a4232, eye:0x8aff3a, cloth:0x4a3e30, metal:0x6a6a70, iron:0x26262a, rib:0x6a755a, wrap:0x4e4636 };
 const BONEC = 0x948a72, RUSTC = 0x6a3a22, IRONC = 0x26262a, LEATH = 0x3a2a1e, BRASSC = 0x8a6a30, BLOODC = 0x4a1410, RAGC = 0x4a4234;
 /* a lean torus for small rings, links and ribs (the shared TO is made for big smooth ones) */
 const TOs = (r, t, a)=> geo("ts" + r + "," + t + "," + (a || 0), ()=> new THREE.TorusGeometry(r, t, 6, a && a < PI ? 10 : 18, a || PI*2));
@@ -3311,9 +3317,10 @@ const FAMILY = { grunt:"goblin", slinger:"goblin", bomber:"goblin", shaman:"gobl
   puffling:"puff", toadstool:"stool", shroomkin:"shroom", shroomlet:"shroom", husk:"husk", matriarch:"matriarch",
   ghost:"ghost", banshee:"ghost", bride:"bride", skeleton:"skel", poltergeist:"polt",
   watcher:"watcher", eye:"eye", blob:"blob", blobling:"blob", tentacle:"tent",
-  rotling:"crab", spitter:"spitter", bloater:"bloater", heart:"heart" };
+  rotling:"crab", spitter:"spitter", bloater:"bloater", heart:"heart",
+  wight:"ghost", evilfrog:"blob", toadking:"blob", archivist:"heart" };
 Models.FAMILY = FAMILY;
-const BOSSES = { king:1, matriarch:1, bride:1, eye:1, heart:1 };
+const BOSSES = { king:1, matriarch:1, bride:1, eye:1, heart:1, toadking:1, archivist:1 };
 Models.BOSSES = BOSSES;
 /* wind-ups that end in a shot, not a blow */
 const SHOTS = { aim:1, throw:1, spit:1, spray:1, hex:1, heal:1, puff:1, boo:1, inhale:1, glare:1, lasers:1, gaze:1, tentacles:1, scream:1, summon:1, arteries:1 };
@@ -3903,102 +3910,256 @@ Models.offer = function(o){
  *  cowl and a tabard worn to threads, a bedroll and a pot on his
  *  back, and a lantern hung from his staff that has never gone out.
  * ================================================================== */
-const OLM = { iron:0x5e5248, iron2:0x463c34, rust:0x6a3a22, wool:0x433a30, wool2:0x352e26, tab:0x5a2e22, leather:0x3a2a1e, brass:0x8a6a30, wood:0x3a2618, skin:0x8a6a52 };
-function olmPlate(r, sx, sy, sz, seed){
-  const g = K.sculpt(new THREE.SphereGeometry(r, SEG(16), SEG(12)), r*0.03, 4/r, seed);
-  g.scale(sx, sy, sz);
-  return bsPaint(g, OLM.iron, 0x5a3a26, 3.5/r, seed, (c, x, y)=>{ if(y < -r*0.4*sy) c.multiplyScalar(0.78); });
+/* Brother Olm now wears the cut of Zippy's own school: the same long coat,
+   hood and hat, drawn a head taller and in the lantern-keeper's teal and
+   brass, an older beard, and the lantern in his left hand: it has never
+   once gone out. (Models.olm; the frogs round him are Models.scrollFrog.) */
+function olmLantern(R, parent, x, y, z, s){
+  const L0 = group(parent, x, y, z); L0.scale.setScalar(s || 1);
+  for(let k=0;k<4;k++) P(L0, zto(0.016, 0.005), ZC.iron2, 0, 0.17 + k*0.028, 0, 0, k % 2 ? PI/2 : 0, 0);
+  P(L0, CY(0.07, 0.08, 0.03, 10), 0x26262a, 0, -0.1, 0); P(L0, CY(0.06, 0.07, 0.03, 10), 0x26262a, 0, 0.09, 0); P(L0, CO(0.07, 0.06, 10), 0x26262a, 0, 0.13, 0);
+  for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(L0, BX(0.012, 0.18, 0.012), 0x3a3a40, Math.cos(a)*0.06, 0, Math.sin(a)*0.06); }
+  const flame = glow(R, L0, 0.035, 0xfff0b0, 0, -0.01, 0); flame.scale.set(1, 1.6, 1);
+  glow(R, L0, 0.055, 0xffa040, 0, -0.02, 0).material.opacity = 0.75;
+  R.lampHalo = halo(R, L0, 0xffb060, 2.2, 0, 0, 0, 0.85);
+  R.lampFlame = flame; R.parts.lamp = L0;
+  return L0;
 }
-/* Brother Olm, the last Lamplighter: twice Zippy's height and bent nearly
-   double, so his hood hangs out in front of him. His robe is stitched from
-   vellum pages, the hem stiff with wax. No face: in the hood's dark, an iron
-   cage-lantern hangs on a hook, and the little fire inside it gutters, the
-   only warm light in the room. Long grey hands; a hooked staff hung with
-   prayer-chains, bones and a bell; books strapped to the hump of his back,
-   candle stubs burning on his shoulders. He moves very slowly. */
-const OLMV = { vellum:0x6a5e46, vellum2:0x463e32, robe:0x2e2822, ink:0x1a140e, wax:0xb8ac8a, skin:0x5e5e54, nail:0x2a241c, iron:0x26241f, wood:0x241810 };
-Models.olm = function(){
-  const R = rig("olm"), b = R.body, rnd = (()=>{ let sd = 31; return ()=> (sd = (sd*16807) % 2147483647)/2147483647; })();
-  // the robe, to the floor: a long narrow bell, torn into strips at the hem, dark with old wax and soot
-  P(b, K.tatter(K.slathe([[0.24, 1.75], [0.3, 1.4], [0.36, 0.9], [0.44, 0.4], [0.5, 0.0]], 22, 6), 0.32, 20, 0.16, 7.1), OLMV.robe, 0, 0, 0);
-  // vellum pages sewn on in patches, each written over in a dead hand
-  for(let k=0;k<20;k++){
-    const a = rnd()*PI*2, y = 0.2 + rnd()*1.45, rr = 0.5 - y*0.147 + 0.012;
-    const pg = new THREE.PlaneGeometry(0.13 + rnd()*0.06, 0.18 + rnd()*0.08, 2, 2); const at = pg.attributes.position; for(let i=0;i<at.count;i++) at.setZ(i, (rnd() - 0.5)*0.012);
-    P(b, pg, [OLMV.vellum, 0x5a5040, 0x7a6c50, OLMV.vellum2][k % 4], Math.sin(a)*rr, y, Math.cos(a)*rr, (rnd() - 0.5)*0.3, a, (rnd() - 0.5)*0.6);
-    for(let l=0;l<3;l++) P(b, BX(0.08, 0.005, 0.003), OLMV.ink, Math.sin(a)*(rr + 0.004), y + 0.04 - l*0.03, Math.cos(a)*(rr + 0.004), 0, a, (rnd() - 0.5)*0.1);
-  }
-  // wax run down the front in long tears
-  for(let k=0;k<10;k++){ const a = (rnd() - 0.5)*2.2, y0 = 0.6 + rnd()*1.0, len = 0.2 + rnd()*0.4, rr = 0.5 - y0*0.147 + 0.02; P(b, zTaper([[Math.sin(a)*rr, y0, Math.cos(a)*rr], [Math.sin(a)*(rr + 0.015), y0 - len*0.5, Math.cos(a)*(rr + 0.015)], [Math.sin(a)*(rr + 0.03), y0 - len, Math.cos(a)*(rr + 0.03)]], 0.016, 0.006, 6, 6), OLMV.wax); }
-  // the shoulders: high and hunched, a yoke of rope and cloth, the hump behind
-  const torso = R.parts.torso = group(b, 0, 1.72, 0);
-  torso.rotation.x = 0.35;
-  P(torso, K.sculpt(new THREE.SphereGeometry(0.36, 18, 14), 0.03, 5, 2), OLMV.robe, 0, 0.12, -0.04, 0, 0, 0, 1.25, 0.8, 1.0);
-  P(torso, K.lump(0.3, 1, 0.3, 4), OLMV.robe, 0, 0.3, -0.22, 0, 0, 0, 1.1, 0.95, 0.8);
-  // books strapped to the hump, a rolled map, rope
-  [[0.0, 0.5, -0.4, 0.3], [0.08, 0.38, -0.44, -0.2], [-0.07, 0.28, -0.43, 0.1]].forEach(([x, y, z, r], i)=> P(torso, BX(0.3, 0.09, 0.22), [0x3a1410, 0x22222e, 0x2e2216][i], x, y, z, 0.5, r, 0.1));
-  P(torso, TO(0.3, 0.014, 0, 4, 18), 0x2a1c12, 0, 0.36, -0.25, PI/2 + 0.5, 0, 0, 1.1, 1, 0.8);
-  P(torso, CY(0.035, 0.035, 0.4, 8), 0x7a6c50, 0.22, 0.55, -0.32, 0.6, 0, 1.2);
-  // candle stubs burning on his shoulders
-  [-1, 1].forEach(s=>{ for(let k=0;k<3;k++){ const x = s*(0.26 + k*0.06), z = -0.04 + k*0.04, h = 0.05 + rnd()*0.08; P(torso, CY(0.02, 0.024, h, 8), OLMV.wax, x, 0.36 + h/2, z); const f = glow(R, torso, 0.014, 0xffd890, x, 0.36 + h + 0.025, z); f.scale.set(1, 1.8, 1); } P(torso, K.lump(0.08, 1, 0.3, 9 + s), OLMV.wax, s*0.3, 0.34, 0, 0, 0, 0, 1.3, 0.4, 1); });
-  // the cowl: a long pointed hood jutting out and down from the shoulders, empty inside
-  const head = R.parts.head = group(torso, 0, 0.42, 0.22);
-  const cowl = group(head, 0, 0.05, -0.05); cowl.rotation.x = -1.3; cowl.scale.set(0.9, 1.05, 1);
-  P(cowl, K.tatter(K.slathe([[0.02, 0.62], [0.1, 0.55], [0.2, 0.36], [0.25, 0.14], [0.27, 0.0]], 20, 6), 0.08, 12, 0.07, 5.5), OLMV.robe, 0, -0.1, 0);
-  P(cowl, new THREE.SphereGeometry(0.22, 14, 10), 0x030202, 0, 0.1, 0, 0, 0, 0, 1, 1.2, 1);
-  P(cowl, K.sculpt(new THREE.TorusGeometry(0.255, 0.035, 8, 22), 0.01, 9, 3), OLMV.vellum2, 0, -0.08, 0, PI/2);
-  // the cage-lantern, hung on a hook in the hood and swinging just out of it, where a face should be
-  const lamp = R.parts.lamp = group(head, 0, -0.05, 0.3);
-  for(let k=0;k<4;k++) P(lamp, TO(0.014, 0.004), OLMV.iron, 0, 0.1 - k*0.026, 0, 0, k % 2 ? PI/2 : 0, 0);
-  const cage = group(lamp, 0, -0.12, 0);
-  [0.07, -0.02, -0.11].forEach((y, i)=> P(cage, TO(i === 1 ? 0.08 : 0.06, 0.008, 0, 4, 14), OLMV.iron, 0, y, 0, PI/2));
-  for(let k=0;k<6;k++){ const a = k/6*PI*2; P(cage, meat([[Math.cos(a)*0.06, 0.07, Math.sin(a)*0.06], [Math.cos(a)*0.08, -0.02, Math.sin(a)*0.08], [Math.cos(a)*0.06, -0.11, Math.sin(a)*0.06]], ()=> 0.006, 6, 5, k), OLMV.iron); }
-  P(cage, CO(0.025, 0.07, 6), OLMV.iron, 0, -0.15, 0, PI);
-  const flame = glow(R, cage, 0.034, 0xfff0b0, 0, -0.02, 0); flame.scale.set(1, 1.7, 1);
-  glow(R, cage, 0.05, 0xffa040, 0, -0.03, 0).material.opacity = 0.7;
-  R.lampHalo = halo(R, cage, 0xffb060, 1.6, 0, -0.02, 0, 0.8);
-  R.lampFlame = flame;
-  // arms: wide bell sleeves hanging from the shoulders, long grey hands out of them
-  const hand = (g, x, y, z, s, curl)=>{
-    P(g, K.lump(0.045, 1, 0.3, s + 7), OLMV.skin, x, y, z, 0, 0, 0, 0.9, 0.7, 1.3);
-    for(let f=0;f<4;f++){ const fx = x + (f - 1.5)*0.022*s;
-      P(g, meat([[fx, y - 0.01, z + 0.03], [fx, y - 0.06, z + 0.06], [fx, y - 0.12 - curl*0.02, z + 0.06 + curl*0.03], [fx, y - 0.17 - curl*0.04, z + 0.03 + curl*0.06]], t=> 0.011*(1 - 0.4*t), 8, 6, f + s), OLMV.skin);
-      P(g, CO(0.007, 0.03, 4), OLMV.nail, fx, y - 0.185 - curl*0.05, z + 0.025 + curl*0.06, PI + 0.4*curl); }
-  };
-  const sleeve = (g, s)=>{
-    P(g, meat([[0, 0, 0], [s*0.05, -0.25, 0.08], [s*0.04, -0.52, 0.16]], t=> 0.07 + 0.05*t, 12, 12, 21 + s), OLMV.robe);
-    P(g, K.tatter(K.slathe([[0.11, 0.12], [0.14, 0.04], [0.15, 0.0]], 14, 3), 0.0, 9, 0.12, 6.6 + s), OLMV.robe, s*0.04, -0.62, 0.17, 0.3, 0, 0);
-  };
-  const armR = R.parts.armR = group(torso, 0.4, 0.14, 0.04); armR.rotation.x = -0.35;
-  sleeve(armR, 1); hand(armR, 0.04, -0.66, 0.2, 1, 1);
-  const armL = R.parts.armL = group(torso, -0.4, 0.14, 0.04); armL.rotation.set(-0.95, 0, -0.15);
-  sleeve(armL, -1); hand(armL, -0.04, -0.66, 0.2, -1, 0.2);
-  // the staff, in the left hand: taller than he is, crooked at the top, hung with chains, bones and a bell
-  const staff = R.parts.staff = group(b, -0.56, 0, 0.62);
-  P(staff, K.sculpt(new THREE.CylinderGeometry(0.028, 0.042, 3.2, 8, 12), 0.008, 14, 3), OLMV.wood, 0, 1.6, 0);
-  P(staff, K.tube([[0, 3.15, 0], [0.03, 3.4, 0.05], [0.16, 3.52, 0.1], [0.3, 3.46, 0.1], [0.34, 3.3, 0.06]], 0.028, 14, 6), OLMV.wood);
-  for(let k=0;k<4;k++){ const x = 0.04 + k*0.08, y = 3.46 - k*0.02, n = 4 + k;
-    for(let i=0;i<n;i++) P(staff, TO(0.016, 0.004), OLMV.iron, x, y - i*0.036, 0.1, 0, i % 2 ? PI/2 : 0, 0);
-    const ey = y - n*0.036 - 0.04;
-    if(k === 1) P(staff, K.slathe([[0, 0], [0.035, 0.0], [0.045, 0.05], [0.028, 0.09], [0, 0.1]], 10, 2), 0x5a4a28, x, ey - 0.08, 0.1, PI, 0, 0);
-    else if(k === 2) P(staff, K.lump(0.035, 1, 0.3, k), 0x7a7262, x, ey, 0.1);
-    else P(staff, BX(0.011, 0.08, 0.011), 0x7a7262, x, ey - 0.03, 0.1); }
-  [1.1, 2.3].forEach(y=> P(staff, TO(0.048, 0.01), 0x4a3a24, 0, y, 0, PI/2));
-  R.h = 3.0; R.size = 1.6;
-  (R.anim = []).push({ o:lamp, sway:0.08, speed:1.1 });
+Models.olm = function(opts){
+  opts = opts || {};
+  const R = Models.zippy({ robe:"olm", cape:"olm", parts:["tallhat", "monocle"], auras:[] });
+  R.kind = "olm";
+  // a head taller than Zippy, and a little broader in the shoulder
+  R.body.scale.set(0.86*1.12, 1.2, 0.92*1.1);
+  // his left arm held out, the lantern hanging from it
+  R.parts.armL.rotation.x = -0.75; R.parts.armL.rotation.z = -0.15;
+  const extra = new THREE.Group(); R.body.add(extra);
+  if(!opts.white) olmLantern(R, extra, -0.34, 0.78, 0.42, 1.25);
+  // a long grey beard over his own, and a book on a chain at his hip
+  P(extra, K.tube([[0, 1.28, 0.2], [0.01, 1.1, 0.27], [-0.02, 0.9, 0.25], [0.02, 0.72, 0.22]], 0.06, 16, 10), 0x9a968a);
+  P(extra, BX(0.13, 0.17, 0.05), 0x4a1a14, 0.27, 0.62, 0.05, 0, -0.4, 0.15); P(extra, BX(0.11, 0.15, 0.052), 0xd8ceb4, 0.27, 0.62, 0.05, 0, -0.4, 0.15);
+  zChain(extra, [0.24, 0.82, 0.1], [0.27, 0.7, 0.07], 4, ZC.brass, 0.012);
+  K.bake(extra, { mat:R.mat, outlineMat:R.out });
+  R.h = 2.6;
+  return R;
+};
+/* he breathes, he turns to the visitor; the lantern swings and gutters */
+Models.olmIdle = function(R, t, look){
+  const P = R.parts, br = Math.sin(t*1.4);
+  Models.stalk(R, { speed:0 }, t);
+  R.root.rotation.y += ((look || 0)*0.7 - R.root.rotation.y)*0.06;
+  if(P.armL){ P.armL.rotation.x = -0.75 + Math.sin(t*0.8)*0.04; }
+  if(P.lamp){ P.lamp.rotation.z = Math.sin(t*1.3)*0.08; P.lamp.rotation.x = Math.sin(t*0.9)*0.05; }
+  if(R.lampFlame){ const f = 0.85 + 0.15*Math.sin(t*13) + 0.08*Math.sin(t*29); R.lampFlame.scale.set(f, 1.6*f, f); R.lampHalo.material.opacity = 0.55 + 0.15*f; }
+  R.body.position.y = br*0.005;
+};
+/* one of Olm's ten little frogs: a Gribbus the size of a loaf, sat with a
+   scroll open in its hands, reading. Ten of them share a room, so each is a
+   light sketch of him (about 3k triangles), copied with Models.copy */
+Models.scrollFrog = function(i){
+  const R = rig("scrollfrog"), b = R.body, twin = i % 3 === 1;
+  const G1 = twin ? 0x404a42 : 0x54522c, G2 = twin ? 0x262e28 : 0x34301c, BELLY = twin ? 0x8a9482 : 0xa8986a, IRIS = twin ? 0x9ab890 : 0xc8902a;
+  const hp = group(b, 0, 0.3, 0.06), H = group(hp, 0, -0.3, -0.06); R.parts.head = hp;
+  P(b, fSkin(0.32, 16, 12, 0.02, 15, 1.3 + i, G1, G2, BELLY), 0xffffff, 0, 0.26, -0.03, 0, 0, 0, 1.18, 0.76, 1.08);
+  P(H, fSkin(0.25, 16, 12, 0.014, 18, 2.1 + i, G1, G2, BELLY), 0xffffff, 0, 0.37, 0.16, 0, 0, 0, 1.18, 0.8, 0.98);
+  [-1, 1].forEach(s=>{
+    P(H, fSkin(0.095, 10, 8, 0.004, 25, 5 + s, G1, G2), 0xffffff, s*0.15, 0.495, 0.21);
+    P(H, zs(0.064, 10, 8), 0x24160a, s*0.15, 0.52, 0.248);
+    glow(R, H, 0.04, IRIS, s*0.15, 0.52, 0.272);
+    P(H, new THREE.SphereGeometry(0.072, 10, 5, 0, PI*2, 0, PI*0.5), G2, s*0.15, 0.52, 0.256, -0.9, 0, s*0.3);   // heavy lids: reading
+    P(b, fSkin(0.13, 10, 8, 0.006, 20, 8 + s, G1, G2, BELLY), 0xffffff, s*0.27, 0.17, -0.12, 0, 0, 0, 0.8, 1, 1.3);
+    P(b, zTaper([[s*0.16, 0.24, 0.24], [s*0.15, 0.24, 0.4], [s*0.1, 0.28, 0.5]], 0.045, 0.03, 6, 6), G1);
+  });
+  { const pts = []; for(let k=0;k<=8;k++){ const q = -1.2 + k/8*2.4; pts.push([Math.sin(q)*0.29, 0.325 - Math.pow(q/1.2, 2)*0.07, 0.16 + Math.cos(q)*0.244]); } P(H, K.tube(pts, 0.01, 12, 5), 0x140e0a); }
+  // the scroll: two rollers and the paper between, held up to the face
+  P(b, CY(0.025, 0.025, 0.3, 8), 0x5a3a1c, 0, 0.36, 0.5, 0, 0, PI/2);
+  P(b, CY(0.025, 0.025, 0.3, 8), 0x5a3a1c, 0, 0.2, 0.52, 0, 0, PI/2);
+  P(b, BX(0.27, 0.16, 0.006), 0xd8ceb4, 0, 0.28, 0.51, -0.12);
+  for(let k=0;k<4;k++) P(b, BX(0.16 - (k % 2)*0.04, 0.006, 0.004), 0x3a2a1a, -0.02, 0.32 - k*0.025, 0.516 - k*0.003, -0.12);
+  R.h = 0.75;
   return finish(R, { w:0.02 });
 };
-/* he breathes, very slowly; the hood turns to whoever's near; the lantern swings and gutters */
-Models.olmIdle = function(R, t, look){
-  const P = R.parts, br = Math.sin(t*0.9);
-  R.body.scale.set(1 + br*0.004, 1 + br*0.006, 1 + br*0.004);
-  if(P.torso) P.torso.rotation.x = 0.35 + br*0.02;
-  P.head.rotation.y += ((look || 0)*0.5 - P.head.rotation.y)*0.04;
-  P.head.rotation.x = Math.sin(t*0.31)*0.04;
-  P.lamp.rotation.z = Math.sin(t*1.1)*0.1; P.lamp.rotation.x = Math.sin(t*0.8)*0.06;
-  if(P.armR) P.armR.rotation.x = Math.sin(t*0.6)*0.04;
-  const f = 0.82 + 0.18*Math.sin(t*11) + 0.1*Math.sin(t*27);
-  R.lampFlame.scale.set(f, 1.7*f, f); R.lampHalo.material.opacity = 0.5 + 0.2*f;
+
+/* ================================================================== *
+ *  The neon-green ones: the Lantern Wight, the Gorged Toad, and the two
+ *  route bosses (the Bog Lord, Toad King; the Archivist)
+ * ================================================================== */
+/* a tall shroud with nothing in the hood but two green pinpricks, long
+   arms of bone, and a lantern of green fire it hangs your rosary from */
+Models.wight = function(){
+  const R = rig("wight"), b = R.body, CL = 0x2a302a, CL2 = 0x1a1e1a, BN = 0x8a8e7a;
+  const float = group(b, 0, 0.35, 0); R.parts.head = float;
+  P(float, shroud(1.35, 0.4, 7, 0.35), CL);
+  P(float, shroud(0.85, 0.46, 3, 0.3), CL2, 0, -0.08, 0);
+  // the hood, deep and empty, two green lights far back in it
+  const hd = group(float, 0, 1.38, 0.04); hd.rotation.x = -0.15;
+  P(hd, K.tatter(hoodGeo(0.22, 1.4, 0.9, 6), -0.12, 10, 0.12, 6), CL, 0, 0, -0.02, 0, 0, 0, 1, 1.1, 1.2);
+  P(hd, S(0.18, 12, 10), 0x030403, 0, -0.02, -0.04);
+  [-1, 1].forEach(s=>{ glow(R, hd, 0.018, NEON, s*0.05, 0.0, 0.1); halo(R, hd, NEON, 0.35, s*0.05, 0.0, 0.14, 0.6); });
+  // a mantle of rotted lace, and strings of beads like a rosary round the neck
+  P(float, K.tatter(K.slathe([[0.13, 1.3], [0.24, 1.18], [0.3, 1.02], [0.28, 0.9]], 16, 3), 0.92, 11, 0.08, 9), 0x3a4038);
+  for(let i=0;i<14;i++){ const a = -1.4 + i*0.2; P(float, zs(0.018), i % 3 ? 0x8a8a6a : 0x4a5a3a, Math.sin(a)*0.25, 1.12 - Math.cos(a*1.3)*0.1, Math.cos(a)*0.2 + 0.05); }
+  // long sleeves, and the bone arms in them, one holding the lantern out
+  [-1, 1].forEach(s=>{
+    P(float, K.tatter(K.lathe([[0.075, -0.4], [0.055, -0.2], [0.045, 0]], 10), -0.32, 6, 0.1, s + 8), CL, s*0.27, 1.12, 0.08, -0.9 - (s > 0 ? 0.5 : 0), 0, s*0.15);
+    boneHand(float, s*0.29, s > 0 ? 0.9 : 0.78, s > 0 ? 0.52 : 0.36, s, 0.17, BN);
+  });
+  const lamp = group(float, 0.31, 0.6, 0.56); R.parts.lamp = lamp;
+  links(lamp, [0, 0.28, 0], [0, 0.12, 0], 4, 0.014, 0x2a2a24);
+  P(lamp, CY(0.05, 0.06, 0.025, 10), 0x1a1a18, 0, 0.1, 0); P(lamp, CY(0.06, 0.05, 0.025, 10), 0x1a1a18, 0, -0.08, 0);
+  for(let i=0;i<4;i++){ const a = i/4*PI*2 + PI/4; P(lamp, BX(0.01, 0.17, 0.01), 0x2a2a24, Math.cos(a)*0.05, 0.01, Math.sin(a)*0.05); }
+  const fl = glow(R, lamp, 0.04, NEON2, 0, 0.01, 0); fl.scale.set(1, 1.5, 1);
+  halo(R, lamp, NEON, 2.0, 0, 0.01, 0, 0.75);
+  (R.anim = []).push({ o:fl, flicker:0.4 });
+  halo(R, float, NEON, 1.6, 0, 0.6, 0, 0.12);
+  R.h = 1.8; R.ghostly = true;
+  return finish(R);
+};
+/* a toad gone bad in the green: swollen, bruised black, pustules weeping
+   neon bile, its eyes two coals of it */
+Models.evilfrog = function(){
+  const R = Models.frog(false, [], { evil:true });
+  R.kind = "evilfrog";
+  const b = R.body, g = new THREE.Group(); b.add(g);
+  // a gut gone to bloat, and a split down it stitched with gut
+  P(g, fSkin(0.24, 18, 12, 0.012, 14, 7, 0x3a4424, 0x1a2010, 0x5a5a30), 0xffffff, 0, 0.2, 0.12, 0, 0, 0, 1.1, 0.8, 1);
+  for(let i=0;i<6;i++) P(g, BX(0.05, 0.008, 0.01), 0x0a0a06, 0, 0.12 + i*0.035, 0.36, 0.2);
+  pustules(R, g, 6, 0.34, 0.32, 1.15, 0.7, 1.05, NEON);
+  K.bake(g, { mat:R.mat, outlineMat:R.out });
+  // bile hanging from its lip
+  [[-0.12, 0.29, 0.4], [0.07, 0.28, 0.42]].forEach(([x, y, z], i)=>{ const m = new THREE.Mesh(K.tube([[x, y, z], [x + 0.01, y - 0.08, z + 0.02], [x, y - 0.17 - i*0.04, z + 0.03]], 0.012, 8, 5), K.basic(NEON2)); R.parts.head.add(m); R.glows.push(m); });
+  halo(R, b, NEON, 1.3, 0, 0.3, 0.1, 0.18);
+  R.body.scale.setScalar(1.25); R.size = 1.25; R.h = 0.9;
+  return R;
+};
+/* the Bog Lord, Toad King: a gluttonous oozing frog the size of a cart, a
+   crown sunk in the fat of his head, a cloak of rotten lily pads, slime
+   running off him in green ropes, a court of little frogs' bones in his gut */
+Models.toadking = function(){
+  const R = Models.frog(false, ["crown"], { evil:true });
+  R.kind = "toadking";
+  if(R.parts.crown){ R.parts.crown.visible = true; }
+  const b = R.body, g = new THREE.Group(); b.add(g);
+  // the belly: enormous, sagging to the floor, shot through with green veins
+  P(g, bsPaint(bsBlob(0.3, 1.25, 0.7, 1.05, 0.02, 9, 3, 40, 26), 0x5a5a30, 0x2a2a14, 7, 2), 0xffffff, 0, 0.15, 0.16);
+  for(let i=0;i<7;i++){ const a = -0.9 + i*0.3, pts = []; for(let k=0;k<4;k++){ const e = -0.5 + k*0.3, aa = a + Math.sin(k*1.9 + i)*0.15; pts.push([Math.sin(aa)*Math.cos(e)*0.375, 0.15 + Math.sin(e)*0.21, 0.16 + Math.cos(aa)*Math.cos(e)*0.315]); } P(g, K.tube(pts, 0.006, 10, 5), 0x1a2a0e); }
+  // a cloak of rotten lily pads down his back
+  for(let i=0;i<9;i++){ const a = PI*0.7 + i*0.07*PI, y = 0.42 - (i % 3)*0.12;
+    const pad = new THREE.CylinderGeometry(0.16, 0.16, 0.012, 18, 1, false, 0.3, PI*2 - 0.6); K.sculpt(pad, 0.01, 12, i);
+    P(g, pad, i % 2 ? 0x2a3a18 : 0x34421e, Math.sin(a)*0.38, y, Math.cos(a)*0.34 - 0.02, 0.6*Math.cos(a), a, 0.5); }
+  // a ring of little skulls on a cord round his neck: frogs who wore crowns before him
+  for(let i=0;i<7;i++){ const a = -0.9 + i*0.3; P(g, S(0.035, 10, 8), 0xb8ac88, Math.sin(a)*0.33, 0.42 - Math.abs(a)*0.04, 0.1 + Math.cos(a)*0.3); P(g, zs(0.009), 0x0a0806, Math.sin(a)*0.34 - 0.01, 0.425, 0.12 + Math.cos(a)*0.31); }
+  P(g, zto(0.33, 0.006), 0x2a2018, 0, 0.43, 0.1, PI/2 - 0.15, 0, 0, 1, 0.9, 1);
+  // small weeping pustules over his back (he's drawn four times over, so they're tiny here)
+  for(let i=0;i<26;i++){
+    const a = i*2.39996, e = Math.asin(((i + 0.5)/26)*1.4 - 0.4), x = Math.cos(a)*Math.cos(e)*0.37, y = 0.27 + Math.sin(e)*0.26, z = -0.03 + Math.sin(a)*Math.cos(e)*0.35, pr = 0.009 + (i % 3)*0.005;
+    P(g, S(pr*1.4, 7, 5), 0x1a1408, x*0.98, y, z*0.98);
+    glow(R, b, pr, NEON, x, y + pr*0.3, z);
+  }
+  K.bake(g, { mat:R.mat, outlineMat:R.out });
+  // ooze: ropes of green slime running off him to the floor, glowing
+  const oozeMat = K.basic(NEON2, { transparent:true, opacity:0.85 });
+  [[-0.38, 0.3, 0.25], [0.4, 0.28, 0.18], [-0.2, 0.15, 0.48], [0.22, 0.12, 0.47], [0, 0.4, 0.42], [-0.46, 0.2, -0.05], [0.47, 0.22, -0.1]].forEach(([x, y, z], i)=>{
+    const m = new THREE.Mesh(K.tube([[x, y, z], [x*1.05, y*0.55, z*1.05], [x*1.08, 0.02, z*1.08]], 0.008 - (i % 3)*0.0015, 8, 5), oozeMat);
+    b.add(m); R.glows.push(m);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.025 + (i % 2)*0.012, 10), oozeMat); pool.rotation.x = -PI/2; pool.position.set(x*1.08, 0.012, z*1.08); b.add(pool); R.glows.push(pool);
+  });
+  // green fire in the throat, through the slit of the mouth
+  glow(R, R.parts.head, 0.02, NEON2, 0, 0.3, 0.4); halo(R, R.parts.head, NEON, 0.25, 0, 0.3, 0.42, 0.6);
+  halo(R, b, NEON, 0.9, 0, 0.3, 0, 0.18);
+  R.body.scale.setScalar(4.2); R.size = 4.2; R.h = 3;
+  return R;
+};
+/* the Archivist, Who Wrote the Dark: a knot of flesh and bound books hung
+   in chains, too many eyes, a quill of bone; the pages wheel round it */
+Models.archivist = function(){
+  const R = rig("archivist"), b = R.body;
+  const FL = 0x6a2a34, FL2 = 0x2a0a12, PG = 0xd8ceb4, LEA = 0x3a1a14;
+  const core = group(b, 0, 1.55, 0); R.parts.head = core;
+  // the knot: flesh grown round a stack of books, the spines still showing
+  P(core, bsPaint(bsBlob(0.75, 1, 1.15, 0.9, 0.08, 3.5, 5, 48, 34), FL, FL2, 3, 4, (c, x, y, z)=>{ if(bsN(x, y, z, 5, 2) > 0.45) c.lerp(bsC.setHex(0x8a5a4a), 0.5); if(Math.abs(bsN(x, y, z, 3, 7)) < 0.04) c.lerp(bsC.setHex(0x0a0206), 0.8); }), 0xffffff);
+  let sd = 3; const rnd = ()=> (sd = (sd*16807) % 2147483647)/2147483647;
+  for(let i=0;i<16;i++){
+    const a = rnd()*PI*2, e = (rnd() - 0.5)*1.6, r = 0.7;
+    const x = Math.cos(a)*Math.cos(e)*r, y = Math.sin(e)*r*1.12, z = Math.sin(a)*Math.cos(e)*r*0.88;
+    const bk = group(core, x, y, z); bsAim(bk, [x, y, z], bsFwd); bk.rotateZ(rnd()*PI);
+    const w = 0.22 + rnd()*0.12, h = 0.3 + rnd()*0.14, d = 0.07 + rnd()*0.06;
+    P(bk, BX(w, h, d), i % 3 ? LEA : 0x2a2a3a, 0, 0, 0);
+    P(bk, BX(w*0.92, h*0.94, d*0.8), PG, 0.01, 0, 0.004);
+    P(bk, BX(0.02, h, d*1.06), 0x8a6a30, -w/2, 0, 0);
+  }
+  // eyes, opening all over it, every one with a green pinprick
+  for(let i=0;i<13;i++){
+    const a = i*2.39996, e = Math.asin((i + 0.5)/13*1.6 - 0.8), r = 0.76;
+    const x = Math.cos(a)*Math.cos(e)*r, y = Math.sin(e)*r*1.15, z = Math.sin(a)*Math.cos(e)*r*0.9, er = 0.07 + (i % 3)*0.035;
+    const g = group(core, x, y, z); bsAim(g, [x, y, z], bsFwd);
+    P(g, bsRing(er*1.05, er*0.35), 0x3a0c1c, 0, 0, 0.01);
+    P(g, S(er, 14, 10), 0xc8bca0, 0, 0, -er*0.2);
+    P(g, new THREE.SphereGeometry(er*1.1, 16, 8, 0, PI*2, 0, PI*0.32), FL, 0, 0, -er*0.2, 0.9);
+    glow(R, g, er*0.36, NEON, 0, -er*0.05, er*0.74);
+  }
+  // a mouth along its middle, sewn half shut with ribbon page-markers
+  { const pts = []; for(let i=0;i<=14;i++){ const q = -1 + i/14*2; pts.push([Math.sin(q)*0.62, -0.1 - q*q*0.08, Math.cos(q)*0.56]); }
+    P(core, K.tube(pts, 0.03, 28, 6), 0x0a0206);
+    for(let i=1;i<14;i+=2) P(core, BX(0.02, 0.12, 0.01), i % 4 === 1 ? 0x8a1a1a : 0x2a3a6a, pts[i][0], pts[i][1], pts[i][2], 0, Math.atan2(pts[i][0], pts[i][2]), 0); }
+  // chains up into the dark, and the quill arm of bone
+  [[-0.5, 0.75], [0.45, 0.8], [0, 0.95]].forEach(([x, y])=> links(core, [x, y, 0], [x*1.3, y + 1.2, -0.1], 9, 0.04, 0x2a2420));
+  limb(core, [[0.6, -0.1, 0.3], [0.95, -0.35, 0.5], [1.15, -0.2, 0.75]], 0.04, 0xb0a488, 0xb0a488);
+  P(core, CO(0.03, 0.5, 6), 0xd8d0c0, 1.2, 0.05, 0.82, -0.6, 0, -0.3);
+  glow(R, core, 0.025, NEON, 1.25, -0.2, 0.8);
+  // loose pages wheeling round it (they spin with R.anim)
+  const ring = group(b, 0, 1.4, 0); (R.anim = []).push({ o:ring, spin:0.6 });
+  for(let i=0;i<12;i++){ const a = i/12*PI*2, r = 1.25 + (i % 3)*0.15;
+    P(ring, BX(0.22, 0.28, 0.008), PG, Math.cos(a)*r, Math.sin(i*1.7)*0.35, Math.sin(a)*r, 0.3*Math.sin(i), -a, 0.2);
+    P(ring, BX(0.16, 0.006, 0.01), 0x3a2a1a, Math.cos(a)*r, Math.sin(i*1.7)*0.35 + 0.06, Math.sin(a)*r, 0.3*Math.sin(i), -a, 0.2); }
+  halo(R, core, NEON, 4, 0, 0, 0.3, 0.2);
+  halo(R, core, 0xff6a5a, 2.5, 0, -0.2, 0.5, 0.18);
+  R.h = 2.9; return finish(R, { w:0.03 });
+};
+
+/* a glowing mushroom (the Gribbus route): a clump of three, neon green caps
+   with dark gills, giving off light and little rising sparks */
+Models.glowshroom = function(){
+  const R = rig("glowshroom"), b = R.body;
+  [[0, 0, 0.32, 0.5], [0.17, 0.08, 0.2, 0.32], [-0.14, 0.1, 0.16, 0.25]].forEach(([x, z, r, h], i)=>{
+    P(b, CY(r*0.22, r*0.32, h, 10), 0xc8d8a8, x, h/2, z, (i - 1)*0.12, 0, (i - 1)*0.1);
+    P(b, new THREE.SphereGeometry(r, 20, 10, 0, PI*2, 0, PI*0.45), 0x2a5a1a, x, h, z, 0, 0, 0, 1, 0.55, 1);
+    P(b, new THREE.CircleGeometry(r*0.94, 18), 0x14200c, x, h - 0.005, z, PI/2);
+    for(let k=0;k<6;k++){ const a = k/6*PI*2 + i; glow(R, b, r*0.09, NEON2, x + Math.cos(a)*r*0.55, h + r*0.36, z + Math.sin(a)*r*0.55); }
+    for(let k=0;k<5;k++){ const a = k*2.1 + i, q = 0.35 + (k % 2)*0.3; glow(R, b, r*0.07, NEON2, x + Math.cos(a)*r*q, h + r*0.5*Math.cos(q), z + Math.sin(a)*r*q); }
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(r*1.01, 16, 8, 0, PI*2, 0, PI*0.42), K.basic(NEON, { transparent:true, opacity:0.22 }));
+    cap.position.set(x, h, z); cap.scale.set(1, 0.56, 1); b.add(cap); R.glows.push(cap);
+  });
+  R.glowHalo = halo(R, b, NEON, 2.4, 0, 0.45, 0, 0.7);
+  R.h = 0.7; return finish(R, { w:0.015 });
+};
+/* the door of eyes in Olm's library: a slab of grown-over flesh in a frame
+   of black wood, twelve eyes in it. Shut (lids down) until the lantern
+   comes; then they open, every one, and the door glows */
+Models.eyedoor = function(){
+  const R = rig("eyedoor"), b = R.body;
+  const F = 0x6a2a34, W = 0x1a120c;
+  P(b, BX(1.5, 2.3, 0.18), W, 0, 1.15, 0);
+  P(b, bsPaint(bsJitter(new THREE.BoxGeometry(1.25, 2.05, 0.16, 10, 16, 2), 0.02, 6, 4), F, 0x2a0a12, 4, 2), 0xffffff, 0, 1.12, 0.04);
+  P(b, new THREE.CylinderGeometry(0.63, 0.63, 0.19, 24, 1, false, -PI/2, PI), W, 0, 2.3, 0, PI/2, 0, 0, 1, 1, 0.6);
+  R.lids = []; R.irises = [];
+  [[-0.35, 1.85], [0.32, 1.95], [0, 1.6], [-0.42, 1.35], [0.4, 1.3], [-0.12, 1.05], [0.2, 0.8], [-0.38, 0.6], [0.4, 0.45], [0, 0.35], [-0.15, 1.5], [0.15, 1.2]].forEach(([x, y], i)=>{
+    const er = 0.07 + (i % 3)*0.025, g = group(b, x, y, 0.13);
+    P(g, bsRing(er*1.1, er*0.4), 0x3a0c1c, 0, 0, 0.01);
+    P(g, S(er, 14, 10), 0xc8bca0, 0, 0, -er*0.25);
+    const ir = glow(R, g, er*0.42, NEON, 0, 0, er*0.7); ir.visible = false; R.irises.push(ir);
+    const lg = group(g, 0, 0, -er*0.25); R.lids.push(lg);
+    P(lg, new THREE.SphereGeometry(er*1.12, 14, 10), F, 0, 0, 0);
+    P(lg, BX(er*2, er*0.08, 0.01), 0x1a0408, 0, 0, er*1.1);
+  });
+  R.glow = halo(R, b, NEON, 3.5, 0, 1.2, 0.4, 0);
+  R.h = 2.4; return finish(R, { w:0.02 });
+};
+/* open (k 0..1): the lids roll back and the door glows */
+Models.eyedoorOpen = function(R, k, t){
+  R.lids.forEach((l, i)=>{ const o = Math.min(1, k*1.2 + 0.05*Math.sin(t*2 + i)*k); l.scale.set(1, Math.max(0.02, 1 - o), 1); l.visible = o < 0.98; });
+  R.irises.forEach((ir, i)=>{ ir.visible = k > 0.2; ir.position.x = Math.sin(t*0.7 + i)*0.01; });
+  R.glow.material.opacity = 0.55*k*(0.85 + 0.15*Math.sin(t*3));
 };
 
 /* a Gribbus buff on a lily pad: a mossy bronze token with its letter */

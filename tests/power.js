@@ -42,13 +42,16 @@ function trial(word, items, boons, frogBuffs){
 function rollBuild(i){
   const G = new DG.Game({ seedWord:"PWR" + i, floor:1 });
   const items = [];
-  // what a run sees by floor 4: a treasure item a floor (two from floor 3), a boss item a floor,
-  // a couple bought, sometimes a secret room's or an altar's
-  const plan = ["t", "b", "t", "s", "b", "t", "t", "s", "b", "t"];
-  if(G.rng.chance(0.6)) plan.push("x");
-  if(G.rng.chance(0.3)) plan.push("a");
+  // what a run sees by floor 4 now: a lair's and a boss's item on each of floors 1-3
+  // (the lair's from the secret pool from floor 3), one bought most floors, sometimes
+  // a secret room's, an altar's or one of Olm's. No levels, so no boons (bar Olm's
+  // blessing, now and then)
+  const plan = ["t", "b", "s", "t", "b", "x", "b", "s"];
+  if(G.rng.chance(0.5)) plan.push("x");
+  if(G.rng.chance(0.2)) plan.push("a");
+  if(G.rng.chance(0.25)) plan.push("t");
   plan.forEach((pool, k)=>{ G.floor = 1 + Math.floor(k/3); const id = DG.Items.roll(G, pool); items.push(id); G.giveItem(id, true); });
-  const boons = []; for(let k=0;k<9;k++){ const o = DG.Items.rollBoons(G, 3); boons.push(o[0]); G.player.boons.push(o[0]); }
+  const boons = []; if(G.rng.chance(0.25)){ const o = DG.Items.rollBoons(G, 1); boons.push(o[0]); G.player.boons.push(o[0]); }
   return { items, boons };
 }
 
@@ -69,9 +72,9 @@ const top = rows.slice().sort((a, b)=> b.x - a.x)[0];
 console.log("  strongest build: " + top.items.join(", "));
 const fr = rows.map(r=> r.frog).sort((a, b)=> a - b);
 console.log("  Gribbus' share of the damage: median " + Math.round(pct(fr, 0.5)*100) + "%   p90 " + Math.round(pct(fr, 0.9)*100) + "%   baseline " + Math.round(base.frog*100) + "%");
-// a frog run: the same rolled floor-4 builds, but four of the items, three of the boons and
-// two pond tricks went to the frog. Is Gribbus the killer, and is the run as strong as any other?
-const FROG4 = ["bogpact", "familiar", "twister", "hungrytongue"], FROGB = ["b_frog", "b_frogd", "b_bond"], FROGT = ["crown", "bigboy"];
+// a frog run: the same rolled floor-4 builds, but four of the items and two of
+// Gribbus' tricks went to the frog. Is Gribbus the killer, and is the run as strong as any other?
+const FROG4 = ["bogpact", "familiar", "twister", "hungrytongue"], FROGB = [], FROGT = ["crown", "bigboy"];
 const fx = [], fs = [];
 for(let i=0;i<Math.ceil(N/2);i++){
   const b = rollBuild(i), items = FROG4.concat(b.items.filter(id=> FROG4.indexOf(id) < 0).slice(4)), boons = FROGB.concat(b.boons.slice(3));

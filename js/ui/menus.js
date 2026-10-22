@@ -79,7 +79,8 @@ UI.how = function(back){
         <p>You are <b>Zippy</b>, a hexhunter who casts spells <b>through guns</b>. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
         <p>Every shot carries its gun's <b>element</b>. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
         <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
-        <p>Kills give <b>XP</b>; each level lets you pick a <b>boon</b>. <b>Frog ponds</b> teach Gribbus new tricks. <b>Golden flies</b> unlock rarer ones for every future run.</p>
+        <p>There are no levels: you grow by what you <b>find</b>. Bosses and the lair on every floor each carry a powerup; shops sell them, and so does Brother Olm, if you meet him. A lucky run breaks wide open. Most don't. Read the enemies: their shots hang, bend and burst, and every one can be dodged.</p>
+        <p><b>Gribbus' pond</b> is rare: three of his tricks float on its lily pads and he keeps one. His tricks turn up in shops and on bosses too. Now and then a run hides a <b>side road</b>: glowing mushrooms, Brother Olm met twice, or a sealed reliquary. Never more than one.</p>
         <p><b>Not every door is a door.</b> Some are paintings. Some walls are not walls: shoot or walk into suspicious stone. Trust nothing down here.</p>
       </div>
       <div class="note keys">
@@ -124,22 +125,15 @@ UI.journal = function(G){
     const state = done ? "cut" : here ? "here" : f < G.floor ? "past" : "below";
     return `<li class="${state}"><span class="fl">${f}</span><span class="nm">${esc(F.name)}</span><span class="bs">${done ? "✝ " : ""}${esc(B ? B.name : "")}</span></li>`;
   }).join("");
-  const roads = [];
-  if(p.quests.ember) roads.push(`<span class="chipx" style="--c:#ff9a4a">The Ember: it wants to go down, past the Heart, to the Kiln</span>`);
-  if(p.quests.crown && !(G.roads && G.roads.rot.stage)) roads.push(`<span class="chipx" style="--c:#7ac84a">The Crown of the Bog: Gribbus has plans</span>`);
-  // the Rot road, once he's drunk from the lily: every step, done or not
-  const rot = G.roads && G.roads.rot;
-  const rotRoad = rot && rot.stage >= 1 && DG.Roads ? `<h4 class="road rot">The Rot</h4><ol class="steps">${DG.Roads.rotSteps(G).map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>` : "";
-  const lan = G.roads && G.roads.lantern;
-  const lanRoad = lan && lan.stage >= 1 && DG.Roads ? `<h4 class="road lantern">The Lantern</h4><ol class="steps">${DG.Roads.lanternSteps(G).map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>` : "";
-  const shut = (G.roads && G.roads.lantern.closed ? `<p class="tally shut">The Lantern road is shut.</p>` : "") + (G.roads && G.roads.rot.closed ? `<p class="tally shut">The black lily won't open for you now.</p>` : "");
+  // the run's side road, once you've stumbled on it: every step, done or not
+  const R = DG.Roads && DG.Roads.spotted(G) ? DG.Roads.steps(G) : null;
+  const road = R ? `<h4 class="road ${R.id}">${esc(R.name)}</h4><ol class="steps">${R.steps.map(s=> `<li class="${s.done ? "done" : ""}">${esc(s.text)}</li>`).join("")}</ol>${R.note ? `<p class="tally">${esc(R.note)}</p>` : ""}` : "";
   return `<div class="journal">
       <h4>The road down</h4>
       <p class="mission">The Gloom is a rot coming up from the Heart at the bottom of the Keep. Each warden below is one of its roots. Go down. Cut them. Still the Heart.</p>
       <ol class="roots">${rows}</ol>
       <p class="tally">Lairs cleared: <b>${G.stats.lairs || 0}</b> · Puzzles solved: <b>${G.stats.puzzles || 0}</b> · Secrets: <b>${G.stats.secrets || 0}</b></p>
-      ${roads.length ? `<div class="chips">${roads.join("")}</div>` : ""}
-      ${lanRoad}${rotRoad}${shut}
+      ${road}
     </div>`;
 };
 
@@ -165,12 +159,12 @@ UI.bag = function(G){
   const tiers = DG.TIERS.map((T, t)=> ({ T, ids:ids.filter(id=> DG.ITEMS[id].tier === t) })).reverse().filter(x=> x.ids.length);
   const items = ids.length ? tiers.map(({ T, ids })=> `<h5 class="tierh" style="--c:${T.color}">${T.name} <span>${ids.length}</span></h5><div class="pws">${ids.map(id=>{ const it = DG.ITEMS[id];
       return pw(id, T.color, it.name + (p.items[id] > 1 ? " ×" + p.items[id] : ""), T.name, it.desc, it.flavor); }).join("")}</div>`).join("")
-    : `<p class="hint">No powerups yet. Treasure rooms, shops, bosses, chests and secrets hold them, and they stack in strange and terrible ways.</p>`;
+    : `<p class="hint">No powerups yet. Lairs and bosses carry them, shops and Brother Olm sell them, and secrets hide them. They stack in strange and terrible ways.</p>`;
   const duoList = (G.mods.duos || []).map(n=> DG.DUOS.find(d=> d.name === n)).filter(Boolean);
   const duos = duoList.map(d=> `<div class="pw duo" style="--c:#c86aa8"><span class="pair">${icon(d.a, 34)}${icon(d.b, 34)}</span><div class="pwt"><b>${esc(d.name)}</b><small>duo · ${esc(DG.ITEMS[d.a].name)} + ${esc(DG.ITEMS[d.b].name)}</small><span>${esc(d.desc)}</span></div></div>`).join("");
   const forms = (G.mods.sets || []).map(id=> DG.SETS.find(x=> x.id === id)).filter(Boolean).map(s=> pw("set:" + s.id, "#c07ab8", s.name, "transformation", s.desc)).join("");
-  const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Level up to choose boons.</span>`;
-  const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${icon("frog:" + id, 22, "ico sm")}${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Find a frog pond to teach Gribbus a trick.</span>`;
+  const boons = p.boons.length ? p.boons.map(id=> `<span class="chipx" style="--c:#b8ff6a" title="${esc(DG.BOONS[id].desc)}">${esc(DG.BOONS[id].name)}</span>`).join("") : `<span class="hint">Brother Olm gives blessings, for a price.</span>`;
+  const frog = G.gribbus && G.gribbus.buffs.length ? G.gribbus.buffs.map(id=> `<span class="chipx" style="--c:#9cff6a" title="${esc(DG.FROG_BUFFS[id].desc)}">${icon("frog:" + id, 22, "ico sm")}${esc(DG.FROG_BUFFS[id].name)}</span>`).join("") : `<span class="hint">Gribbus' pond, shops and bosses hold his tricks.</span>`;
   const act = p.active ? pw("active:" + p.active.id, "#e8c878", DG.ACTIVES[p.active.id].name, "active item · F", DG.ACTIVES[p.active.id].desc) : "";
   UI.show(`
     <div class="panel scroll bagp">
@@ -179,7 +173,7 @@ UI.bag = function(G){
       <div class="guns">${p.guns.map(gunCard).join("")}</div>
       ${act || forms || duos ? `<h4>Held and bound</h4><div class="pws">${act}${forms}${duos}</div>` : ""}
       <h4>Powerups (${ids.length})</h4>${items}
-      <h4>Boons</h4><div class="chips">${boons}</div>
+      <h4>Blessings</h4><div class="chips">${boons}</div>
       <h4>Gribbus</h4><div class="chips">${frog}</div>
       ${(p.pacts || []).length ? `<h4>The Red God's due</h4><div class="chips">${p.pacts.map(k=> `<span class="chipx" style="--c:#d0402a" title="${esc(DG.PACTS[k].desc)}">${esc(DG.PACTS[k].name)}: ${esc(DG.PACTS[k].desc)}</span>`).join("")}</div>` : ""}
       <div class="row"><button class="item back" data-act="closeBag">CLOSE <small>TAB</small></button></div>
@@ -190,61 +184,58 @@ UI.bag = function(G){
    His menu rides on the game's "choose" state (the world waits while you
    talk). Mouse: click. Keys: 1-9, arrows and Enter, Esc to leave. */
 const OLM_CSS = `
-.screens.olm{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 45%,rgba(40,26,12,.82) 0%,rgba(8,6,4,.95) 60%,rgba(3,2,2,.98) 100%);}
-.olmp{display:grid;grid-template-columns:150px minmax(0,560px);gap:26px;align-items:start;max-width:780px;width:calc(100% - 32px);padding:22px 26px;background:linear-gradient(180deg,rgba(14,10,7,.94),rgba(8,6,4,.96));border:1px solid rgba(200,164,90,.28);box-shadow:0 0 0 1px #000,0 18px 60px rgba(0,0,0,.7);}
-.olmp .face{width:150px;height:190px;position:relative;}
-.olmp .face svg{width:100%;height:100%;filter:drop-shadow(0 0 18px rgba(255,170,70,.35));}
-.olmp .face .lamp{animation:olmflick 2.6s infinite ease-in-out;}
-@keyframes olmflick{0%,100%{opacity:.95}40%{opacity:.75}55%{opacity:1}70%{opacity:.82}}
-.olmp h2.head{margin:0 0 4px;font-size:26px;letter-spacing:.14em;}
-.olmp .who{color:#b89a6a;font-size:13px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px;}
-.olmp .olmline{font-size:19px;line-height:1.45;color:#eadcc0;font-style:italic;min-height:58px;margin:0 0 14px;padding:12px 16px;border-left:2px solid #c8a45a;background:linear-gradient(90deg,rgba(40,28,14,.7),rgba(10,8,6,0));animation:olmline .45s ease-out;}
+.screens.olm{display:flex;align-items:flex-end;justify-content:center;padding-bottom:3vh;background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 38%,rgba(6,5,3,.72) 62%,rgba(4,3,2,.94) 100%);}
+.olmd{max-width:980px;width:calc(100% - 32px);padding:16px 22px 14px;background:linear-gradient(180deg,rgba(16,12,8,.95),rgba(8,6,4,.97));border:1px solid rgba(200,164,90,.3);border-top:2px solid rgba(232,200,120,.45);box-shadow:0 0 0 1px #000,0 -10px 50px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,220,150,.06);}
+.olmd .nameplate{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px;}
+.olmd .nameplate h2{margin:0;font-size:22px;letter-spacing:.16em;color:#ecd8a8;}
+.olmd .nameplate .who{color:#a8906a;font-size:12px;letter-spacing:.22em;text-transform:uppercase;}
+.olmd .nameplate .purse{margin-left:auto;color:#c8b48a;font-size:13px;letter-spacing:.05em;white-space:nowrap;}
+.olmd .nameplate .purse b{color:#ffd27a;}
+.olmd .olmline{font-size:18px;line-height:1.45;color:#eadcc0;font-style:italic;margin:0 0 12px;padding:8px 14px;border-left:2px solid #c8a45a;background:linear-gradient(90deg,rgba(48,34,16,.55),rgba(10,8,6,0));animation:olmline .4s ease-out;}
 @keyframes olmline{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.olmp .purse{color:#c8b48a;font-size:14px;margin-bottom:10px;letter-spacing:.06em;}
-.olmp .purse b{color:#ffd27a;}
-.olmp .opts{display:flex;flex-direction:column;gap:6px;}
-.olmp .item.opt{display:flex;align-items:center;justify-content:flex-start;gap:12px;text-align:left;white-space:normal;padding:8px 14px 8px 30px;}
-.olmp .item.opt kbd{flex:none;}
-.olmp .item.opt .t{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}
-.olmp .item.opt b{font-weight:600;color:#e2d2a8;letter-spacing:.05em;}
-.olmp .item.opt small{opacity:.85;font-size:13px;margin:0;color:#c8b898;letter-spacing:.02em;}
-.olmp .item.opt[disabled]{opacity:.38;}
-.olmp .item.opt img{flex:none;}
-.olmp .hint{margin-top:10px;}
-@media (max-width:640px){ .olmp{grid-template-columns:1fr;gap:10px;} .olmp .face{width:90px;height:110px;margin:0 auto;} .olmp .olmline{font-size:16px;} }`;
+.olmd .opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;}
+.olmd .opts.trade{grid-template-columns:repeat(2,minmax(0,1fr));}
+.olmd .item.opt{display:flex;align-items:center;justify-content:flex-start;gap:10px;text-align:left;white-space:normal;padding:7px 12px 7px 12px;border:1px solid rgba(200,164,90,.14);background:rgba(20,15,10,.6);}
+.olmd .item.opt::before{display:none;}
+.olmd .item.opt:hover,.olmd .item.opt.sel{border-color:rgba(232,200,120,.55);background:linear-gradient(90deg,rgba(200,164,90,.18),rgba(200,164,90,.04));}
+.olmd .item.opt kbd{flex:none;min-width:20px;text-align:center;}
+.olmd .item.opt .t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;flex:1;}
+.olmd .item.opt b{font-weight:600;color:#e2d2a8;letter-spacing:.04em;font-size:15px;}
+.olmd .item.opt small{opacity:.88;font-size:12.5px;margin:0;color:#bfae8e;letter-spacing:.01em;line-height:1.3;}
+.olmd .item.opt .cost{flex:none;font-family:var(--body);font-size:13px;color:#ffd27a;border:1px solid rgba(232,200,120,.35);padding:1px 7px;white-space:nowrap;}
+.olmd .item.opt .cost.no{color:#8a6a5a;border-color:rgba(140,100,80,.35);}
+.olmd .item.opt .tag{flex:none;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9cd86a;}
+.olmd .item.opt.special{grid-column:1/-1;border-color:rgba(200,240,170,.45);background:linear-gradient(90deg,rgba(150,220,110,.16),rgba(20,15,10,.6));}
+.olmd .item.opt.special b{color:#e8ffd0;}
+.olmd .item.opt.leave{grid-column:1/-1;justify-content:center;background:transparent;border-color:rgba(200,164,90,.1);}
+.olmd .item.opt[disabled]{opacity:.36;}
+.olmd .item.opt img{flex:none;}
+.olmd .tierto{font-family:var(--body);font-size:12.5px;letter-spacing:.04em;}
+.olmd .tierto i{font-style:normal;}
+.olmd .hint{margin:10px 0 0;font-size:12px;opacity:.7;}
+@media (max-width:640px){ .olmd .opts,.olmd .opts.trade{grid-template-columns:1fr;} .olmd .olmline{font-size:15px;} .olmd .nameplate .purse{margin-left:0;} }`;
 function olmStyle(){ if(document.getElementById("olm-css")) return; const s = document.createElement("style"); s.id = "olm-css"; s.textContent = OLM_CSS; document.head.appendChild(s); }
-/* his likeness: a pot helm, a cowl, a lantern held up (drawn, not a photo; he'd never sit for one) */
-/* his likeness: the hood, empty, and the cage-lantern hung where a face should be */
-const OLM_FACE = `<svg viewBox="0 0 150 190" aria-hidden="true">
-  <defs><radialGradient id="olmL" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe2a0"/><stop offset=".35" stop-color="#ff9a3a" stop-opacity=".75"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
-  <path d="M8 190 C14 140 30 112 75 104 C120 112 136 140 142 190Z" fill="#2a241e" stroke="#0c0806" stroke-width="2"/>
-  <path d="M22 132 C30 60 48 18 82 8 C96 30 118 70 128 132 C110 118 40 118 22 132Z" fill="#2e2822" stroke="#0c0806" stroke-width="2.5"/>
-  <path d="M38 126 C44 78 58 52 78 44 C96 54 108 84 112 126 C96 116 54 116 38 126Z" fill="#050403"/>
-  <path d="M30 130 C44 120 106 120 120 130" fill="none" stroke="#4a4034" stroke-width="5"/>
-  <g fill="#d8cca8">${[30, 44, 104, 118].map((x, i)=> `<rect x="${x}" y="${132 + (i % 2)*4}" width="7" height="14" rx="1"/>`).join("")}</g>
-  <circle class="lamp" cx="75" cy="102" r="40" fill="url(#olmL)"/>
-  <path d="M75 50 L75 78" stroke="#26241f" stroke-width="2.5"/>
-  <g stroke="#26241f" stroke-width="2.5" fill="none"><ellipse cx="75" cy="84" rx="9" ry="3"/><ellipse cx="75" cy="118" rx="9" ry="3"/>
-  ${[-12, -6, 0, 6, 12].map(x=> `<path d="M${75 + x*0.7} 84 Q${75 + x} 101 ${75 + x*0.7} 118"/>`).join("")}</g>
-  <ellipse cx="75" cy="101" rx="5" ry="9" fill="#fff0b0"/>
-  <path d="M75 120 L75 128" stroke="#26241f" stroke-width="2"/>
-</svg>`;
+/* Brother Olm's talk: a panel along the bottom (he and his frogs stay in view
+   above it), his line, and what you can do, as cards. The trade is a grid of
+   what you carry, each showing the tier it would climb to */
 UI.olm = function(G){
   olmStyle();
-  const c = G.choice, p = G.player;
-  const opts = c.options.map((o, i)=> `<button class="item opt" data-act="olm" data-i="${i}" ${o.disabled ? "disabled" : ""}>
-      <kbd>${i + 1}</kbd>${o.icon ? icon(o.icon, 30) : ""}<span class="t"><b>${esc(o.label)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</span></button>`).join("");
+  const c = G.choice, p = G.player, T = DG.TIERS;
+  const tierName = t=> `<i style="color:${T[t].color}">${esc(T[t].name)}</i>`;
+  const opts = c.options.map((o, i)=>{
+    const cls = "item opt" + (o.special ? " special" : "") + (o.act === "leave" || o.act === "back" ? " leave" : "");
+    const cost = o.price ? `<span class="cost${p.gold < o.price ? " no" : ""}">${o.price}g</span>` : "";
+    const sub = c.page === "trade" && o.to !== undefined ? `<span class="tierto">${tierName(o.tier)} → a ${tierName(o.to)} powerup</span>` : o.sub ? `<small>${esc(o.sub)}</small>` : "";
+    const ico = o.icon ? icon(o.icon, c.page === "trade" ? 38 : 32) : "";
+    return `<button class="${cls}" data-act="olm" data-i="${i}" ${o.disabled ? "disabled" : ""}><kbd>${i + 1}</kbd>${ico}<span class="t"><b>${esc(o.label)}</b>${sub}</span>${o.tag ? `<span class="tag">${esc(o.tag)}</span>` : ""}${cost}</button>`;
+  }).join("");
   UI.show(`
-    <div class="olmp">
-      <div class="face">${OLM_FACE}</div>
-      <div>
-        <h2 class="head">BROTHER OLM</h2>
-        <div class="who">the Lantern Pilgrim${c.page === "trade" ? " · a trade" : ""}</div>
-        <p class="olmline">“${esc(c.line)}”</p>
-        <div class="purse"><b>${p.gold}</b> gold · <b>${p.keys}</b> ${p.keys === 1 ? "key" : "keys"} · <b>${Math.ceil(p.hp)}</b>/${p.maxHp} health</div>
-        <div class="opts">${opts}</div>
-        <p class="hint">Click, or press 1-${c.options.length}. Esc to ${c.page === "trade" ? "go back" : "leave"}.</p>
-      </div>
+    <div class="olmd">
+      <div class="nameplate"><h2 class="head">BROTHER OLM</h2><span class="who">the Lantern Pilgrim${c.page === "trade" ? " · a trade" : ""}</span>
+        <span class="purse"><b>${p.gold}</b> gold · <b>${p.keys}</b> ${p.keys === 1 ? "key" : "keys"} · <b>${Math.ceil(p.hp)}</b>/${p.maxHp} health</span></div>
+      <p class="olmline">“${esc(c.line)}”</p>
+      <div class="opts${c.page === "trade" ? " trade" : ""}">${opts}</div>
+      <p class="hint">Click, or press 1-${Math.min(9, c.options.length)}. Esc to ${c.page === "trade" ? "go back" : "leave"}.</p>
     </div>`, "olm");
   // keep the keyboard cursor where it was between his answers (a new talk starts at the top)
   const talk = c.prop + "@" + G.t; if(UI.olmTalk !== talk){ UI.olmTalk = talk; UI.olmSel = undefined; }
@@ -279,9 +270,7 @@ UI.choose = function(G){
 
 /* the ending's lore, a line at a time, before the tally */
 UI.lore = function(G, id){
-  const E0 = DG.ENDINGS[id] || DG.ENDINGS.dawn, olm = G && G.roads && G.roads.lantern.olm;
-  // the First Flame remembers what you did with Olm
-  const E = id === "flame" && olm && E0["lore_" + olm] ? Object.assign({}, E0, { lore:E0["lore_" + olm] }) : E0;
+  const E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
   UI.show(`
     <div class="lorewrap ending-${id}">
       <h2 class="lore-title">${esc(E.title)}</h2>
@@ -294,23 +283,24 @@ UI.endingSigils = function(){
   let m = {}; try{ m = JSON.parse(localStorage.getItem("dungeonofguns.meta") || "{}").endings || {}; }catch(e){}
   const n = Object.keys(DG.ENDINGS).filter(k=> m[k]).length;
   return `<div class="sigils" title="Endings found">${Object.keys(DG.ENDINGS).map(k=>
-    `<span class="sigil ${k}${m[k] ? " found" : ""}" title="${m[k] ? esc(DG.ENDINGS[k].title) : "???"}">${{ dawn:"&#9788;", flame:"&#10022;", bog:"&#9819;" }[k] || "?"}</span>`).join("")}<small>${n}/${Object.keys(DG.ENDINGS).length} endings</small></div>`;
+    `<span class="sigil ${k}${m[k] ? " found" : ""}" title="${m[k] ? esc(DG.ENDINGS[k].title) : "???"}">${{ dawn:"&#9788;", flame:"&#10022;", bog:"&#9819;", white:"&#10070;" }[k] || "?"}</span>`).join("")}<small>${n}/${Object.keys(DG.ENDINGS).length} endings</small></div>`;
 };
 
 UI.end = function(G, won){
   const s = G.stats, m = Math.floor(s.time/60), sec = Math.floor(s.time % 60);
   const killer = { orb:"Grubnok's royal spit", rock:"a thrown rock", dart:"a dart trap", hex:"a shaman's hex", spikes:"spikes", vent:"a fire vent", boom:"a goblin bomb", pit:"a pit, and a long fall", brute:"a Brute's embrace", king:"Grubnok's belly", grunt:"a Grunt's rusty blade", sneak:"a Sneak, from behind",
-    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a terrible stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar's price", matriarch:"the Morel Matriarch", bride:"the Weeping Bride", eye:"the Eye Below", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores", "giving up":"despair" };
+    spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a terrible stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar's price", matriarch:"the Morel Matriarch", bride:"the Weeping Bride", eye:"the Eye Below", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores", "giving up":"despair",
+    soul:"a Lantern Wight's soul-lights", bile:"a toad's bile", page:"the Archivist's pages", evilfrog:"a Gorged Toad", wight:"a Lantern Wight", toadking:"the Toad King", archivist:"the Archivist", tongue:"the Toad King's tongue" };
   const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "the dark";
   const END = Object.assign({ after:"" }, DG.ENDINGS[G.ending] || DG.ENDINGS.dawn,
-    { after:{ dawn:"Daylight, at last.", flame:"The fire is tended again.", bog:"Long may he croak." }[G.ending] || "" });
+    { after:{ dawn:"Daylight, at last.", flame:"The fire is tended again.", bog:"Long may he croak.", white:"The light goes where he goes." }[G.ending] || "" });
   UI.show(`
     <div class="endwrap">
       <div class="died-band"><h1 class="died ${won ? "win" : ""}">${won ? esc(END.title) : "YOU DIED"}</h1>
         <p class="died-sub">${won ? esc(END.sub) + " " + esc(END.after) : "Slain by " + esc(why) + ", on floor " + G.floor + ", in " + esc(G.D.theme.name) + "."}</p></div>
       <div class="after">
       <div class="stats">
-        <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>kills</span><span><b>${s.items}</b>powerups</span><span><b>${s.reactions}</b>reactions</span><span><b>${s.rooms}</b>rooms</span>
+        <span><b>${G.floor}</b>floor</span><span><b>${s.kills}</b>kills</span><span><b>${s.items}</b>powerups</span><span><b>${s.reactions}</b>reactions</span><span><b>${s.rooms}</b>rooms</span><span><b>${s.lairs || 0}</b>lairs</span>
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
       ${won ? UI.endingSigils() : ""}

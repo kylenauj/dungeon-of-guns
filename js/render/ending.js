@@ -9,6 +9,8 @@
  *    dawn   they walk off together into a shaft of morning light
  *    flame  the First Flame rises in the Kiln and Zippy stands before it
  *    bog    Gribbus swells up huge and crowned, and Zippy bows to his king
+ *    white  a column of holy light comes down on Zippy; he rises in it, white
+ *           from hat to hem, and the light stays on him
  *
  *  View-side only: it reads the game, builds its own rigs and never
  *  writes back. Any key or click skips it.
@@ -27,7 +29,8 @@ const seg = (t, a, b)=> ease((t - a)/(b - a));
 const MOOD = {
   dawn:  { sky:0xffe2b0, ground:0x6a5a3a, light:1.3, high:0xfff0c8, fx:0xffe6a0, len:15 },
   flame: { sky:0xffa860, ground:0x4a2010, light:1.2, high:0xffc890, fx:0xff8a2a, len:15 },
-  bog:   { sky:0x5a6a32, ground:0x0a0c08, light:0.8, high:0xc8d860, fx:0x9ab040, len:15, gloom:0.6 }   // the Rot: no dawn, a green dark
+  bog:   { sky:0xb8f0a0, ground:0x2a4a1a, light:1.1, high:0xe8ffc0, fx:0x72e050, len:15 },   // the King of the Bog: green, loud and bright
+  white: { sky:0xfffbe8, ground:0x8a8a7a, light:1.45, high:0xffffff, fx:0xfff6dc, len:16 }    // the White Wizard: holy light
 };
 const T_GATHER = 1.6, T_FLASH = 4.2, T_TITLE = 5.2, T_ACT = 6.6;
 
@@ -60,11 +63,13 @@ function walkway(G, x, y){
 DG.Ending = {};
 /* the two of them as they will be: built ahead on the last floor (View.warmUp),
    so the scene doesn't build four models in the frame it starts */
-DG.Ending.prebuild = function(){
+DG.Ending.prebuild = function(G){
   const z = M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] });
   const f = M.frog(false, ["crown"], { redeemed:true });
-  const fr = M.frog(false, ["crown"], { rot:3 });          // the king of what's left
-  return { z, f, fr };
+  const fr = M.frog(false, ["crown"], { rot:3 });          // the King of the Bog, swollen on mushrooms
+  // the White Wizard, only when Olm's road could get you there
+  const zw = !G || (G.roads && G.roads.route === "olm") ? M.zippy({ robe:"white", cape:"white", parts:["tallhat", "halo"], auras:[] }) : null;
+  return { z, f, fr, zw };
 };
 DG.Ending.play = function(G, V, id, done){
   const mood = MOOD[id] || MOOD.dawn, E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
@@ -88,8 +93,8 @@ DG.Ending.play = function(G, V, id, done){
   const fx0 = f0 ? f0.x : x0 + 1.2, fy0 = f0 ? f0.y : y0 + 0.6;
   const darkF = add(M.frog(false, G.gribbus.buffs));
   // and as they will be
-  const pre = V.endRigs || DG.Ending.prebuild(); V.endRigs = null;
-  const brightZ = add(pre.z); brightZ.root.visible = false;
+  const pre = V.endRigs || DG.Ending.prebuild(G); V.endRigs = null;
+  const brightZ = add(id === "white" && pre.zw ? pre.zw : pre.z); brightZ.root.visible = false;
   const brightF = add(id === "bog" && pre.fr ? pre.fr : pre.f); brightF.root.visible = false;
   if(brightF.parts.crown) brightF.parts.crown.visible = id === "bog";
   [brightZ, brightF].forEach(R=>{ if(R.parts.tongue) R.parts.tongue.visible = false; });
@@ -216,6 +221,7 @@ DG.Ending.play = function(G, V, id, done){
     const act = k - T_ACT;
     if(id === "dawn") dawn(act, dt, t);
     else if(id === "flame") flame(act, dt, t);
+    else if(id === "white") white(act, dt, t);
     else bog(act, dt, t);
   }
 
@@ -299,6 +305,30 @@ DG.Ending.play = function(G, V, id, done){
     if(Math.random() < 0.3) FX.emit(fx + (Math.random() - 0.5)*5, 0.05, fy + (Math.random() - 0.5)*5, 0, 0.3, 0, Math.random() < 0.5 ? 0x9ab040 : 0x3a2a4a, 0.1, 1.6, -0.05, 0.6);
     S.rig.tx = lerp(x0 - side.x*back, fx, 0.5); S.rig.tz = lerp(y0 - side.y*back, fy, 0.5) - 0.3;
     S.rig.dist = lerp(10.5, 13.5, grow);
+  }
+
+  function white(act, dt, t){
+    const Z = brightZ, F = brightF;
+    // the column comes down on him, and stays
+    if(!shaft && act > -1.4){
+      shaft = new THREE.Group(); shaft.position.set(x0, 0, y0); S.scene.add(shaft);
+      [[0.9, 0.1], [0.45, 0.16], [0.18, 0.3]].forEach(([r, op])=>{ const m = new THREE.Mesh(new THREE.CylinderGeometry(r*0.8, r*1.3, 14, 20, 1, true), new THREE.MeshBasicMaterial({ color:0xfffbe8, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false })); m.position.y = 7; shaft.add(m); });
+      hearth = new THREE.PointLight(0xfffbe8, 0, 12, 1.4); hearth.position.set(x0, 2.5, y0); S.scene.add(hearth);
+      FX.soul(x0, y0, 12, 10, 0xfffbe8); FX.ring(x0, y0, 4, 0xfffbe8, 1.4); S.shake(0.35);
+    }
+    if(hearth) hearth.intensity = Math.min(3.5, hearth.intensity + dt*2.5) + Math.sin(t*3)*0.15;
+    if(shaft) shaft.children.forEach((m, i)=>{ m.rotation.y = t*(0.2 + i*0.1); });
+    // he rises a little in it, arms out, and comes down lightly; Gribbus sits and watches
+    const up = seg(act, 0.3, 2.6)*(1 - seg(act, 6.5, 8.5));
+    Z.root.position.set(x0, 0.35*up, y0);
+    Z.root.rotation.y += DG.wrapAngle(0 - Z.root.rotation.y)*(1 - Math.exp(-dt*3));
+    M.animate(Z, t, 0); M.stalk(Z, { speed:0, fwd:0, side:0, max:DG.PLAYER.speed }, t, dt);
+    Z.parts.armL.rotation.z = -0.3 - 0.9*up; Z.parts.armR.rotation.z = 0.9*up;
+    M.tint(Z, 0xfffbe8, 0.12 + 0.1*up + 0.04*Math.sin(t*4));
+    F.root.position.set(fx1, 0, fy1); F.root.rotation.y += DG.wrapAngle(0.4 - F.root.rotation.y)*(1 - Math.exp(-dt*3));
+    M.animate(F, t, 0); M.hop(F, { k:-1 }, t, dt);
+    if(Math.random() < 0.8) FX.emit(x0 + (Math.random() - 0.5)*1.6, 0.1 + Math.random()*3.5, y0 + (Math.random() - 0.5)*1.6, 0, 0.6 + Math.random(), 0, Math.random() < 0.7 ? 0xfffbe8 : 0xc8ffb0, 0.14, 1.4, -0.05, 0.6);
+    S.rig.tx = x0; S.rig.tz = y0;
   }
 
   // after the scene (behind the lore and the end screen): they stand in the light

@@ -91,8 +91,7 @@ DG.UNIQUES = [
 DG.PLAYER = {
   hp:100, mana:100, manaRegen:7, manaOnKill:4, speed:6, radius:0.32,
   blink:{ dist:3.6, time:0.14, iframes:0.3, cd:0.85 },
-  hurtIframes:0.7, maxGuns:3, maxWards:6,
-  xp:(lvl)=> 30 + 30*(lvl - 1)
+  hurtIframes:0.7, maxGuns:3, maxWards:6
 };
 
 /* ---- enemies ----------------------------------------------------------
@@ -107,7 +106,7 @@ DG.ENEMIES = {
   bomber:   { name:"Goblin Bomber",   hp:20,  speed:3.0, radius:0.34, cost:2,   dmg:16, gold:[2,3], ai:"bomber",  model:"bomber",
               bomb:{ cd:2.6, fuse:1.15, radius:1.7 }, keep:[4, 7], lines:["Fire in the hole!", "Hehehe... boom."] },
   shaman:   { name:"Goblin Shaman",   hp:26,  speed:2.8, radius:0.34, cost:2.5, dmg:7,  gold:[2,4], ai:"shaman",  model:"shaman",
-              shot:{ speed:6, cd:2.4, tell:0.5, n:3, spread:22, kind:"hex" }, heal:{ cd:4.5, amt:10, range:6 }, keep:[5, 8], lines:["Bones, rise!", "Up, ya lazy corpse."] },
+              shot:{ speed:5.5, cd:2.4, tell:0.5, n:3, spread:26, kind:"hex", curve:0.9 }, heal:{ cd:4.5, amt:10, range:6 }, keep:[5, 8], lines:["Bones, rise!", "Up, ya lazy corpse."] },
   brute:    { name:"Goblin Brute",    hp:90,  speed:2.3, radius:0.6,  cost:3.5, dmg:18, gold:[4,7], ai:"brute",   model:"brute",
               charge:{ cd:3.4, tell:0.75, speed:10, time:0.65, stun:1.4 }, lines:["CRUSH.", "Brute want hug."] },
   sneak:    { name:"Goblin Sneak",    hp:18,  speed:5.0, radius:0.3,  cost:1.5, dmg:11, gold:[2,3], ai:"sneak",   model:"sneak",
@@ -122,7 +121,7 @@ DG.ENEMIES = {
   shroomlet:{ name:"Shroomlet",       hp:10,  speed:4.2, radius:0.24, cost:0.5, dmg:6,  gold:[0,1], ai:"melee",   model:"shroomlet" },
   /* the haunted */
   ghost:    { name:"Ghost",           hp:28,  speed:2.2, radius:0.36, cost:2,   dmg:10, gold:[1,3], ai:"ghost",   model:"ghost", phases:true,
-              shot:{ speed:5, cd:3, tell:0.5, n:1, kind:"ecto" }, lines:["Leave... this place...", "So cold..."] },
+              shot:{ speed:5, cd:3, tell:0.5, n:3, spread:50, kind:"ecto", stall:{ at:0.35, hold:0.75, speed:9 } }, lines:["Leave... this place...", "So cold..."] },
   banshee:  { name:"Banshee",         hp:38,  speed:2.6, radius:0.38, cost:3,   dmg:9,  gold:[2,4], ai:"banshee", model:"banshee", phases:true,
               wail:{ cd:4.5, tell:0.9, n:11, arc:70, speed:6.5 }, keep:[3.5, 6.5] },
   skeleton: { name:"Skeleton Archer", hp:24,  speed:3.0, radius:0.33, cost:2,   dmg:10, gold:[1,3], ai:"ranged",  model:"skeleton", reassemble:true,
@@ -140,9 +139,14 @@ DG.ENEMIES = {
   rotling:  { name:"Rotling",         hp:11,  speed:5.0, radius:0.3,  cost:0.7, dmg:8,  gold:[0,1], ai:"melee",   model:"rotling",
               lines:["skrrk", "*squelch*"] },
   spitter:  { name:"Mould Spitter",   hp:26,  speed:2.2, radius:0.4,  cost:2,   dmg:11, gold:[1,3], ai:"ranged",  model:"spitter",
-              shot:{ speed:7, cd:2.3, tell:0.55, n:3, spread:24, kind:"acid" }, keep:[4.5, 7.5] },
+              shot:{ speed:7, cd:2.3, tell:0.55, n:3, spread:24, kind:"acid", split:{ at:0.55, n:3, spread:70, speed:6 } }, keep:[4.5, 7.5] },
   bloater:  { name:"Bloater",         hp:60,  speed:1.6, radius:0.62, cost:2.5, dmg:14, gold:[2,4], ai:"melee",   model:"bloater", deathCloud:true,
               lines:["blorp", "*gurgle*"] },
+  /* the creepy ones: neon green and patient */
+  wight:    { name:"Lantern Wight",   hp:34,  speed:2.0, radius:0.36, cost:2.5, dmg:11, gold:[2,3], ai:"wight",   model:"wight", phases:true,
+              rosary:{ cd:3.6, tell:0.7, n:8, r:2.6, hold:0.85, speed:8.5 }, keep:[4, 7.5], lines:["...hush...", "Follow the light.", "Come closer. Closer."] },
+  evilfrog: { name:"Gorged Toad",     hp:30,  speed:2.4, radius:0.42, cost:2,   dmg:11, gold:[1,3], ai:"evilfrog", model:"evilfrog",
+              bile:{ cd:2.6, tell:0.45, n:3, spread:40, speed:6.5 }, lines:["*GRRROAK*", "*hrrrk*", "*glorp*"] },
   husk:     { name:"Blight Husk",     hp:58,  speed:2.6, radius:0.45, cost:3,   dmg:16, gold:[2,4], ai:"brute",   model:"husk", armor:0.75,
               charge:{ cd:3.8, tell:0.8, speed:9, time:0.6, stun:1.2 }, lines:["...the Gloom...", "Join us."] }
 };
@@ -176,6 +180,12 @@ DG.BOSSES = {
   antlered:  { name:"The Antlered Hunger",     hp:1700, speed:2.8, radius:1.1, dmg:19, ai:"antlered",  model:"antlered",
                lines:["...", "hhhhungry", "*a sound like a stag screaming*"],
                felled:"THE HUNGER STARVES" },
+  toadking:  { name:"The Bog Lord, Toad King", hp:3400, speed:1.8, radius:1.5, dmg:21, ai:"toadking",  model:"toadking",
+               lines:["MORE.", "I ate the last little frog who wore a crown. He was delicious.", "KNEEL, AND BE SWALLOWED."],
+               felled:"THE GLUTTON IS EATEN" },
+  archivist: { name:"The Archivist, Who Wrote the Dark", hp:3300, speed:1.2, radius:1.4, dmg:21, ai:"archivist", model:"archivist",
+               lines:["Every life down here is a page. Yours is short.", "I have read you, little wizard. I know how you end.", "Hush. This is a library."],
+               felled:"THE BOOK IS CLOSED" },
   heart:     { name:"The Gloom Heart",         hp:2300, speed:0,   radius:1.6, dmg:20, ai:"heart",     model:"heart",
                lines:["ba-dum.", "the forest is mine. the forest is me.", "rot with me, little wizard."],
                felled:"HEART STILLED" }
@@ -214,15 +224,38 @@ DG.FINAL_FLOOR = 5;
    apprentice. Gribbus was the Keep's frog, who sat on the well and ate the
    flies, and who followed Zippy down because nobody told him not to. */
 DG.QUESTS = {
-  ember:{ name:"Ember of the First Flame", desc:"A coal that will not go out. It wants to go home, down to the Kiln.", flavor:"Warm as a hand on your shoulder." },
-  crown:{ name:"Crown of the Bog",         desc:"A crown of reeds and river-gold. Gribbus put it on before you could stop him.", flavor:"He looks taller. He isn't." }
+  ember:  { name:"Ember of the First Flame", desc:"A coal that will not go out. It wants to go home, down to the Kiln.", flavor:"Warm as a hand on your shoulder." },
+  lantern:{ name:"Olm's Lantern",            desc:"It has never once gone out. In its light, a door of eyes opens.", flavor:"It is heavier than a lantern should be." },
+  shrooms:{ name:"Glowing Mushrooms",        desc:"Gribbus has been eating them. He has opinions now. Loud ones.", flavor:"They glow on the way down, too." }
 };
+/* ---- side roads: at most one a run, and only by chance (js/core/roads.js) ----
+   ember   the Sealed Reliquary on floor 2 or 3, its Warden, the Ember, and
+           past the Heart, the Kiln (THE FIRST FLAME)
+   bog     ten glowing mushrooms down the dungeon; Gribbus eats them and
+           grows; the Heart's portal runs green into the Glutton's Bog and
+           the Bog Lord, Toad King (KING OF THE BOG)
+   olm     Brother Olm, met twice; hear all he has to say and he gives up
+           his lantern; a door of eyes in his library opens on the Flesh
+           Library and the Archivist (THE WHITE WIZARD)  */
+DG.ROUTES = { none:0.4, ember:0.2, bog:0.2, olm:0.2 };
+DG.SHROOMS_NEED = 10;
+DG.SHROOMS_PER_FLOOR = [2, 3, 2, 3, 3];       // 13 down the five floors; ten will do
+DG.SHROOM_STAGES = [4, 7, 10];                // mushrooms eaten for each of his three growths
+DG.OLM_ODDS = 0.35;                           // without his road, Olm turns up once in about a third of runs
 /* the climb out: after the Heart, one long way up toward daylight (set up from the Gloom Forest's look in Dungeon.climb) */
 DG.CLIMB_LEN = 96;
 /* the Kiln: a sixth floor that only the Ember opens */
 DG.KILN = { name:"The Kiln of the First Flame", boss:"hollow", gloom:0, floor:0x3a2a22, floor2:0x30221c, wall:0x4a3a30, top:0x5a4a3a, torch:0xff8a3a, fog:0x0a0402, water:0x6a2a10,
   ambient:0xc8885a, light:0.95, decor:"castle", motes:"dust", ink:0x140804, rim:0xff9a5a, shaft:0xffb070, mist:0.18, shade:0x2a1408, high:0xffd8a0, weird:0.15,
-  enemies:{ skeleton:2, banshee:1, brute:1, husk:1, ghost:1.5 } };
+  enemies:{ skeleton:2, banshee:1, brute:1, husk:1, ghost:1.5, wight:1 } };
+/* the Glutton's Bog (the mushroom road's last floor) and the Flesh Library (Olm's road's) */
+DG.BOG = { name:"The Glutton's Bog", boss:"toadking", gloom:0.85, floor:0x1e2a16, floor2:0x18220f, wall:0x2a3420, top:0x223018, torch:0x7dff3a, fog:0x020803, water:0x2a5a16,
+  ambient:0x5a8a4a, light:0.8, decor:"bog", motes:"glowbugs", ink:0x030a02, rim:0x9cff4a, shaft:0x9cff6a, mist:0.6, shade:0x0a1a06, high:0xd8ffb0, weird:0.5,
+  enemies:{ evilfrog:3, blob:1.2, bloater:1, rotling:1.4, puffling:0.8, toadstool:0.8, spitter:0.6 } };
+DG.FLESH = { name:"The Flesh Library", boss:"archivist", gloom:0.55, floor:0x3a2224, floor2:0x30191c, wall:0x5a2a30, top:0x4a2026, torch:0x7dff3a, fog:0x080204, water:0x4a0a14,
+  ambient:0x8a5a62, light:0.82, decor:"flesh", motes:"ghostfog", ink:0x0e0306, rim:0x9cff6a, shaft:0xc8ffb0, mist:0.42, shade:0x2a0a12, high:0xffe0d0, weird:0.9,
+  enemies:{ ghost:2, banshee:1, wight:1.6, evilfrog:1.8, poltergeist:1, skeleton:0.8 } };
+DG.SIDE_FLOORS = { kiln:DG.KILN, bog:DG.BOG, flesh:DG.FLESH };
 DG.ENDINGS = {
   dawn:{ title:"DAWN", sub:"The Gloom Heart is still.", lore:[
     "The Heart stopped, and the rot let go of the stone.",
@@ -235,27 +268,19 @@ DG.ENDINGS = {
     "He laid him to rest, and set the Ember in the hearth where it belonged.",
     "The First Flame woke. Its light ran up every stair of the Keep and out through the forest, and the Gloom had nowhere left to hide.",
     "There is a keeper in the Kiln again. He is grey, and he is patient, and he talks to his frog.",
-    "Gribbus has his own chair by the fire. It is a very good chair."],
-    // the Lantern road: what you did with Olm
-    lore_forgive:[
-      "In the Kiln, Zippy found what was left of his master: hollow, burning cold, still guarding a fire that had gone out.",
-      "Brother Olm held his old friend while Zippy set the Ember in the hearth, and talked to him the whole time, about nothing, about the kettle.",
-      "The First Flame woke. Its light ran up every stair of the Keep and out through the forest, and the Gloom had nowhere left to hide.",
-      "There are two lanterns by the Kiln's fire now, side by side. One of them is very old. Neither of them goes out.",
-      "Gribbus sleeps between them. Olm says he's the warmest thing in the Keep, and he isn't wrong."],
-    lore_take:[
-      "In the Kiln, Zippy found what was left of his master: hollow, burning cold, still guarding a fire that had gone out.",
-      "He laid him to rest, and set the Ember in the hearth, and Olm's coal beside it, where they both belonged.",
-      "The First Flame woke. Its light ran up every stair of the Keep, past a scriptorium where an old man sat in the dark with his hands in his lap.",
-      "The light reached him. He didn't move. Perhaps he was asleep. Perhaps he was only listening to the fire, at last.",
-      "Zippy keeps the Kiln alone now. He is grey, and he is patient, and he talks to his frog."] },
-  bog:{ title:"KING OF THE BOG", sub:"Gribbus ate the Heart.", lore:[
-    "The Gloom Heart was a hunger, and it met a worse one.",
-    "Gribbus swallowed it whole, and the rot inside it found a home that was already rotten.",
-    "The Keep did not wake. It drowned. Black water rose up every stair, and the forest sank into it and did not come up.",
-    "Every frog in the bog turns to face the throne when he croaks. Some of them have three eyes now.",
-    "Zippy is his royal wizard, by decree. He was not consulted. He is not allowed to leave.",
-    "Long live the King of the Bog. Croak."] }
+    "Gribbus has his own chair by the fire. It is a very good chair."] },
+  bog:{ title:"KING OF THE BOG", sub:"Gribbus ate the Toad King.", lore:[
+    "Ten mushrooms, a dungeon's worth of glow, and one very old, very fat king who thought he was the hungriest thing in the dark.",
+    "He was not. Gribbus swallowed him whole, crown and all.",
+    "The Gloom did not die. It became a bog, green and loud and bright, and every frog in it bows to Gribbus.",
+    "Zippy is his royal wizard now, by decree. He carries the King's lily pad and says nice things on command. He was not consulted.",
+    "Long live the King of the Bog. Praise him. He is listening. Croak."] },
+  white:{ title:"THE WHITE WIZARD", sub:"The book is closed.", lore:[
+    "The Archivist wrote the dark down, page by page, and the Gloom grew out of the ink.",
+    "Olm's lantern burned through the last of it. Every page went white.",
+    "What the dark had written on Zippy went white too: every curse, every scar, every bargain. He came out of the library clean.",
+    "Brother Olm says he always knew the lantern was meant for someone else. He is lying. He is very pleased.",
+    "There is a white wizard in the Keep now, and the light goes where he goes. Gribbus sits in it. It is warm."] }
 };
 /* a line on arriving at each floor, so the story seeps in as you go down */
 DG.LORE_FLOORS = [
@@ -280,19 +305,19 @@ DG.FLOORS = [
   { name:"The Weeping Undercroft", boss:"matriarch", alt:"ratking",     gloom:0.28, floor:0x33342d, floor2:0x2b2c26, wall:0x4a4a3f, top:0x3b3b33, torch:0xe8b04a, fog:0x040504, water:0x1a2220,
     ambient:0x76786c, light:0.85, decor:"undercroft", motes:"spores",
     ink:0x060604, rim:0xd8b870, shaft:0xa8a48a, mist:0.34, shade:0x0e0e0a, high:0xf0e0b0, weird:0.1,
-    enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2, toadstool:1.2, shroomkin:1.4, rotling:0.8 } },
+    enemies:{ grunt:1.5, slinger:1.2, bomber:1, shaman:1, puffling:2, toadstool:1.2, shroomkin:1.4, rotling:0.8, evilfrog:0.5 } },
   { name:"The Rotting Crypt",     boss:"bride",     alt:"gravedigger", gloom:0.5,  floor:0x2a2a30, floor2:0x232328, wall:0x3c3e4a, top:0x2f303a, torch:0x5ac0ff, fog:0x030409, water:0x18284a,
     ambient:0x56648e, light:0.8, decor:"crypt", motes:"ghostfog",
     ink:0x04040a, rim:0x8ad8ff, shaft:0x8aa8d8, mist:0.44, shade:0x0a0c14, high:0xd8ecff, weird:0.3,
-    enemies:{ ghost:2.2, banshee:1, skeleton:2, poltergeist:1, sneak:0.6, brute:0.6, rotling:1.2, spitter:0.8 } },
+    enemies:{ ghost:2.2, banshee:1, skeleton:2, poltergeist:1, sneak:0.6, brute:0.6, rotling:1.2, spitter:0.8, wight:0.8 } },
   { name:"The Gloomwood",         boss:"eye",       alt:"antlered",    gloom:0.78, floor:0x222824, floor2:0x1c221e, wall:0x322c34, top:0x2a2430, torch:0xb8c8e0, fog:0x020304, water:0x161a20,
     ambient:0x5a6270, light:0.72, decor:"gloomwood", motes:"glowbugs",
     ink:0x050508, rim:0xb0bccc, shaft:0x9aa6b8, mist:0.5, shade:0x0c0c10, high:0xdce4ec, weird:0.62,
-    enemies:{ watcher:1.2, blob:1.2, tentacle:1.4, rotling:1.6, spitter:1.4, bloater:1.2, shroomkin:0.8, puffling:0.8, ghost:0.6 } },
+    enemies:{ watcher:1.2, blob:1.2, tentacle:1.4, rotling:1.6, spitter:1.4, bloater:1.2, shroomkin:0.8, puffling:0.8, ghost:0.6, wight:1, evilfrog:0.6 } },
   { name:"The Gloom Forest",      boss:"heart",     gloom:1,    floor:0x1c2220, floor2:0x171c1a, wall:0x281e28, top:0x221a24, torch:0x9ac84a, fog:0x010201, water:0x141c12,
     ambient:0x4a5648, light:0.66, decor:"forest", motes:"glowbugs",
     ink:0x050604, rim:0x9ab86a, shaft:0x8a9a78, mist:0.56, shade:0x0a0c08, high:0xdce4c0, weird:1,
-    enemies:{ rotling:2, spitter:1.6, bloater:1.4, husk:1.6, shroomkin:1, toadstool:1, puffling:1, tentacle:1, banshee:0.6, watcher:0.6 } }
+    enemies:{ rotling:2, spitter:1.6, bloater:1.4, husk:1.6, shroomkin:1, toadstool:1, puffling:1, tentacle:1, banshee:0.6, watcher:0.6, wight:1.2, evilfrog:0.8 } }
 ];
 
 /* ---- traps (minor: they sting, they don't end runs) ---- */
@@ -313,7 +338,9 @@ DG.LINES = {
   solved: ["Click. Something old unlocks.", "The mechanism yields. Somewhere, a goblin weeps.", "It is done."],
   clear:  ["The room falls silent.", "Nothing stirs. For now.", "Silence returns."],
   gribbus:["*ribbit*", "*RIBBIT*", "*croak*", "*blorp*", "*slurp*", "*ribbit?*"],
-  pond:   ["Gribbus eyes the lily pads with grave intent.", "Still black water. It smells of frog, and of old secrets.", "Three lily pads. Gribbus may claim but one."],
+  pond:   ["Gribbus' pond. Three gifts float on the lily pads. He may keep one.", "Still black water, and three lily pads. Gribbus looks at you. Choose for him.", "Three lily pads, three gifts. The other two will sink."],
+  shroom: ["Gribbus eats the glowing mushroom. He glows a little too.", "Gribbus swallows it whole. His eyes go green for a moment.", "Gribbus eats it, and looks at you as if you should thank him."],
+  praise: ["PRAISE HIM. He demands it.", "Gribbus is waiting to be told he is wonderful.", "Gribbus clears his throat. Loudly. Meaningfully."],
   altar:  ["The altar thirsts. A little of your life will do.", "Blood for power. The oldest bargain.", "The altar hums. It is hungry. It is always hungry."]
 };
 DG.DOOR_COLORS = [
@@ -330,27 +357,27 @@ DG.DOOR_COLORS = [
 /* how often each turns up, per floor (rolled on the dungeon's own seed) */
 DG.RARE_ROOMS = {
   vault:  f=> f === 1 ? 0.45 : 0.6,           // a locked vault: a key buys the good stuff
-  olm:    f=> f === 1 ? 0.2 : 0.32,           // the Wizard's Quarters: Brother Olm rests here
+  pond:   f=> f === 1 ? 0.18 : 0.25,          // Gribbus' pond: rare (every floor once you're building the frog)
+  altar:  f=> f === 1 ? 0 : 0.35,             // the cursed altar: blood for power, from floor 2
   weird:  f=> f === 1 ? 0.15 : 0.27,          // one weird room, good or bad, from the table below
   golden: f=> f === 1 ? 0.2 : 0.35,           // a key-locked golden chest in some goblin room
   joke:   0.18,                               // a soapstone joke scrawled in some goblin room
   table: [ { type:"throne", w:1, min:2 }, { type:"cage", w:1.3, min:1 }, { type:"gamble", w:1.3, min:1 } ]
 };
-DG.ROOM_SIZES = { vault:[9, 7, 11, 9], olm:[11, 9, 13, 10], throne:[13, 11, 15, 13], cage:[15, 11, 17, 13], gamble:[11, 9, 13, 11] };
+DG.ROOM_SIZES = { vault:[9, 7, 11, 9], olm:[15, 11, 17, 13], throne:[13, 11, 15, 13], cage:[15, 11, 17, 13], gamble:[11, 9, 13, 11] };
 
 /* ---- lairs: one mini-boss a floor, in a dead-end room of its own ----
    Each is an enemy you know, grown huge, with moves of its own (ai.js,
    LAIR). hp multiplies the base enemy's, so each is about 40% of that
-   floor's boss. A road lair (warden, leech) will belong to its road once
-   the roads are in; until then it turns up like the rest. */
+   floor's boss. The Warden also keeps the Ember road's Reliquary. */
 DG.LAIRS = {
   gaoler:   { name:"Skabb, the Gaoler",      base:"brute",    floors:[1, 2], size:1.75, hp:3.8,  dmg:1.25,
               intro:"Something big drags its chains across the floor.", lines:["IN YOU GO.", "I'VE A CELL FOR YOU.", "NOBODY LEAVES."] },
   cook:     { name:"The Spore-Cook",         base:"bloater",  floors:[2, 3], size:1.6,  hp:8,    dmg:1.2,
               intro:"A smell of boiled rot. Someone's been cooking.", lines:["MORE FOR THE POT.", "TASTE IT.", "STIR, STIR, STIR."] },
-  warden:   { name:"The Reliquary Warden",   base:"skeleton", floors:[3],    size:1.9,  hp:21,   dmg:1.35, shield:true, road:"lantern",
+  warden:   { name:"The Reliquary Warden",   base:"skeleton", floors:[3],    size:1.9,  hp:21,   dmg:1.35, shield:true, road:"ember",
               intro:"An old keeper, still at his post. He doesn't know he's dead.", lines:["NONE PASS.", "THE FLAME IS SEALED.", "BEGONE, THIEF."] },
-  leech:    { name:"The Leech Mother",       base:"tentacle", floors:[3, 4], size:1.8,  hp:15.5, dmg:1.2, road:"rot",
+  leech:    { name:"The Leech Mother",       base:"tentacle", floors:[3, 4], size:1.8,  hp:15.5, dmg:1.2,
               intro:"The floor is wet, and it moves.", lines:[] },
   manyeyed: { name:"The Many-Eyed",          base:"watcher",  floors:[4, 5], size:1.85, hp:15.5, dmg:1.1,
               intro:"You can feel it looking. All of it.", lines:[] },
@@ -373,31 +400,42 @@ DG.PACTS = {
   benighted: { name:"Benighted",    desc:"the dark and the fog follow you, floor after floor" }
 };
 
-/* Brother Olm, the Lantern Pilgrim: an old friend of Zippy's. Each "listen"
-   says the next thing he hasn't said yet; what matters on this floor first. */
+/* Brother Olm, the Lantern Pilgrim: an old friend of Zippy's, a wizard of his
+   master's school, taller and older, in a library he keeps for his frogs.
+   Each "listen" says the next thing he hasn't said yet; what matters most
+   first. Lines marked `route` come up only on that road; `visit:2` only the
+   second time you find him. On his own road, hear all of it and he offers
+   his lantern. */
 DG.OLM = {
   name:"Brother Olm",
-  greet:   ["Hm? Ah. Zippy. And the frog. Sit, sit. The kettle's nearly honest.",
-            "You again. Good. I was starting to talk to the lantern.",
+  greet:   ["Hm? Ah. Zippy. And the frog. Mind the little ones, they're reading.",
+            "You again. Good. The frogs missed you. I did not. I'm lying.",
             "Still breathing? Splendid. Me too. Mostly.",
-            "The wizard and his frog. Mind the books. Some of them bite."],
+            "The wizard and his frog. Sit. Not on the scrolls."],
   remembered:"Zippy. I dreamt you died down here. More than once. Well. Tea?",
   talk: [
-    { id:"chair",     text:"I came down for the light at the bottom. Forty years ago. Haven't found it. Found this chair, though. Good chair." },
+    { id:"chair",     text:"I came down for the light at the bottom. Forty years ago. Haven't found it. Found frogs, though. Ten of them. They read better than I do now." },
+    { id:"frogs",     text:"The little ones learn from the scrolls. Spells, mostly. One of them can almost do a fireball. It's the one without eyebrows." },
     { id:"keys",      text:"Keys. Goblins hoard them like teeth. A door in chains wants one. What's behind is usually worth it. Usually." },
-    { id:"reliquary", text:"There's a reliquary, a floor or two down, warded by the old keepers. Locks won't open it. Light will. Enough light. Mind the one who still keeps it.", floors:[1, 3], pri:2 },
-    { id:"wicks",     text:"The old keepers left wicks all the way down. Dead now. My lantern can see them. Light them, and hold them lit, and the old fire will remember you.", floors:[1, 3], pri:3 },
     { id:"walls",     text:"A room with one door is a liar. It means to have two. Watch for stone that breathes. Listen for the draught.", pri:1 },
-    { id:"shrine",    text:"There's a pond down here that drinks wrong. If your frog ever looks at a black lily, Zippy... don't let him. Promise me.", floors:[1, 3], pri:2 },
+    { id:"reliquary", text:"There's a reliquary a floor or two down. The First Flame sleeps inside, and an old keeper still keeps it. He doesn't know he's dead.", route:"ember", pri:3 },
+    { id:"shrooms",   text:"There are mushrooms down here that glow like your frog's dreams. If he eats enough of them, something very fat and very old will come looking for him.", route:"bog", pri:3 },
+    { id:"lairs",     text:"Every floor has a lair, and something in it grown fat on the rest. It sits on something worth having. Kill it and take it." },
     { id:"soapstone", text:"The dead scrawl on the floors in orange. 'Try wall.' Half of it is true. The other half is goblins." },
     { id:"throne",    text:"There's a red throne somewhere below. If you find it... no. If you find it, think of me. Then think again." },
-    { id:"gamble",    text:"The gamblers' altars pay. Until they don't. I lost an arm to one. Won it back. Different arm." },
-    { id:"heart",     text:"The Heart at the bottom of all this beats. What beats can be stopped. Or eaten. Hm. Your frog is looking at me." },
-    { id:"bored",     text:"I'm not afraid of dying down here. I'm afraid of dying bored. You help with that." },
-    { id:"hollow",    text:"If I go hollow, Zippy... no. Never mind. Put the kettle on." }
+    { id:"heart",     text:"The Heart at the bottom of all this beats. What beats can be stopped." },
+    { id:"lamp1",     text:"This lantern has never once gone out. Forty years. I've never fed it. I find that suspicious.", route:"olm", pri:2 },
+    { id:"lamp2",     text:"There's a door down here that only opens to it. Eyes, all over. I've seen it in the light, out of the corner of mine.", route:"olm" },
+    { id:"lamp3",     text:"Behind it is the library the dark was written in. I went in once. The books read me back.", route:"olm", visit:2, pri:2 },
+    { id:"lamp4",     text:"I'm too old to go back in. You aren't. I hate that you aren't.", route:"olm", visit:2 },
+    { id:"lamp5",     text:"If you went... no. If you went, you'd need the lantern. And you'd need to come back out. Promise me the second part.", route:"olm", visit:2 },
+    { id:"bored",     text:"I'm not afraid of dying down here. I'm afraid of dying bored. You help with that." }
   ],
-  idle:    ["Hmm. Hmmm.", "The lantern has never once gone out. I find that suspicious.", "Go on. The dark won't clear itself. Well. It might. Unlikely.", "Mind the frog near the candles."],
+  lantern: "Fine. FINE. Take it. It's heavier than it looks. When the door opens, don't read anything in there. Not one word.",
+  lanternGone: "Go on. The door's open now. I can feel it from here, like a draught.",
+  idle:    ["Hmm. Hmmm.", "The little ones say hello. That one says something rude.", "Go on. The dark won't clear itself. Well. It might. Unlikely.", "Mind the frogs near the candles."],
   bless:   ["Kneel. No, the other knee. There.", "May it hold longer than my knees did.", "The lantern remembers you now. Lucky you."],
+  scroll:  ["Take it. The frogs have finished with it. Mostly.", "One of the little ones copied this out. Badly. It still works.", "A good one. Don't let your frog eat it."],
   trade:   ["Give it here. Hm. Take this instead. Don't ask where it's been.", "A fair swap. Fairer for you. I'm old, what do I need it for?"],
   mend:    ["Sit by the fire. It's mostly fire.", "Drink. It's tea. It was tea. Drink anyway."],
   key:     ["A key. Found it in a goblin. Don't ask which end.", "Here. It opens something. Most things, if you push."],
@@ -419,7 +457,7 @@ Object.assign(DG.LINES, {
   cage:   ["A treasure in a cage. The cage isn't for the treasure.", "Too easy. Far too easy."],
   gamble: ["The house is very old, and has never lost.", "Dice carved from knucklebones. Whose? Best not."],
   sprung: ["IT'S A TRAP. Of course it's a trap.", "The cage was bait. You were the fish."],
-  olmRoom:["Pages turn on their own. Something very tall is breathing in the dark.", "Wax and old ink. A light hangs in a hood, and the hood turns toward you.", "A circle burned into the floor. Someone has been standing in it a long time."],
+  olmRoom:["Candlelight. Scrolls everywhere. Small frogs, reading.", "Somebody lives here. Somebody with a lantern, and a great many frogs."],
   sprungClear:["The cage is empty. So is the room. You win this one.", "Survived the bait. The prize is yours, fair and bloody."]
 });
 

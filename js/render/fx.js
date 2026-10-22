@@ -314,11 +314,13 @@ FX.soul = function(x, z, h, life, col){
 };
 
 const EL = el=> el && DG.ELEMENTS[el] ? DG.ELEMENTS[el].color : 0xffffff;
-const ENEMY_SHOT = { acid:[0x9cff3a, 0.4], orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36], spore:[0xb8d84a, 0.38], ecto:[0x8ae8ff, 0.46],
+const ENEMY_SHOT = { acid:[0x9cff3a, 0.4], orb:[0xff3a8a, 0.42], rock:[0xa89a88, 0.32], dart:[0xb8a07a, 0.24], hex:[0xb36bff, 0.36], spore:[0xb8d84a, 0.38], ecto:[0x7dff5a, 0.46],
   wail:[0xa8c8ff, 0.4], arrow:[0xe8dcc0, 0.26], tear:[0x6ad8ff, 0.36], blood:[0xff2a3a, 0.42], leech:[0x6a1a22, 0.36],
-  rat:[0xb89a7a, 0.3], dust:[0xe8dcb8, 0.36], dirt:[0xa08a68, 0.3], crow:[0x9a8ab8, 0.34] };
+  rat:[0xb89a7a, 0.3], dust:[0xe8dcb8, 0.36], dirt:[0xa08a68, 0.3], crow:[0x9a8ab8, 0.34],
+  // the neon green ones: wights' rosaries, toads' bile, the Archivist's pages
+  soul:[0x7dff3a, 0.5], bile:[0x9cff4a, 0.46], page:[0xe8f0c8, 0.4] };
 const MARK = { flop:0xff3a2a, slam:0xff3a2a, tentacle:0xd84aff, tear:0x6ad8ff, shroomring:0x9cff3a, vein:0xff2a3a, swipe:0xff6a3a, chains:0xc89a50, glob:0x9cba3a,
-  pounce:0xff3a2a, sweep:0xff5a2a, roots:0xb8d86a, grave:0x8ab8ff };
+  pounce:0xff3a2a, sweep:0xff5a2a, roots:0xb8d86a, grave:0x8ab8ff, rosary:0x7dff3a };
 
 /* ---- per frame ---- */
 let clock = 0;
@@ -383,6 +385,9 @@ FX.update = function(dt, G){
     } else {
       const E = ENEMY_SHOT[b.kind] || ENEMY_SHOT.orb; col = E[0]; size = E[1]*(b.r > 0.2 ? 1.2 : 1); rim = 1; y = 0.6;
       if(b.kind === "blood" && Math.random() < 0.06) dark(b.x, y, b.y, 0, 0, 0, 0x2a0404, 0.1, 0.8, 0.8, -0.2, 9, 0.5);
+      // a shot that hangs in the air pulses while it waits, so you can see it's coming
+      if(b.hanging){ size *= 1 + 0.25*Math.sin(clock*18 + b.id); if(Math.random() < 0.08) emit(b.x, y, b.y, 0, 0.4, 0, col, 0.12, 0.4, 0, 1); }
+      if((b.kind === "soul" || b.kind === "bile") && Math.random() < 0.05) emit(b.x, y, b.y, 0, 0.2, 0, col, 0.1, 0.35, 0, 1);
     }
     grade(col, _c);
     B.pos[n*3] = S.ix(b); B.pos[n*3+1] = y; B.pos[n*3+2] = S.iy(b);

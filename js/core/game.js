@@ -25,15 +25,16 @@ const Game = DG.Game = function(opts){
   G.seed = DG.seedFromWord(G.seedWord);
   G.rng = DG.RNG(G.seed ^ 0x5bd1e995);
   G.t = 0; G.events = []; G.state = "play"; G.endless = false; G.choice = null;
-  G.meta = opts.meta || { flies:0, unlocked:{} };
-  G.stats = { kills:0, dmg:0, rooms:0, gold:0, time:0, floors:0, secrets:0, puzzles:0, items:0, reactions:0, flies:0, lairs:0, bosses:[] };
+  G.meta = opts.meta || { unlocked:{} };
+  G.stats = { kills:0, dmg:0, rooms:0, gold:0, time:0, floors:0, secrets:0, puzzles:0, items:0, reactions:0, lairs:0, bosses:[] };
   G.nextId = 1;
-  G.roads = DG.Roads ? DG.Roads.init() : null;
+  G.roads = DG.Roads ? DG.Roads.init(G, opts.route) : null;
+  G.side = null;
   G.seenItems = {}; G.pools = Items.pools();
   const P = DG.PLAYER;
   G.player = {
     x:0, y:0, r:P.radius, vx:0, vy:0, hp:P.hp, maxHp:P.hp, mana:P.mana, maxMana:P.mana, wards:0,
-    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, keys:1, quests:{}, xp:0, level:1, pendingLevels:0,
+    guns:[L.starterGun()], cur:0, items:{}, boons:[], gold:0, keys:1, quests:{},
     active:null, blinkT:0, blinkCd:0, bdx:0, bdy:0, iframes:0, slip:0, sdx:0, sdy:0, stun:0, chill:0,
     fireCd:0, reloadT:0, aim:0, safeX:0, safeY:0, bonkCd:0, alive:true, moving:false, lastShot:0, volleys:0
   };
@@ -74,7 +75,7 @@ proto.chance = function(p){ return this.rng.next() < this.luck(p); };
 proto.enterFloor = function(n, D0){
   const G = this, p = G.player;
   G.floor = n;
-  const gen = Object.assign(DG.Roads ? DG.Roads.genOpts(G, n) : {}, G.kiln && n === DG.FINAL_FLOOR + 1 ? { theme:DG.KILN } : {});
+  const gen = DG.Roads ? DG.Roads.genOpts(G, n) : {};
   G.D = D0 || DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, gen);
   G.climb = G.D.climb ? { t:0, rock:1.5, ghost:3 } : null;
   G.scale = DG.FLOOR_SCALE(n);
@@ -94,21 +95,36 @@ proto.enterFloor = function(n, D0){
   p.x = G.D.start.x; p.y = G.D.start.y; p.safeX = p.x; p.safeY = p.y; p.vx = p.vy = 0;
   G.gribbus.x = p.x - 1; G.gribbus.y = p.y + 0.5;
   G.flow = null;
-  if(DG.Roads && DG.Roads.olmAlly(G) && n >= DG.FINAL_FLOOR){ const a = G.spawnAlly("olm", p.x + 1.5, p.y + 1, {}); G.pending.push({ t:2, fn:()=> G.say("BROTHER OLM: \"Down we go, then. Together, this time.\"", 3.5) }); }
   G.emit("floor", { floor:n, name:G.D.theme.name, curses:G.curses.slice() });
   G.curses.forEach(c=> G.say(DG.CURSES[c].name + ": " + DG.CURSES[c].desc, 4));
-  if(G.kiln && n === DG.FINAL_FLOOR + 1) G.say("The Kiln. It's warm down here. It shouldn't be.", 4);
+  if(G.side && n === DG.FINAL_FLOOR + 1) G.say(SIDE_LINES[G.side], 4.5);
   else if(DG.LORE_FLOORS[n - 1] && !G.endless) G.pending.push({ t:4.5, fn:()=> G.say(DG.LORE_FLOORS[n - 1], 4.5) });
+};
+const SIDE_LINES = {
+  kiln:"The Kiln. It's warm down here. It shouldn't be.",
+  bog:"The Glutton's Bog. Everything glows, and everything is hungry. Gribbus has never looked happier.",
+  flesh:"The Flesh Library. The shelves breathe. The books have eyes. Olm's lantern burns white."
+};
+const SIDE_END = { kiln:"flame", bog:"bog", flesh:"white" };
+/* a side road's last floor, under the Heart (or behind Olm's door) */
+proto.enterSide = function(side, line){
+  const G = this;
+  G.side = side; G.kiln = side === "kiln";
+  if(DG.Roads) DG.Roads.remember(G, { kiln:"ember", bog:"bog", flesh:"olm" }[side], { kiln:"kiln", bog:"bog", flesh:"door" }[side]);
+  G.enterFloor(DG.FINAL_FLOOR + 1);
+  if(line) G.say(line, 3.5);
 };
 proto.descend = function(){
   const G = this, p = G.player;
   G.stats.floors++;
-  // the end of the road: the Kiln, if the Ember asked for it; otherwise out into the dawn
-  if(G.kiln && G.floor === DG.FINAL_FLOOR + 1){ G.finish("flame"); return; }
+  // the end of a side road; otherwise the Heart's way out: the Kiln if you carry the
+  // Ember, the Bog if Gribbus is ready to be king, else the climb out into the dawn
+  if(G.side && G.floor === DG.FINAL_FLOOR + 1){ G.finish(SIDE_END[G.side]); return; }
   if(G.floor >= DG.FINAL_FLOOR && !G.endless){
-    if(G.player.quests.ember && !G.kiln){ G.kiln = true; G.enterFloor(DG.FINAL_FLOOR + 1); G.say("The Ember pulls you down. Down to the Kiln.", 3.5); return; }
-    if(!G.kiln && !G.D.climb){ G.enterFloor(DG.FINAL_FLOOR, DG.Dungeon.climb((G.seed ^ 0xc11b) >>> 0)); G.say("The Heart is still, and the forest is coming apart. Up. Run. Toward the light.", 4); return; }
-    if(!G.kiln){ G.finish("dawn"); return; }
+    if(G.player.quests.ember){ G.enterSide("kiln", "The Ember pulls you down. Down to the Kiln."); return; }
+    if(G.portal && G.portal.kind === "bog"){ G.enterSide("bog", "Gribbus dives into the green. You follow your king."); return; }
+    if(!G.D.climb){ G.enterFloor(DG.FINAL_FLOOR, DG.Dungeon.climb((G.seed ^ 0xc11b) >>> 0)); G.say("The Heart is still, and the forest is coming apart. Up. Run. Toward the light.", 4); return; }
+    G.finish("dawn"); return;
   }
   p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp*0.3));   // a snack on the stairs
   G.enterFloor(G.floor + 1);
@@ -140,7 +156,7 @@ proto.initProp = function(r, pr){
   pr.id = G.nextId++; pr.room = r.id;
   if(pr.kind === "chest") pr.open = false;
   if(pr.kind === "pedestal" && !pr.offer) pr.offer = G.makeOffer(r, pr);
-  if(pr.kind === "lilypad" && !pr.buff){ pr.buff = null; }
+  if(pr.kind === "eyedoor") pr.open = !!G.player.quests.lantern;
   return pr;
 };
 /* what sits on a pedestal: an item from the room's pool, a gun, soup... */
@@ -150,6 +166,7 @@ proto.makeOffer = function(r, pr){
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
   if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
   if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
+  if(pr.sell === "fine"){ const g = L.rollGun(G.rng, f + 1, { minRarity:2, boost:0.8 }); return { kind:"gun", gun:g }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
   if(pr.quest){ const Q = DG.QUESTS[pr.quest]; return { kind:"quest", id:pr.quest, name:Q.name }; }
   if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
@@ -286,13 +303,11 @@ proto.update = function(dt, input){
   G.updateTicks(dt);
   G.updateTraps(dt);
   if(DG.Puzzles) DG.Puzzles.update(G, dt);
-  if(DG.Roads) DG.Roads.updateVigil(G, dt);
   if(G.climb) G.updateClimb(dt);
   G.updatePickups(dt);
   G.marks = G.marks.filter(m=> (m.t -= dt) > 0);
   G.enemies = G.enemies.filter(e=> !e.dead);
   // level-ups wait until the room is quiet
-  if(G.player.pendingLevels > 0 && !(G.room && G.room.active) && G.state === "play") G.offerBoons();
 };
 
 /* ---- Zippy ---- */
@@ -485,6 +500,7 @@ proto.giveItem = function(id, quiet){
   p.sets = G.mods.sets.slice();
   G.checkAscensions();
   if(d.special === "moons" || d.special === "shadow") DG.Gribbus.spawnPermanents(G);
+  if(d.frog) DG.Gribbus.giveBuff(G, d.frog);
 };
 proto.checkAscensions = function(){
   const G = this, p = G.player;
@@ -501,32 +517,22 @@ proto.checkAscensions = function(){
   G.recalc();
 };
 
-/* ---- levels ---- */
-proto.gainXp = function(n){
-  const p = this.player;
-  p.xp += n;
-  while(p.xp >= DG.PLAYER.xp(p.level)){ p.xp -= DG.PLAYER.xp(p.level); p.level++; p.pendingLevels++; this.emit("levelup", { level:p.level }); }
-};
-proto.offerBoons = function(){
-  const G = this;
-  G.choice = { kind:"boon", options:Items.rollBoons(G, 3), level:G.player.level - G.player.pendingLevels + 1 };
-  G.state = "choose";
-  G.emit("choose", { kind:"boon" });
+/* ---- no levels: power comes from what you find, not from how much you kill.
+   Boons are still about: Brother Olm's blessing gives one ---- */
+proto.addBoon = function(id){
+  const G = this, p = G.player, B = DG.BOONS[id], before = p.maxHp;
+  p.boons.push(id);
+  G.recalc();
+  if(B.stats && B.stats.wards) G.addWards(B.stats.wards);
+  if(p.maxHp > before) p.hp = Math.min(p.maxHp, p.hp);
+  G.emit("boon", { id, name:B.name });
 };
 proto.choose = function(i){
   const G = this, p = G.player, c = G.choice;
   if(!c || G.state !== "choose") return;
   if(c.kind === "olm"){ G.olmChoose(i); return; }
   const id = c.options[Math.max(0, Math.min(c.options.length - 1, i))];
-  if(c.kind === "boon"){
-    p.boons.push(id); p.pendingLevels--;
-    const before = p.maxHp;
-    G.recalc();
-    const B = DG.BOONS[id];
-    if(B.stats && B.stats.wards) G.addWards(B.stats.wards);
-    if(p.maxHp > before) p.hp = Math.min(p.maxHp, p.hp);
-    G.emit("boon", { id, name:B.name });
-  }
+  if(c.kind === "boon") G.addBoon(id);
   G.choice = null; G.state = "play";
 };
 
@@ -637,14 +643,13 @@ proto.updateRooms = function(dt){
       if(!inside.cleared && !inside.active && (inside.type === "combat" || inside.type === "boss" || inside.lair)) G.activate(inside);
       if(inside.type === "shop" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.shop), 3.5); if(G.mods.special.member) G.memberShop(inside); }
       if(inside.type === "pond" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.pond), 3.5); DG.Gribbus.offerPond(G, inside); }
-      if(inside.type === "pond" && DG.Roads) DG.Roads.enterPond(G, inside);
       if(inside.type === "altar" && !inside.greeted){ inside.greeted = true; G.say(G.rng.pick(DG.LINES.altar), 3.5); }
       if(inside.type === "secret" && !inside.found){ inside.found = true; G.emit("secretRoom", { room:inside.id }); }
       G.enterSpecial(inside);
     }
   }
   D.rooms.forEach(r=>{
-    if(!r.active || r.vigil) return;
+    if(!r.active) return;
     const alive = G.enemies.some(e=> e.room === r.id && !e.dead);
     if(alive) return;
     if(r.wave < r.waves.length){
@@ -772,21 +777,21 @@ proto.bossDown = function(e){
   G.beams = [];
   G.portal = { x:r.cxw, y:r.cyw + 2 };
   G.addProp(r, { kind:"pedestal", x:Math.floor(r.cxw), y:Math.floor(r.cyw) - 1, pool:"b" });
-  if(G.chance(0.35)) G.addPickup("fly", r.cxw + 2, r.cyw, 1);
   G.dropGold(e.x, e.y, 25 + 10*G.floor);
+  const p = G.player, last = G.floor >= DG.FINAL_FLOOR && !G.endless && !G.side;
+  // ten mushrooms in him: the Heart's portal runs green, down into the Bog
+  if(last && DG.Roads && DG.Roads.kingReady(G) && !p.quests.ember) G.portal.kind = "bog";
   G.emit("portal", G.portal);
-  const p = G.player;
   if(e.type === "hollow") G.say("The Hollow Wizard is still. The hearth is cold, and waiting.", 4);
-  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && DG.Roads && DG.Roads.canFeast(G) && !p.quests.ember){
-    // the Crown: Gribbus doesn't let a good meal go to waste
-    G.portal = null;
+  else if(e.type === "toadking"){
+    // Gribbus doesn't let a good meal go to waste
     G.emit("feast", { x:e.x, y:e.y });
-    G.say("Gribbus looks at the Heart. The Heart looks at Gribbus.", 3);
-    DG.Roads.feast(G);
-    G.pending.push({ t:3.2, fn:()=> G.finish("bog") });
+    G.say("Gribbus looks at the Toad King. The Toad King looks at Gribbus. Only one of them is still hungry.", 4);
   }
-  else if(G.floor >= DG.FINAL_FLOOR && !G.endless && p.quests.ember) G.say("The Gloom Heart is still. The Ember is burning a hole in your pocket. It wants to go down.", 4);
-  else G.say(G.floor >= DG.FINAL_FLOOR && !G.endless ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
+  else if(e.type === "archivist") G.say("The Archivist is still. Every page in the library goes white, and so does the lantern.", 4);
+  else if(last && p.quests.ember) G.say("The Gloom Heart is still. The Ember is burning a hole in your pocket. It wants to go down.", 4);
+  else if(G.portal.kind === "bog") G.say("The Gloom Heart is still. Gribbus sniffs the portal. It has gone green, and it smells of king.", 4);
+  else G.say(last ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
 };
 
 /* ---- things on the floor ---- */
@@ -830,7 +835,6 @@ proto.updatePickups = function(dt){
     else if(k.kind === "mana" && p.mana < p.maxMana){ p.mana = Math.min(p.maxMana, p.mana + k.value); k.dead = true; G.emit("pickup", { kind:"mana" }); }
     else if(k.kind === "ward" && p.wards < DG.PLAYER.maxWards){ G.addWards(k.value); k.dead = true; }
     else if(k.kind === "key"){ p.keys += k.value || 1; k.dead = true; G.emit("pickup", { kind:"key" }); G.emit("key", { x:k.x, y:k.y, keys:p.keys }); }
-    else if(k.kind === "fly"){ G.meta.flies++; G.stats.flies++; k.dead = true; G.emit("fly", { total:G.meta.flies }); G.say("A golden fly! Gribbus can learn new tricks at frog ponds.", 3.5); }
   });
   G.pickups = G.pickups.filter(k=> !k.dead);
 };
@@ -842,8 +846,8 @@ proto.target = function(){
   const consider = (o, d, text)=>{ if(d < bd){ bd = d; best = { o, text }; } };
   G.pickups.forEach(k=>{ if(k.kind === "item") consider(k, DG.dist(k.x, k.y, p.x, p.y), "Take " + k.item.name); });
   // a locked door, with or without a key in your pocket
-  G.D.doors.forEach(d=>{ if(d.locked) consider({ door:d }, DG.dist(d.x, d.y, p.x, p.y) - 0.4, d.sealed ? "Sealed with black water" : d.warded ? (G.roads.lantern.wicks >= 2 ? "Let the lantern burn the wards away" : "Warded. The lantern pulls at it.") : p.keys > 0 ? "Unlock (1 key of " + p.keys + ")" : "Locked. It wants a key."); });
-  if(G.portal) consider({ portal:true }, DG.dist(G.portal.x, G.portal.y, p.x, p.y) - 0.3, G.floor >= DG.FINAL_FLOOR && !G.endless ? "Escape the dungeon" : "Jump in the portal");
+  G.D.doors.forEach(d=>{ if(d.locked) consider({ door:d }, DG.dist(d.x, d.y, p.x, p.y) - 0.4, p.keys > 0 ? "Unlock (1 key of " + p.keys + ")" : "Locked. It wants a key."); });
+  if(G.portal) consider({ portal:true }, DG.dist(G.portal.x, G.portal.y, p.x, p.y) - 0.3, G.portalText());
   const r = G.room || G.D.rooms.find(rr=> p.x > rr.x1 - 1 && p.x < rr.x2 + 2 && p.y > rr.y1 - 5 && p.y < rr.y2 + 2);
   if(r) r.props.forEach(pr=>{
     const d = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y);
@@ -855,8 +859,17 @@ proto.target = function(){
   });
   if(r) G.targetSpecial(r, consider);
   if(r && r.puzzle && DG.Puzzles) DG.Puzzles.consider(G, r, consider);
-  if(r && DG.Roads){ DG.Roads.consider(G, r, consider); DG.Roads.wickConsider(G, r, consider); }
   return best;
+};
+proto.portalText = function(){
+  const G = this, p = G.player;
+  if(G.side && G.floor === DG.FINAL_FLOOR + 1) return { kiln:"Light the First Flame", bog:"Crown the King of the Bog", flesh:"Step out into the white" }[G.side];
+  if(G.floor >= DG.FINAL_FLOOR && !G.endless){
+    if(p.quests.ember) return "Follow the Ember down";
+    if(G.portal && G.portal.kind === "bog") return "Follow Gribbus into the green";
+    return "Escape the dungeon";
+  }
+  return "Jump in the portal";
 };
 /* ---- the end: which ending, remembered between runs ---- */
 proto.finish = function(id){
@@ -871,8 +884,6 @@ proto.useKey = function(){ const p = this.player; if(p.keys <= 0) return false; 
 proto.unlockDoor = function(d){
   const G = this;
   if(!d.locked) return;
-  if(d.sealed){ G.say(DG.ROT.lines.sealed, 3.5); G.emit("broke"); return; }
-  if(d.warded){ DG.Roads.burnWards(G, d); return; }
   if(!G.useKey()){ G.say("Locked. Somewhere down here there's a key for it."); G.emit("broke"); return; }
   d.locked = false; d.open = true; G.D.ver = (G.D.ver || 0) + 1;
   G.emit("unlock", { x:d.x, y:d.y, door:d.id });
@@ -890,8 +901,6 @@ proto.interact = function(){
   if(!tg) return;
   const o = tg.o;
   if(o.pz){ DG.Puzzles.use(G, o); return; }
-  if(o.dive !== undefined){ DG.Roads.dive(G, o); return; }
-  if(o.kind === "wick"){ DG.Roads.lightWick(G, o); return; }
   if(G.interactSpecial(o)) return;
   if(o.door){ G.unlockDoor(o.door); return; }
   if(o.portal){ G.emit("descend"); G.descend(); return; }
@@ -900,7 +909,7 @@ proto.interact = function(){
     if(o.locked){ G.say("It's locked. Solve the room's puzzle."); return; }
     o.open = true; G.emit("chest", { id:o.id, x:o.x + 0.5, y:o.y + 0.5 });
     G.chestLoot(o).forEach(it=> it.kind === "itemid" ? G.addProp(G.D.rooms[o.room], { kind:"pedestal", x:o.x, y:o.y + 1, pool:it.pool }) : it.kind === "key" ? G.addPickup("key", o.x + 0.5, o.y + 1, 1) : G.dropItem(o.x + 0.5, o.y + 1, it));
-    G.dropGold(o.x + 0.5, o.y + 0.9, G.rng.int(3, 8) + o.tier*3);
+    G.dropGold(o.x + 0.5, o.y + 0.9, G.rng.int(3, 8) + o.tier*(o.tier >= 3 ? 12 : 3));
     if(G.chance(0.15 + 0.1*o.tier)) G.addPickup(G.rng.pick(["heart", "mana", "ward"]), o.x + 0.5, o.y + 1, 1);
     return;
   }
@@ -918,9 +927,8 @@ proto.interact = function(){
     else if(of.kind === "ward") G.addWards(of.n);
     else if(of.kind === "quest"){
       p.quests[of.id] = true; G.emit("quest", { id:of.id, name:of.name });
-      if(of.id === "crown" && DG.Roads) DG.Roads.takeCrown(G);
       if(of.id === "ember" && DG.Roads) DG.Roads.takeEmber(G);
-      G.say(of.id === "ember" ? DG.LANTERN.lines.ember : DG.ROT.lines.crown, 3.5);
+      G.say(DG.EMBER.lines.ember, 3.5);
     }
     else if(of.kind === "key"){ p.keys += of.n; G.emit("key", { x:o.x + 0.5, y:o.y + 0.5, keys:p.keys }); }
     else if(of.kind === "active") G.giveActive(of.id);
@@ -937,11 +945,12 @@ proto.interact = function(){
 proto.chestLoot = function(c){
   const G = this, rng = G.rng, f = G.floor;
   const gun = o=> L.rollGun(rng, f + (c.tier >= 2 ? 1 : 0), o);
-  if(c.tier >= 2) return rng.chance(0.55) ? [{ kind:"itemid", pool:c.tier >= 3 ? "b" : "t" }] : [gun({ minRarity:1, boost:0.6 })];
+  // chests hold guns, keys and gold: powerups come from bosses, lairs, shops and Olm
+  if(c.tier >= 2) return [gun({ minRarity:c.tier >= 3 ? 2 : 1, boost:0.6 })].concat(rng.chance(0.35) ? [{ kind:"key" }] : []);
   const roll = rng.next();
-  if(roll < 0.12) return [gun({ boost:0.1 }), { kind:"key" }];
-  if(roll < 0.45) return [gun({ boost:0.1 })];
-  if(roll < 0.6) return [{ kind:"itemid", pool:"t" }];
+  if(roll < 0.15) return [gun({ boost:0.1 }), { kind:"key" }];
+  if(roll < 0.55) return [gun({ boost:0.1 })];
+  if(roll < 0.7) return [{ kind:"key" }];
   return [];
 };
 
@@ -1052,11 +1061,10 @@ proto.springCage = function(r){
 proto.clearSpecial = function(r){
   const G = this;
   if(r.lair && !r.lairPaid){
-    // the lair's hoard: something good, a key, and a breather (the shrine's is its crown)
+    // the lair's hoard: something good, a key, and a breather (the Reliquary's is the Ember)
     r.lairPaid = true; G.stats.lairs++;
     const x = Math.floor(r.cxw), y = Math.floor(r.cyw);
-    if(r.type === "shrine") DG.Roads.shrineClear(G, r);
-    else if(r.type === "reliquary") DG.Roads.reliquaryClear(G, r);
+    if(r.type === "reliquary") DG.Roads.reliquaryClear(G, r);
     else { G.addProp(r, { kind:"pedestal", x, y, pool:G.floor >= 3 ? "x" : "t" }); G.addPickup("key", x + 1.5, y + 0.5, 1); }
     G.addPickup("heart", x - 1, y + 0.5, 25);
     G.lairRef = null;
@@ -1124,7 +1132,12 @@ proto.targetSpecial = function(r, consider){
     if(pr.kind === "bloodbowl"){ const ped = G.wagerTarget(pr); if(ped && !ped.taken) consider(pr, d, "Bleed in the bowl: 15 max health on a coin toss, to raise the prize a tier"); }
     if(pr.kind === "olm") consider(pr, d - 0.4, "Talk to Brother Olm");
     if(pr.kind === "message") consider(pr, d - 0.1, "Read the orange message");
+    if(pr.kind === "glowshroom" && !pr.eaten) consider(pr, d, "Let Gribbus eat the glowing mushroom (" + (G.roads ? G.roads.rot.shrooms : 0) + " of " + DG.SHROOMS_NEED + ")");
+    if(pr.kind === "eyedoor") consider(pr, d - 0.5, pr.open ? "Go through the door of eyes, into the Flesh Library" : "A door of shut eyes. They want a light.");
   });
+  // Gribbus, when he wants to be told he's wonderful
+  const f = G.gribbus;
+  if(f && f.demand > 0) consider({ praise:true }, DG.dist(f.x, f.y, p.x, p.y) - 0.6, "Praise Gribbus (he demands it)");
 };
 proto.interactSpecial = function(o){
   const G = this;
@@ -1137,6 +1150,14 @@ proto.interactSpecial = function(o){
   if(o.kind === "dice"){ G.gambleGold(o); return true; }
   if(o.kind === "bloodbowl"){ G.bloodWager(o); return true; }
   if(o.kind === "olm"){ G.talkOlm(o); return true; }
+  if(o.kind === "glowshroom"){ DG.Roads.eatShroom(G, o); return true; }
+  if(o.kind === "eyedoor"){
+    if(!o.open){ G.say("Every eye on the door is shut. Something in Olm's lantern would wake them.", 3.5); G.emit("broke"); return true; }
+    G.emit("eyedoor", { x:o.x + 0.5, y:o.y + 0.5 });
+    G.enterSide("flesh", "The eyes open. All of them. Olm's lantern burns white, and you go in.");
+    return true;
+  }
+  if(o.praise){ DG.Gribbus.praise(G); return true; }
   if(o.kind === "message"){ G.say("Scrawled on the floor in orange: \"" + o.text + "\"", 4); G.emit("read", { message:true }); o.read = true; return true; }
   return false;
 };
@@ -1150,65 +1171,62 @@ proto.olmVisit = function(o){
   const G = this, r = G.D.rooms[o.room];
   if(r.olmVisit) return r.olmVisit;
   const owned = G.player.boons;
-  const boons = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3 && !DG.BOONS[id].hidden);
-  return (r.olmVisit = { blessing:G.rng.pick(boons), price:25 + 10*G.floor, keyPrice:20 + 3*G.floor, done:{} });
+  const boons = Object.keys(DG.BOONS).filter(id=> owned.filter(x=> x === id).length < 3);
+  const scroll = Items.roll(G, "t");
+  return (r.olmVisit = { blessing:G.rng.pick(boons), price:25 + 10*G.floor, keyPrice:20 + 3*G.floor,
+    scroll, scrollPrice:Math.round(L.itemPrice(scroll, G.floor)*0.9), done:{} });
+};
+/* what he can still tell you, on this route and this visit */
+proto.olmTalk = function(){
+  const G = this, S = G.olmState(), route = G.roads && G.roads.route;
+  return DG.OLM.talk.filter(t=> (!t.route || t.route === route) && (!t.visit || S.visits >= t.visit));
 };
 proto.olmLine = function(){
-  const G = this, S = G.olmState(), f = G.floor;
-  const fits = DG.OLM.talk.filter(t=> !S.said[t.id] && (!t.floors || (f >= t.floors[0] && f <= t.floors[1])));
+  const G = this, S = G.olmState();
+  const fits = G.olmTalk().filter(t=> !S.said[t.id]);
   const t = fits.slice().sort((a, b)=> (b.pri || 0) - (a.pri || 0))[0];
   if(t){ S.said[t.id] = true; return t.text; }
   return DG.OLM.idle[S.idle++ % DG.OLM.idle.length];
 };
+/* his route: everything he has to say heard, on the second visit at least */
+proto.olmExhausted = function(){ return DG.Roads.olmExhausted(this); };
 proto.talkOlm = function(o){
   const G = this, S = G.olmState(), V = G.olmVisit(o);
   let line;
-  if(!V.greeted){
+  if(G.player.quests.lantern) line = DG.OLM.lanternGone;
+  else if(!V.greeted){
     V.greeted = true; S.visits++;
     if(S.visits === 1 && G.meta && G.meta.olm){ line = DG.OLM.remembered; }
     else line = DG.OLM.greet[Math.min(S.visits - 1, DG.OLM.greet.length - 1)];
     if(S.visits === 1 && G.meta) G.meta.olm = (G.meta.olm || 0) + 1;
+    if(G.roads && G.roads.route === "olm") DG.Roads.olmVisited(G, S.visits);
   } else line = G.rng.pick(DG.OLM.idle);
   G.openOlm(o, line, "main");
   G.emit("olmTalk", { x:o.x + 0.5, y:o.y + 0.5 });
 };
 proto.olmTradeable = function(){
   const p = this.player;
-  return Object.keys(p.items).filter(id=> DG.ITEMS[id] && DG.ITEMS[id].tier < 4 && DG.ITEMS[id].special !== "moons" && DG.ITEMS[id].special !== "shadow")
+  return Object.keys(p.items).filter(id=> DG.ITEMS[id] && DG.ITEMS[id].tier < 4 && !DG.ITEMS[id].frog && DG.ITEMS[id].special !== "moons" && DG.ITEMS[id].special !== "shadow")
     .sort((a, b)=> DG.ITEMS[b].tier - DG.ITEMS[a].tier || DG.ITEMS[a].name.localeCompare(DG.ITEMS[b].name));
 };
 proto.openOlm = function(o, line, page){
-  const G = this, p = G.player, V = G.olmVisit(o), B = DG.BOONS[V.blessing], heal = Math.round(p.maxHp*0.5);
+  const G = this, p = G.player, V = G.olmVisit(o), B = DG.BOONS[V.blessing], heal = Math.round(p.maxHp*0.5), SC = DG.ITEMS[V.scroll];
   let options;
-  const LR = G.roads && G.roads.lantern;
-  // the frog's gone wrong: he won't have it at his fire
-  if(LR && LR.closed && G.roads.rot.stage >= 2){
-    options = [{ act:"leave", label:"Leave", sub:"He won't look at the frog." }];
-    G.choice = { kind:"olm", prop:o.id, room:o.room, line:DG.LANTERN.lines.noFrog.replace(/^BROTHER OLM: /, "").replace(/^"|"$/g, ""), page, options, leave:0, gold:p.gold, keys:p.keys };
-    G.state = "choose"; G.emit("choose", { kind:"olm" }); return;
-  }
-  if(page === "truth"){
-    const n = o.truthN || 0, last = n >= DG.LANTERN.truth.length - 1;
-    options = last ? [{ act:"forgive", label:"Forgive him", sub:"He comes down with you. Huge and slow, and he still knows how to burn things." },
-                      { act:"take", label:"Take his lantern", sub:"He stays. You carry his fire: the Lamplighter's Staff, the strongest spell there is." }]
-                   : [{ act:"truthNext", label:"Go on", sub:"" }];
-    G.choice = { kind:"olm", prop:o.id, room:o.room, line:DG.LANTERN.truth[n], page, options, leave:-1, gold:p.gold, keys:p.keys };
-    G.state = "choose"; G.emit("choose", { kind:"olm" }); return;
-  }
   if(page === "trade"){
-    options = G.olmTradeable().slice(0, 8).map(id=>{ const t = DG.ITEMS[id].tier; return { act:"give", id, label:DG.ITEMS[id].name, sub:DG.TIERS[t].name + " → a " + DG.TIERS[t + 1].name + " powerup, sight unseen", icon:id }; });
+    options = G.olmTradeable().slice(0, 8).map(id=>{ const t = DG.ITEMS[id].tier; return { act:"give", id, label:DG.ITEMS[id].name, sub:DG.ITEMS[id].desc, tier:t, to:t + 1, icon:id }; });
     options.push({ act:"back", label:"Never mind", sub:"Keep what you carry." });
   } else {
+    const left = G.olmTalk().filter(t=> !G.olmState().said[t.id]).length;
     options = [
-      { act:"listen", label:"Listen", sub:"He has things to say. He always has things to say." },
-      ...(LR && !LR.closed && LR.stage === 0 && !G.endless ? [{ act:"lantern", label:"Take his lantern", sub:"He wants it carried down. A little way. It shows what the dark hides." }] : []),
-      ...(LR && LR.ember && !LR.olm ? [{ act:"truth", label:"The Ember", sub:"Show him what you carry. He goes very still." }] : []),
-      { act:"bless", label:"Blessing: " + B.name, sub:B.desc + " · " + V.price + " gold", disabled:!!V.done.bless, price:V.price },
-      { act:"trade", label:"Trade", sub:"Give him a powerup; take one a tier higher.", disabled:!!V.done.trade || !G.olmTradeable().length },
+      { act:"listen", label:"Listen", sub:left ? "He has things to say. He always has things to say." : "He's told you everything. He'll say it again anyway.", tag:left ? left + " untold" : null },
+      { act:"scroll", label:"A scroll: " + SC.name, sub:SC.desc, price:V.scrollPrice, disabled:!!V.done.scroll, icon:V.scroll, tier:SC.tier },
+      { act:"trade", label:"Trade", sub:"Give him a powerup; take one a tier higher, sight unseen.", disabled:!!V.done.trade || !G.olmTradeable().length },
+      { act:"bless", label:"Blessing: " + B.name, sub:B.desc, price:V.price, disabled:!!V.done.bless },
       { act:"mend", label:"Mend", sub:"Sit by his fire. Heals " + heal + ".", disabled:!!V.done.mend },
-      { act:"key", label:"Buy a key", sub:V.keyPrice + " gold", disabled:!!V.done.key, price:V.keyPrice },
-      { act:"leave", label:"Leave", sub:"Back into the dark." }
+      { act:"key", label:"Buy a key", sub:"It opens something. Most things, if you push.", price:V.keyPrice, disabled:!!V.done.key }
     ];
+    if(G.olmExhausted() && !p.quests.lantern) options.push({ act:"lantern", label:"Ask for his lantern", sub:"He's told you everything but this.", special:true });
+    options.push({ act:"leave", label:"Leave", sub:"Back into the dark." });
   }
   G.choice = { kind:"olm", prop:o.id, room:o.room, line, page, options, leave:options.length - 1, gold:p.gold, keys:p.keys };
   G.state = "choose";
@@ -1220,27 +1238,20 @@ proto.olmChoose = function(i){
   const pick = list=> G.rng.pick(list);
   if(!opt) return;
   if(opt.disabled){ G.openOlm(o, pick(DG.OLM.done), c.page); return; }
+  const pay = n=>{ if(p.gold < n){ G.emit("broke"); G.openOlm(o, pick(DG.OLM.broke), "main"); return false; } p.gold -= n; return true; };
   switch(opt.act){
     case "listen": G.openOlm(o, G.olmLine(), "main"); G.emit("olmTalk", { x:o.x + 0.5, y:o.y + 0.5 }); return;
-    case "bless": {
-      if(p.gold < V.price){ G.emit("broke"); G.openOlm(o, pick(DG.OLM.broke), "main"); return; }
-      p.gold -= V.price; V.done.bless = true;
-      p.boons.push(V.blessing);
-      const B = DG.BOONS[V.blessing], before = p.maxHp;
-      G.recalc(); if(B.stats && B.stats.wards) G.addWards(B.stats.wards); if(p.maxHp > before) p.hp = Math.min(p.maxHp, p.hp);
-      G.emit("boon", { id:V.blessing, name:B.name }); G.emit("blessing", { x:p.x, y:p.y, name:B.name });
+    case "scroll":
+      if(!pay(V.scrollPrice)) return;
+      V.done.scroll = true; G.emit("buy", { offer:{ kind:"item", id:V.scroll, price:V.scrollPrice } });
+      G.giveItem(V.scroll);
+      G.openOlm(o, pick(DG.OLM.scroll), "main"); return;
+    case "bless":
+      if(!pay(V.price)) return;
+      V.done.bless = true;
+      G.addBoon(V.blessing); G.emit("blessing", { x:p.x, y:p.y, name:DG.BOONS[V.blessing].name });
       G.openOlm(o, pick(DG.OLM.bless), "main"); return;
-    }
     case "trade": G.openOlm(o, "Hm. Show me what you carry.", "trade"); return;
-    case "lantern": DG.Roads.takeLantern(G); G.openOlm(o, DG.LANTERN.lines.ask, "main"); return;
-    case "truth": o.truthN = 0; G.openOlm(o, "", "truth"); return;
-    case "truthNext": o.truthN = (o.truthN || 0) + 1; G.openOlm(o, "", "truth"); return;
-    case "forgive":
-      DG.Roads.decide(G, "forgive"); G.choice = null; G.state = "play";
-      G.say("BROTHER OLM: \"...Thank you. I'll come. I'll carry my own lantern, this time.\"", 4); G.emit("olmBye", { x:o.x + 0.5, y:o.y + 0.5 }); return;
-    case "take":
-      DG.Roads.decide(G, "take"); G.choice = null; G.state = "play";
-      G.say("BROTHER OLM: \"Take it. Take it down. I'll sit here in the dark, where I belong.\"", 4); G.emit("olmBye", { x:o.x + 0.5, y:o.y + 0.5 }); return;
     case "back": G.openOlm(o, pick(DG.OLM.idle), "main"); return;
     case "give": {
       const id = opt.id, t = DG.ITEMS[id].tier;
@@ -1254,12 +1265,14 @@ proto.olmChoose = function(i){
       G.openOlm(o, pick(DG.OLM.trade) + " (" + DG.ITEMS[id].name + " for " + DG.ITEMS[got].name + ")", "main"); return;
     }
     case "mend": V.done.mend = true; G.heal(Math.round(p.maxHp*0.5)); G.openOlm(o, pick(DG.OLM.mend), "main"); return;
-    case "key": {
-      if(p.gold < V.keyPrice){ G.emit("broke"); G.openOlm(o, pick(DG.OLM.broke), "main"); return; }
-      p.gold -= V.keyPrice; p.keys++; V.done.key = true;
+    case "key":
+      if(!pay(V.keyPrice)) return;
+      p.keys++; V.done.key = true;
       G.emit("key", { x:p.x, y:p.y, keys:p.keys });
       G.openOlm(o, pick(DG.OLM.key), "main"); return;
-    }
+    case "lantern":
+      DG.Roads.takeLantern(G);
+      G.openOlm(o, DG.OLM.lantern, "main"); return;
     case "leave":
       G.choice = null; G.state = "play";
       G.say("Brother Olm: \"" + pick(DG.OLM.leave) + "\"", 3);

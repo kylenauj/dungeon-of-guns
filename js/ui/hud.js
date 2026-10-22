@@ -4,7 +4,7 @@
  *  gold edges, engraved serif (Cinzel) for names and numbers, a book face
  *  (EB Garamond) for anything you read.
  *
- *  Top left: health (with wards), mana, XP and level, gold, flies, the
+ *  Top left: health (with wards), mana, gold, keys, a road's relic, the
  *  active item, every powerup you own, Gribbus' tricks. Top right: the
  *  map and curses. Bottom left: your guns. Bottom right: the portrait.
  *  Above them: the boss bar. Middle: what E does, item cards, area
@@ -19,7 +19,7 @@ const H = DG.HUD = { nums:[], barks:[], toasts:[], banner:null, card:null, area:
 /* the palette: bone on soot, tarnished gold, dried blood, soul-blue */
 const INK = "#050404", BONE = "#d8ccb0", IVORY = "#ece2c8", DIM = "#8c8270", FAINT = "#4a443c",
   GOLD = "#c8a45a", GOLD2 = "#e8c878", HP = "#9a2318", HP2 = "#c8402c", MANA = "#3e5f9e", MANA2 = "#6a92d0",
-  WARD = "#9ac8e8", XP = "#b8a468", GREEN = "#8aa86a", EDGE = "rgba(176,152,106,.55)";
+  WARD = "#9ac8e8", XP = "#b8a468", GREEN = "#8aa86a", NEON = "#9cff4a", EDGE = "rgba(176,152,106,.55)";
 const SERIF = "'Cinzel','Trajan Pro','Times New Roman',serif", BOOK = "'EB Garamond','Garamond',Georgia,serif";
 const F = (w, s, fam)=> w + " " + Math.max(6, s) + "px " + (fam || SERIF);
 const hex = c=> "#" + new THREE.Color(c).getHexString();
@@ -94,16 +94,18 @@ H.handle = function(ev, G){
     case "dizzy": H.nums.push({ x:ev.x, y:ev.y, z:2.6, v:"DAZED", t:0, col:GOLD }); break;
     case "nomana": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"no mana", t:0, col:MANA2 }); break;
     case "nocharge": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"not charged", t:0, col:DIM }); break;
-    case "levelup": H.nums.push({ x:p.x, y:p.y, z:2.6, v:"LEVEL UP", t:0, col:XP, crit:true, big:true }); break;
     case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6, icons:[ev.id] }; break;
     case "attune": H.card = { title:"Attunement " + ["", "I", "II", "III"][ev.tier] + " · " + ev.name, sub:ev.desc, col:ATTUNE_COL[ev.el] || GOLD, tier:"Your " + ev.el + " answers", t:0, life:4.5 }; break;
     case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5, icons:["set:" + ev.id] }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
     case "duo": { const duo = DG.DUOS.find(x=> x.name === ev.name); H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4, icons:duo ? [duo.a, duo.b] : null }; break; }
     case "ascend": { const gun = G.gun && G.gun(); H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5, icons:gun ? [DG.Icons.keyFor(gun)] : null }; break; }
-    case "quest": { const Q = DG.QUESTS[ev.id] || {}; H.card = { title:Q.name || ev.name, sub:Q.desc, flavor:Q.flavor, col:ev.id === "ember" ? "#ff9a4a" : GREEN, tier:"Relic · another ending", t:0, life:5, icons:[DG.Icons.keyFor({ kind:"quest", id:ev.id })] }; break; }
+    case "quest": { const Q = DG.QUESTS[ev.id] || {}; H.card = { title:Q.name || ev.name, sub:Q.desc, flavor:Q.flavor, col:ev.id === "ember" ? "#ff9a4a" : ev.id === "lantern" ? "#f0f0d8" : NEON, tier:"A side road · another ending", t:0, life:5, icons:[DG.Icons.keyFor({ kind:"quest", id:ev.id })] }; break; }
+    case "shroom": H.nums.push({ x:ev.x, y:ev.y, z:2.4, v:ev.n + " / " + DG.SHROOMS_NEED, t:0, col:NEON, crit:true, big:ev.n >= DG.SHROOMS_NEED }); break;
+    case "demand": H.nums.push({ x:ev.x, y:ev.y, z:2.6, v:"PRAISE ME", t:0, col:NEON, crit:true, big:true }); break;
+    case "praise": H.nums.push({ x:ev.x, y:ev.y, z:2.6, v:"ALL HAIL", t:0, col:GOLD2, crit:true, big:true }); break;
+    case "sulk": H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"hmph", t:0, col:DIM }); break;
     case "frogbuff": H.card = { title:"Gribbus learned " + ev.name, sub:ev.desc, col:GREEN, tier:"Frog trick", t:0, life:3.6, icons:["frog:" + ev.id] }; break;
     case "boon": H.nums.push({ x:p.x, y:p.y, z:2.6, v:ev.name, t:0, col:XP, crit:true }); break;
-    case "fly": H.nums.push({ x:p.x, y:p.y, z:2.4, v:"GOLDEN FLY", t:0, col:GOLD2, crit:true, big:true }); break;
     case "pickup": if(ev.kind === "active") H.card = { title:DG.ACTIVES[ev.id].name, sub:DG.ACTIVES[ev.id].desc + " (F)", col:GOLD, tier:"Active item", t:0, life:3.2, icons:["active:" + ev.id] }; break;
     case "graze": H.nums.push({ x:ev.x, y:ev.y, z:1.2, v:"mine", t:0, col:BONE }); break;
     case "status": if(ev.st === "confused") H.nums.push({ x:ev.x, y:ev.y, z:2.2, v:"??", t:0, col:"#c88ab8", crit:true }); break;
@@ -380,11 +382,7 @@ H.draw = function(G, dt, opts){
   const blx = x0 + bw*0.82 + 44*k;
   diamond(g, blx, y0 + 20.5*k, 5*k, bk >= 1 ? WARD : "rgba(20,18,18,.9)", bk >= 1 ? "rgba(0,0,0,.9)" : FAINT);
   text(g, bk >= 1 ? "BLINK" : (Math.ceil(p.blinkCd*10)/10).toFixed(1), blx + 9*k, y0 + 20.5*k, 10*k, bk >= 1 ? WARD : DIM, "left", "700", SERIF, 1);
-  // xp: a hair of old gold
-  const need = DG.PLAYER.xp(p.level);
-  bar(g, x0, y0 + 30*k, bw*0.82, 3, p.xp/need, XP, "#e0d0a0");
-  text(g, "LV " + p.level + (p.pendingLevels ? "  · " + p.pendingLevels + " awaiting" : ""), x0 + bw*0.82 + 10, y0 + 31*k, 11*k, XP, "left", "700", SERIF, 1);
-  // gold, flies
+  // gold and keys
   H.coinT = Math.max(0, (H.coinT || 0) - dt);
   const yr = y0 + 52*k;
   const kw = 40*k;   // the keys, at the right end of the purse
@@ -401,11 +399,14 @@ H.draw = function(G, dt, opts){
   g.strokeStyle = kc; g.lineWidth = 1.6*k; g.beginPath(); g.arc(kx + 4*k, yr, 3.2*k, 0, Math.PI*2); g.stroke();
   g.beginPath(); g.moveTo(kx + 7.2*k, yr); g.lineTo(kx + 16*k, yr); g.moveTo(kx + 13*k, yr); g.lineTo(kx + 13*k, yr + 3.5*k); g.moveTo(kx + 15.5*k, yr); g.lineTo(kx + 15.5*k, yr + 2.5*k); g.stroke();
   text(g, p.keys + "", x0 + gw - 10, yr + 1, 14*k, kc, "right", "700");
-  if(G.meta.flies){ text(g, "✦ " + G.meta.flies, x0 + gw + 12, yr + 1, 13*k, GOLD, "left", "700"); }
-  // the relics of a quest (the Ember, the Crown): the ending you're carrying
-  const quests = Object.keys(p.quests || {}).filter(q=> p.quests[q]), qx = x0 + gw + (G.meta.flies ? 54 : 14)*k;
-  quests.forEach((q, i)=> DG.Icons.draw(g, "offer:" + (q === "ember" ? "ember" : "crown"), qx + (i*28 + 12)*k, yr, 30*k, H.dpr));
-  const qw = quests.length*28*k;
+  // a side road's relic (the Ember, Olm's lantern, the mushrooms eaten so far): the ending you're carrying
+  const quests = Object.keys(p.quests || {}).filter(q=> p.quests[q]), qx = x0 + gw + 14*k;
+  let qw = 0;
+  quests.forEach(q=>{
+    DG.Icons.draw(g, DG.Icons.keyFor({ kind:"quest", id:q }), qx + qw + 12*k, yr, 30*k, H.dpr);
+    qw += 28*k;
+    if(q === "shrooms"){ const n = p.quests.shrooms, done = n >= DG.SHROOMS_NEED; text(g, n + "/" + DG.SHROOMS_NEED, qx + qw, yr + 1, 13*k, done ? GOLD2 : NEON, "left", "700"); qw += 40*k; }
+  });
   // the active item
   if(p.active){
     const Ac = DG.ACTIVES[p.active.id], ax0 = qx + qw, full = p.active.charge >= p.active.max;
@@ -557,14 +558,14 @@ H.draw = function(G, dt, opts){
     const lw = Math.min(ps + 4, measure(g, label, lsz, "700", SERIF, lsz*0.15) + 24);
     frame(g, px + ps/2 - lw/2, py - 15*k, lw, 18*k, forms.length ? "rgba(40,14,36,.96)" : "rgba(12,10,10,.97)", false);
     text(g, label, px + ps/2, py - 6*k, lsz, forms.length ? "#d8a0c8" : GOLD, "center", "700", SERIF, lsz*0.15);
-    // the Rot: his hunger, filling with his own kills (a molt at the next pond when it's full)
-    const RT = G.roads && G.roads.rot;
-    if(RT && RT.stage >= 1){
-      const need = DG.ROT.need[RT.stage], full = RT.stage < 3 && RT.hunger >= need, hk = RT.stage >= 3 ? 1 : Math.min(1, RT.hunger/need);
-      const tx = px + 8, ty = py + 14;
-      text(g, DG.ROT.stages[RT.stage].name.toUpperCase() + (RT.stage < 3 ? (full ? " · FED: FIND A POND" : " · HUNGRY") : " · BLOATED"), tx, ty, 10*k, full ? "#d8e070" : "#9aa04a", "left", "700", SERIF, 1.5);
-      g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(R2(tx), R2(ty + 4), R2(80*k), 3);
-      g.fillStyle = full ? "#d8e070" : "#6a7a2a"; g.fillRect(R2(tx), R2(ty + 4), R2(80*k*hk), 3);
+    // the mushroom road: how he's grown, and whether he wants praising
+    const RT = G.roads && G.roads.rot, fg = G.gribbus;
+    if(RT && RT.shrooms >= 1){
+      const tx = px + 8, ty = py + 14, want = fg && fg.demand > 0, proud = fg && G.t < (fg.praisedT || 0), sulk = fg && G.t < (fg.sulkT || 0);
+      const name = RT.stage ? DG.ROT.stages[RT.stage].name.toUpperCase() : "PECKISH";
+      const mood = want ? " · DEMANDS PRAISE" : proud ? " · ADORED" : sulk ? " · SULKING" : "";
+      text(g, name + mood, tx, ty, 10*k, want ? NEON : sulk ? DIM : "#9ad85a", "left", "700", SERIF, 1.5);
+      if(want){ g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(R2(tx), R2(ty + 4), R2(80*k), 3); g.fillStyle = NEON; g.fillRect(R2(tx), R2(ty + 4), R2(80*k*Math.min(1, fg.demand/12)), 3); }
     }
     // Gribbus' rank, earned with his own kills, and how far to the next
     const fr = G.gribbus;

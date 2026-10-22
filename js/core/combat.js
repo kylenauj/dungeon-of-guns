@@ -87,6 +87,11 @@ proto.fireGun = function(g, s){
   if(G.mods.special.dualwield) p.guns.forEach((o, i)=>{ if(i !== p.cur) G.fireVolley(p.x, p.y, p.aim, o, G.gunStats(o), { mul:mul*0.5, from:"player", quiet:true }); });
   // copies: the shadow and (with Frogsona) Gribbus
   G.allies.forEach(a=>{ if(a.kind === "shadow"){ const ax = p.aimX !== undefined ? p.aimX : p.x + Math.cos(p.aim)*5, ay = p.aimY !== undefined ? p.aimY : p.y + Math.sin(p.aim)*5; G.fireVolley(a.x, a.y, Math.atan2(ay - a.y, ax - a.x), g, s, { mul:mul*0.6, from:"shadow", quiet:true }); } });
+  if(G.gribbus && G.gribbus.g.mimic){
+    const f = G.gribbus, ax = p.aimX !== undefined ? p.aimX : p.x + Math.cos(p.aim)*5, ay = p.aimY !== undefined ? p.aimY : p.y + Math.sin(p.aim)*5;
+    G.fireVolley(f.x, f.y, Math.atan2(ay - f.y, ax - f.x), g, s, { mul:mul*DG.Gribbus.mimicMul(G), from:"gribbus", quiet:true });
+    G.emit("mimic", { x:f.x, y:f.y });
+  }
   if(G.mods.special.frogsona && G.gribbus && !G.gribbus.ko){ const t = DG.Gribbus.target(G, 9); if(t) G.fireVolley(G.gribbus.x, G.gribbus.y, Math.atan2(t.y - G.gribbus.y, t.x - G.gribbus.x), g, s, { mul:mul*0.45, from:"gribbus", quiet:true }); }
   if(g.ammo <= 0) G.startReload();
 };
@@ -173,6 +178,7 @@ proto.updateShots = function(dt){
     if(b.team === "e" && G.timeStop > 0) continue;
     b.t += dt;
     if(b.team === "p") G.steerShot(b, dt);
+    else if(b.stall || b.curve || b.split || b.home) G.steerEnemyShot(b, dt);
     if(b.dead) continue;
     if(!b.orbitLeft){
       b.life -= dt;
@@ -272,6 +278,39 @@ proto.steerShot = function(b, dt){
   let a = b.baseA;
   if(b.wiggle) a += Math.sin(b.t*16 + b.id)*0.55;
   b.vx = Math.cos(a)*sp; b.vy = Math.sin(a)*sp;
+};
+
+/* the creepy ones: an enemy shot that hangs in the air and then comes for
+   you (stall), bends as it flies (curve), turns a little toward you (home)
+   or bursts into more (split). All of them slow enough to read */
+proto.steerEnemyShot = function(b, dt){
+  const G = this, p = G.player;
+  if(b.stall){
+    const S = b.stall;
+    if(!S.done && b.t >= S.at){
+      if(!S.held){ S.held = true; S.vx = b.vx; S.vy = b.vy; b.vx = b.vy = 0; b.hanging = true; b.life += S.hold; }
+      if(b.t >= S.at + S.hold){
+        S.done = true; b.hanging = false;
+        const a = Math.atan2(p.y - b.y, p.x - b.x);
+        b.vx = Math.cos(a)*S.speed; b.vy = Math.sin(a)*S.speed;
+        G.emit("dart", { x:b.x, y:b.y });
+      }
+    }
+  }
+  if(b.curve && !b.hanging){ const a = Math.atan2(b.vy, b.vx) + b.curve*dt, v = Math.hypot(b.vx, b.vy); b.vx = Math.cos(a)*v; b.vy = Math.sin(a)*v; }
+  if(b.home && !b.hanging && b.t < (b.homeT || 2)){
+    const v = Math.hypot(b.vx, b.vy), a0 = Math.atan2(b.vy, b.vx), want = Math.atan2(p.y - b.y, p.x - b.x);
+    const a = a0 + DG.clamp(DG.wrapAngle(want - a0), -b.home*dt, b.home*dt); b.vx = Math.cos(a)*v; b.vy = Math.sin(a)*v;
+  }
+  if(b.split && b.t >= b.split.at && !b.dead){
+    const S = b.split, a0 = Math.atan2(b.vy, b.vx);
+    b.dead = true;
+    for(let i=0;i<S.n;i++){
+      const a = a0 + (S.n > 1 ? (i/(S.n - 1) - 0.5)*S.spread*Math.PI/180 : 0);
+      G.addBullet({ team:"e", x:b.x, y:b.y, vx:Math.cos(a)*S.speed, vy:Math.sin(a)*S.speed, r:b.r*0.8, dmg:b.dmg*0.7, life:3, kind:b.kind });
+    }
+    G.emit("pop", { x:b.x, y:b.y, team:"e" });
+  }
 };
 
 /* enemy shots: hit Zippy, get eaten by moons and lily pads, get grazed */
@@ -520,7 +559,6 @@ proto.killEnemy = function(e, src, fell){
   if(M.special.frenzy){ p.frenzy = Math.min(6*M.special.frenzy, (G.t < (p.frenzyT || 0) ? p.frenzy || 0 : 0) + 1); p.frenzyT = G.t + 3; }
   G.emit("kill", { x:e.x, y:e.y, id:e.id, type:e.type, boss:!!e.boss, fell:!!fell, midas:!!M.special.midas });
   p.mana = Math.min(p.maxMana, p.mana + DG.PLAYER.manaOnKill + M.killMana);
-  G.gainXp(e.boss ? 40 : Math.round((e.def.cost || 1)*5));
   if(src.from === "gribbus" || src.from === "tadpole" || src.frog){
     if(DG.Gribbus.gainXp) DG.Gribbus.gainXp(G, e.boss ? 40 : Math.round((e.def.cost || 1)*5));
     if(DG.Roads) DG.Roads.frogKill(G, e);

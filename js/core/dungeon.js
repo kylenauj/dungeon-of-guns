@@ -76,7 +76,9 @@ function tryGenerate(rng, floor, seed, opts){
   if(dead.length < 3 || dead[0].dist < 3) return null;
   dead[0].type = "boss";
   // the side rooms: dead ends first, then any plain room two steps out
-  const sideTypes = ["treasure", "shop", "pond"].concat(floor >= 2 ? ["altar"] : []);
+  // the pond is rare, unless you're building the frog (opts.frogBuild); the altar is a chance from floor 2
+  const RR = DG.RARE_ROOMS;
+  const sideTypes = ["treasure", "shop"].concat(opts.frogBuild || rng.chance(RR.pond(floor)) ? ["pond"] : [], rng.chance(RR.altar(floor)) ? ["altar"] : []);
   const rest = rng.shuffle(dead.slice(1).filter(r=> r.dist >= 2));
   const plainFar = ()=> rng.shuffle(rooms.filter(r=> r.type === "combat" && r.dist >= 2 && r.links.length <= 2));
   for(const t of sideTypes){
@@ -88,12 +90,9 @@ function tryGenerate(rng, floor, seed, opts){
   if(plain.length < 2) return null;
   rng.pick(plain).type = "puzzle";
 
-  /* ---- the quest rooms: rare, early, behind a locked door. The Sealed
-     Reliquary (floors 1-2) holds the Ember of the First Flame; the Drowned
-     Shrine (floors 2-3) the Crown of the Bog. Each starts an alternative ending. ---- */
-  // (the Drowned Shrine now belongs to the Rot road: it's only here when Gribbus has split once and has no crown yet)
-  // (and the Sealed Reliquary to the Lantern road: only there once you carry Olm's lantern)
-  const quest = opts.shrine ? "shrine" : opts.reliquary ? "reliquary" : null;
+  /* ---- the quest room: the Sealed Reliquary, only on the Ember road's
+     floor (opts.reliquary). Its Warden keeps the Ember of the First Flame. ---- */
+  const quest = opts.reliquary ? "reliquary" : null;
   // it grows off a goblin room into an empty cell with specialRooms below, so it is
   // always a dead end: its door locks, and it must never stand between you and the boss
 
@@ -154,7 +153,7 @@ function tryGenerate(rng, floor, seed, opts){
       const size = {
         start:[13, 11, 13, 11], boss:[21, 15, 22, 16], treasure:[11, 9, 13, 11], shop:[15, 11, 15, 11], pond:[15, 11, 17, 13],
         altar:[11, 9, 13, 11], puzzle:[15, 11, 17, 12], secret:[9, 7, 11, 9], combat:[11, 9, 22, 16],
-        reliquary:[11, 9, 13, 11], shrine:[13, 11, 15, 12]
+        reliquary:[11, 9, 13, 11]
       }[r.type] || DG.ROOM_SIZES[r.type];
       const w = rng.int(size[0], size[2]), h = rng.int(size[1], size[3]);
       const top = r.type === "puzzle" ? 6 : M;
@@ -190,10 +189,10 @@ function tryGenerate(rng, floor, seed, opts){
   rooms.forEach(r=>{
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
     if(r.type === "treasure"){
-      // always a choice: an item, or a weapon to build around (from floor 3, a second item too)
-      if(floor >= 3){ r.props.push({ kind:"pedestal", x:cx - 3, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx + 3, y:cy, group:1, sell:"gift" }); }
-      else { r.props.push({ kind:"pedestal", x:cx - 2, y:cy, group:1 }); r.props.push({ kind:"pedestal", x:cx + 2, y:cy, group:1, sell:"gift" }); }
-      r.props.push({ kind:"sign", x:cx, y:r.y1, text:"CHOOSE ONE. The rest crumble. Rules are rules." });
+      // the armoury: a choice of weapons (powerups come from bosses, lairs, shops and Olm now)
+      if(floor >= 3){ [-3, 0, 3].forEach((dx, i)=> r.props.push({ kind:"pedestal", x:cx + dx, y:cy, group:1, sell:i === 1 ? "fine" : "gift" })); }
+      else { r.props.push({ kind:"pedestal", x:cx - 2, y:cy, group:1, sell:"gift" }); r.props.push({ kind:"pedestal", x:cx + 2, y:cy, group:1, sell:"fine" }); }
+      r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE ARMOURY. CHOOSE ONE WEAPON. The rest rust away." });
     }
     if(r.type === "secret"){ r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"x" }); }
     if(r.type === "altar"){
@@ -202,31 +201,19 @@ function tryGenerate(rng, floor, seed, opts){
     }
     if(r.type === "shop"){
       r.props.push({ kind:"merchant", x:cx, y:r.y1 + 1 });
-      // each shop stocks 3 to 5 wares (at least one item); the Membership Card adds two
+      // each shop stocks 3 to 5 wares: one powerup, sometimes two; the Membership Card adds two
       const n = rng.int(3, 5);
-      const sells = ["item"].concat(rng.shuffle(["item", "item", "gun", rng.chance(0.4) ? "active" : "ward", "heal", "key"]).slice(0, n - 1));
+      const sells = ["item"].concat(rng.shuffle([rng.chance(0.35) ? "item" : "gun", "gun", rng.chance(0.4) ? "active" : "ward", "heal", "key"]).slice(0, n - 1));
       sells.forEach((s, i)=> r.props.push({ kind:"pedestal", x:cx - (n - 1) + i*2, y:cy + 1, sell:s === "item" ? null : s, pool:"s" }));
     }
-    if(r.type === "pond"){ makePond(D, rng, r); if(opts.rot) r.corrupt = true; }
-    if(r.type === "shrine" && r.road){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS. SOMETHING ELSE REMEMBERS IT." }); }
-    else if(r.type === "reliquary" && r.road){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME. A KEEPER STILL KEEPS IT." }); }
-    else if(r.type === "reliquary" || r.type === "shrine"){
-      r.props.push({ kind:"pedestal", x:cx, y:cy, quest:r.type === "reliquary" ? "ember" : "crown" });
-      r.props.push({ kind:"sign", x:cx, y:r.y1, text:r.type === "reliquary" ? "SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME." : "THE DROWNED SHRINE. THE BOG REMEMBERS ITS KINGS." });
-    }
+    if(r.type === "pond") makePond(D, rng, r);
+    if(r.type === "reliquary"){ r.boss = { x:r.cxw, y:r.cyw - 1 }; r.props.push({ kind:"sign", x:cx, y:r.y1, text:"SEALED BY THE KEEPERS. WHAT BURNS HERE MUST GO HOME. A KEEPER STILL KEEPS IT." }); }
     if(r.type === "boss") r.boss = { x:r.cxw, y:r.y1 + 3.5 };
     if(r.type === "puzzle") DG.Puzzles.generate(D, rng, r, floor);
-    if(SPECIAL[r.type]) SPECIAL[r.type](D, rng, r, floor);
+    if(SPECIAL[r.type]) SPECIAL[r.type](D, rng, r, floor, opts);
   });
 
-  // the Lantern road: a dead wick in some goblin room, tall iron, waiting
-  if(opts.wick){
-    const cands = rooms.filter(r=> r.type === "combat" && r.dist >= 1);
-    for(const r of rng.shuffle(cands)){
-      const free = freeTiles(D, r, { door:4, edge:true }).filter(([x, y])=> Math.abs(x + 0.5 - r.cxw) < 3.5 && Math.abs(y + 0.5 - r.cyw) < 3);
-      if(free.length){ const [x, y] = rng.pick(free); r.props.push({ kind:"wick", x, y }); break; }
-    }
-  }
+  if(opts.shrooms) glowshrooms(D, rng, opts.shrooms);
   rooms.forEach(r=>{ if((r.type === "combat" || r.type === "start") && rng.chance(r.type === "start" ? 1 : 0.22)) paintDoor(D, rng, r); });
   specialExtras(D, rng, floor);
   dress(D, rng);
@@ -236,6 +223,8 @@ function tryGenerate(rng, floor, seed, opts){
   D.curses = [];
   if(floor > 1 && rng.chance(S.curse)) D.curses.push(rng.pick(Object.keys(DG.CURSES)));
   if(floor >= 5 && rng.chance(0.4)){ const c = rng.pick(Object.keys(DG.CURSES)); if(D.curses.indexOf(c) < 0) D.curses.push(c); }
+  // a side road's last floor is its own place: no curses there (the dice still roll, so the rest of the floor stays the same)
+  if(opts.theme) D.curses = [];
 
   D.breakMap = new Array(W*H).fill(null);
   D.breakables.forEach((b, i)=>{ b.id = "b" + i; b.hp = b.kind === "xbarrel" ? 1 : b.kind === "crate" ? 18 : 8; D.breakMap[b.y*W + b.x] = b; });
@@ -523,11 +512,14 @@ function dress(D, rng){
     undercroft:["fungalcorpse", "bones", "drain", "mushrooms", "rotpod", "barrelstack", "ratnest", "candlecluster", "rubble", "sack", "stocks", "gallows"],
     crypt:["candlecluster", "soulcandles", "bones", "skullpile", "gravestone", "opengrave", "urns", "fungalcorpse", "candle", "roots", "gallows"],
     gloomwood:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "roots", "rotpod", "fallenpillar", "toadstools", "bones", "fern"],
-    forest:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "log", "ribcage", "roots", "rotpod", "toadstools", "fern", "glowcap"]
+    forest:["glowcap", "deadtree", "myceliumcorpse", "cordyceps", "log", "ribcage", "roots", "rotpod", "toadstools", "fern", "glowcap"],
+    bog:["glowcap", "bigfern", "lotusbud", "mossylog", "toadstools", "glowcap", "reeds", "rotpod", "fern", "glowcap"],
+    flesh:["bookpile", "scrollpile", "candlecluster", "soulcandles", "fleshpile", "bones", "lectern", "bookpile", "eyestalk", "urns"]
   }[theme] || ["bones"];
   const wallKinds = {
     castle:["slumped", "banner", "gibbet", "shackled", "banner", "shieldwall", "spikewall", "shacklewall"], undercroft:["slumped", "chains", "wallshroom", "pipes", "shackled", "shacklewall"], crypt:["skullniche", "ossuary", "candleshelf", "coffinwall", "skullniche", "chains"],
-    gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"]
+    gloomwood:["wallroots", "cordycepswall", "hangingmoss", "walleye", "wallcaps"], forest:["wallroots", "wallcaps", "cordycepswall", "hangingmoss", "glowmoss"],
+    bog:["glowmoss", "junglevines", "wallcaps", "hangingmoss", "glowmoss"], flesh:["bookshelf", "walleye", "bookshelf", "fleshwall", "walleye", "candleshelf"]
   }[theme] || ["banner"];
   D.rooms.forEach(r=>{
     const area = (r.x2 - r.x1 + 1)*(r.y2 - r.y1 + 1);
@@ -615,7 +607,7 @@ function specialRooms(D, rng, floor, C, quest, opts){
   const R = DG.RARE_ROOMS, want = quest ? [quest] : [];
   if(rng.chance(R.vault(floor))) want.push("vault");
   if(rng.chance(R.weird(floor))) want.push(rng.weighted(R.table.filter(o=> floor >= o.min)).type);
-  if(rng.chance(R.olm(floor)) || opts.sanctum) want.push("olm");
+  if(opts.olm) want.push("olm");                        // Brother Olm: only where the run's dice put him (G.plan)
   want.push("lair");                                   // a mini-boss on every floor
   want.forEach(type=>{
     const cand = [];
@@ -633,11 +625,9 @@ function specialRooms(D, rng, floor, C, quest, opts){
     const r = C.addRoom(c.cx, c.cy); r.type = type;
     r.c0x = r.c1x = c.cx; r.c0y = r.c1y = c.cy; r.dist = host.r.dist + 1;
     C.link(host.r, r, host.c, [c.cx, c.cy]);
-    if(type === "vault" || type === "reliquary" || type === "shrine") r.lockedIn = true;
-    // the Rot road's shrine: sealed with water, not a lock (you dive in from the floor's pond), and the Leech Mother lives in it
-    if(type === "shrine"){ r.sealed = true; r.road = "rot"; r.lair = "leech"; }
-    // the Lantern road's reliquary: warded, not locked (two wicks lit burn the wards), and the Warden keeps the Ember
-    if(type === "reliquary"){ r.warded = true; r.road = "lantern"; r.lair = "warden"; }
+    if(type === "vault") r.lockedIn = true;
+    // the Ember road's reliquary: no lock, but the Warden keeps the Ember
+    if(type === "reliquary"){ r.road = "ember"; r.lair = "warden"; }
     if(type === "lair"){
       const f = ((floor - 1) % DG.FLOORS.length) + 1;
       r.lair = rng.pick(Object.keys(DG.LAIRS).filter(id=> DG.LAIRS[id].floors.indexOf(f) >= 0));
@@ -650,7 +640,7 @@ function lockRooms(D){
     if(!r.lockedIn) return;
     D.corridors.forEach(c=>{
       if(c.a !== r.id && c.b !== r.id) return;
-      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; if(r.sealed) d.sealed = true; if(r.warded) d.warded = true; } });
+      D.doors.forEach(d=>{ if(d.corridor === c.id && d.room !== r.id){ d.locked = true; d.open = false; d.into = r.id; } });
     });
   });
 }
@@ -699,13 +689,13 @@ const SPECIAL = {
     for(let k=0;k<6;k++) deco(D, r, rng.pick(["bones", "bones", "skullpile", "corpse"]), r.x1 + 1 + rng.next()*(r.x2 - r.x1 - 1), r.y1 + 1 + rng.next()*(r.y2 - r.y1 - 1), { rot:rng.next()*6, s:0.9 + rng.next()*0.3 });
     for(let x=r.x1 + 1; x<r.x2; x+=rng.int(2, 3)) if(D.at(x, r.y1 - 1) === T.SOLID) wallDeco(D, r, rng.pick(["shacklewall", "gibbet", "chains", "spikewall"]), x, { s:1 });
   },
-  /* a locked vault: two pedestals both yours, or one from the secret pool, or a golden chest and an item */
+  /* a locked vault: a relic from the secret pool, or two fine guns both yours, or two golden chests */
   vault(D, rng, r, floor){
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
-    r.vault = rng.weighted([{ v:"twin", w:1 }, { v:"relic", w:1 }, { v:"hoard", w:1 }]).v;
-    if(r.vault === "twin"){ r.props.push({ kind:"pedestal", x:cx - 2, y:cy, pool:"t" }, { kind:"pedestal", x:cx + 2, y:cy, pool:"t" }); }
+    r.vault = rng.weighted([{ v:"relic", w:1.2 }, { v:"armoury", w:1 }, { v:"hoard", w:1 }]).v;
+    if(r.vault === "armoury"){ r.props.push({ kind:"pedestal", x:cx - 2, y:cy, sell:"fine" }, { kind:"pedestal", x:cx + 2, y:cy, sell:"fine" }); }
     else if(r.vault === "relic"){ r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"x" }); }
-    else { r.props.push({ kind:"chest", x:cx - 2, y:cy, tier:3, golden:true }, { kind:"pedestal", x:cx + 2, y:cy, pool:"t" }); }
+    else { r.props.push({ kind:"chest", x:cx - 2, y:cy, tier:3, golden:true }, { kind:"chest", x:cx + 2, y:cy, tier:3, golden:true }); }
     [[r.x1 + 0.7, r.y1 + 0.7], [r.x2 + 0.3, r.y1 + 0.7], [r.x1 + 0.7, r.y2 + 0.3], [r.x2 + 0.3, r.y2 + 0.3]].forEach(([x, y])=> deco(D, r, rng.chance(0.5) ? "goldpile" : "coinchest", x, y, { rot:rng.next()*6.28, s:0.9 + rng.next()*0.3 }));
     for(let x=r.x1 + 1; x<r.x2; x+=3) wallDeco(D, r, rng.chance(0.5) ? "vaultbars" : "candleshelf", x, { s:1 });
   },
@@ -736,26 +726,41 @@ const SPECIAL = {
     r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE GAMBLER'S ALTAR. DOUBLE OR NOTHING. THE HOUSE IS VERY OLD, AND HAS NEVER LOST." });
     deco(D, r, "candlecluster", cx - 4.2, cy - 1, { rot:1, s:1 }); deco(D, r, "candlecluster", cx + 4.4, cy + 2, { rot:2, s:1 });
   },
-  /* the Wizard's Quarters: a cot, a hearth, a kettle, too many books, and Brother Olm */
-  /* the Lantern Sanctum: a ruined scriptorium. Olm stands in a circle burned
-     into the floor under a cracked window; lecterns ring him, their books
-     chained open; wax mounds burn in the corners; an orrery of bones turns */
-  olm(D, rng, r){
-    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw), ox = cx + 0.5, oy = cy - 0.5;
-    r.props.push({ kind:"olm", x:cx, y:cy - 1 });
-    deco(D, r, "summoncircle", ox, oy, { rot:0, s:1.2 });
-    wallDeco(D, r, "stainedglass", cx, { s:1 });
-    [r.x1 + 1, r.x1 + 3, r.x2 - 3, r.x2 - 1].forEach(x=>{ if(Math.abs(x - cx) > 2) wallDeco(D, r, "bookshelf", x, { s:1 }); });
-    // lecterns round the circle, facing in
-    [-2.4, -1.5, 1.5, 2.4].forEach((a, i)=>{ const x = ox + Math.sin(a)*3, y = oy - Math.cos(a)*2.4; deco(D, r, "lectern", x, y, { rot:a + Math.PI, s:1 }); });
-    [[r.x1 + 0.9, r.y1 + 1], [r.x2 + 0.1, r.y1 + 1], [r.x1 + 0.9, r.y2], [r.x2 + 0.1, r.y2]].forEach(([x, y])=> deco(D, r, "waxmound", x, y, { rot:rng.next()*6, s:1 + rng.next()*0.3 }));
-    deco(D, r, "orrery", r.x2 - 1.4, cy + 1.6, { rot:rng.next()*6, s:1 });
-    deco(D, r, "pagedrift", r.x1 + 1.6, r.y2 - 0.3, { rot:0, s:1.2 });
-    deco(D, r, "pagedrift", r.x2 - 2.5, r.y1 + 0.8, { rot:0.4, s:1 });
-    deco(D, r, "bookpile", r.x1 + 0.8, cy + 0.5, { rot:rng.next()*6, s:1 });
+  /* Olm's library: shelves to the ceiling, lecterns, scrolls everywhere, a
+     hearth, and Brother Olm among ten little frogs learning their letters.
+     On his route, a door of shut eyes in the west wall (his lantern opens it) */
+  olm(D, rng, r, floor, opts){
+    const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
+    r.props.push({ kind:"olm", x:cx, y:cy });
+    wallDeco(D, r, "hearth", cx, { s:1 });
+    const door = opts && opts.olm && opts.olm.door ? cx - 4 : -99;
+    for(let x=r.x1 + 1; x<r.x2; x+=2) if(Math.abs(x - cx) > 1 && Math.abs(x - door) > 1) wallDeco(D, r, "bookshelf", x, { s:1 });
+    [[r.x1 + 1.6, cy - 1.5], [r.x2 - 0.6, cy - 1.5], [r.x1 + 1.6, cy + 2], [r.x2 - 0.6, cy + 2]].forEach(([x, y], i)=> deco(D, r, "lectern", x, y, { rot:i % 2 ? -Math.PI/2 : Math.PI/2, s:1 }));
+    for(let k=0;k<6;k++) deco(D, r, rng.chance(0.5) ? "scrollpile" : "bookpile", r.x1 + 1 + rng.next()*(r.x2 - r.x1 - 1), rng.chance(0.5) ? r.y2 - 0.2 : r.y1 + 1.2, { rot:rng.next()*6, s:1 });
+    deco(D, r, "kettle", cx + 1.6, r.y1 + 0.7, { rot:0, s:1 });
+    deco(D, r, "candlecluster", r.x1 + 0.8, r.y2 - 0.2, { rot:1, s:1 }); deco(D, r, "candlecluster", r.x2 - 0.2, r.y1 + 0.8, { rot:2, s:1 });
+    r.library = true;
+    if(opts && opts.olm && opts.olm.door){
+      // the door of eyes: in the north wall, facing you, so you see every eye open
+      r.props.push({ kind:"eyedoor", x:door, y:r.y1 });
+    }
   }
 };
 Dungeon.SPECIAL = SPECIAL;
+
+/* the Gribbus route: glowing mushrooms, n on this floor, each against a wall
+   in its own room (never the boss's, never behind a lock) */
+function glowshrooms(D, rng, n){
+  const rooms = rng.shuffle(D.rooms.filter(r=> (r.type === "combat" || r.type === "start" || r.type === "puzzle" || r.type === "shop") && !r.lockedIn));
+  for(let i=0; i<n && rooms.length; i++){
+    const r = rooms[i % rooms.length];
+    const t = freeTiles(D, r, { door:3 }).filter(([x, y])=> (x === r.x1 || x === r.x2 || y === r.y2) && !r.props.some(p=> Math.abs(p.x - x) < 2 && Math.abs(p.y - y) < 2));
+    if(!t.length) continue;
+    const [x, y] = rng.pick(t);
+    r.props.push({ kind:"glowshroom", x, y });
+  }
+}
+Dungeon.glowshrooms = glowshrooms;
 
 function specialExtras(D, rng, floor){
   const R = DG.RARE_ROOMS, combat = D.rooms.filter(r=> r.type === "combat" && r.dist >= 1);

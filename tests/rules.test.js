@@ -40,8 +40,10 @@ test("every floor of 150 seeds is fully reachable and has the right rooms", ()=>
     const floor = 1 + (s % 5), D = DG.Dungeon.generate(s*2654435761 >>> 0, floor);
     const seen = reach(D);
     const types = D.rooms.map(r=> r.type);
-    const need = ["start", "boss", "treasure", "shop", "puzzle", "pond"].concat(floor >= 2 ? ["altar"] : []);
+    const need = ["start", "boss", "treasure", "shop", "puzzle"];
     for(const t of need) assert.equal(types.filter(x=> x === t).length, 1, "seed " + s + " needs one " + t);
+    ["pond", "altar"].forEach(t=> assert.ok(types.filter(x=> x === t).length <= 1, "at most one " + t));
+    if(floor === 1) assert.ok(types.indexOf("altar") < 0, "no altar on floor 1");
     D.rooms.forEach(r=> assert.ok(roomReached(D, r, seen), "seed " + s + ": room " + r.id + " (" + r.type + ") unreachable"));
     assert.equal(D.rooms.find(r=> r.type === "boss").links.length, 1, "the boss room is a dead end");
     D.rooms.filter(r=> r.type === "combat").forEach(r=> assert.ok(r.waves.length && r.waves.every(w=> w.length), "combat rooms have enemies"));
@@ -283,16 +285,13 @@ test("an ascension: Seeker Spirit turns a pistol into the Seeker Sidearm", ()=>{
 /* ================================================================== *
  *  Zippy: levels, actives, the altar
  * ================================================================== */
-test("levelling up offers three boons once the room is quiet, and picking one applies it", ()=>{
-  const G = game("LEVELS"); park(G);
-  G.gainXp(DG.PLAYER.xp(1));
-  G.update(1/60, {});
-  assert.equal(G.state, "choose");
-  assert.equal(G.choice.options.length, 3);
-  const id = G.choice.options[1];
-  G.choose(1);
+test("there are no levels: kills give no XP and never stop the game for a choice", ()=>{
+  const G = game("LEVELS"), r = combatRoom(G); park(G); G.god = true;
+  for(let i=0;i<40;i++){ const e = addEnemy(G, r, r.cxw, r.cyw); G.killEnemy(e, {}); }
+  step(G, 0.5);
   assert.equal(G.state, "play");
-  assert.ok(G.player.boons.indexOf(id) >= 0);
+  assert.equal(G.player.boons.length, 0);
+  assert.ok(G.player.xp === undefined && G.player.level === undefined, "no XP to speak of");
 });
 
 test("the Pocket Watch stops time", ()=>{
@@ -326,18 +325,25 @@ test("the shop takes your gold", ()=>{
   assert.equal(G.player.gold, 999 - ped.offer.price);
 });
 
-test("a treasure room is a choice, item or weapon: take one and the rest crumble", ()=>{
+test("the armoury (the old treasure room) is a choice of weapons: take one and the rest rust away", ()=>{
   [[1, 2], [3, 3]].forEach(([floor, n])=>{
     const G = game("TREASURE", floor);
     const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
     assert.equal(peds.length, n, "floor " + floor);
-    assert.ok(peds.some(p=> p.offer.kind === "gun" && !p.offer.price), "a free weapon among them");
-    assert.ok(peds.some(p=> p.offer.kind === "item"), "and an item");
-    const gun = peds.find(p=> p.offer.kind === "gun");
+    assert.ok(peds.every(p=> p.offer.kind === "gun" && !p.offer.price), "free weapons, no powerups");
+    assert.ok(peds.some(p=> p.offer.gun.rarity >= 2), "one of them a fine one");
+    const gun = peds[0];
     G.player.x = gun.x + 0.5; G.player.y = gun.y + 1.2; G.room = r;
     G.interact();
     assert.ok(gun.taken && peds.filter(p=> p !== gun).every(p=> p.sunk));
   });
+});
+
+test("items come from bosses, lairs, shops and Olm: chests and armouries hold none", ()=>{
+  for(let s=0; s<40; s++){
+    const G = game("CHESTS" + s, 1 + (s % 5));
+    [1, 2, 3].forEach(tier=> G.chestLoot({ tier }).forEach(it=> assert.ok(it.kind !== "itemid", "a tier " + tier + " chest held a powerup")));
+  }
 });
 
 test("a gun grows with the kills you make with it", ()=>{
@@ -367,36 +373,49 @@ test("Gribbus hops over and licks goblins on his own", ()=>{
   assert.ok(e.hp < 1e5, "it hurt");
 });
 
-test("a frog pond: one lily pad teaches Gribbus a trick, the others sink", ()=>{
-  const G = game("POND");
-  const r = G.D.rooms.find(x=> x.type === "pond");
-  DG.Gribbus.offerPond(G, r);
-  const pads = r.props.filter(p=> p.kind === "lilypad" && !p.gloom);
-  assert.equal(pads.length, 3);
-  assert.equal(r.props.filter(p=> p.kind === "lilypad" && p.gloom).length, 1, "and the black one, on floor 1");
-  assert.ok(pads.every(p=> p.buff));
-  DG.Gribbus.choosePad(G, pads[1]);
-  assert.ok(G.gribbus.buffs.indexOf(pads[1].buff) >= 0);
-  assert.ok(pads[0].sunk && pads[2].sunk);
+function pondGame(word){
+  for(let s=0; s<200; s++){ const G = game(word + s, 2); const r = G.D.rooms.find(x=> x.type === "pond"); if(r) return { G, r }; }
+  throw new Error("no pond");
+}
+test("Gribbus' pond: three tricks of one tier float on the pads; pick one and the others sink", ()=>{
+  for(let k=0; k<12; k++){
+    const { G, r } = pondGame("POND" + k + "_");
+    DG.Gribbus.offerPond(G, r);
+    const pads = r.props.filter(p=> p.kind === "lilypad");
+    assert.equal(pads.length, 3);
+    assert.ok(pads.every(p=> p.buff));
+    assert.equal(new Set(pads.map(p=> DG.FROG_BUFFS[p.buff].tier)).size, 1, "no obvious pick: all one tier");
+    if(k) continue;
+    DG.Gribbus.choosePad(G, pads[1]);
+    assert.ok(G.gribbus.buffs.indexOf(pads[1].buff) >= 0, "Gribbus learns it");
+    assert.ok(G.player.items["f_" + pads[1].buff], "and it's in the satchel as an item");
+    assert.ok(pads[0].sunk && pads[2].sunk);
+    assert.ok(!G.pickups.some(k=> k.kind === "fly"), "no golden fly");
+  }
 });
 
-test("golden flies unlock locked Gribbus buffs at ponds", ()=>{
-  const locked = Object.keys(DG.FROG_BUFFS).filter(id=> DG.FROG_BUFFS[id].locked);
-  let seenLocked = false;
-  for(let s=0; s<40 && !seenLocked; s++){
-    const G = new DG.Game({ seedWord:"FLIES" + s, meta:{ flies:99, unlocked:{} } });
-    const r = G.D.rooms.find(x=> x.type === "pond");
-    DG.Gribbus.offerPond(G, r);
-    if(r.props.some(p=> p.kind === "lilypad" && locked.indexOf(p.buff) >= 0)) seenLocked = true;
-  }
-  assert.ok(seenLocked);
-  for(let s=0; s<40; s++){
-    const G = new DG.Game({ seedWord:"NOFLY" + s, meta:{ flies:0, unlocked:{} } });
-    const r = G.D.rooms.find(x=> x.type === "pond");
-    DG.Gribbus.offerPond(G, r);
-    assert.ok(!r.props.some(p=> p.kind === "lilypad" && locked.indexOf(p.buff) >= 0), "locked ones stay locked");
-  }
+test("the pond is rare: about a quarter of floors", ()=>{
+  let n = 0;
+  for(let s=1; s<=200; s++) if(DG.Dungeon.generate(s*7919 >>> 0, 1 + (s % 5)).rooms.some(r=> r.type === "pond")) n++;
+  assert.ok(n/200 > 0.12 && n/200 < 0.35, n + " ponds in 200 floors");
 });
+
+test("Gribbus' tricks are items too: found in shops and treasure, they teach him (and Mimic Toad copies your volleys)", ()=>{
+  assert.ok(DG.Items.pools().s.some(id=> DG.ITEMS[id].frog), "some in the shop pool");
+  assert.ok(DG.Items.pools().b.some(id=> DG.ITEMS[id].frog), "some in the boss pool");
+  const G = game("MIMIC"), r = combatRoom(G); park(G);
+  G.giveItem("f_mimic");
+  assert.ok(G.gribbus.g.mimic);
+  G.player.x = r.cxw; G.player.y = r.cyw; G.room = r; r.active = true; G.god = true;
+  const e = addEnemy(G, r, r.cxw + 5, r.cyw); e.hp = e.maxHp = 1e6; e.speed = 0; e.ai.cd = 99;
+  let frogShots = 0;
+  for(let i=0;i<60;i++){ G.update(1/60, { fire:true, ax:e.x, ay:e.y }); frogShots += G.bullets.filter(b=> b.from === "gribbus" && b.t === 1/60).length; G.drain(); }
+  assert.ok(frogShots > 0, "Gribbus fires your volleys");
+  assert.ok(DG.Gribbus.mimicMul(G) < 1, "weaker than yours on his own");
+  G.giveItem("f_crown"); G.giveItem("f_bigboy");
+  assert.ok(DG.Gribbus.mimicMul(G) >= 0.99, "frog damage builds him up to match you: " + DG.Gribbus.mimicMul(G).toFixed(2));
+});
+
 
 /* ================================================================== *
  *  Rooms, illusions, paint
@@ -414,11 +433,13 @@ test("walking into a goblin room shuts the doors; clearing it opens them", ()=>{
 });
 
 test("walking into a painted door: BONK (but not from a room away)", ()=>{
-  const G = game("BONKER");
-  const p0 = G.D.painted.find(p=> p.kind === "bonk");
+  let word = null, p0 = null;
+  for(let s=0; s<40 && !p0; s++){ const G = game("BONKER" + s); p0 = G.D.painted.find(p=> p.kind === "bonk"); if(p0) word = "BONKER" + s; }
+  assert.ok(p0, "a painted door turns up");
+  const G = game(word);
   G.player.x = p0.x + 0.5; G.player.y = p0.y + 1 + G.player.r + 0.02;
   assert.ok(step(G, 0.3, { my:-1 }).some(e=> e.type === "bonk"));
-  const G2 = game("BONKER");
+  const G2 = game(word);
   G2.player.x = p0.x + 0.5; G2.player.y = p0.y - 6;
   assert.ok(!step(G2, 0.3, { my:-1 }).some(e=> e.type === "bonk"));
 });
@@ -886,7 +907,7 @@ test("every item is well formed: real payloads, real tiers and pools, a descript
     const d = DG.ITEMS[id];
     assert.ok(d.name && d.desc, id + " has a name and a description");
     assert.ok(d.tier >= 0 && d.tier <= 4, id + " tier");
-    assert.ok(d.given ? d.pools === "" : /^[tsbxa]+$/.test(d.pools), id + " pools");
+    assert.ok(d.given ? d.pools === "" : /^[tsbxaf]+$/.test(d.pools), id + " pools");
     check(d, id);
   }
   DG.DUOS.forEach(d=>{ assert.ok(DG.ITEMS[d.a] && DG.ITEMS[d.b], d.name + " pairs real items"); check(d, d.name); });
@@ -1193,30 +1214,24 @@ function killBoss(G){
 }
 function takePortal(G){ G.player.x = G.portal.x; G.player.y = G.portal.y; G.interact(); }
 
-test("the quest rooms belong to the roads: the Reliquary warded (the Lantern), the Drowned Shrine sealed with water (the Rot)", ()=>{
-  const seen = { reliquary:0, shrine:0 };
-  for(let s=1; s<=60; s++) for(const floor of [1, 2, 3]){
-    const D0 = DG.Dungeon.generate(s*7349 >>> 0, floor);
-    assert.ok(!D0.rooms.some(r=> r.type === "shrine" || r.type === "reliquary"), "no quest room off the roads");
-    if(floor === 1) continue;
-    const D = DG.Dungeon.generate(s*7349 >>> 0, floor, { reliquary:true });
-    D.rooms.filter(r=> r.type === "reliquary").forEach(r=>{
-      seen[r.type]++;
-      assert.ok(D.doors.some(d=> d.locked && d.warded && !d.open && d.into === r.id), "warded");
-      assert.equal(r.lair, "warden");
-      assert.ok(!r.props.some(p=> p.quest), "the Ember waits for the Warden to die");
-    });
-  }
-  for(let s=1; s<=20; s++){
-    const D = DG.Dungeon.generate(s*7349 >>> 0, 3, { shrine:true, rot:2 });
-    const r = D.rooms.find(o=> o.type === "shrine"); if(!r) continue;
-    seen.shrine++;
-    assert.ok(D.doors.some(d=> d.locked && d.sealed && d.into === r.id), "sealed");
-    assert.equal(r.lair, "leech");
-    assert.ok(!r.props.some(p=> p.quest), "the crown waits for the Leech Mother to die");
-    assert.ok(D.rooms.some(o=> o.type === "pond" && o.corrupt), "the pond is black");
-  }
-  assert.ok(seen.reliquary > 5 && seen.shrine > 15, JSON.stringify(seen));
+test("side routes: at most one a run, by chance; only its own things turn up", ()=>{
+  const n = { none:0, ember:0, bog:0, olm:0 };
+  for(let s=0; s<300; s++){ const G = new DG.Game({ seedWord:"ROUTE" + s }); n[G.roads.route || "none"]++; }
+  Object.keys(n).forEach(k=> assert.ok(n[k] > 30, k + " happens: " + JSON.stringify(n)));
+  assert.ok(n.none > 80, "plenty of runs have none");
+  // each route puts only its own things in the dungeon
+  const things = G=>{ const out = { reliquary:0, shroom:0, olm:0, eyedoor:0 };
+    for(let f=1; f<=5; f++){ const D = DG.Dungeon.generate((G.seed + f*104729) >>> 0, f, DG.Roads.genOpts(G, f));
+      D.rooms.forEach(r=>{ if(r.type === "reliquary") out.reliquary++; if(r.type === "olm") out.olm++; r.props.forEach(p=>{ if(p.kind === "glowshroom") out.shroom++; if(p.kind === "eyedoor") out.eyedoor++; }); }); }
+    return out; };
+  const ember = things(new DG.Game({ seedWord:"R1", route:"ember" }));
+  assert.equal(ember.reliquary, 1); assert.equal(ember.shroom, 0); assert.equal(ember.eyedoor, 0);
+  const bog = things(new DG.Game({ seedWord:"R2", route:"bog" }));
+  assert.equal(bog.reliquary, 0); assert.ok(bog.shroom >= DG.SHROOMS_NEED, bog.shroom + " mushrooms, ten needed"); assert.equal(bog.eyedoor, 0);
+  const olm = things(new DG.Game({ seedWord:"R3", route:"olm" }));
+  assert.equal(olm.olm, 2, "Olm twice"); assert.equal(olm.eyedoor, 1, "the door of eyes on his second visit's floor"); assert.equal(olm.shroom + olm.reliquary, 0);
+  const none = things(new DG.Game({ seedWord:"R4", route:null }));
+  assert.ok(none.olm <= 1 && none.eyedoor === 0 && none.shroom === 0 && none.reliquary === 0);
 });
 // regression: a quest room could be a goblin room with two ways out, and with
 // its doors locked it could cut a keyless player off from the boss
@@ -1267,16 +1282,43 @@ test("a boss fight taken without a hit is remembered as clean", ()=>{
   assert.ok(!H.stats.bosses[0].clean);
 });
 
-test("King of the Bog: with the Crown, and split at least once, Gribbus eats the Heart", ()=>{
-  const G = game("BOGEND", 5); G.player.quests.crown = true; G.roads.rot.crown = true; G.roads.rot.stage = 2;
+test("King of the Bog: ten mushrooms, a green portal, the Glutton's Bog and the Toad King", ()=>{
+  const G = new DG.Game({ seedWord:"BOGEND", floor:5, route:"bog" });
+  G.roads.rot.shrooms = DG.SHROOMS_NEED;
   killBoss(G);
-  assert.ok(G.drain().length >= 0);
-  step(G, 4);
-  assert.equal(G.state, "won"); assert.equal(G.ending, "bog");
-  // a crown alone isn't the road: that's the dawn
-  const H = game("BOGNOT", 5); H.player.quests.crown = true; H.roads.rot.crown = true; H.roads.rot.stage = 1;
-  killBoss(H); step(H, 4);
-  assert.ok(H.ending !== "bog");
+  assert.equal(G.portal.kind, "bog", "the Heart's portal runs green");
+  takePortal(G);
+  assert.equal(G.state, "play", "not over yet");
+  assert.equal(G.floor, DG.FINAL_FLOOR + 1); assert.equal(G.D.theme, DG.BOG);
+  assert.ok(DG.Gribbus.mult(G) >= 2, "Gribbus is the king here");
+  const { b } = killBoss(G);
+  assert.equal(b.type, "toadking");
+  takePortal(G);
+  assert.equal(G.ending, "bog");
+});
+
+test("glowing mushrooms: Gribbus eats them, grows, and from four on he demands praise", ()=>{
+  for(let s=0; s<30; s++){
+    const G = new DG.Game({ seedWord:"SHROOM" + s, route:"bog" });
+    const r = G.D.rooms.find(x=> x.props.some(p=> p.kind === "glowshroom"));
+    if(!r) continue;
+    const o = r.props.find(p=> p.kind === "glowshroom"), m0 = DG.Gribbus.scale(G), s0 = DG.Gribbus.size(G);
+    G.god = true; stand(G, o.x + 0.5, o.y + 0.5); G.room = r;
+    assert.ok(/mushroom/.test(G.target().text), G.target().text);
+    G.interact();
+    assert.equal(G.roads.rot.shrooms, 1); assert.ok(o.eaten);
+    assert.ok(DG.Gribbus.scale(G) > m0 && DG.Gribbus.size(G) > s0, "he grows");
+    G.interact(); assert.equal(G.roads.rot.shrooms, 1, "a mushroom is eaten once");
+    G.roads.rot.shrooms = 5; park(G);
+    step(G, 20);
+    const f = G.gribbus;
+    assert.ok(f.demand > 0, "he demands praise");
+    stand(G, f.x + 0.4, f.y); assert.ok(/Praise/.test(G.target().text));
+    const before = DG.Gribbus.mult(G); G.interact();
+    assert.ok(DG.Gribbus.mult(G) > before*1.4, "praised, he hits harder");
+    return;
+  }
+  throw new Error("no mushroom found");
 });
 
 test("The First Flame: the Ember opens the Kiln, and the Hollow Wizard waits there", ()=>{
@@ -1323,11 +1365,13 @@ test("vaults and rare rooms turn up at the right rates, one door each, and every
   const weird = (n.throne || 0) + (n.cage || 0) + (n.gamble || 0);
   assert.ok(weird/floors > 0.1 && weird/floors < 0.35, "a weird room every few floors: " + weird);
   assert.ok(n.throne && n.cage && n.gamble, "all three weird rooms happen");
-  assert.ok(n.olm/floors > 0.12 && n.olm/floors < 0.4, "Olm is semi-rare: " + n.olm);
+  assert.ok(!n.olm, "Olm only where the game asks for him");
+  const D = DG.Dungeon.generate(4242, 2, { olm:{ visit:1 } });
+  assert.equal(D.rooms.filter(r=> r.type === "olm").length, 1);
 });
 
 test("a vault sits behind a locked door: no key, no entry; a key opens it and the loot is all yours", ()=>{
-  const { G, r } = specialRoom("vault", 2, x=> x.vault === "twin");
+  const { G, r } = specialRoom("vault", 2, x=> x.vault === "armoury");
   const d = G.D.doors.find(x=> x.locked && x.into === r.id);
   assert.ok(d && !d.open && d.room !== r.id, "the host's door into the vault is locked");
   assert.ok(G.blocked(Math.floor(d.x), Math.floor(d.y), "player"), "a locked door is a wall");
@@ -1463,9 +1507,17 @@ test("orange messages point at secret walls (and dead ends hide them) without gi
   assert.ok(deadEnd > secrets*0.25, "secret walls like dead-end rooms: " + deadEnd + " of " + secrets);
 });
 
-test("Brother Olm: talk, a blessing for gold, a trade a tier up, a mend, a key, and goodbye", ()=>{
-  const { G, r } = specialRoom("olm", 1);
-  const o = propOf(r, "olm"), p = G.player;
+function olmGame(word, visit){
+  const G0 = new DG.Game({ seedWord:word, route:"olm" });
+  const G = new DG.Game({ seedWord:word, route:"olm", floor:G0.roads.plan.olmFloors[(visit || 1) - 1] });
+  G.god = true;
+  const r = G.D.rooms.find(x=> x.type === "olm");
+  return { G, r, o:propOf(r, "olm") };
+}
+test("Brother Olm: talk, a scroll for gold, a blessing, a trade a tier up, a mend, a key, and goodbye", ()=>{
+  const { G, r, o } = olmGame("OLMTALK");
+  const p = G.player;
+  assert.ok(r.library, "he keeps a library");
   G.giveItem("spinach", true);
   stand(G, o.x + 0.5, o.y + 1.3); step(G, 0.1);
   assert.ok(/Olm/.test(G.target().text));
@@ -1473,16 +1525,16 @@ test("Brother Olm: talk, a blessing for gold, a trade a tier up, a mend, a key, 
   assert.equal(G.state, "choose"); assert.equal(G.choice.kind, "olm");
   assert.ok(G.choice.line.length > 10);
   const idx = act=> G.choice.options.findIndex(x=> x.act === act);
-  // listening: what matters on this floor first (the road down: wicks, the Reliquary), and never the same twice
-  G.choose(idx("listen"));
-  assert.ok(/wicks|reliquary/i.test(G.choice.line), G.choice.line);
-  const lines = new Set([G.choice.line]);
+  // listening: never the same twice
+  const lines = new Set();
   for(let k=0;k<6;k++){ G.choose(idx("listen")); assert.ok(!lines.has(G.choice.line), "a new line each time"); lines.add(G.choice.line); }
-  // a blessing: needs the gold, gives a boon, once a visit
-  p.gold = 0; G.choose(idx("bless")); assert.equal(p.boons.length, 0, "no gold, no blessing");
-  p.gold = 500; G.choose(idx("bless"));
-  assert.equal(p.boons.length, 1); assert.ok(p.gold < 500);
-  const g1 = p.gold; G.choose(idx("bless")); assert.equal(p.gold, g1, "once a visit");
+  // a scroll: a powerup for gold, once a visit
+  const items0 = Object.keys(p.items).length;
+  p.gold = 0; G.choose(idx("scroll")); assert.equal(Object.keys(p.items).length, items0, "no gold, no scroll");
+  p.gold = 999; G.choose(idx("scroll")); assert.ok(Object.keys(p.items).length > items0 && p.gold < 999, "a powerup bought");
+  const g0 = p.gold; G.choose(idx("scroll")); assert.equal(p.gold, g0, "once a visit");
+  // a blessing: a boon for gold (the only boons there are now)
+  p.gold = 500; G.choose(idx("bless")); assert.equal(p.boons.length, 1); assert.ok(p.gold < 500);
   // a trade: give one powerup, get one a tier higher
   G.choose(idx("trade")); assert.equal(G.choice.page, "trade");
   const gi = G.choice.options.findIndex(x=> x.id === "spinach"), count = Object.keys(p.items).length;
@@ -1493,26 +1545,25 @@ test("Brother Olm: talk, a blessing for gold, a trade a tier up, a mend, a key, 
   // a mend, and a key
   p.hp = 10; G.choose(idx("mend")); assert.ok(p.hp > 10);
   p.gold = 100; const k0 = p.keys; G.choose(idx("key")); assert.equal(p.keys, k0 + 1);
-  // leave: back to the game, and a level-up that was waiting still comes
+  assert.ok(idx("lantern") < 0, "no lantern on a first visit");
   G.choose(G.choice.leave);
   assert.equal(G.state, "play"); assert.equal(G.choice, null);
-  p.pendingLevels = 1; step(G, 0.1);
-  assert.ok(p.boons.length >= 2, "the level-up boon was offered and taken");
 });
 
-test("Brother Olm remembers you across runs (meta), and his trade never offers a godly item", ()=>{
-  const { G, r } = specialRoom("olm", 1);
+test("Brother Olm remembers you across runs (meta), and his trade never offers a godly item or Gribbus' tricks", ()=>{
+  const { G, o } = olmGame("OLMMETA");
   G.meta.olm = 2;
-  const o = propOf(r, "olm"); G.talkOlm(o);
+  G.talkOlm(o);
   assert.equal(G.choice.line, DG.OLM.remembered);
-  G.giveItem("godwand", true);
+  G.giveItem("godwand", true); G.giveItem("f_tongue", true); G.giveItem("spinach", true);
   G.choose(G.choice.options.findIndex(x=> x.act === "trade"));
-  assert.ok(!G.choice.options.some(x=> x.id === "godwand"));
+  assert.ok(!G.choice.options.some(x=> x.id === "godwand" || x.id === "f_tongue"));
 });
 
 test("the frog pond is a jungle: ferns, lotus, vines, a waterfall, and no grim clutter", ()=>{
   for(let f=1; f<=5; f++){
-    const D = DG.Dungeon.generate(777 + f, f), r = D.rooms.find(x=> x.type === "pond");
+    let D, r;
+    for(let s=0; !r; s++){ D = DG.Dungeon.generate(777 + f*1000 + s, f); r = D.rooms.find(x=> x.type === "pond"); }
     assert.ok(r.jungle);
     const kinds = D.decor.filter(d=> d.room === r.id).map(d=> d.kind);
     ["bigfern", "lotus", "waterfall", "junglevines", "mossylog"].forEach(k=> assert.ok(kinds.indexOf(k) >= 0, "floor " + f + " pond has " + k));
@@ -1656,173 +1707,103 @@ test("Croaking Hex: a spell makes Gribbus croak, and it's his damage", ()=>{
   assert.ok(e.hp < 1e6, "frozen and hurt");
   assert.ok(G.stats.frogDmg > 0);
 });
-test("a frog build's treasure room keeps one frog thing on offer", ()=>{
-  let hits = 0, n = 0;
-  for(let s=1; s<=12; s++){
-    const G = game("LEAN" + s, 2);
-    G.giveItem("twister", true); G.giveItem("bogpact", true);
-    const r = G.D.rooms.find(x=> x.type === "treasure");
-    r.props.forEach(pr=>{ if(pr.kind === "pedestal" && pr.offer && pr.offer.kind === "item"){ G.seenItems[pr.offer.id] = false; pr.offer = null; } });
-    r.props.forEach(pr=>{ if(pr.kind === "pedestal" && !pr.offer && !pr.sell) pr.offer = G.makeOffer(r, pr); });
-    n++;
-    if(r.props.some(pr=> pr.offer && pr.offer.kind === "item" && DG.Items.tagsOf(DG.ITEMS[pr.offer.id]).indexOf("frog") >= 0)) hits++;
-  }
-  assert.equal(hits, n);
-});
-
-/* ---- the Rot road ---- */
-function pondOf(G){ return G.D.rooms.find(x=> x.type === "pond"); }
-test("the Rot: the Gloom Lily floats only on floors 1 to 3 while the road is open; drinking it taints him and blackens the pond", ()=>{
-  const H = game("NOLILY", 4); DG.Gribbus.offerPond(H, pondOf(H));
-  assert.ok(!pondOf(H).props.some(p=> p.gloom), "not on floor 4");
-  const C = game("SHUTLILY", 2); C.roads.rot.closed = true; DG.Gribbus.offerPond(C, pondOf(C));
-  assert.ok(!pondOf(C).props.some(p=> p.gloom), "not once the road's shut");
-  const G = game("LILY", 2), r = pondOf(G); DG.Gribbus.offerPond(G, r);
-  const pad = r.props.find(p=> p.gloom); assert.ok(pad);
-  const p0 = DG.Gribbus.power(G);
-  DG.Gribbus.choosePad(G, pad);
-  assert.equal(G.roads.rot.stage, 1); assert.ok(r.corrupt);
-  assert.equal(G.gribbus.buffs.length, 0, "instead of a trick, not as well as");
-  assert.ok(r.props.filter(p=> p.kind === "lilypad" && !p.gloom).every(p=> p.sunk));
-  assert.ok(DG.Gribbus.power(G) > p0*1.2);
-});
-test("the Rot: only his own kills feed him; fed, he molts at a pond, and the first molt shuts the Lantern road", ()=>{
-  const G = game("MOLT", 2), r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; G.god = true;
-  G.roads.rot.stage = 1;
-  for(let i=0;i<30;i++){ const e = addEnemy(G, r, s.x, s.y); G.damageEnemy(e, 1e6, {}); }
-  assert.equal(G.roads.rot.hunger, 0, "Zippy's kills don't feed him");
-  for(let i=0;i<30 && !DG.Roads.hungerFull(G);i++){ const e = addEnemy(G, r, s.x, s.y); G.damageEnemy(e, 1e6, { from:"gribbus" }); }
-  assert.ok(DG.Roads.hungerFull(G));
-  DG.Roads.enterPond(G, pondOf(G));
-  assert.equal(G.roads.rot.stage, 2);
-  assert.ok(G.roads.lantern.closed);
-  assert.equal(G.roads.rot.hunger, 0);
-});
-test("the Rot: on the next floor from 3, the Drowned Shrine is sealed; you dive in from the black pond; the Leech Mother keeps the crown", ()=>{
-  let G = null;
-  for(let s=1; s<30 && !G; s++){
-    const H = game("DIVE" + s, 2); H.god = true; H.roads.rot.stage = 2;
-    H.enterFloor(3);
-    if(H.D.rooms.some(o=> o.type === "shrine")) G = H;
-  }
-  assert.ok(G, "a shrine turned up");
-  const shrine = G.D.rooms.find(o=> o.type === "shrine"), pond = pondOf(G), door = G.D.doors.find(d=> d.into === shrine.id);
-  const keys = G.player.keys; G.unlockDoor(door);
-  assert.ok(door.locked && G.player.keys === keys, "a key does nothing");
-  G.player.x = pond.cxw; G.player.y = pond.cyw + 1.2; G.room = pond;
-  const tg = G.target(); assert.ok(tg && tg.o.dive !== undefined, "E dives");
-  G.interact();
-  assert.ok(G.inRoom(shrine, G.player.x, G.player.y), "inside");
-  step(G, 0.3);
-  assert.ok(shrine.active);
-  const mom = G.enemies.find(e=> e.lair === "leech" && !e.dead); assert.ok(mom);
-  G.enemies.filter(e=> e.room === shrine.id && !e.dead).forEach(e=> G.killEnemy(e, {}));
-  step(G, 0.5);
-  const ped = shrine.props.find(p=> p.quest === "crown"); assert.ok(ped, "the crown");
-  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2;
-  G.interact();
-  assert.ok(G.roads.rot.crown && G.player.quests.crown);
-  // the road ahead: no shrine once he wears it, and floor 5 floods
-  const o4 = DG.Roads.genOpts(G, 4), o5 = DG.Roads.genOpts(G, 5);
-  assert.ok(!o4.shrine && o5.drowned);
-});
-test("the Rot's last fight: the Heart drags Gribbus in; hurt it and it chokes; low enough, he eats it", ()=>{
-  const G = game("FEAST", 5); G.god = true; G.player.quests.crown = true; G.roads.rot.crown = true; G.roads.rot.stage = 2;
-  const r = G.D.rooms.find(x=> x.type === "boss"), s = G.freeSpot(r, r.cxw, r.cyw + 2); G.player.x = s.x; G.player.y = s.y;
-  step(G, 1);
-  const h = G.enemies.find(e=> e.boss && !e.dead); assert.ok(h);
-  h.spawn = 0; h.ai.devCd = 0; step(G, 0.1);
-  assert.ok(h.ai.devour, "it opens");
-  const f = G.gribbus, d0 = DG.dist(f.x, f.y, h.x, h.y);
-  step(G, 0.5);
-  assert.ok(DG.dist(f.x, f.y, h.x, h.y) < d0, "he's dragged in");
-  G.damageEnemy(h, h.maxHp*0.06, {});
-  step(G, 0.1);
-  assert.ok(!h.ai.devour && h.st.stun > 0, "it chokes");
-  // and at the end, he eats it
-  h.hp = h.maxHp*0.1; step(G, 4);
-  assert.ok(h.dead);
-  step(G, 4);
-  assert.equal(G.ending, "bog");
-});
-
-/* ---- the Lantern road ---- */
-function olmOf(G){ for(const r of G.D.rooms) for(const p of r.props) if(p.kind === "olm") return { r, o:p }; return null; }
-function olmAct(G, act){ const i = G.choice.options.findIndex(o=> o.act === act); assert.ok(i >= 0, "Olm offers " + act + ": " + G.choice.options.map(o=> o.act).join(",")); G.choose(i); }
-test("the Lantern: Brother Olm finds you on floor 1 or 2, and asks you to carry his lantern", ()=>{
+test("a frog build finds his pond on every floor", ()=>{
   for(let s=1; s<=8; s++){
-    const G = game("OLMROAD" + s, 1);
-    const A = olmOf(G); if(!A){ G.enterFloor(2); }
-    const B = olmOf(G); assert.ok(B, "seed " + s + ": he's on floor 1 or 2");
-    G.talkOlm(B.o); olmAct(G, "lantern");
-    assert.equal(G.roads.lantern.stage, 1);
+    const G = game("LEAN" + s, 1);
+    G.giveItem("twister", true); G.giveItem("bogpact", true);
+    const o = DG.Roads.genOpts(G, 2);
+    assert.ok(o.frogBuild, "two frog things: a frog build");
+    const D = DG.Dungeon.generate((G.seed + 2*104729) >>> 0, 2, o);
+    assert.equal(D.rooms.filter(r=> r.type === "pond").length, 1);
   }
 });
-test("the Lantern: a dead wick on the next floors; light it and hold the vigil (they come for the flame), and a Rite is yours", ()=>{
-  const G = game("WICKS", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
-  let wick = null, room = null;
-  G.D.rooms.forEach(r=> r.props.forEach(p=>{ if(p.kind === "wick"){ wick = p; room = r; } }));
-  assert.ok(wick, "a wick on floor 2");
-  room.cleared = true; room.active = false; G.room = room;
-  G.player.x = wick.x + 0.5; G.player.y = wick.y + 1.3;
-  const tg = G.target(); assert.ok(tg && tg.o === wick, "E lights it");
-  G.interact();
-  assert.ok(room.vigil && room.active, "the vigil");
-  // the ghosts go for the wick, not for Zippy: let one drift in
-  let ghost = null;
-  for(let i=0;i<60*4 && !ghost;i++){ G.update(1/60, {}); G.drain(); ghost = G.enemies.find(e=> e.vigil && !e.dead); }
-  assert.ok(ghost, "the dark came");
-  // stand guard: kill everything that comes, for the whole vigil
-  for(let i=0;i<60*30 && room.vigil;i++){ G.enemies.forEach(e=>{ if(!e.dead && e.spawn <= 0 && e.vigil) G.killEnemy(e, {}); }); G.update(1/60, {}); G.drain(); }
-  assert.ok(wick.lit && !room.vigil);
-  assert.equal(G.roads.lantern.wicks, 1);
-  assert.ok(G.player.boons.indexOf("rite_wick") >= 0, "the first Rite");
-  assert.ok(G.roads.rot.closed, "the black lily shuts");
-  step(G, 1); assert.ok(room.cleared && !room.active, "and the doors open");
+
+/* ---- the roads: Olm's, and the new things on them ---- */
+test("Olm's route: hear all he has to say over two visits, take his lantern, and the door of eyes opens on the Flesh Library", ()=>{
+  const A = olmGame("LANTERN", 1), S = A.G.olmState();
+  A.G.talkOlm(A.o);
+  for(let k=0;k<30;k++) A.G.choose(A.G.choice.options.findIndex(x=> x.act === "listen"));
+  assert.ok(!A.G.choice.options.some(x=> x.act === "lantern"), "not on the first visit");
+  // the second visit (a new floor of the same run): carry what he's said
+  const B = olmGame("LANTERN", 2);
+  B.G.olm = { said:Object.assign({}, S.said), visits:S.visits, idle:0 };
+  const door = B.r.props.find(p=> p.kind === "eyedoor");
+  assert.ok(door && !door.open, "a door of shut eyes in his library");
+  stand(B.G, door.x + 0.5, door.y + 0.6);
+  assert.ok(/shut eyes/.test(B.G.target().text)); B.G.interact(); assert.equal(B.G.floor, B.G.roads.plan.olmFloors[1], "shut: it goes nowhere");
+  B.G.talkOlm(B.o);
+  for(let k=0;k<30 && !B.G.choice.options.some(x=> x.act === "lantern"); k++) B.G.choose(B.G.choice.options.findIndex(x=> x.act === "listen"));
+  const li = B.G.choice.options.findIndex(x=> x.act === "lantern");
+  assert.ok(li >= 0, "everything heard: he'll give up the lantern");
+  B.G.choose(li);
+  assert.ok(B.G.player.quests.lantern && door.open);
+  B.G.choose(B.G.choice.leave);
+  stand(B.G, door.x + 0.5, door.y + 0.6); B.G.interact();
+  assert.equal(B.G.floor, DG.FINAL_FLOOR + 1); assert.equal(B.G.D.theme, DG.FLESH);
+  assert.ok(Object.keys(DG.FLESH.enemies).some(t=> t === "evilfrog") && DG.FLESH.enemies.ghost, "ghosts and evil frogs");
+  const { b } = killBoss(B.G);
+  assert.equal(b.type, "archivist");
+  takePortal(B.G);
+  assert.equal(B.G.ending, "white");
 });
-test("the Lantern: a wick the dark reaches goes out, and can be lit again", ()=>{
-  const G = game("WICKOUT", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
-  let wick = null, room = null;
-  G.D.rooms.forEach(r=> r.props.forEach(p=>{ if(p.kind === "wick"){ wick = p; room = r; } }));
-  room.cleared = true; G.room = room; const c = G.freeSpot(room, room.cxw - 2, room.y2 - 1); G.player.x = c.x; G.player.y = c.y;
-  DG.Roads.lightWick(G, wick);
-  for(let i=0;i<60*30 && room.vigil;i++){ G.gribbus.held = 1; G.update(1/60, {}); G.drain(); }
-  assert.ok(!wick.lit && wick.hp <= 0, "out");
-  assert.equal(G.roads.lantern.wicks, 0);
+
+test("creepy shots: hang in the air then dart at you, bend, or burst; all of them dodgeable", ()=>{
+  const G = game("CREEPY", 3), r = combatRoom(G); park(G);
+  const p = G.player; p.x = r.cxw; p.y = r.cyw; G.room = r; r.active = true;
+  const b = G.addBullet({ team:"e", x:p.x - 5, y:p.y, vx:3, vy:0, r:0.18, dmg:5, life:4, kind:"soul", stall:{ at:0.2, hold:0.6, speed:8 } });
+  step(G, 0.4);
+  assert.equal(Math.hypot(b.vx, b.vy), 0, "it hangs");
+  p.y += 3;   // you move while it hangs
+  step(G, 0.5);
+  const a = Math.atan2(b.vy, b.vx), want = Math.atan2(p.y - b.y, p.x - b.x);
+  assert.ok(Math.abs(DG.wrapAngle(a - want)) < 0.3, "then it comes for where you are now");
+  const c = G.addBullet({ team:"e", x:p.x - 5, y:p.y - 4, vx:4, vy:0, r:0.18, dmg:5, life:4, kind:"bile", curve:1.5 });
+  step(G, 0.5);
+  assert.ok(Math.abs(c.vy) > 0.5, "a curving shot bends");
+  const n0 = G.bullets.length;
+  // (somewhere open, so no pillar eats it first)
+  const sp = G.freeSpot(r, p.x - 3, p.y - 2);
+  G.addBullet({ team:"e", x:sp.x, y:sp.y, vx:0.5, vy:0, r:0.18, dmg:5, life:4, kind:"acid", split:{ at:0.2, n:3, spread:60, speed:0.5 } });
+  step(G, 0.3);
+  assert.ok(G.bullets.filter(x=> x.kind === "acid").length === 3, "a splitting shot bursts into three");
+  assert.ok(G.bullets.length >= n0);
 });
-test("the Lantern: the Reliquary's wards burn away for two wicks; the Warden keeps the Ember; Olm confesses deep down", ()=>{
-  const G = game("RELIQ", 1); G.god = true; G.roads.lantern.stage = 1; G.enterFloor(2);
-  const r = G.D.rooms.find(o=> o.type === "reliquary"); assert.ok(r, "a reliquary on floor 2");
-  const d = G.D.doors.find(o=> o.into === r.id);
-  G.unlockDoor(d); assert.ok(d.locked, "one wick isn't enough");
-  G.roads.lantern.wicks = 2; G.unlockDoor(d); assert.ok(!d.locked && !d.warded, "the wards burn");
-  G.player.x = r.cxw; G.player.y = r.y2 - 0.5; step(G, 0.3);
-  assert.ok(G.enemies.some(e=> e.lair === "warden" && !e.dead));
-  G.enemies.filter(e=> e.room === r.id && !e.dead).forEach(e=> G.killEnemy(e, {})); step(G, 0.5);
-  const ped = r.props.find(p=> p.quest === "ember"); assert.ok(ped);
-  G.player.x = ped.x + 0.5; G.player.y = ped.y + 1.2; G.interact();
-  assert.ok(G.player.quests.ember && G.roads.lantern.ember);
-  // floor 4: he's there, and he'll tell you
-  G.enterFloor(4);
-  const B = olmOf(G); assert.ok(B, "Olm on floor 4");
-  G.talkOlm(B.o); olmAct(G, "truth");
-  for(let k=0;k<DG.LANTERN.truth.length - 1;k++) olmAct(G, "truthNext");
-  olmAct(G, "forgive");
-  assert.equal(G.roads.lantern.olm, "forgive");
-  G.enterFloor(5);
-  const olm = G.allies.find(a=> a.kind === "olm"); assert.ok(olm, "he comes down with you");
+
+test("the new foes and bosses fight without anything going NaN", ()=>{
+  [["wight", 3], ["evilfrog", 4]].forEach(([type, floor])=>{
+    const G = game("NEWFOE" + type, floor), r = combatRoom(G); G.god = true;
+    const s = G.freeSpot(r, r.cxw, r.cyw); stand(G, s.x, s.y); G.room = r; r.active = true; G.enemies = [];
+    const e = addEnemy(G, r, s.x + 3, s.y); e.ai.cd = 0;
+    step(G, 8);
+    assert.ok(isFinite(e.x) && isFinite(e.y) && !isNaN(e.hp), type);
+    assert.ok(G.bullets.some(b=> b.team === "e") || G.stats.time > 0);
+  });
+  [["toadking", DG.BOG], ["archivist", DG.FLESH]].forEach(([key, theme])=>{
+    const G = game("BOSS" + key, 5); G.god = true;
+    G.side = key === "toadking" ? "bog" : "flesh"; G.enterFloor(DG.FINAL_FLOOR + 1);
+    assert.equal(G.D.theme, theme);
+    const r = G.D.rooms.find(x=> x.type === "boss"); const s = G.freeSpot(r, r.cxw, r.cyw + 3); stand(G, s.x, s.y);
+    for(let i=0;i<60*25;i++){ G.update(1/60, { mx:Math.sin(i/40), my:Math.cos(i/50) }); G.drain(); }
+    const b = G.bossRef;
+    assert.ok(b && b.type === key && isFinite(b.x) && G.inRoom(r, b.x, b.y), key + " stays in its room");
+    b.hp = b.maxHp*0.2; step(G, 3);
+    G.killEnemy(b, {}); step(G, 0.5);
+    assert.ok(G.portal, key + " can be killed");
+  });
 });
-test("the Lantern: taking his lantern instead gives the Lamplighter's Staff: every spell a beam", ()=>{
-  const G = game("TAKE", 4); G.god = true; G.roads.lantern.stage = 2; G.roads.lantern.ember = true; G.player.quests.ember = true;
-  DG.Roads.decide(G, "take");
-  assert.ok(G.player.items.lampstaff);
-  const r = combatRoom(G), s = G.freeSpot(r, r.cxw, r.cyw); G.room = r; r.active = true;
-  G.player.x = s.x; G.player.y = s.y; G.player.aim = 0;
-  const e = addEnemy(G, r, s.x + 3, s.y); e.hp = e.maxHp = 1e6;
-  G.player.mana = 999;
-  G.castSpell(G.gun(), G.gunStats(), {}, false); step(G, 0.5);
-  assert.ok(e.hp < 1e6, "the beam burns what's in its way");
-  assert.ok(G.drain !== undefined);
+
+test("Toxic Spit's globs are poison, and every frog shot's element is a real one", ()=>{
+  const G = game("SPITTER", 1);
+  DG.Gribbus.giveBuff(G, "spit");
+  assert.equal(G.gribbus.g.spitEl, "poison");
+  const r = combatRoom(G); park(G);
+  G.player.x = r.cxw; G.player.y = r.cyw; G.room = r; r.active = true; G.god = true;
+  const f = G.gribbus; f.x = r.cxw - 2; f.y = r.cyw;
+  const e = addEnemy(G, r, r.cxw + 3, r.cyw); e.hp = e.maxHp = 1e6; e.speed = 0; e.ai.cd = 99;
+  const els = [];
+  for(let i=0;i<60*6;i++){ G.update(1/60, {}); G.bullets.forEach(b=>{ if(b.from === "gribbus") els.push(...(b.els || [])); }); G.drain(); }
+  assert.ok(els.indexOf("poison") >= 0, "a poison glob: " + JSON.stringify(els.slice(0, 5)));
+  assert.ok(els.every(x=> DG.ELEMENTS[x]), JSON.stringify(els.filter(x=> !DG.ELEMENTS[x]).slice(0, 3)));
 });
 test("the Rite of the Keeper: every fifth spell is a Lantern Beam", ()=>{
   const G = game("KEEPER", 2); G.god = true; G.player.boons.push("rite_keeper"); G.recalc();
@@ -1833,29 +1814,6 @@ test("the Rite of the Keeper: every fifth spell is a Lantern Beam", ()=>{
 
 // regression: diving into the black pond put you in the shrine with its outer door
 // unsealed but still shut, and nothing could open it: you were shut in for good
-test("the Drowned Shrine and the Reliquary let you back out: every door between them and the floor opens", ()=>{
-  const walkOut = (G, r)=>{
-    // flood fill from the room over walkable tiles: it must reach the start room
-    const W = G.D.w, seen = new Uint8Array(W*G.D.h), q = [[Math.floor(r.cxw), Math.floor(r.cyw)]], st = G.D.rooms.find(o=> o.type === "start");
-    seen[q[0][1]*W + q[0][0]] = 1;
-    while(q.length){ const [x, y] = q.pop(); if(G.inRoom(st, x + 0.5, y + 0.5)) return true;
-      for(const [dx, dy] of DG.DIRS4){ const nx = x + dx, ny = y + dy; if(seen[ny*W + nx] || G.blocked(nx, ny, "player")) continue; seen[ny*W + nx] = 1; q.push([nx, ny]); } }
-    return false;
-  };
-  // the shrine, by the dive
-  let G = null;
-  for(let s=1; s<30 && !G; s++){ const H = game("DIVEOUT" + s, 2); H.god = true; H.roads.rot.stage = 2; H.enterFloor(3); if(H.D.rooms.some(o=> o.type === "shrine")) G = H; }
-  const shrine = G.D.rooms.find(o=> o.type === "shrine"), pond = G.D.rooms.find(o=> o.type === "pond");
-  G.player.x = pond.cxw; G.player.y = pond.cyw + 1.2; G.room = pond; G.interact();
-  step(G, 0.3);
-  G.enemies.filter(e=> e.room === shrine.id && !e.dead).forEach(e=> G.killEnemy(e, {})); step(G, 0.5);
-  assert.ok(walkOut(G, shrine), "out of the shrine");
-  // the reliquary, by the wards
-  const H = game("WARDOUT", 1); H.god = true; H.roads.lantern.stage = 1; H.roads.lantern.wicks = 2; H.enterFloor(2);
-  const rel = H.D.rooms.find(o=> o.type === "reliquary"), d = H.D.doors.find(o=> o.into === rel.id);
-  H.unlockDoor(d);
-  assert.ok(walkOut(H, rel), "into (and out of) the reliquary");
-});
 
 /* ---- the other bosses and the newer lairs ---- */
 test("each floor has two bosses, and the seed picks which: both turn up across seeds", ()=>{

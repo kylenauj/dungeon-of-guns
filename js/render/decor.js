@@ -436,7 +436,7 @@ const B = {
   /* ---- the Gloom ---- */
   roots(o, rnd){ for(let i=0;i<5;i++){ const a = i*1.3 + rnd(); P(o.group, K.tube([[0, 0.06, 0], [Math.cos(a)*0.3, 0.2, Math.sin(a)*0.3], [Math.cos(a)*0.7, 0.01, Math.sin(a)*0.7]], 0.05 - i*0.006, 10, 6), 0x2a201a); } P(o.group, K.lump(0.16, 1, 0.3, rnd()*9), 0x2a201a, 0, 0.08, 0, 0, 0, 0, 1, 0.6, 1); },
   glowcap(o, rnd){
-    const c = [0x4ab8e8, 0x3ad0c8, 0x6a8aff][Math.floor(rnd()*3)], n = 1 + Math.floor(rnd()*3);
+    const c = [0x7dff3a, 0x5aff8a, 0x9cff4a][Math.floor(rnd()*3)], n = 1 + Math.floor(rnd()*3);
     for(let i=0;i<n;i++){ const a = rnd()*PI*2, d = i ? 0.2 + rnd()*0.15 : 0, R = i ? 0.1 + rnd()*0.08 : 0.2 + rnd()*0.12;
       const t = glowcap(P, o.group, o.group, Math.cos(a)*d, Math.sin(a)*d, R*3 + rnd()*0.3, R, c, rnd()); o.glows.push({ x:t.x, y:t.y, z:t.z, c, s:R*5 }); }
     o.lights.push({ x:0, y:0.8, z:0, c, i:0.8 });
@@ -529,7 +529,7 @@ const B = {
   },
   walleye(o, rnd){ P(o.group, K.lump(0.26, 2, 0.35, rnd()*9), 0x3a2a30, 0, 1.0, 0, 0, 0, 0, 1, 0.8, 0.35); P(o.group, TO(0.13, 0.04, PI*2, 6, 14), 0x4a2a2e, 0, 1.0, 0.07); o.eyes.push({ x:0, y:1.0, z:0.06, r:0.11, wall:true }); for(let k=0;k<4;k++){ const a = k*1.6 + rnd(); P(o.group, K.tube([[Math.cos(a)*0.15, 1.0 + Math.sin(a)*0.15, 0.06], [Math.cos(a)*0.32, 1.0 + Math.sin(a)*0.35, 0.03]], 0.012, 6, 3), 0x5a1a1e); } },
   wallroots(o, rnd){ for(let i=0;i<5;i++){ const x = (i - 2)*0.18 + (rnd() - 0.5)*0.1; P(o.group, K.tube([[x, 1.75, 0.02], [x + (rnd() - 0.5)*0.3, 1.2, 0.12], [x + (rnd() - 0.5)*0.4, 0.55, 0.08], [x + (rnd() - 0.5)*0.5, 0.0, 0.25]], 0.035 + rnd()*0.03, 14, 6), [0x2a201a, 0x241a16][i % 2]); } },
-  wallcaps(o, rnd){ for(let i=0;i<4;i++){ const y = 0.5 + i*0.3, x = (rnd() - 0.5)*0.6, r = 0.12 + rnd()*0.1; P(o.group, K.sculpt(new THREE.SphereGeometry(r, 12, 5, 0, PI*2, 0, PI/2), r*0.12, 6/r, rnd()*9), 0x34303c, x, y, 0, 0, 0, 0, 1, 0.3, 0.75); L(o.group, TO(r*0.95, 0.01, PI, 3, 12), 0x4ab8e8, x, y - 0.005, 0, PI/2, 0, PI); o.glows.push({ x, y:y - 0.02, z:r*0.4, c:0x4ab8e8, s:r*3 }); } o.lights.push({ x:0, y:1.0, z:0.5, c:0x3ab8ff, i:0.55 }); },
+  wallcaps(o, rnd){ for(let i=0;i<4;i++){ const y = 0.5 + i*0.3, x = (rnd() - 0.5)*0.6, r = 0.12 + rnd()*0.1; P(o.group, K.sculpt(new THREE.SphereGeometry(r, 12, 5, 0, PI*2, 0, PI/2), r*0.12, 6/r, rnd()*9), 0x34303c, x, y, 0, 0, 0, 0, 1, 0.3, 0.75); L(o.group, TO(r*0.95, 0.01, PI, 3, 12), 0x7dff3a, x, y - 0.005, 0, PI/2, 0, PI); o.glows.push({ x, y:y - 0.02, z:r*0.4, c:0x7dff3a, s:r*3 }); } o.lights.push({ x:0, y:1.0, z:0.5, c:0x6aff3a, i:0.55 }); },
   cordycepswall(o, rnd){
     // someone the forest pinned to the wall with roots, and grew out of
     P(o.group, K.tube([[-0.4, 1.7, 0.02], [-0.1, 1.2, 0.18], [0.15, 0.9, 0.2], [0.4, 0.3, 0.05]], 0.04, 12, 6), 0x2a201a);
@@ -903,6 +903,46 @@ function webTex(){
   _web = new THREE.CanvasTexture(cv); return _web;
 }
 Decor.kinds = ()=> Object.keys(B);
+/* ---- Olm's library and the Flesh Library ---- */
+Object.assign(B, {
+  // a reading stand, a book open on it, a candle stub at its corner
+  lectern(o, rnd){
+    P(o.group, CY(0.05, 0.07, 0.9, 8), WOOD, 0, 0.45, 0); P(o.group, CY(0.22, 0.26, 0.05, 10), WOOD2, 0, 0.025, 0);
+    P(o.group, BX(0.5, 0.04, 0.38), WOOD, 0, 0.95, 0, -0.5);
+    P(o.group, BX(0.21, 0.02, 0.3), 0xd8ceb4, -0.11, 0.985, -0.01, -0.5, 0, 0.06); P(o.group, BX(0.21, 0.02, 0.3), 0xd0c4a8, 0.11, 0.985, -0.01, -0.5, 0, -0.06);
+    for(let k=0;k<5;k++) P(o.group, BX(0.15, 0.004, 0.006), 0x3a2a1a, -0.11, 0.997 - k*0.025, 0.06 - k*0.045, -0.5);
+    candle(o, o.group, 0.2, 0.1, 0.1, 0.03, undefined, undefined, 0.98);
+  },
+  // scrolls in a heap, some still sealed
+  scrollpile(o, rnd){
+    for(let i=0;i<7;i++){ const x = (rnd() - 0.5)*0.5, z = (rnd() - 0.5)*0.4, y = 0.04 + (i > 3 ? 0.07 : 0), a = rnd()*PI;
+      P(o.group, CY(0.035, 0.035, 0.3 + rnd()*0.15, 8), [0xd8ceb4, 0xc8b898, 0xb8a888][i % 3], x, y, z, 0, a, PI/2);
+      if(i % 3 === 0) P(o.group, CY(0.02, 0.02, 0.012, 8), 0x8a1a14, x + Math.cos(a)*0.02, y + 0.03, z - Math.sin(a)*0.02, PI/2); }
+  },
+  // books grown over with meat, a vein of green through them
+  fleshpile(o, rnd){
+    P(o.group, K.sculpt(new THREE.SphereGeometry(0.34, 14, 8, 0, PI*2, 0, PI/2), 0.05, 8, rnd()*9), 0x5a2228, 0, 0, 0, 0, 0, 0, 1, 0.55, 0.9);
+    for(let i=0;i<4;i++){ const a = rnd()*PI*2; P(o.group, BX(0.24, 0.05, 0.18), [0x3a1a14, 0x2a2a3a][i % 2], Math.cos(a)*0.2, 0.08 + i*0.04, Math.sin(a)*0.2, rnd()*0.4, a, rnd()*0.4); }
+    L(o.group, K.tube([[-0.3, 0.02, 0], [-0.05, 0.16, 0.1], [0.25, 0.05, -0.05]], 0.012, 8, 4), 0x7dff3a);
+    o.glows.push({ x:0, y:0.15, z:0.05, c:0x7dff3a, s:0.5 });
+  },
+  // an eye on a stalk of meat, growing out of the floor, watching
+  eyestalk(o, rnd){
+    const h = 0.5 + rnd()*0.4;
+    P(o.group, K.tube([[0, 0, 0], [0.05, h*0.5, 0.03], [-0.02, h, 0.06]], 0.04, 10, 6), 0x5a2228);
+    P(o.group, K.sculpt(new THREE.SphereGeometry(0.16, 10, 6, 0, PI*2, 0, PI/2), 0.03, 9, rnd()*9), 0x4a1a20, 0, 0, 0, 0, 0, 0, 1, 0.4, 1);
+    P(o.group, S(0.09, 12, 10), 0xc8bca0, -0.02, h + 0.06, 0.06);
+    L(o.group, S(0.035, 8, 6), 0x7dff3a, -0.02, h + 0.07, 0.14);
+    o.glows.push({ x:-0.02, y:h + 0.07, z:0.16, c:0x7dff3a, s:0.35 });
+  },
+  // the wall gone to meat: a slab of it, ribs showing, an eye or two open in it
+  fleshwall(o, rnd){
+    P(o.group, K.sculpt(new THREE.BoxGeometry(0.9, 1.5, 0.16, 6, 9, 2), 0.04, 6, rnd()*9), 0x5a2228, 0, 0.85, 0.02);
+    for(let k=0;k<4;k++) P(o.group, TO(0.3, 0.025, PI*0.8, 4, 12), 0xb0a488, 0, 0.45 + k*0.28, 0.1, 0, 0, PI*0.1);
+    o.eyes.push({ x:(rnd() - 0.5)*0.4, y:1.1, z:0.11, r:0.08, wall:true });
+    L(o.group, K.tube([[-0.3, 1.5, 0.12], [0.05, 1.0, 0.13], [-0.1, 0.3, 0.12]], 0.01, 8, 4), 0x7dff3a);
+  }
+});
 Decor.build = function(kind, rnd){ const o = make(); (B[kind] || B.rubble)(o, rnd); return o; };
 
 /* ---- breakables: one baked look per kind, drawn instanced ----

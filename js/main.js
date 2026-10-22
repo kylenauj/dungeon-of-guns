@@ -6,7 +6,7 @@
  *  Behind the title, a bot plays a real run with the sound off (the
  *  attract mode from every arcade cabinet you ever walked past).
  *
- *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery  ?boss=KEY  ?lair=ID
+ *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery  ?boss=KEY  ?lair=ID  ?route=bog|olm|ember|none
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -16,9 +16,9 @@ const Q = new URLSearchParams(location.search);
 
 const app = DG.app = { G:null, V:null, mode:"boot", acc:0, demo:null };
 
-/* golden flies outlive runs: they unlock Gribbus' rarer tricks */
+/* what outlives a run: the endings and road steps found, what you carried lately, Olm's memory of you */
 const META_KEY = "dungeonofguns.meta";
-function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { flies:m.flies || 0, unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [], endings:m.endings || {}, olm:m.olm || 0 }; }catch(e){ return { flies:0, unlocked:{}, recent:[], recentRuns:[], endings:{} }; } }
+function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY) || "{}"); return { unlocked:m.unlocked || {}, recent:m.recent || [], recentRuns:m.recentRuns || [], endings:m.endings || {}, olm:m.olm || 0 }; }catch(e){ return { unlocked:{}, recent:[], recentRuns:[], endings:{} }; } }
 function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
 
 function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.now()); }
@@ -62,7 +62,9 @@ app.newRun = function(word){
 };
 app.newRunNow = function(word){
   app.stopRun();
-  const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta() });
+  // ?route=bog|olm|ember|none forces the run's side road (for testing)
+  const route = Q.has("route") ? (Q.get("route") === "none" ? null : Q.get("route")) : undefined;
+  const G = new DG.Game({ seedWord:word || newWord(), floor:+Q.get("floor") || 1, meta:loadMeta(), route });
   if(Q.has("god")) G.god = true;
   // testing: ?boss=gibbet puts that boss on this floor; ?lair=hound puts that beast in the floor's lair
   if(DG.BOSSES[Q.get("boss")]) G.D.theme = Object.assign({}, G.D.theme, { boss:Q.get("boss") });
@@ -192,7 +194,6 @@ function frame(dt, t){
       G.update(STEP*PACE, I);
       if(app.demo && G.state === "choose") G.choose(Math.floor(Math.random()*3));
       G.drain().forEach(ev=>{
-        if(ev.type === "fly" && !app.demo) saveMeta(G.meta);
         // a new floor: everything from here waits behind the veil (frame, above)
         if(!V.silent && ev.type === "floor" && V.builtD !== G.D && !app.descend){ app.descend = { ev, rest:[], n:0 }; Veil.show(ev.name || "", "down into the dark…"); return; }
         if(app.descend){ app.descend.rest.push(ev); return; }

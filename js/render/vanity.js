@@ -86,7 +86,13 @@ const THEMES = {
   gloomwood:{ decals:[["moss", 5, 0x142a24], ["leaves", 3, 0x1e2a22], ["splat", 2, 0x2a1024], ["puddle", 1.5, 0x10061a], ["rune", 0.3, 0x5ab8e8], ["crack", 1.5, 0x08080c], ["drag", 0.4, 0x2a0a10]], rug:[0, 0],
     walls:["roots", "glowworms", "stalactites", "hangingmoss", "drips", "wallroots"], tops:["topgrass", "topgrass", "toprubble", "topbones"], corners:["glowcap", "myceliumcorpse", "roots", "fern"], critters:{ bats:1.4 }, motes:{ c:0x6ad8ff, n:18, sp:0.35 } },
   forest:{ decals:[["moss", 5, 0x142a24], ["leaves", 5, 0x1e2a22], ["splat", 2.5, 0x2a1024], ["puddle", 1.5, 0x1a0624], ["prints", 0.4, 0x080e0a], ["drag", 0.3, 0x2a0a10]], rug:[0, 0],
-    walls:["roots", "glowworms", "hangingmoss", "roots", "wallroots"], tops:["topgrass", "topgrass", "topgrass", "topbones"], corners:["glowcap", "cordyceps", "glowcap", "fern"], critters:{ bats:1 }, motes:{ c:0x6ad8ff, n:30, sp:0.3 } }
+    walls:["roots", "glowworms", "hangingmoss", "roots", "wallroots"], tops:["topgrass", "topgrass", "topgrass", "topbones"], corners:["glowcap", "cordyceps", "glowcap", "fern"], critters:{ bats:1 }, motes:{ c:0x8aff6a, n:30, sp:0.3 } },
+  // the Glutton's Bog: green on green, everything wet and glowing
+  bog:{ decals:[["moss", 6, 0x1e3a14], ["puddle", 3, 0x0e2a06], ["leaves", 3, 0x22341a], ["splat", 2, 0x2a4a10], ["rune", 0.6, 0x7dff3a], ["prints", 0.4, 0x0a1406]], rug:[0, 0],
+    walls:["glowworms", "hangingmoss", "roots", "drips", "glowworms"], tops:["topgrass", "topgrass", "topgrass", "toprubble"], corners:["glowcap", "fern", "glowcap", "mushrooms"], critters:{ bats:0.6 }, motes:{ c:0x9cff4a, n:40, sp:0.25 } },
+  // the Flesh Library: worn boards gone to meat, ink and blood, green candlelight
+  flesh:{ decals:[["stain", 4, 0x1e0a0e], ["blood", 2, 0x3a0a10], ["crack", 2, 0x10060a], ["drag", 1, 0x3a0a10], ["rune", 0.8, 0x7dff3a], ["prints", 0.5, 0x1a0608]], rug:[0.5, 0x3a1218],
+    walls:["candleshelf", "chains", "bloodsmear", "cornerweb", "skullniche", "candleshelf"], tops:["topcandle", "topskull", "topcandle", "topbones"], corners:["candlecluster", "soulcandles", "skullpile", "candlecluster"], critters:{ rats:1 }, motes:{ c:0xb8ff9a, n:16, sp:0.25 } }
 };
 const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v = rnd()*tot; for(const e of list){ v -= e[1]; if(v <= 0) return e; } return list[0]; };
 
@@ -137,7 +143,7 @@ function rugMat(){
   return _rugMat;
 }
 proto.buildVanity = function(){
-  const W = this, D = W.D, th = W.th, rnd = W.rnd, T0 = THEMES[th.decor] || THEMES.cellar;
+  const W = this, D = W.D, th = W.th, rnd = W.rnd, T0 = THEMES[th.decor] || THEMES.castle;
   const floorAt = (x, y)=> D.at(Math.floor(x), Math.floor(y)) === T.FLOOR;
   const walk = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
   W.vanityMats = []; W.critters = []; W.shafts = [];
@@ -258,7 +264,7 @@ proto.buildArches = function(){
   const W = this, D = W.D, th = W.th;
   const walk = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
   const stone = new THREE.Color(th.top).multiplyScalar(1.35).getHex(), dark = new THREE.Color(th.wall).multiplyScalar(0.9).getHex();
-  const key = { castle:0x5a5650, undercroft:0x4a4a40, crypt:0x8a8270, gloomwood:0x3a3440, forest:0x2e2632 }[th.decor] || 0x5a5650;
+  const key = { castle:0x5a5650, undercroft:0x4a4a40, crypt:0x8a8270, gloomwood:0x3a3440, forest:0x2e2632, bog:0x2a3a22, flesh:0x5a2a30 }[th.decor] || 0x5a5650;
   const byArea = {};
   D.doors.forEach(d=>{
     const tx = Math.floor(d.x), ty = Math.floor(d.y), h = d.axis !== "v";

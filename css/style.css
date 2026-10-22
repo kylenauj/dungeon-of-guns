@@ -202,6 +202,7 @@ body.cinema #hud{display:none;}
 .sigil.found{border-color:var(--gold-dim);color:var(--gold2);box-shadow:0 0 12px rgba(232,200,120,.3);}
 .sigil.flame.found{color:#ffb070;border-color:#8a4a22;}
 .sigil.bog.found{color:#a8e88a;border-color:#3a6a2a;}
+.sigil.white.found{color:#fffef0;border-color:#c8c8b0;text-shadow:0 0 8px rgba(255,255,230,.7);}
 .sigils small{font-style:italic;color:var(--dim);font-size:14px;}
 @media (prefers-reduced-motion:reduce){ .lore-lines p,.lorewrap .menu,.lore-title{animation-duration:.01s !important;animation-delay:0s !important;} }
 /* on the title the sigils share the line with the run tally, small */
@@ -241,10 +242,11 @@ body.cinema #hud{display:none;}
 .journal .tally{font-size:13px;color:#a89878;margin:4px 0;}
 .journal .tally b{color:#e8d0a0;}
 .journal h4.road{margin:12px 0 4px;}
-.journal h4.road.rot{color:#a8b850;}
+.journal h4.road.bog{color:#9cff4a;text-shadow:0 0 8px rgba(156,255,74,.45);}
+.journal h4.road.ember{color:#ff9a4a;}
 .journal .steps{margin:0 0 6px;padding-left:22px;font-size:14px;color:#9a9078;}
 .journal .steps li{margin:2px 0;}
 .journal .steps li.done{color:#c8d088;}
 .journal .steps li.done::marker{content:"✓  ";color:#a8c850;}
 .journal .tally.shut{font-style:italic;color:#7a6a58;}
-.journal h4.road.lantern{color:#e8a850;}
+.journal h4.road.olm{color:#f0f0d8;text-shadow:0 0 8px rgba(255,255,230,.35);}

@@ -15,7 +15,8 @@
  *            ghoul hiccup shove candy dice
  *
  *  Tiers: 0 common, 1 uncommon, 2 rare, 3 legendary, 4 GODLY.
- *  Pools: t treasure, s shop, b boss, x secret, a altar.
+ *  Pools: t treasure, s shop, b boss, x secret, a altar,
+ *         f Gribbus' pond (his tricks, also items: "f_" + trick).
  * ------------------------------------------------------------------ */
 (function(root){
 "use strict";
@@ -303,7 +304,7 @@ DG.SETS = [
     desc:"+50% gold, a bigger coin magnet, and every kill has a chance to drop a coin.", stats:{ gold:0.5, magnet:2 },
     on:{ kill:[{ do:"gold", n:1, chance:0.3 }] },
     look:{ robe:"gold", cape:"gold", parts:["crown", "coinpouch"], aura:"glints" } },
-  { id:"frogprince", name:"Frog Prince",   need:3, items:["frogsona", "tadpact", "froglock", "twister", "swampfeet", "lantern"],
+  { id:"frogprince", name:"Frog Prince",   need:3, items:["frogsona", "tadpact", "froglock", "twister", "swampfeet", "lantern", "f_crown", "f_bigboy", "f_mimic", "f_twin", "f_zoomies"],
     desc:"Gribbus hits 50% harder and 30% faster, and tadpoles are twice as many.", stats:{ frogDmg:0.5, frogRate:0.3 }, special:"frogswarm",
     look:{ robe:"leaf", cape:"arcane", parts:["froghood", "lilycape"], aura:"bubbles" } },
   { id:"bloodhunter",name:"Blood Hunter",  need:3, items:["bloodpact", "lifedrinker", "bloodvial", "bloodmoon", "sacknife", "hollowing", "vengeance", "leech"],
@@ -412,26 +413,36 @@ DG.BOONS = {
   b_slayer: { name:"Slayer",           desc:"Bosses take 25% more damage.", rare:true, special:"bossbane" }
 };
 
-/* ---- Gribbus buffs: chosen at frog ponds (1 of 3). `locked` ones need golden flies ---- */
+/* ---- Gribbus' tricks. Each is also an item ("f_" + id, below) so it can be
+   found at his pond (pick 1 of 3, all of one tier, so no pad is the obvious
+   one), and some of them in shops, treasure and boss pools too: a frog
+   build is something you can steer toward. `tier` is how strong, `pools`
+   where else it turns up. ---- */
 DG.FROG_BUFFS = {
-  tongue:   { name:"Long Tongue",    desc:"Gribbus' tongue reaches twice as far.",           g:{ reach:1 } },
-  spit:     { name:"Toxic Spit",     desc:"Gribbus spits poison globs that leave puddles.",   g:{ spitEl:"poison", spitPuddle:1 } },
-  croak:    { name:"Frost Croak",    desc:"Every 4 seconds Gribbus croaks and chills everything near him.", g:{ croak:1 } },
-  hop:      { name:"Hop Lightning",  desc:"Gribbus hops between goblins, zapping each one.", g:{ hopZap:1 } },
-  brood:    { name:"Tadpole Brood",  desc:"Gribbus hatches a tadpole every 5 seconds in a fight.", g:{ brood:1 } },
-  lily:     { name:"Lily Shield",    desc:"Gribbus' lily pad blocks enemy shots near you.",  g:{ lily:1 } },
-  gulp:     { name:"Bullet Gulp",    desc:"Gribbus eats enemy shots and spits them back.",   g:{ gulp:1 }, locked:2 },
-  crown:    { name:"Royal Crown",    desc:"Gribbus is royalty now. +60% damage.",           g:{ dmg:0.6 } },
-  bigboy:   { name:"Big Boy",        desc:"Gribbus is twice the frog. +40% damage, bigger hits.", g:{ size:1, dmg:0.4 } },
-  flyhunt:  { name:"Fly Hunter",     desc:"Gribbus' kills drop flies that heal 2.",          g:{ flies:1 }, locked:1 },
-  mirror:   { name:"Mirror Skin",    desc:"Gribbus' attacks carry your elements.",           g:{ mirrorEls:1 } },
-  bubble:   { name:"Bubble Blower",  desc:"Gribbus blows bubbles that trap goblins for 2 seconds.", g:{ bubble:1 }, locked:2 },
-  doom:     { name:"Croak of Doom",  desc:"Every 10 seconds, a croak stuns every goblin in the room.", g:{ doom:1 }, locked:3 },
-  twin:     { name:"Twin Frog",      desc:"Gribbus' twin brother Grobbus joins the party.",  g:{ twin:1 }, locked:4 },
-  zoomies:  { name:"Frog Zoomies",   desc:"Gribbus attacks 50% faster.",                    g:{ rate:0.5 } },
-  gloom:    { name:"The Gloom Lily",  desc:"Black, oily, veined. Something in the water. He'd be stronger. He wouldn't be right.", g:{}, hidden:true },
-  sticky:   { name:"Sticky Tongue",  desc:"Gribbus' tongue drags goblins in and slows them.", g:{ sticky:1 } }
+  tongue:   { name:"Long Tongue",    tier:0, pools:"ts", desc:"Gribbus' tongue reaches twice as far.",           g:{ reach:1 } },
+  sticky:   { name:"Sticky Tongue",  tier:0, pools:"ts", desc:"Gribbus' tongue drags goblins in and slows them.", g:{ sticky:1 } },
+  flyhunt:  { name:"Fly Hunter",     tier:0, pools:"t",  desc:"Gribbus' kills drop flies that heal 2.",          g:{ flies:1 } },
+  spit:     { name:"Toxic Spit",     tier:1, pools:"ts", desc:"Gribbus spits poison globs that leave puddles.",   g:{ spitEl:"poison", spitPuddle:1 } },
+  croak:    { name:"Frost Croak",    tier:1, pools:"t",  desc:"Every 4 seconds Gribbus croaks and chills everything near him.", g:{ croak:1 } },
+  hop:      { name:"Hop Lightning",  tier:1, pools:"t",  desc:"Gribbus hops between goblins, zapping each one.", g:{ hopZap:1 } },
+  brood:    { name:"Tadpole Brood",  tier:1, pools:"ts", desc:"Gribbus hatches a tadpole every 5 seconds in a fight.", g:{ brood:1 } },
+  lily:     { name:"Lily Shield",    tier:1, pools:"ts", desc:"Gribbus' lily pad blocks enemy shots near you.",  g:{ lily:1 } },
+  mirror:   { name:"Mirror Skin",    tier:1, pools:"t",  desc:"Gribbus' attacks carry your elements.",           g:{ mirrorEls:1 } },
+  bubble:   { name:"Bubble Blower",  tier:1, pools:"t",  desc:"Gribbus blows bubbles that trap goblins for 2 seconds.", g:{ bubble:1 } },
+  zoomies:  { name:"Frog Zoomies",   tier:1, pools:"ts", desc:"Gribbus attacks 50% faster.",                    g:{ rate:0.5 } },
+  bigboy:   { name:"Big Boy",        tier:1, pools:"tb", desc:"Gribbus is twice the frog. +40% damage, bigger hits.", g:{ size:1, dmg:0.4 } },
+  gulp:     { name:"Bullet Gulp",    tier:2, pools:"b",  desc:"Gribbus eats enemy shots and spits them back.",   g:{ gulp:1 } },
+  crown:    { name:"Royal Crown",    tier:2, pools:"b",  desc:"Gribbus is royalty now. +60% damage.",           g:{ dmg:0.6 } },
+  doom:     { name:"Croak of Doom",  tier:2, pools:"bx", desc:"Every 10 seconds, a croak stuns every goblin in the room.", g:{ doom:1 } },
+  twin:     { name:"Twin Frog",      tier:3, pools:"bx", desc:"Gribbus' twin brother Grobbus joins the party.",  g:{ twin:1 } },
+  mimic:    { name:"Mimic Toad",     tier:3, pools:"bx", desc:"Gribbus stops roaming and sits at your side, copying every volley you fire. His copies get stronger with every frog damage bonus.", g:{ mimic:1 } }
 };
+/* and each trick as an item: it shows in the satchel, counts for the Frog Prince */
+for(const id in DG.FROG_BUFFS){
+  const B = DG.FROG_BUFFS[id];
+  DG.ITEMS["f_" + id] = { name:B.name, tier:B.tier, pools:"f" + B.pools, desc:B.desc, flavor:"A trick for Gribbus.", frog:id, tags:["frog"] };
+}
+DG.POOL_TIERS.f = [30, 45, 20, 5, 0];
 
 /* ---- floor curses: more likely the deeper you go ---- */
 DG.CURSES = {
@@ -658,7 +669,7 @@ Items.costume = function(ids, sets){
 
 /* ---- pools: an item leaves its pools once it's been offered ---- */
 Items.pools = function(){
-  const P = { t:[], s:[], b:[], x:[], a:[] };
+  const P = { t:[], s:[], b:[], x:[], a:[], f:[] };
   for(const id in DG.ITEMS) DG.ITEMS[id].pools.split("").forEach(p=> P[p] && P[p].push(id));
   return P;
 };

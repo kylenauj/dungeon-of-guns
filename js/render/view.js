@@ -101,17 +101,16 @@ proto.buildFloor = function(){
   if(th.boss) V.warm.push((DG.BOSSES[th.boss] && DG.BOSSES[th.boss].model) || th.boss);
   for(let n=0;n<4;n++) kinds.forEach(k=> V.warm.push(k));
   // and the ones that come from elsewhere: a lair's beast and what it calls in, a boss's adds,
-  // the vigil's ghosts, the climb's: each would otherwise be built and compiled mid-fight
+  // the climb's: each would otherwise be built and compiled mid-fight
   const extra = new Set(), ADDS = { king:["grunt", "slinger"], matriarch:["puffling", "shroomkin"], heart:["blob", "tentacle", "ghost", "watcher"],
-    gaoler:["grunt", "slinger"], warden:["skeleton"], ratking:["rotling"], gravedigger:["skeleton"], mothwidow:["ghost"] };
+    gaoler:["grunt", "slinger"], warden:["skeleton"], ratking:["rotling"], gravedigger:["skeleton"], mothwidow:["ghost"],
+    toadking:["evilfrog", "blobling"], archivist:["ghost", "wight", "evilfrog"] };
   (ADDS[th.boss] || []).forEach(k=> extra.add(k));
   G.D.rooms.forEach(r=>{
     if(r.lair && DG.LAIRS[r.lair]){ extra.add(lairKind(r.lair)); (ADDS[r.lair] || []).forEach(k=> extra.add(k)); }
-    if(r.props.some(pr=> pr.kind === "wick")){ extra.add("ghost"); extra.add("banshee"); }
   });
   if(G.D.climb) extra.add("ghost");
   extra.forEach(k=>{ const m = (DG.ENEMIES[k] && DG.ENEMIES[k].model) || k; if(kinds.indexOf(m) < 0) for(let n=0;n<2;n++) V.warm.push(m); });
-  if(DG.Roads && DG.Roads.olmAlly(G) && G.floor >= DG.FINAL_FLOOR) V.warm.push("@olm");
   V.endRigs = null;
   if(G.floor >= DG.FINAL_FLOOR) V.warm.push("@ending");
   // all of it is built now, behind the veil (main.js): one of each kind (and its
@@ -136,7 +135,7 @@ proto.warmAll = function(){
   const V = this, G = V.G, W = V.world, R = S.renderer, g = new THREE.Group(), p = G.player;
   const vis = {}; for(const id in W.areas){ vis[id] = W.areas[id].g.visible; W.areas[id].g.visible = true; }
   const add = make=>{ try{ const o = make(); if(o) g.add(o.isObject3D ? o : o.g || o.root); }catch(e){ console.warn("warm:", e); } };
-  ["gold", "heart", "mana", "ward", "fly", "flyheal", "key"].forEach(k=> add(()=> M.pickup({ kind:k, value:5 })));
+  ["gold", "heart", "mana", "ward", "flyheal", "key"].forEach(k=> add(()=> M.pickup({ kind:k, value:5 })));
   const itemId = Object.keys(DG.ITEMS)[0], activeId = Object.keys(DG.ACTIVES || {})[0];
   add(()=> M.powerup(itemId));
   add(()=> M.offer({ kind:"item", id:itemId }));
@@ -234,7 +233,7 @@ proto.warmUp = function(now){
   const k = V.warm.shift();
   try{
     if(k === "@olm"){ V.warmRig(M.olm()); }
-    else if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); }
+    else if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(V.G); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); if(V.endRigs.zw) V.warmRig(V.endRigs.zw); }
     else {
       // the first of a kind is built (and its shaders warmed), the rest are copies of it
       V.tpl = V.tpl || {};
@@ -434,7 +433,7 @@ proto.handle = function(ev){
     case "bossPhase": S.shake(0.5); play("tellBig"); break;
     case "jump": play("jump"); break;
     case "land": S.shake(0.9); play("boom"); break;
-    case "portal": V.makePortal(ev.x, ev.y); play("portal"); break;
+    case "portal": V.makePortal(ev.x, ev.y, ev.kind === "bog" || G.side === "bog" ? 0x7dff3a : G.side === "flesh" ? 0xfff6dc : 0xb36bff); play("portal"); break;
     case "read": play("click"); break;
     case "bark": play("bark"); break;
     case "break": FX.burst(ev.x, 0.4, ev.y, ev.kind === "pot" || ev.kind === "urn" ? 0xb8683a : ev.kind === "eggsac" || ev.kind === "pustule" ? 0xd8e84a : 0x8a5a30, 14, 3.5, 0.3, 0.6, { grav:8, up:2 }); play("break"); break;
@@ -514,16 +513,27 @@ proto.handle = function(ev){
     case "sprung": S.shake(0.5); FX.ring(ev.x, ev.y, 6, 0xff4a2a, 0.8); play("sprung"); break;
     case "gamble": FX.burst(ev.x, 1, ev.y, ev.win ? 0xffd23d : ev.blood ? 0x8a0a06 : 0x6a6058, ev.win ? 28 : 14, ev.win ? 4 : 2, 0.25, 0.7, { up:1.5, grav:ev.win ? 6 : 0 }); if(ev.win && !ev.blood) S.shake(0.2); play(ev.win ? "gambleWin" : "gambleLose"); break;
     case "olmTalk": play("olmTalk", { x:ev.x, y:ev.y }); break;
+    case "shroom": FX.burst(ev.x, 0.5, ev.y, M.NEON, 24, 3, 0.25, 0.7, { up:1.5, col2:0xffffff }); FX.ring(G.gribbus.x, G.gribbus.y, 1.6, M.NEON, 0.6); play("gulp"); break;
+    case "demand": FX.burst(ev.x, 1.2, ev.y, 0xffd23d, 14, 2, 0.25, 0.6, { up:1.5 }); play("croak"); break;
+    case "praise": FX.ring(ev.x, ev.y, 2.4, 0xffd23d, 0.7); FX.rise(ev.x, ev.y, 0xffd23d, 26, 0.7, { v:3 }); play("blessing"); break;
+    case "sulk": FX.smoke(ev.x, 0.6, ev.y, 0x3a3a30, 4, 0.4, 0.8, { spread:0.3, rise:0.3 }); break;
+    case "championDown": FX.soul(ev.x, ev.y, 5, 2, M.NEON); FX.ring(ev.x, ev.y, 3, M.NEON, 0.9); S.shake(0.5); play("godly"); break;
+    case "dart": if(Math.random() < 0.3) FX.burst(ev.x, 0.6, ev.y, M.NEON, 3, 1.5, 0.12, 0.2); break;
+    case "lantern": FX.rise(ev.x, ev.y, 0xfff6dc, 40, 1, { v:3 }); FX.ring(ev.x, ev.y, 4, 0xfff6dc, 1); S.shake(0.3); play("blessing"); break;
+    case "eyesOpen": S.shake(0.4); FX.burst(ev.x, 1.2, ev.y, M.NEON, 40, 3, 0.3, 1, { up:1 }); play("pact"); break;
+    case "eyedoor": S.flash.position.set(ev.x, 2, ev.y); S.flash.color.setHex(0xfff6dc); S.flash.intensity = 8; play("portal"); break;
     case "olmBye": play("olmTalk", { x:ev.x, y:ev.y }); break;
     case "blessing": FX.rise(ev.x, ev.y, 0xffc870, 30, 0.7, { v:3 }); FX.ring(ev.x, ev.y, 2.5, 0xffc870, 0.8); play("blessing"); break;
   }
 };
 
-proto.makePortal = function(x, y){
+proto.makePortal = function(x, y, col){
+  col = col || 0xb36bff;
   const g = new THREE.Group(); g.position.set(x, 0, y);
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color:0x2a0a4a })); disc.rotation.x = -PI/2; disc.position.y = 0.03; g.add(disc);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 6, 24), K.basic(0xb36bff)); ring.rotation.x = PI/2; ring.position.y = 0.06; g.add(ring);
-  const glow = new THREE.Mesh(K.glowPlane, K.glowMat(0xb36bff, 0.8)); glow.scale.set(4, 1, 4); glow.position.y = 0.05; g.add(glow);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color:new THREE.Color(col).multiplyScalar(0.18) })); disc.rotation.x = -PI/2; disc.position.y = 0.03; g.add(disc);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 6, 24), K.basic(col)); ring.rotation.x = PI/2; ring.position.y = 0.06; g.add(ring);
+  const glow = new THREE.Mesh(K.glowPlane, K.glowMat(col, 0.8)); glow.scale.set(4, 1, 4); glow.position.y = 0.05; g.add(glow);
+  g.userData.col = col;
   S.scene.add(g); this.portal = g;
 };
 
@@ -685,7 +695,7 @@ proto.update = function(dt, t){
 
   if(V.portal){
     V.portal.children[1].rotation.z = t*2; V.portal.children[2].material.opacity = 0.6 + 0.2*Math.sin(t*4);
-    if(Math.random() < 0.6){ const a = Math.random()*6.28; FX.emit(V.portal.position.x + Math.cos(a)*1.1, 0.1, V.portal.position.z + Math.sin(a)*1.1, -Math.cos(a)*0.8, 1.5, -Math.sin(a)*0.8, 0xb36bff, 0.3, 0.8, 0, 0.5); }
+    if(Math.random() < 0.6){ const a = Math.random()*6.28; FX.emit(V.portal.position.x + Math.cos(a)*1.1, 0.1, V.portal.position.z + Math.sin(a)*1.1, -Math.cos(a)*0.8, 1.5, -Math.sin(a)*0.8, V.portal.userData.col || 0xb36bff, 0.3, 0.8, 0, 0.5); }
   }
   G.traps.forEach(tr=>{ if(tr.kind === "vent" && tr.state === "up" && Math.random() < 0.8) FX.emit(tr.x + 0.5 + (Math.random() - 0.5)*0.5, 0.1, tr.y + 0.5 + (Math.random() - 0.5)*0.5, 0, 4 + Math.random()*2, 0, Math.random() < 0.5 ? 0xff7a1a : 0xffd23d, 0.45, 0.45, 0, 1); });
   V.world.update(G, dt, t);
@@ -730,7 +740,7 @@ proto.updateFrogs = function(dt, t){
     const R = V.frogs[i], g = G.gribbus.g;
     R.root.position.set(S.ix(f), f.hop || 0, S.iy(f));
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
-    const sz = (1 + 0.5*(g.size || 0) + (f.twin ? 0 : rot >= 3 ? 0.3 : rot >= 2 ? 0.12 : 0))*(f.twin ? 0.9 : 1);
+    const sz = DG.Gribbus.size(G)*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
     // the hop: load, kick, reach, land hard (Models.hop)
     if(R.spitT > 0) R.spitT -= dt; if(R.croakT > 0) R.croakT -= dt;
@@ -738,7 +748,8 @@ proto.updateFrogs = function(dt, t){
       spit:R.spitT > 0 ? 1 - R.spitT/0.4 : 0, croak:R.croakT > 0 ? 1 - R.croakT/0.6 : 0 }, t + i*1.7, dt);
     if(mo.tookOff){ V.play("frogHop", { x:f.x, y:f.y }); FX.smoke(f.x, 0.05, f.y, 0x2a2420, 2, 0.3, 0.5, { spread:0.3, rise:0.15 }); }
     if(mo.landed){ V.play("frogLand", { x:f.x, y:f.y }); FX.burst(f.x, 0.05, f.y, G.D.theme.mist > 0.4 ? 0x8a8aa8 : 0xa89a88, 4, 1, 0.22, 0.45, { up:0.4, drag:5 }); }
-    if(R.parts.crown) R.parts.crown.visible = !!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0;
+    // the Royal Crown, or, in the Glutton's Bog, the crown he's about to take
+    if(R.parts.crown) R.parts.crown.visible = (!!g.dmg && G.gribbus.buffs.indexOf("crown") >= 0) || (G.side === "bog" && G.floor > DG.FINAL_FLOOR && i === 0);
     M.animate(R, t, 0);
     // the tongue
     const tg = R.parts.tongue;
@@ -750,7 +761,14 @@ proto.updateFrogs = function(dt, t){
       tg.visible = ext > 0.01; tg.scale.set(1, 1, Math.max(0.01, d*ext));
       tg.parent.updateMatrixWorld();
     } else tg.visible = false;
-    M.tint(R, g.mirrorEls ? ELC(G.gun().element) : 0x000000, g.mirrorEls ? 0.25 : 1);
+    // praised, he glows gold; full of mushrooms, a little green; sulking, grey
+    const n = G.player.quests.shrooms || 0, gf = G.gribbus;
+    if(G.t < (gf.praisedT || 0)) M.tint(R, 0xffd23d, 0.18 + 0.06*Math.sin(t*6));
+    else if(G.t < (gf.sulkT || 0)) M.tint(R, 0x2a2a2a, 0.35);
+    else if(gf.demand > 0) M.tint(R, 0xffd23d, 0.1 + 0.1*Math.sin(t*12));
+    else if(n) M.tint(R, M.NEON, Math.min(0.22, 0.02*n) + 0.03*Math.sin(t*2 + i));
+    else M.tint(R, g.mirrorEls ? ELC(G.gun().element) : 0x000000, g.mirrorEls ? 0.25 : 1);
+    if(n >= 4 && Math.random() < 0.04*Math.min(1, n/10)) FX.emit(f.x + (Math.random() - 0.5)*0.5, 0.4 + Math.random()*0.5, f.y + (Math.random() - 0.5)*0.5, 0, 0.5, 0, M.NEON, 0.12, 0.9, 0, 1);
   });
 };
 
@@ -1013,6 +1031,7 @@ proto.updateBeams = function(dt, t){
       m = new THREE.Group();
       const core = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color:b.kind === "lantern" ? 0x7ab8ff : 0xff2a4a, transparent:true, opacity:0.4, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
       core.geometry.translate(0.5, 0, 0); core.rotation.x = -PI/2; m.add(core); m.userData.core = core;
+      if(b.kind === "tongue") core.material.color.setHex(0x9cff4a);
       const white = core.clone(); white.material = core.material.clone(); white.material.color.setHex(0xffffff); white.position.y = 0.01; m.add(white); m.userData.white = white;
       S.scene.add(m); V.beams[b.id] = m;
     }
