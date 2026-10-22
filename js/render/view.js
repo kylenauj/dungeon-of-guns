@@ -162,12 +162,17 @@ proto.warmAll = function(){
     const x = p.x, y = p.y, fake = { t:0, marks:[{ kind:"slam", x, y:y + 1, r:1, t:1, max:1 }], bombs:[{ id:-1, x, y, tx:x + 1, ty:y, t:0.3, flight:1, fuse:1, r:1, team:"e" }],
       bullets:[{ id:-2, team:"p", x:x + 0.5, y, vx:9, vy:0, r:0.15, els:[G.gun().element], kind:"bolt", t:0 }, { id:-3, team:"e", x:x - 0.5, y, vx:-6, vy:0, r:0.18, kind:"orb", t:0 }] };
     FX.burst(x, 1, y, 0xffffff, 6, 2, 0.2, 0.5); FX.smoke(x, 1, y, 0x404040, 4, 0.5, 1); FX.ring(x, y, 1, 0xffffff, 0.5); FX.rise(x, y, 0xffffff, 4, 0.5);
+    // and everything a death, a boss's above all, sets off: blood, ash, a soul, an arc, a warning, a lane
+    FX.blood(x, 1, y, 0x6a0a06, 4, 2, 0.2, 0.5); FX.ash(x, y, 0.5, 1, 3, { pale:true, col:0xd8c8a0, y0:0.2 }); FX.ash(x, y, 0.5, 1, 2);
+    FX.soul(x, y, 3, 1, 0xd8c8a0); FX.arc(x, y, x + 1, y, 0xffffff, 0.2); FX.disc(x, y, 1, 0xffffff, 0.3); FX.warn(x, y, 1, 0.3); FX.lane(x, y, 0, 2, 0.5, 0.3);
     FX.update(1/60, fake);
     V.lanternBeam({ x, y, a:0, len:3 });
     R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
     if(S.portrait && S.portrait.scene) R.render(S.portrait.scene, S.portrait.cam);
     // and one whole real frame, through the post pass to the screen, the way every frame goes
     if(S.fancy && S.post){ R.setRenderTarget(S.post.rt); R.render(S.scene, S.camera); R.setRenderTarget(null); R.render(S.post.scene, S.post.cam); }
+    // the portrait is the one thing drawn straight to the screen: once there too, in a corner the next frame paints over
+    if(S.portrait && S.renderPortrait){ const P = S.portrait, on = P.on, rect = P.rect; R.setRenderTarget(null); P.on = true; P.rect = { x:0, y:0, w:16, h:16 }; S.renderPortrait(); P.on = on; P.rect = rect; }
     FX.update(0, { t:0, marks:[], bombs:[], bullets:[] }); FX.clear();
     (V.lbeams || []).forEach(b=> S.scene.remove(b.g)); V.lbeams = [];
     R.setRenderTarget(null); rt.dispose();
@@ -200,6 +205,8 @@ proto.settle = function(){
 proto.warmRig = function(R){
   const r = S.renderer;
   try{
+    // and once more as it looks dying: faded and tinted (see-through, drawn in the transparent pass)
+    if(!R.warmDying && R.mat){ R.warmDying = true; this.warmRig(R); M.fade(R, 0.5); M.tint(R, 0xff3a08, 0.3); this.warmRig(R); M.fade(R, 1); M.tint(R, 0, 1); return; }
     if(!WARM.rt){ WARM.rt = scrapTarget(32, 32); WARM.cam = new THREE.PerspectiveCamera(100, 1, 0.5, 30); WARM.cam.position.set(0, -74, 7); WARM.cam.lookAt(0, -79, 0); }
     // drawn at Zippy's feet, into a scrap target, with the shadows on: on Windows the shadow
     // pass and the real camera's draw each have their own compile, and both happen now

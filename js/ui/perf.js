@@ -78,6 +78,7 @@ function hookStage(){
   wrap(S, "resize", "Stage.resize");
   wrap(S, "adapt", "Stage.adapt");
   wrap(DG.Kit, "tick", "Kit.tick");
+  hookFirsts(R);
   try { const gl = R.getContext(), x = gl.getExtension("WEBGL_debug_renderer_info"); gpuInfo = x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch(e){}
   const loop = S.loop;
   S.updaters = S.updaters.map(f=>{ const o = { f }; wrap(o, "f", "main.frame"); return o.f; });
@@ -101,6 +102,55 @@ function hookStage(){
   };
   S.loop.__perf = true;
 }
+/* ---- first draws: every new kind of draw (material, mesh layout, target) and every
+   texture upload, with when it happened. On Windows each new kind can cost a DirectX
+   compile in the browser's graphics process, which may land a frame or two later,
+   so a hitch lists what was new in the second and a half before it. ---- */
+const firsts = P.firsts = [];
+function hookFirsts(R){
+  const seen = new Set(), sigs = new WeakMap();
+  let rt = null;
+  const setRT = R.setRenderTarget;
+  R.setRenderTarget = function(t){ rt = t; return setRT.apply(this, arguments); };
+  const sig = g=>{
+    let v = sigs.get(g);
+    if(!v){
+      v = Object.keys(g.attributes).sort().map(k=>{ const a = g.attributes[k], arr = a.array || (a.data && a.data.array); return k + ":" + (arr ? arr.constructor.name.replace("Array", "") : "?") + a.itemSize + (a.normalized ? "n" : "") + (a.isInstancedBufferAttribute ? "i" : "") + (a.isInterleavedBufferAttribute ? "x" : ""); }).join(",") + (g.index ? "|i" + g.index.array.BYTES_PER_ELEMENT : "");
+      sigs.set(g, v);
+    }
+    return v;
+  };
+  const name = o=>{ for(let n = o, i = 0; n && i < 8; n = n.parent, i++) if(n.name) return n.name; return ""; };
+  const log = what=>{ firsts.push({ at:now() - P.t0, what }); if(firsts.length > 400) firsts.shift(); };
+  // every draw goes through renderBufferDirect (objects' own onBeforeRender hooks can't hide one)
+  const rbd = R.renderBufferDirect;
+  R.renderBufferDirect = function(cam, scene, geo, mat, obj, group){
+    try{ first.call(obj, geo, mat); }catch(e){}
+    return rbd.apply(this, arguments);
+  };
+  const first = function(geo, mat){
+    if(!mat || !geo) return;
+    const kind = this.isInstancedMesh ? "instanced" : this.isPoints ? "points" : this.isLine ? "line" : this.isSprite ? "sprite" : "mesh";
+    const target = rt ? (rt.depthTexture ? "rt+depth" : "rt") + (rt.isWebGLMultisampleRenderTarget ? " msaa" : "") : "screen";
+    const mk = mat.type + (mat.customProgramCacheKey ? "~" + mat.customProgramCacheKey() : "") + (mat.map ? " map" : "") + (mat.vertexColors ? " vcol" : "") + (mat.transparent ? " see-through" : "") + (mat.side ? " side" + mat.side : "");
+    const key = mk + "|" + sig(geo) + "|" + kind + "|" + target;
+    if(seen.has(key)) return;
+    seen.add(key);
+    log("draw " + kind + " " + mk + " into " + target + " [" + sig(geo) + "]" + (name(this) ? " (" + name(this) + ")" : ""));
+  };
+  try {
+    const gl = R.getContext();
+    ["texImage2D", "texSubImage2D", "compressedTexImage2D"].forEach(fn=>{
+      const f = gl[fn]; if(!f) return;
+      gl[fn] = function(){
+        const a = arguments, src = a[a.length - 1];
+        const what = src && src.width !== undefined && !(src instanceof ArrayBuffer) && !ArrayBuffer.isView(src) ? (src.constructor && src.constructor.name || "image") + " " + src.width + "x" + src.height : "data " + (a.length >= 9 ? a[3] + "x" + a[4] : "");
+        log("upload " + fn + " " + what);
+        return f.apply(this, a);
+      };
+    });
+  } catch(e){}
+}
 let prev = null;
 function hitch(gap, f){
   if(!(gap > Math.max(40, median()*2.4) && P.count > 10)) return;
@@ -109,6 +159,7 @@ function hitch(gap, f){
   const G = DG.app && DG.app.G;
   P.hitches.push({ at:f.at, gap, js:f.js, top, events:Object.assign({}, f.events), prog:f.prog, progNames:f.progNames, geo:f.geo, tex:f.tex, calls:f.calls, tris:f.tris,
     longtask:lt.length ? Math.round(Math.max(...lt.map(l=> l.ms))) : 0,
+    firsts:firsts.filter(x=> x.at > f.at - 1500 && x.at < f.at + gap).map(x=> Math.round(x.at - f.at) + "ms " + x.what),
     where:G ? { floor:G.floor, room:G.room ? G.room.type + (G.room.active ? " (fighting)" : "") : "corridor", enemies:(G.enemies || []).filter(e=> !e.dead).length,
       shots:(G.shots || []).length, hazards:(G.hazards || []).length, mode:DG.app.mode } : null, dyn:S.dyn });
   if(P.hitches.length > 60) P.hitches.shift();
@@ -162,6 +213,7 @@ P.report = function(){
     if(h.top.length) out.push("    slowest: " + h.top.map(x=> x[0] + " " + r1(x[1])).join(", "));
     const ev = Object.keys(h.events); if(ev.length) out.push("    events: " + ev.map(k=> k + "×" + h.events[k]).join(" "));
     if(h.prog || h.geo || h.tex) out.push("    new on the GPU: " + [h.prog ? h.prog + " shader programs (" + (h.progNames || []).join(", ") + ")" : "", h.geo ? h.geo + " meshes" : "", h.tex ? h.tex + " textures" : ""].filter(Boolean).join(", "));
+    if(h.firsts && h.firsts.length){ out.push("    drawn or uploaded for the first time just before (ms from the frame's start):"); h.firsts.slice(-10).forEach(x=> out.push("      " + x)); if(h.firsts.length > 10) out.push("      (" + (h.firsts.length - 10) + " more before those)"); }
     if(h.gap - h.js > 500 && !h.longtask && h.js < 20) out.push("    the page sat idle waiting: the browser's graphics process was busy (on Windows, usually DirectX compiling a shader for something drawn for the first time)");
     out.push("    draw calls " + h.calls + ", triangles " + h.tris + (h.where ? ", floor " + h.where.floor + ", " + h.where.room + ", " + h.where.enemies + " enemies, " + h.where.shots + " shots, " + h.where.hazards + " hazards, mode " + h.where.mode : ""));
   });

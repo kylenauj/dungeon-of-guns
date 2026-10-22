@@ -28,7 +28,7 @@ const OC = (r)=> geo("oc" + r, ()=> new THREE.OctahedronGeometry(r));
 const P = K.part;
 
 function rig(kind){
-  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); root.name = kind;
   return { root, body, parts:{}, glows:[], muzzle:new THREE.Object3D(), h:1.4, size:1, kind };
 }
 function group(parent, x, y, z){ const g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0); parent.add(g); return g; }
@@ -3139,7 +3139,7 @@ Models.copy = function(R){
     if(n.isMesh) c = new THREE.Mesh(n.geometry, n.material === R.mat ? mat : glow.has(n) ? n.material.clone() : n.material);
     else if(n.isSprite) c = new THREE.Sprite(glow.has(n) ? n.material.clone() : n.material);
     else c = new THREE.Group();
-    c.position.copy(n.position); c.quaternion.copy(n.quaternion); c.scale.copy(n.scale);
+    c.position.copy(n.position); c.quaternion.copy(n.quaternion); c.scale.copy(n.scale); c.name = n.name;
     c.visible = n.visible; c.renderOrder = n.renderOrder; c.frustumCulled = n.frustumCulled;
     c.castShadow = n.castShadow; c.receiveShadow = n.receiveShadow; c.name = n.name;
     c.userData = Object.assign({}, n.userData);

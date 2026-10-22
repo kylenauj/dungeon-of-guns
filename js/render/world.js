@@ -259,7 +259,7 @@ proto.assignAreas = function(){
   D.corridors.forEach(c=> c.tiles.forEach(([x, y])=> DG.DIRS8.forEach(([dx, dy])=> set(x + dx, y + dy, 100 + c.id))));
 };
 proto.areaGroup = function(id){
-  if(!this.areas[id]){ const g = new THREE.Group(); g.visible = false; this.group.add(g); this.areas[id] = { g, id }; }
+  if(!this.areas[id]){ const g = new THREE.Group(); g.visible = false; g.name = "area " + id; this.group.add(g); this.areas[id] = { g, id }; }
   return this.areas[id].g;
 };
 proto.areaOfTile = function(x, y){ const a = this.area[Math.floor(y)*this.D.w + Math.floor(x)]; return a >= 0 ? a : null; };
