@@ -132,6 +132,11 @@ H.warm = function(G){
   keys.forEach(k=> keep[k] = H[k]);
   const gk = { bossRef:G.bossRef, lairRef:G.lairRef, room:G.room, curses:G.curses, enemies:G.enemies, state:G.state };
   const p = G.player, x = p.x, y = p.y;
+  // the side roads' bits too: the relics by the purse, the mushroom count, Gribbus' mood
+  const quests0 = p.quests, rot0 = G.roads && Object.assign({}, G.roads.rot), fg = G.gribbus, demand0 = fg && fg.demand;
+  p.quests = { ember:true, lantern:true, shrooms:4 };
+  if(G.roads){ G.roads.rot.shrooms = 4; G.roads.rot.stage = 1; }
+  if(fg) fg.demand = 6;
   const fake = (id, extra)=> Object.assign({ id, x:x + 30, y:y + 30, r:0.4, hp:40, maxHp:100, spawn:0, dead:false, ai:{ raged:true }, st:{ poison:{ stacks:2 } }, def:{}, name:"warm", room:-99 }, extra);
   const kinds = ["felled", "lair", "clear", "transform"];
   try{
@@ -152,13 +157,25 @@ H.warm = function(G){
       G.bossRef = i % 2 ? null : fake(-93, { invuln:i === 2 });
       G.lairRef = [fake(-94, {})];
       H.draw(G, 1/60, {});
+      // send this pass to the GPU now: the next H.draw starts by clearing the
+      // canvas, and Chrome drops drawing that a full clear covers before it was
+      // ever flushed, so without this only the last pass got compiled (and the
+      // rest stalled the first time they really turned up)
+      H.flush();
     }
   }catch(e){ console.warn("hud warm:", e); }
   Object.assign(G, gk);
   keys.forEach(k=> H[k] = keep[k]);
-  // clear it, and read a pixel back: that waits until the card has done all of it
-  const g = H.g; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, H.canvas.width, H.canvas.height);
+  p.quests = quests0; if(G.roads) Object.assign(G.roads.rot, rot0); if(fg) fg.demand = demand0;
+  // read a pixel back before clearing (that waits until the GPU has done all of it), then clear
+  const g = H.g;
   try{ g.getImageData(0, 0, 1, 1); }catch(e){}
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, H.canvas.width, H.canvas.height);
+};
+/* hand what's been drawn on the HUD so far to the GPU, without waiting for it: a
+   snapshot of the canvas can't be taken without carrying out the drawing first */
+H.flush = function(){
+  try{ if(typeof createImageBitmap === "function") createImageBitmap(H.canvas, 0, 0, 1, 1).then(b=>{ if(b.close) b.close(); }, ()=>{}); }catch(e){}
 };
 H.toast = function(text, dur){
   H.toasts = H.toasts.filter(t=> t.text !== text);
