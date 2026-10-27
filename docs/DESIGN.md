@@ -184,7 +184,7 @@ five ranks, so the gun you stick with grows with you.
 | **Health** | 100, plus **wards**: blue pips that each block one hit completely. |
 | **Mana** | 100. Pays for the gun's spell. |
 | **Blink** | `Space`. Invulnerable, crosses pits. |
-| **Guns** | Carries up to 3. A gun is its fire pattern, element and level; ascended guns can appear. Powerups apply to all of them. |
+| **The wand** | One weapon (since October 2026; guns are gone). **Forms** reshape how it fires and stack: Scatter (five bolts in a fan), Repeater (fast and weak), Longbarrel Lens (slow lances that pierce), Bombard (heavy orbs that burst). **Cores** (stackable) and element rounds give it an element: whichever you've gathered most is the wand's own, its colour and its right-click spell. It grows stronger floor by floor. The Wandwright's bench (the old armoury), the shop's old gun wares and the vault's armoury offer workings for it. Powerups apply to it as before; a form + the right powerup ascends it. |
 | **Active item** | One at a time, on `F`. Charged by clearing rooms or getting kills. |
 | **Boons** | No levels any more. Boons (small character upgrades: +crit, a fire trail behind blinks, mana on kill...) come only as Brother Olm's blessing, for gold. |
 

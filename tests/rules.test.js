@@ -275,11 +275,64 @@ test("an Event Horizon shot that runs out becomes a black hole", ()=>{
   assert.ok(G.hazards.some(h=> h.kind === "blackhole"));
 });
 
-test("an ascension: Seeker Spirit turns a pistol into the Seeker Sidearm", ()=>{
+test("an ascension: Seeker Spirit turns the bare wand into the Seeker Wand; with a form, that form's ascension instead", ()=>{
   const G = game("ASCEND");
   G.giveItem("seeker");
-  assert.equal(G.player.guns[0].name, "Seeker Sidearm");
+  assert.equal(G.player.guns[0].name, "Seeker Wand");
   assert.ok(G.drain().some(e=> e.type === "ascend"));
+  const H = game("ASCEND2");
+  H.giveItem("scatterfocus"); H.giveItem("seeker");
+  assert.ok(!H.player.guns[0].ascended, "Seeker wants the bare wand");
+  H.giveItem("rubber");
+  assert.equal(H.player.guns[0].name, "Pinball Wand");
+});
+
+/* ================================================================== *
+ *  The wand: one weapon, shaped by what you find
+ * ================================================================== */
+test("there's one wand: no gun drops anywhere, and it grows stronger floor by floor", ()=>{
+  const G = game("WAND1", 1), w = G.gun();
+  assert.ok(w.wand && G.player.guns.length === 1);
+  const d1 = G.gunStats().dmg;
+  G.enterFloor(3); assert.ok(G.gunStats().dmg > d1*1.8, "floor 3: " + (G.gunStats().dmg/d1).toFixed(2) + "x");
+  for(let s=0; s<40; s++){
+    const H = game("NOGUNS" + s, 1 + (s % 5));
+    H.D.rooms.forEach(r=> r.props.forEach(p=>{ if(p.offer) assert.ok(p.offer.kind !== "gun", r.type + " offers a gun"); }));
+    [1, 2, 3].forEach(tier=> H.chestLoot({ tier }).forEach(it=> assert.ok(it.kind !== "gun", "a chest held a gun")));
+  }
+});
+test("forms reshape the wand and stack: scatter fans out, lens pierces, bombard bursts; the look follows the boldest", ()=>{
+  const G = game("WAND2"), s0 = G.gunStats();
+  G.giveItem("scatterfocus");
+  let s = G.gunStats();
+  assert.equal(s.pellets, 5); assert.ok(s.rate < s0.rate && s.dmg < s0.dmg);
+  assert.equal(G.gun().base, "shotgun");
+  G.giveItem("bombardrune");
+  s = G.gunStats();
+  assert.equal(s.pellets, 5, "still five"); assert.ok(s.blast > 0, "and now they burst");
+  assert.equal(G.gun().base, "launcher");
+  assert.ok(/Bombard Scatter Wand|Scatter.*Wand/.test(G.gun().name), G.gun().name);
+  const H = game("WAND3"); H.giveItem("longlens"); assert.ok(H.gunStats().basePierce >= 1);
+  // each form on its own is about as strong as the bare wand
+  ["scatterfocus", "repeatercoil", "longlens", "bombardrune"].forEach(id=>{
+    const K = game("WANDDPS" + id), base = DG.Loot.dps(K.gun(), K.mods); K.giveItem(id, true);
+    const k = DG.Loot.dps(K.gun(), K.mods)/base;
+    assert.ok(k > 0.6 && k < 1.5, id + ": " + k.toFixed(2) + "x the bare wand");
+  });
+});
+test("the wand's element is whichever you've gathered most: one core turns it to ice, its spell follows; a tie goes to the last taken", ()=>{
+  const G = game("WAND4");
+  assert.equal(G.gun().element, "arcane");
+  G.giveItem("rimecore");
+  assert.equal(G.gun().element, "frost");
+  assert.equal(G.gunStats().spell, "nova");
+  assert.ok(G.shotEls(G.gun()).indexOf("frost") >= 0);
+  assert.ok(G.drain().some(e=> e.type === "wand" && e.el === "frost"));
+  G.giveItem("embercore");
+  assert.equal(G.gun().element, "fire", "a tie: the last one taken");
+  G.giveItem("rimecore");
+  assert.equal(G.gun().element, "frost", "two frost beat one fire");
+  assert.ok(G.player.items.rimecore === 2, "cores stack");
 });
 
 /* ================================================================== *
@@ -325,17 +378,17 @@ test("the shop takes your gold", ()=>{
   assert.equal(G.player.gold, 999 - ped.offer.price);
 });
 
-test("the armoury (the old treasure room) is a choice of weapons: take one and the rest rust away", ()=>{
+test("the Wandwright's bench (the old treasure room) is a choice of workings for the wand: take one and the rest crumble", ()=>{
   [[1, 2], [3, 3]].forEach(([floor, n])=>{
     const G = game("TREASURE", floor);
     const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
     assert.equal(peds.length, n, "floor " + floor);
-    assert.ok(peds.every(p=> p.offer.kind === "gun" && !p.offer.price), "free weapons, no powerups");
-    assert.ok(peds.some(p=> p.offer.gun.rarity >= 2), "one of them a fine one");
-    const gun = peds[0];
-    G.player.x = gun.x + 0.5; G.player.y = gun.y + 1.2; G.room = r;
+    assert.ok(peds.every(p=> p.offer.kind === "item" && !p.offer.price && DG.ITEMS[p.offer.id].pools.indexOf("w") >= 0), "free, all from the Wandwright's pool");
+    assert.ok(peds.some(p=> DG.ITEMS[p.offer.id].form), "one of them a form");
+    const it = peds[0];
+    G.player.x = it.x + 0.5; G.player.y = it.y + 1.2; G.room = r;
     G.interact();
-    assert.ok(gun.taken && peds.filter(p=> p !== gun).every(p=> p.sunk));
+    assert.ok(it.taken && peds.filter(p=> p !== it).every(p=> p.sunk));
   });
 });
 
@@ -923,7 +976,7 @@ test("every item is well formed: real payloads, real tiers and pools, a descript
     const d = DG.ITEMS[id];
     assert.ok(d.name && d.desc, id + " has a name and a description");
     assert.ok(d.tier >= 0 && d.tier <= 4, id + " tier");
-    assert.ok(d.given ? d.pools === "" : /^[tsbxaf]+$/.test(d.pools), id + " pools");
+    assert.ok(d.given ? d.pools === "" : /^[tsbxafw]+$/.test(d.pools), id + " pools");
     check(d, id);
   }
   DG.DUOS.forEach(d=>{ assert.ok(DG.ITEMS[d.a] && DG.ITEMS[d.b], d.name + " pairs real items"); check(d, d.name); });

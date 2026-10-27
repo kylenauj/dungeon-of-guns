@@ -1,10 +1,12 @@
 /* ------------------------------------------------------------------ *
- *  Loot: guns (rolling, naming, the numbers they fire with) and prices.
- *  Powerups are in items.js.
+ *  Loot: Zippy's wand (the numbers it fires with) and prices. Powerups
+ *  are in items.js.
  *
- *  A gun is a fire pattern x an element x a level x a rarity. Better
- *  rarities come with built-in powerups that work while you hold the
- *  gun. There are no slots: powerups you pick up work on every gun.
+ *  There's one weapon, the wand. Forms (items) reshape how it fires
+ *  (DG.WAND_FORMS), its element is whichever you've gathered most of,
+ *  and it grows stronger floor by floor (DG.WAND_LEVEL). The old guns
+ *  (rollGun) are still here for the endless floors' odd test, but
+ *  nothing drops them.
  * ------------------------------------------------------------------ */
 (function(root){
 "use strict";
@@ -32,7 +34,11 @@ L.makeGun = function(base, element, rarity, level, innate, extra){
   return g;
 };
 
-L.gunName = function(g){
+L.gunName = function(g, M){
+  if(g.wand){
+    const E = DG.ELEMENTS[g.element], forms = DG.FORM_ORDER.filter(f=> M && M.forms[f]).map(f=> DG.WAND_FORMS[f].name);
+    return E.adj + " " + (forms.length ? forms.join(" ") + " " : "") + "Wand";
+  }
   const B = DG.GUNS[g.base], E = DG.ELEMENTS[g.element];
   const it = g.innate[0] && DG.ITEMS[g.innate[0]];
   return E.adj + " " + B.name + (it ? " of " + it.name.replace(/^(The|A) /, "") : "");
@@ -63,7 +69,9 @@ L.rollGun = function(rng, level, opts){
   return L.makeGun(base, element, rarity, level, L.rollInnate(rng, rarity));
 };
 
-L.starterGun = ()=> L.makeGun("pistol", "arcane", 0, 1, [], { unique:"Old Faithful", flavour:"Zippy's first wand-pistol. It has never once been cleaned." });
+L.starterGun = ()=> L.makeGun("pistol", "arcane", 0, 1, [], { wand:true, unique:"Arcane Wand", flavour:"Zippy's only wand. Everything you find reshapes it." });
+/* the look and sound a wand takes from its forms (the boldest one) */
+L.wandStyle = M=> { const f = DG.FORM_ORDER.find(k=> M && M.forms[k]); return f ? DG.WAND_FORMS[f].style : "pistol"; };
 
 L.itemPrice = function(id, floor){ const t = DG.ITEMS[id].tier; return Math.round((24 + 20*t + t*t*8)*(1 + 0.3*(floor - 1))); };
 L.price = function(item, floor){
@@ -81,7 +89,7 @@ L.price = function(item, floor){
 L.stats = function(gun, M){
   M = M || DG.Items.blank();
   // mastery: a gun you keep killing with grows with you (+6% a rank, 5 ranks)
-  const B = DG.GUNS[gun.base], power = L.power(gun.level, gun.rarity)*(1 + L.MASTERY_K*(gun.mastery || 0));
+  const B = gun.wand ? L.wandBase(M) : DG.GUNS[gun.base], power = L.power(gun.level, gun.rarity)*(1 + L.MASTERY_K*(gun.mastery || 0));
   const cl = (v, lo)=> Math.max(lo, v);
   return {
     power,
@@ -90,7 +98,7 @@ L.stats = function(gun, M){
     speed: B.speed*cl(1 + M.shotSpeed, 0.4),
     spread: B.spread,
     pellets: B.pellets,
-    mag: Math.round(B.mag*(1 + M.mag)),
+    mag: Math.max(1, Math.round(B.mag*(1 + M.mag))),
     reload: B.reload/(1 + M.reload),
     range: B.range*cl(1 + M.range, 0.4),
     size: B.size*cl(1 + M.size, 0.4),
@@ -102,6 +110,18 @@ L.stats = function(gun, M){
     spell: DG.ELEMENTS[gun.element].spell,
     spellCost: Math.round(DG.SPELLS[DG.ELEMENTS[gun.element].spell].cost*Math.max(0.3, 1 - M.spellCost))
   };
+};
+
+/* the wand's bolt with every form it has taken worked in */
+L.wandBase = function(M){
+  const B = Object.assign({}, DG.GUNS.wand);
+  for(const f of DG.FORM_ORDER){
+    const F = M && M.forms[f] && DG.WAND_FORMS[f]; if(!F) continue;
+    ["pellets", "spread", "pierce", "blast"].forEach(k=>{ if(F[k]) B[k] = (B[k] || 0) + F[k]; });
+    ["dmg", "rate", "speed", "range", "mag", "size", "knock"].forEach(k=>{ if(F[k]) B[k] *= F[k]; });
+    if(F.spreadMul) B.spread *= F.spreadMul;
+  }
+  return B;
 };
 
 L.describe = function(item){

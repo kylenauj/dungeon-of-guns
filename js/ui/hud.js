@@ -826,7 +826,11 @@ H.guns = function(g, G, x, yb, k, maxW){
       g.fillStyle = ec; g.fillRect(R(x + 1), R(y + 1), 3, R(h - 2));
       const nsz = fit(g, gun.name, 16*k, w - 30 - G.shotEls(gun).length*15*k, "700", SERIF);
       text(g, gun.name, x + 14, y + 15*k, nsz, rc, "left", "700");
-      text(g, (gun.ascended ? "Ascended" : R0.name) + " · level " + gun.level + " · " + Math.round(s.dmg*10)/10 + (s.pellets > 1 ? "×" + s.pellets : "") + " damage", x + 14, y + 33*k, 13*k, DIM, "left", "italic 500", BOOK);
+      // the wand: its forms (or none yet) and how strong the floors have made it
+      const forms = gun.wand ? DG.FORM_ORDER.filter(f=> G.mods.forms[f]).map(f=> DG.WAND_FORMS[f].name) : null;
+      const sub = gun.wand ? (gun.ascended ? "Ascended · " : "") + (forms.length ? forms.join(" + ") : "no form yet") + " · power " + s.power.toFixed(1) + "×"
+                           : (gun.ascended ? "Ascended" : R0.name) + " · level " + gun.level;
+      text(g, sub + " · " + Math.round(s.dmg*10)/10 + (s.pellets > 1 ? "×" + s.pellets : "") + " damage", x + 14, y + 33*k, 13*k, DIM, "left", "italic 500", BOOK);
       // every element the shots carry
       G.shotEls(gun).forEach((el, j)=> diamond(g, x + w - 16*k - j*15*k, y + 15*k, 5.5*k, mute(hex(DG.ELEMENTS[el].color), 0.15), "rgba(0,0,0,.9)"));
       const ay = y + 50*k;

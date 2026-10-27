@@ -56,7 +56,14 @@ proto.recalc = function(){
   const G = this, p = G.player, g = p.guns[p.cur];
   const extra = g ? (g.innate || []) : [];
   const was = G.mods && G.mods.attune ? G.mods.attune : {};
+  if(g && g.wand) g.element = G.wandElement();
   const M = G.mods = Items.build(p.items, p.boons, extra, g ? g.element : null);
+  // the wand takes its shape from its forms, and its name from both
+  if(g && g.wand){
+    // a new shape is a new wand to the view (its model rebuilds on a new uid)
+    const b0 = g.base; g.base = L.wandStyle(M); if(b0 !== g.base) g.uid = L.uid();
+    if(!g.ascended){ g.name = L.gunName(g, M); g.unique = g.name; }
+  }
   // reaching a new tier of attunement is worth announcing
   for(const e in M.attune) if(M.attune[e] > (was[e] || 0) && G.player.ready !== false){ const T = DG.ATTUNEMENT[e][M.attune[e] - 1]; G.emit("attune", { el:e, tier:M.attune[e], name:T.name, desc:T.desc }); }
   const hpBefore = p.maxHp;
@@ -67,6 +74,18 @@ proto.recalc = function(){
   G.duoKey = M.duos.join(",");
 };
 proto.gun = function(){ return this.player.guns[this.player.cur]; };
+/* the wand's element: whichever element Zippy has gathered most of (cores, rounds,
+   relics, what's built into an ascension); a tie goes to the one he took last;
+   with none at all it's arcane, as it began */
+proto.wandElement = function(){
+  const p = this.player, g = p.guns[p.cur], n = {};
+  const count = (d, k)=>{ const e = Items.elSources(d); for(const x in e) n[x] = (n[x] || 0) + e[x]*k; };
+  for(const id in p.items) if(DG.ITEMS[id]) count(DG.ITEMS[id], p.items[id]);
+  ((g && g.innate) || []).forEach(id=> DG.ITEMS[id] && count(DG.ITEMS[id], 1));
+  let best = "arcane", bn = 0;
+  DG.ELEMENT_ORDER.forEach(e=>{ const v = n[e] || 0; if(v > bn || (v === bn && v > 0 && e === p.lastEl)){ best = e; bn = v; } });
+  return best;
+};
 proto.gunStats = function(g){ return L.stats(g || this.gun(), this.mods); };
 proto.luck = function(p){ return Math.min(1, p*(1 + 0.15*this.mods.luck)); };
 proto.chance = function(p){ return this.rng.next() < this.luck(p); };
@@ -75,6 +94,8 @@ proto.chance = function(p){ return this.rng.next() < this.luck(p); };
 proto.enterFloor = function(n, D0){
   const G = this, p = G.player;
   G.floor = n;
+  // the wand drinks the dark: it grows with every floor (it never shrinks, climbing back up)
+  const w = p && p.guns && p.guns[0]; if(w && w.wand) w.level = Math.max(w.level || 1, DG.WAND_LEVEL(n));
   const gen = DG.Roads ? DG.Roads.genOpts(G, n) : {};
   G.D = D0 || DG.Dungeon.generate((G.seed + n*104729) >>> 0, n, gen);
   G.climb = G.D.climb ? { t:0, rock:1.5, ghost:3 } : null;
@@ -164,9 +185,9 @@ proto.makeOffer = function(r, pr){
   const G = this, f = G.floor;
   const sp = G.specialOffer(r, pr); if(sp) return sp;
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
-  if(pr.sell === "gun"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.3 }); return { kind:"gun", gun:g, price:L.price(g, f), currency:"gold" }; }
-  if(pr.sell === "gift"){ const g = L.rollGun(G.rng, f + 1, { minRarity:1, boost:0.5 }); return { kind:"gun", gun:g }; }
-  if(pr.sell === "fine"){ const g = L.rollGun(G.rng, f + 1, { minRarity:2, boost:0.8 }); return { kind:"gun", gun:g }; }
+  // (the old gun wares: a working for the wand now, from the Wandwright's pool; "fine" leans to a form)
+  if(pr.sell === "gun"){ const id = Items.roll(G, "w"); return { kind:"item", id, name:DG.ITEMS[id].name, price:L.itemPrice(id, f), currency:"gold" }; }
+  if(pr.sell === "gift" || pr.sell === "fine"){ const id = Items.roll(G, "w", pr.sell === "fine" ? { minTier:2 } : undefined); return { kind:"item", id, name:DG.ITEMS[id].name }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
   if(pr.quest){ const Q = DG.QUESTS[pr.quest]; return { kind:"quest", id:pr.quest, name:Q.name }; }
   if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
@@ -368,9 +389,7 @@ proto.updatePlayer = function(dt, I){
     p.safeX = p.x; p.safeY = p.y;
   }
 
-  // guns
-  if(I.slot >= 0 && I.slot < p.guns.length && I.slot !== p.cur) G.selectGun(I.slot);
-  if(I.swap && p.guns.length > 1) G.selectGun((p.cur + 1) % p.guns.length);
+  // the wand
   const g = G.gun(), s = G.gunStats(g);
   p.fireCd = Math.max(0, p.fireCd - dt);
   if(p.reloadT > 0){
@@ -485,6 +504,9 @@ proto.giveItem = function(id, quiet){
   const G = this, p = G.player, d = DG.ITEMS[id];
   if(!d) return;
   p.items[id] = (p.items[id] || 0) + 1;
+  // the last element taken wins a tie for the wand's colour
+  const els = Object.keys(Items.elSources(d)); if(els.length) p.lastEl = els[els.length - 1];
+  const el0 = G.gun() && G.gun().element, base0 = G.gun() && G.gun().base;
   G.seenItems[id] = true;
   G.stats.items++;
   const duosBefore = G.duoKey || "", setsBefore = G.player.sets || [];
@@ -501,18 +523,25 @@ proto.giveItem = function(id, quiet){
   G.checkAscensions();
   if(d.special === "moons" || d.special === "shadow") DG.Gribbus.spawnPermanents(G);
   if(d.frog) DG.Gribbus.giveBuff(G, d.frog);
+  // the wand changed: its element (the colour of every shot) or its form
+  const g = G.gun();
+  if(g && g.wand && (g.element !== el0 || g.base !== base0)){
+    G.emit("wand", { el:g.element, base:g.base, name:g.name, form:d.form || null });
+    if(!quiet) G.say(d.form ? "Your wand twists into a new shape: the " + g.name + "." : "Your wand turns " + DG.ELEMENTS[g.element].name.toLowerCase() + ": the " + g.name + ".", 3.5);
+  }
 };
 proto.checkAscensions = function(){
   const G = this, p = G.player;
   p.guns.forEach(g=>{
     if(g.ascended) return;
-    const a = DG.ASCENSIONS.find(x=> x.base === g.base && p.items[x.item]);
+    const forms = G.mods ? G.mods.forms : {}, bare = !Object.keys(forms).length;
+    const a = DG.ASCENSIONS.find(x=> (x.form ? forms[x.form] : bare) && p.items[x.item]);
     if(!a) return;
     g.ascended = true; g.name = a.name; g.unique = a.name; g.flavour = a.flavor;
     g.innate = (g.innate || []).concat(a.innate.filter(id=> (g.innate || []).indexOf(id) < 0));
     g.rarity = Math.max(g.rarity, 3);
     G.emit("ascend", { name:a.name, flavor:a.flavor });
-    G.say("ASCENSION! Your gun becomes the " + a.name + ".", 4);
+    G.say("ASCENSION! Your wand becomes the " + a.name + ".", 4);
   });
   G.recalc();
 };
@@ -939,19 +968,15 @@ proto.interact = function(){
   }
   if(o.kind === "lilypad"){ DG.Gribbus.choosePad(G, o); return; }
   if(o.kind === "sign"){ G.say(o.text, o.riddle ? 9 : 6); G.emit("read"); return; }
-  if(o.kind === "merchant"){ G.say("Snibbit: \"" + G.rng.pick(["Buy something or stop breathing on my stuff.", "That gun? Barely haunted.", "I'd say 'mint condition' but I ate the mint.", "Is that a frog? Keep him off the merchandise."]) + "\"", 3.5); return; }
+  if(o.kind === "merchant"){ G.say("Snibbit: \"" + G.rng.pick(["Buy something or stop breathing on my stuff.", "That wand bit? Barely haunted.", "I'd say 'mint condition' but I ate the mint.", "Is that a frog? Keep him off the merchandise."]) + "\"", 3.5); return; }
 };
 
 proto.chestLoot = function(c){
   const G = this, rng = G.rng, f = G.floor;
-  const gun = o=> L.rollGun(rng, f + (c.tier >= 2 ? 1 : 0), o);
-  // chests hold guns, keys and gold: powerups come from bosses, lairs, shops and Olm
-  if(c.tier >= 2) return [gun({ minRarity:c.tier >= 3 ? 2 : 1, boost:0.6 })].concat(rng.chance(0.35) ? [{ kind:"key" }] : []);
-  const roll = rng.next();
-  if(roll < 0.15) return [gun({ boost:0.1 }), { kind:"key" }];
-  if(roll < 0.55) return [gun({ boost:0.1 })];
-  if(roll < 0.7) return [{ kind:"key" }];
-  return [];
+  // chests hold keys and gold (and a breather, sometimes): powerups come from bosses,
+  // lairs, shops and Olm, and the wand's workings from the Wandwright
+  if(c.tier >= 2) return rng.chance(0.5) ? [{ kind:"key" }] : [];
+  return rng.chance(0.3) ? [{ kind:"key" }] : [];
 };
 
 proto.takeItem = function(item, pickup){

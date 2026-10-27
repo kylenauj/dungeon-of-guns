@@ -46,7 +46,8 @@ function rollBuild(i){
   // (the lair's from the secret pool from floor 3), one bought most floors, sometimes
   // a secret room's, an altar's or one of Olm's. No levels, so no boons (bar Olm's
   // blessing, now and then)
-  const plan = ["t", "b", "s", "t", "b", "x", "b", "s"];
+  // (and the Wandwright's bench on each of floors 1-3: one working for the wand, a core, rounds or a form)
+  const plan = ["t", "b", "s", "w", "t", "b", "x", "w", "b", "s", "w"];
   if(G.rng.chance(0.5)) plan.push("x");
   if(G.rng.chance(0.2)) plan.push("a");
   if(G.rng.chance(0.25)) plan.push("t");

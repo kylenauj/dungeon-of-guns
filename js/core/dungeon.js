@@ -189,10 +189,10 @@ function tryGenerate(rng, floor, seed, opts){
   rooms.forEach(r=>{
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
     if(r.type === "treasure"){
-      // the armoury: a choice of weapons (powerups come from bosses, lairs, shops and Olm now)
+      // the Wandwright's bench: a choice of workings for the wand (a core, rounds or a form; "fine" is a form)
       if(floor >= 3){ [-3, 0, 3].forEach((dx, i)=> r.props.push({ kind:"pedestal", x:cx + dx, y:cy, group:1, sell:i === 1 ? "fine" : "gift" })); }
       else { r.props.push({ kind:"pedestal", x:cx - 2, y:cy, group:1, sell:"gift" }); r.props.push({ kind:"pedestal", x:cx + 2, y:cy, group:1, sell:"fine" }); }
-      r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE ARMOURY. CHOOSE ONE WEAPON. The rest rust away." });
+      r.props.push({ kind:"sign", x:cx, y:r.y1, text:"THE WANDWRIGHT'S BENCH. CHOOSE ONE WORKING FOR YOUR WAND. The rest crumble." });
     }
     if(r.type === "secret"){ r.props.push({ kind:"pedestal", x:cx, y:cy, pool:"x" }); }
     if(r.type === "altar"){

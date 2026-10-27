@@ -84,7 +84,8 @@ proto.fireGun = function(g, s){
   const sh = G.mods.shot;
   for(let i=1;i<=sh.burst;i++) G.pending.push({ t:0.08*i, fn:()=> G.fireVolley(p.x, p.y, p.aim, g, s, { mul, from:"player", quiet:true }) });
   for(let i=1;i<=sh.echo;i++) G.pending.push({ t:0.25*i, fn:()=> G.fireVolley(p.x, p.y, p.aim, g, s, { mul:mul*0.45, from:"player", quiet:true }) });
-  if(G.mods.special.dualwield) p.guns.forEach((o, i)=>{ if(i !== p.cur) G.fireVolley(p.x, p.y, p.aim, o, G.gunStats(o), { mul:mul*0.5, from:"player", quiet:true }); });
+  // Dual Wield: a second wand in the other hand, a little wide, at half strength
+  if(G.mods.special.dualwield) G.fireVolley(p.x, p.y, p.aim + (G.rng.next() - 0.5)*0.3, g, s, { mul:mul*0.5*G.mods.special.dualwield, from:"player", quiet:true });
   // copies: the shadow and (with Frogsona) Gribbus
   G.allies.forEach(a=>{ if(a.kind === "shadow"){ const ax = p.aimX !== undefined ? p.aimX : p.x + Math.cos(p.aim)*5, ay = p.aimY !== undefined ? p.aimY : p.y + Math.sin(p.aim)*5; G.fireVolley(a.x, a.y, Math.atan2(ay - a.y, ax - a.x), g, s, { mul:mul*0.6, from:"shadow", quiet:true }); } });
   if(G.gribbus && G.gribbus.g.mimic){
@@ -121,7 +122,7 @@ proto.fireVolley = function(x, y, aim, g, s, o){
     G.addShot({
       x:x + Math.cos(a)*0.5, y:y + Math.sin(a)*0.5, a, speed:sp, r:s.size*(o.disco ? 1.5 : 1), dmg:s.dmg*(o.mul || 1)*thin, range:s.range,
       pierce:s.basePierce + sh.pierce, bounces:sh.bounces, els, power:s.power, knock:s.knock, blast:s.blast,
-      kind:g.base === "launcher" ? "grenade" : "bolt", depth:0, crit:s.crit, critMul:s.critMul, from:o.from,
+      kind:g.base === "launcher" || s.blast ? "grenade" : "bolt", depth:0, crit:s.crit, critMul:s.critMul, from:o.from,
       orbit:i < sh.orbit && o.from === "player" ? 3 : 0
     });
   });

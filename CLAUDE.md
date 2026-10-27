@@ -17,7 +17,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 - `js/core/` is the game, with no THREE and no DOM, so it runs under Node.
   - `data.js`: elements, reactions, guns, enemies, bosses, floors.
   - `items.js`: powerups, duos, ascensions, actives, boons, Gribbus' tricks, curses. `Items.build` turns what you own into `G.mods`.
-  - `loot.js`: guns and stats.
+  - `loot.js`: the wand and its stats. There's one weapon: Forms (`form:` items, `DG.WAND_FORMS`) reshape how it fires and stack; its element is whichever you've gathered most (`Game.wandElement`); it grows each floor (`DG.WAND_LEVEL`). Nothing drops guns.
   - `dungeon.js`: the generator.
   - `puzzles.js`: the five puzzle kinds.
   - `game.js`: the simulation (rooms, pickups, actives, Brother Olm). There are no levels: powerups come from bosses, lairs, shops and Olm.

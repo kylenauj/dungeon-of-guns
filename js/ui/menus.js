@@ -77,8 +77,8 @@ UI.how = function(back){
       <h2 class="head">HOW TO PLAY</h2>
       <div class="cols">
       <div class="note">
-        <p>You are <b>Zippy</b>, a hexhunter who casts spells <b>through guns</b>. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
-        <p>Every shot carries its gun's <b>element</b>. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
+        <p>You are <b>Zippy</b>, a hexhunter with <b>one wand</b>, and everything you find reshapes it. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
+        <p><b>Forms</b> change how the wand fires: Scatter fans out, Repeater sprays, Lens lances through, Bombard bursts. They stack. <b>Cores</b> and rounds give it an <b>element</b>: whichever you've gathered most is the wand's own, and its spell. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
         <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
         <p>There are no levels: you grow by what you <b>find</b>. Bosses and the lair on every floor each carry a powerup; shops sell them, and so does Brother Olm, if you meet him. A lucky run breaks wide open. Most don't. Read the enemies: their shots hang, bend and burst, and every one can be dodged.</p>
         <p><b>Gribbus' pond</b> is rare: three of his tricks float on its lily pads and he keeps one. His tricks turn up in shops and on bosses too. Now and then a run hides a <b>side road</b>: glowing mushrooms, Brother Olm met twice, or a sealed reliquary. Never more than one.</p>
@@ -86,11 +86,10 @@ UI.how = function(back){
       </div>
       <div class="note keys">
         <p><kbd>WASD</kbd> move &nbsp; <kbd>mouse</kbd> aim</p>
-        <p><kbd>LMB</kbd> shoot &nbsp; <kbd>RMB</kbd> cast the gun's spell</p>
+        <p><kbd>LMB</kbd> shoot &nbsp; <kbd>RMB</kbd> cast the wand's spell</p>
         <p><kbd>SPACE</kbd> blink (dodge through shots and over pits)</p>
         <p><kbd>E</kbd> open, take, buy, read &nbsp; <kbd>R</kbd> reload</p>
         <p><kbd>F</kbd> use your active item</p>
-        <p><kbd>Q</kbd> / <kbd>wheel</kbd> / <kbd>1-3</kbd> switch guns</p>
         <p><kbd>TAB</kbd> satchel: everything you carry</p>
         <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>P</kbd> PSX look</p>
         <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, B active, Y swap, RB satchel.</p>
@@ -107,7 +106,7 @@ UI.pause = function(G){
       <p class="hint">Floor ${G.floor} · ${esc(G.D.theme.name)} · seed <b>${G.seedWord}</b><br>The dark waits. It is patient.</p>
       <div class="menu">
         <button class="item" data-act="resume">RESUME</button>
-        <button class="item" data-act="bag">SATCHEL <small>guns and powerups</small></button>
+        <button class="item" data-act="bag">SATCHEL <small>the wand and powerups</small></button>
         <button class="item" data-act="howPause">HOW TO PLAY</button>
         <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
         <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
@@ -147,7 +146,7 @@ UI.bag = function(G){
     const innate = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> `<span class="chipx" style="--c:${DG.TIERS[DG.ITEMS[id].tier].color}" title="${esc(DG.ITEMS[id].desc)}">${icon(id, 18, "ico sm")}${esc(DG.ITEMS[id].name)}</span>`).join("");
     return `<div class="gcard ${gi === p.cur ? "cur" : ""}" style="--el:${hex(E.color)};--ra:${gun.ascended ? "#ffb12e" : R.color}">
       <div class="gname">${icon(DG.Icons.keyFor(gun), 34, "ico gico")}${esc(gun.name)}</div>
-      <div class="gsub">${gun.ascended ? "Ascended" : R.name} · level ${gun.level} · ${E.name} · ${DG.GUNS[gun.base].name}</div>
+      <div class="gsub">${gun.wand ? (gun.ascended ? "Ascended · " : "") + esc(DG.FORM_ORDER.filter(f=> G.mods.forms[f]).map(f=> DG.WAND_FORMS[f].name).join(" + ") || "No form yet") + " · power " + s.power.toFixed(1) + "× · " + E.name : (gun.ascended ? "Ascended" : R.name) + " · level " + gun.level + " · " + E.name + " · " + DG.GUNS[gun.base].name}</div>
       ${gun.flavour ? `<div class="gflav">${esc(gun.flavour)}</div>` : ""}
       <div class="gstats"><span>${Math.round(s.dmg*10)/10}${s.pellets > 1 ? "×" + s.pellets : ""}<small>damage</small></span><span>${Math.round(s.rate*10)/10}<small>per sec</small></span><span>${s.mag}<small>mag</small></span><span>${Math.round(L.dps(gun, G.mods))}<small>dps</small></span></div>
       <div class="gspell">RMB: <b>${sp.name}</b> (${s.spellCost} mana): ${sp.desc}</div>
@@ -306,7 +305,7 @@ UI.end = function(G, won){
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
       ${won ? UI.endingSigils() : ""}
-      <p class="hint">Best gun: <b>${esc(G.player.guns.slice().sort((a, b)=> DG.Loot.dps(b, G.mods) - DG.Loot.dps(a, G.mods))[0].name)}</b> · seed <b>${G.seedWord}</b></p>
+      <p class="hint">The wand: <b>${esc(G.player.guns[0].name)}</b> · seed <b>${G.seedWord}</b></p>
       <div class="menu">
         ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper, and worse</small></button>` : ""}
         <button class="item" data-act="new">NEW RUN <small>try again</small></button>

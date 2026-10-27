@@ -68,6 +68,24 @@ DG.GUNS = {
   launcher: { name:"Grenado",     rate:1.0, dmg:22,  speed:11, spread:2,  pellets:1, mag:3,  reload:1.8, range:12, size:0.26, knock:4, blast:1.6 }
 };
 DG.GUN_ORDER = ["pistol", "smg", "shotgun", "rifle", "launcher"];
+/* ---- Zippy's wand: the one weapon. It starts as a plain bolt (the old
+   wand-pistol's numbers); Forms (items with form:) reshape how it fires, and
+   they stack: each multiplies (or adds, for pellets, spread, pierce and blast)
+   onto the bolt. Each form on its own is worth about the same; together they
+   make something strange. Its element is whichever you've gathered most of
+   (Game.wandElement), and its power grows each floor (DG.WAND_LEVEL). ---- */
+DG.GUNS.wand = Object.assign({}, DG.GUNS.pistol, { name:"Wand" });
+DG.WAND_FORMS = {
+  //           name           adds: pellets spread pierce blast;  multiplies: dmg rate speed range mag size knock
+  scatter:  { name:"Scatter",  style:"shotgun",  pellets:4, spread:24, dmg:0.5,  rate:0.5,  range:0.55, mag:0.5, knock:1.6 },
+  repeater: { name:"Repeater", style:"smg",      spread:6,  dmg:0.42, rate:2.4,  speed:1.1, mag:3,  size:0.8, knock:0.5 },
+  lens:     { name:"Lens",     style:"rifle",    pierce:1,  dmg:2.4,  rate:0.4,  speed:1.9, range:1.5, spreadMul:0.15, knock:2.5 },
+  bombard:  { name:"Bombard",  style:"launcher", blast:1.6, dmg:2.3,  rate:0.32, speed:0.65, mag:0.4, size:1.6, knock:3.3 }
+};
+/* which look and sound a wand takes from its forms (the boldest wins) */
+DG.FORM_ORDER = ["bombard", "scatter", "lens", "repeater"];
+/* the wand drinks the dark: about what a found gun used to be worth, floor by floor */
+DG.WAND_LEVEL = f=> 1 + 2.6*(Math.max(1, f) - 1);
 
 /* gun rarity: damage, and how many powerups come built in (active while you hold it) */
 DG.RARITY = [
@@ -91,7 +109,7 @@ DG.UNIQUES = [
 DG.PLAYER = {
   hp:100, mana:100, manaRegen:7, manaOnKill:4, speed:6, radius:0.32,
   blink:{ dist:3.6, time:0.14, iframes:0.3, cd:0.85 },
-  hurtIframes:0.7, maxGuns:3, maxWards:6
+  hurtIframes:0.7, maxGuns:1, maxWards:6
 };
 
 /* ---- enemies ----------------------------------------------------------

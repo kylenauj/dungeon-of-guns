@@ -785,6 +785,8 @@ Icons.ITEMS = {
   sideeyes:"arrows3", rearguard:"arrows2", wiggle:"worm", orbiter:"orbit", boomerang:"boomerang", ghostshot:"ghost", snowball:"snowball",
   rocket:"rocket", corkscrew:"spiral", chaos:"chaos", burstfire:"bullet*3", echo:"waves", kaleido:"arrows4",
   /* elements */
+  scatterfocus:"wand+fan", repeatercoil:"wand+spiral", longlens:"wand+lens", bombardrune:"wand+bomb",
+  rimecore:"gem@frost", embercore:"gem@fire", venomcore:"gem@poison", stormcore:"gem@shock", hexcore:"gem@arcane",
   frostrounds:"snowflake", emberrounds:"flame", venomrounds:"droplet", staticrounds:"bolt", arcanerounds:"sigil", prism:"prism", elementalist:"orb@all",
   /* triggers */
   crystal:"gem*3", leaky:"droplet+bullet", wispcraft:"wisp", blossom:"flower", hotpotato:"burst+skull", discharge:"bolt+skull", shrapnel:"shards",
@@ -831,7 +833,8 @@ Object.assign(Icons.ITEMS, {
   f_hop:"bolt+lily@shock", f_brood:"tadpole+lily", f_lily:"lily", f_gulp:"uturn+lily", f_crown:"crown+lily", f_bigboy:"frog+weight",
   f_mirror:"mirror+lily", f_bubble:"bubble+lily", f_zoomies:"comet+lily", f_doom:"skull+waves@poison", f_twin:"frog*2", f_mimic:"frog+gun"
 });
-Icons.GUNS = { pistol:"gun", smg:"smg", shotgun:"shotgun", rifle:"rifle", launcher:"launcher" };
+/* the wand, by the form that shapes it (a wand's base is its style: L.wandStyle) */
+Icons.GUNS = { pistol:"wand", smg:"wand+spiral", shotgun:"wand+fan", rifle:"wand+lens", launcher:"wand+bomb" };
 Icons.SETS = {
   pyromancer:"flame@fire", lich:"skull@frost", storm:"cloud@shock", plague:"beak@poison", gardener:"sprout", goldfinger:"crown+coin",
   frogprince:"frog+crown", bloodhunter:"fang+droplet", clown:"mask+die"

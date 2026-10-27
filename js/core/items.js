@@ -35,7 +35,8 @@ DG.POOL_TIERS = {
   s:[50, 36, 13, 1,   0],
   b:[18, 38, 32, 10,  2],
   x:[8,  28, 40, 19,  5],
-  a:[0,  8,  42, 38,  12]
+  a:[0,  8,  42, 38,  12],
+  w:[30, 34, 34, 2,   0]     // the Wandwright's bench: cores, rounds and forms
 };
 
 const I = (o)=> o;
@@ -89,11 +90,23 @@ DG.ITEMS = {
   kaleido:    I({ name:"Kaleidoscope",       tier:3, pools:"bxa",  desc:"Every volley is mirrored in four directions.", shot:{ kaleido:1 } }),
 
   /* ---------------- elements on every shot ---------------- */
-  frostrounds:I({ name:"Frost Rounds",       tier:1, pools:"tsb",  desc:"Every shot carries frost.", els:["frost"] }),
-  emberrounds:I({ name:"Ember Rounds",       tier:1, pools:"tsb",  desc:"Every shot carries fire.", els:["fire"] }),
-  venomrounds:I({ name:"Venom Rounds",       tier:1, pools:"tsb",  desc:"Every shot carries poison.", els:["poison"] }),
-  staticrounds:I({ name:"Static Rounds",     tier:1, pools:"tsb",  desc:"Every shot carries shock.", els:["shock"] }),
-  arcanerounds:I({ name:"Arcane Rounds",     tier:1, pools:"tsb",  desc:"Every shot carries arcane.", els:["arcane"] }),
+  frostrounds:I({ name:"Frost Rounds",       tier:1, pools:"tsbw", desc:"Every shot carries frost.", els:["frost"] }),
+  emberrounds:I({ name:"Ember Rounds",       tier:1, pools:"tsbw", desc:"Every shot carries fire.", els:["fire"] }),
+  venomrounds:I({ name:"Venom Rounds",       tier:1, pools:"tsbw", desc:"Every shot carries poison.", els:["poison"] }),
+  staticrounds:I({ name:"Static Rounds",     tier:1, pools:"tsbw", desc:"Every shot carries shock.", els:["shock"] }),
+  arcanerounds:I({ name:"Arcane Rounds",     tier:1, pools:"tsbw", desc:"Every shot carries arcane.", els:["arcane"] }),
+
+  /* ---------------- the wand: forms reshape how it fires ---------------- */
+  scatterfocus:I({ name:"Scatter Focus",     tier:2, pools:"wsb",  form:"scatter",  desc:"Your wand sprays five bolts in a fan: half the damage each, half as often, shorter reach.", flavor:"Why aim once?" }),
+  repeatercoil:I({ name:"Repeater Coil",     tier:2, pools:"wsb",  form:"repeater", desc:"Your wand fires two and a half times as fast, each bolt under half as strong, a little wilder.", flavor:"It hums. It never stops humming." }),
+  longlens:   I({ name:"Longbarrel Lens",    tier:2, pools:"wsb",  form:"lens",     desc:"Your wand fires slow, fast-flying lances: well over twice the damage, further, and through one goblin.", flavor:"Ground from a cyclops' eye. It still blinks." }),
+  bombardrune:I({ name:"Bombard Rune",       tier:2, pools:"wsb",  form:"bombard",  desc:"Your wand lobs heavy orbs that burst where they land: twice the damage and a blast, a third as often.", flavor:"Point it away from your face. Mostly." }),
+  /* ---------------- the wand: cores make it an element (and stack) ---------------- */
+  rimecore:   I({ name:"Rime Core",          tier:0, pools:"ws",   stack:true, els:["frost"],  desc:"Your wand's shots turn to ice: frost on every shot. Each core counts toward Frost attunement.", flavor:"Cold to the touch. Colder to the goblin." }),
+  embercore:  I({ name:"Ember Core",         tier:0, pools:"ws",   stack:true, els:["fire"],   desc:"Your wand's shots catch fire: fire on every shot. Each core counts toward Fire attunement.", flavor:"Keep it away from the beard." }),
+  venomcore:  I({ name:"Venom Core",         tier:0, pools:"ws",   stack:true, els:["poison"], desc:"Your wand's shots drip venom: poison on every shot. Each core counts toward Poison attunement.", flavor:"Do not lick." }),
+  stormcore:  I({ name:"Storm Core",         tier:0, pools:"ws",   stack:true, els:["shock"],  desc:"Your wand's shots crackle: shock on every shot. Each core counts toward Shock attunement.", flavor:"Your hair stands up. So does Gribbus'." }),
+  hexcore:    I({ name:"Hex Core",           tier:0, pools:"ws",   stack:true, els:["arcane"], desc:"Your wand's shots burn violet: arcane on every shot. Each core counts toward Arcane attunement.", flavor:"It whispers your name. Wrongly." }),
   prism:      I({ name:"Little Prism",       tier:2, pools:"tbx",  desc:"Every shot picks up a random extra element.", special:"prism" }),
   elementalist:I({ name:"Elementalist",      tier:2, pools:"tbx",  desc:"+15% damage for every different element your shots carry.", special:"elementalist" }),
 
@@ -241,7 +254,7 @@ DG.ITEMS = {
   blizzard:   I({ name:"Blizzard Heart",     tier:3, pools:"bxa",  desc:"Frost on every shot, and a frost nova around you every 5 seconds.", els:["frost"], on:{ tick:[{ do:"nova", r:3.6, dmg:1.2, el:"frost", every:5, at:"player" }] } }),
   inferno:    I({ name:"Infernal Engine",    tier:3, pools:"bxa",  desc:"Fire on every shot, and you leave a trail of flames.", els:["fire"], on:{ tick:[{ do:"byproduct", el:"fire", at:"player", every:0.45, moving:true }] } }),
   moons:      I({ name:"Moon Moons",         tier:3, pools:"bxa",  desc:"Three moons orbit you, block shots, and hurt goblins.", special:"moons" }),
-  dualwield:  I({ name:"Dual Wield",         tier:3, pools:"bxa",  desc:"Your other guns fire too, every time you shoot.", special:"dualwield" }),
+  dualwield:  I({ name:"Dual Wield",         tier:3, pools:"bxa",  desc:"A second wand in your other hand: every volley comes twice, the second a little wide and at half strength.", special:"dualwield" }),
   gremlin:    I({ name:"Gremlin in a Bottle",tier:3, pools:"xa",   desc:"Every 8 seconds in a fight, a random payload goes off. Any of them.", special:"gremlin" }),
 
   /* ---------------- GODLY ---------------- */
@@ -318,12 +331,14 @@ DG.SETS = [
 ];
 
 /* guns + the right powerup become something else (Vampire Survivors' evolutions) */
+/* the wand + a form + the right powerup becomes something else (Vampire Survivors'
+   evolutions); form:null is the bare wand, with no form at all */
 DG.ASCENSIONS = [
-  { base:"pistol",   item:"seeker",      name:"Seeker Sidearm",    innate:["seeker", "sharp"],         flavor:"It finds them. It always finds them." },
-  { base:"smg",      item:"venomrounds", name:"Plague Sprayer",    innate:["plague", "venomrounds"],   flavor:"Hold the trigger. Hold your breath." },
-  { base:"shotgun",  item:"rubber",      name:"Pinball Blaster",   innate:["pinball"],                 flavor:"TILT." },
-  { base:"rifle",    item:"staticrounds",name:"Railgun",           innate:["drill", "staticcling"],    flavor:"Through the goblin, the wall, and probably the next floor." },
-  { base:"launcher", item:"hotpotato",   name:"Boomstick Supreme", innate:["megabombs"],               flavor:"There is no kill like overkill." }
+  { form:null,       item:"seeker",      name:"Seeker Wand",       innate:["seeker", "sharp"],         flavor:"It finds them. It always finds them." },
+  { form:"repeater", item:"venomrounds", name:"Plague Sprayer",    innate:["plague", "venomrounds"],   flavor:"Hold the trigger. Hold your breath." },
+  { form:"scatter",  item:"rubber",      name:"Pinball Wand",      innate:["pinball"],                 flavor:"TILT." },
+  { form:"lens",     item:"staticrounds",name:"Railwand",          innate:["drill", "staticcling"],    flavor:"Through the goblin, the wall, and probably the next floor." },
+  { form:"bombard",  item:"hotpotato",   name:"Boomstaff Supreme", innate:["megabombs"],               flavor:"There is no kill like overkill." }
 ];
 
 /* ---- active items: one at a time, on F, charged by clearing rooms ---- */
@@ -524,7 +539,7 @@ Items.blank = function(){
     frogRate:0, frogDmg:0, frogMul:1, killMana:0,
     shot:{ bounces:0, pierce:0, homing:0, split:0, extra:0, side:0, back:0, wiggle:0, orbit:0, boomerang:0, spectral:0, grow:0,
            accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0, portal:0, jitter:0 },
-    els:[], on:{}, special:{}, duos:[], sets:[]
+    els:[], on:{}, special:{}, duos:[], sets:[], forms:{}
   };
 }
 
@@ -538,6 +553,7 @@ function addDef(M, d, n){
   if(d.els) d.els.forEach(e=>{ if(M.els.indexOf(e) < 0) M.els.push(e); });
   if(d.on) for(const k in d.on){ for(let i=0;i<n;i++) d.on[k].forEach(p=> (M.on[k] = M.on[k] || []).push(Object.assign({ src:d.name }, p))); }
   if(d.special) M.special[d.special] = (M.special[d.special] || 0) + n;
+  if(d.form) M.forms[d.form] = 1;
 }
 
 /* ---- attunement: build into one element and it answers. Sources of an element
@@ -669,7 +685,7 @@ Items.costume = function(ids, sets){
 
 /* ---- pools: an item leaves its pools once it's been offered ---- */
 Items.pools = function(){
-  const P = { t:[], s:[], b:[], x:[], a:[], f:[] };
+  const P = { t:[], s:[], b:[], x:[], a:[], f:[], w:[] };
   for(const id in DG.ITEMS) DG.ITEMS[id].pools.split("").forEach(p=> P[p] && P[p].push(id));
   return P;
 };
@@ -681,7 +697,7 @@ Items.roll = function(G, pool, opts){
   const w = DG.POOL_TIERS[pool] || DG.POOL_TIERS.t;
   // deeper floors and luck push the odds up
   const push = 1 + 0.12*(G.floor - 1) + 0.08*luck;
-  const tierW = w.map((x, i)=> x*Math.pow(push, i));
+  const tierW = w.map((x, i)=> opts && opts.minTier && i < opts.minTier ? 0 : x*Math.pow(push, i));
   for(let tries=0; tries<6; tries++){
     const tier = rng.weighted(tierW.map((x, i)=> ({ i, w:x }))).i;
     const cand = P.filter(id=> DG.ITEMS[id].tier === tier && (!G.seenItems[id] || DG.ITEMS[id].stack));

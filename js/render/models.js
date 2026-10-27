@@ -97,6 +97,46 @@ function gCandle(g, R, x, y, z, h){
   P(g, zcy(0.002, 0.002, 0.012, 5), 0x1a1410, x, y + h + 0.006, z);
   if(R){ const f = glow(R, g, 0.009, 0xffb050, x, y + h + 0.018, z); f.scale.set(1, 1.7, 1); }
 }
+/* Zippy's wand: a gnarled black rod, bound in leather at the grip and brass at
+   the head; the head takes the shape of its form (the style: L.wandStyle) and
+   cages the crystal that burns its element */
+function wandModel(g, style, R){
+  // the rod: dark wood, knotted, along +z from the hand
+  P(g, K.sculpt(new THREE.CylinderGeometry(0.024, 0.034, 0.78, 8, 10), 0.005, 22, 3), GP.wood2, 0, 0.02, 0.2, PI/2);
+  [[0.0, 0.03], [0.24, 0.022], [0.4, 0.02]].forEach(([z, r])=> P(g, zs(r*1.25, 7, 5), GP.wood, 0.004, 0.02 + r*0.3, z));
+  // the grip: leather wound round it, a bone pommel
+  for(let i=0;i<5;i++) P(g, zto(0.037, 0.008), GP.leather, 0, 0.02, -0.12 + i*0.035, 0, 0.25*(i % 2 ? 1 : -1), 0);
+  P(g, zs(0.042), GP.bone2, 0, 0.02, -0.2);
+  gRunes(g, 0, 0.05, 0.08, 0.42, 5, 0.016);
+  // a brass collar under the head
+  [0.46, 0.5].forEach(z=> P(g, zto(0.034, 0.009), GP.brass, 0, 0.02, z));
+  if(style === "shotgun"){
+    // Scatter: three prongs splayed like a fork, the crystal at their root
+    [-1, 0, 1].forEach(s=>{ const a = s*0.45; P(g, K.tube([[0, 0.02, 0.5], [Math.sin(a)*0.06, 0.02 + (s ? 0 : 0.02), 0.58], [Math.sin(a)*0.11, 0.02, 0.66]], 0.009, 8, 4), GP.iron2); P(g, CO(0.012, 0.04, 5), GP.brass, Math.sin(a)*0.115, 0.02, 0.68, PI/2 + 0.0, 0, -a); });
+    return { gem:[0, 0.02, 0.56, 0.045], muzzle:[0, 0.02, 0.66] };
+  }
+  if(style === "smg"){
+    // Repeater: a copper coil wound tight up the last of the rod, a small fast crystal
+    for(let i=0;i<9;i++) P(g, zto(0.04, 0.007), 0x7a4a26, 0, 0.02, 0.3 + i*0.024, 0.3, 0, 0);
+    gCage(g, 0, 0.02, 0.58, 0.04, 3);
+    return { gem:[0, 0.02, 0.58, 0.035], muzzle:[0, 0.02, 0.63] };
+  }
+  if(style === "rifle"){
+    // Lens: the rod runs on into two lens rings, a long needle of crystal between them
+    P(g, zcy(0.012, 0.018, 0.3, 6), GP.iron, 0, 0.02, 0.66, PI/2);
+    [0.6, 0.76].forEach(z=>{ P(g, zto(0.05, 0.008), GP.brass2, 0, 0.02, z); P(g, new THREE.CircleGeometry(0.044, 14), 0x8aa8b8, 0, 0.02, z); });
+    return { gem:[0, 0.02, 0.68, 0.04], muzzle:[0, 0.02, 0.82] };
+  }
+  if(style === "launcher"){
+    // Bombard: a heavy iron bulb at the head, banded, the crystal fat inside its cage
+    P(g, zcy(0.05, 0.03, 0.08, 10), GP.iron, 0, 0.02, 0.53, PI/2);
+    gCage(g, 0, 0.02, 0.63, 0.075, 5);
+    return { gem:[0, 0.02, 0.63, 0.075], muzzle:[0, 0.02, 0.72] };
+  }
+  // the bare wand: a little cage of prongs and its crystal
+  gCage(g, 0, 0.02, 0.57, 0.045, 4);
+  return { gem:[0, 0.02, 0.57, 0.045], muzzle:[0, 0.02, 0.62] };
+}
 const GUN = {
   pistol(g, el, R){
     // a bone grip, an iron frame, a ringed barrel, the crystal caged at the muzzle
@@ -182,7 +222,9 @@ const GUN = {
 Models.gun = function(base, element, R, els){
   R = R || rig("gun");
   const g = new THREE.Group(), col = DG.ELEMENTS[element].color;
-  const info = (GUN[base] || GUN.pistol)(g, col, R);
+  // a wand: "wand:" + its style (setGun passes that for Zippy's wand)
+  const info = /^wand:/.test(base) ? wandModel(g, base.slice(5), R) : (GUN[base] || GUN.pistol)(g, col, R);
+  base = base.replace(/^wand:/, "");
   const gem = glow(R, g, info.gem[3], col, info.gem[0], info.gem[1], info.gem[2]);
   gem.scale.set(0.8, 0.8, 1.25);
   // a little caged chip for every other element the shots carry, in a row behind the big one
@@ -1021,7 +1063,7 @@ Models.setGun = function(R, gun, els){
   const h = R.parts.gun;
   while(h.children.length) h.remove(h.children[0]);
   const gr = rig("gun");
-  const g = Models.gun(gun.base, gun.element, gr, els);
+  const g = Models.gun(gun.wand ? "wand:" + gun.base : gun.base, gun.element, gr, els);
   K.bake(g, { mat:K.toon(), w:0.018 });
   h.add(g);
   R.muzzle = gr.muzzle; R.gunGlows = gr.glows; R.gunKey = gun.uid + ":" + (els || []).join(",");
