@@ -337,6 +337,33 @@ test("the wand's element is whichever you've gathered most: one core turns it to
   assert.ok(G.player.items.embercore === 2, "cores stack");
 });
 
+test("shots carry the wand's element; other elements only ride along on one shot in four", ()=>{
+  const G = game("TINGE");
+  G.giveItem("rimecore"); G.giveItem("rimecore"); G.giveItem("venomcore"); G.giveItem("embercore");
+  assert.equal(G.gun().element, "frost");
+  const shots = []; for(let i=0;i<40;i++) shots.push(G.shotEls(G.gun()));
+  assert.ok(shots.every(e=> e[0] === "frost"), "frost on every shot");
+  const tinged = shots.filter(e=> e.length > 1);
+  assert.equal(tinged.length, 40/DG.TINGE_EVERY, "one in four carries another");
+  assert.ok(tinged.every(e=> e.length === 2), "and only one other at a time");
+  assert.ok(tinged.some(e=> e[1] === "poison") && tinged.some(e=> e[1] === "fire"), "taking turns");
+});
+
+test("item rolls lean toward the wand's element once you've taken one", ()=>{
+  // the same rolls with and without a frost core in hand: frost items come up more, the others less
+  const count = core=>{
+    let fr = 0, oth = 0;
+    for(let s=0; s<120; s++){
+      const G = game("LEAN" + s, 2);
+      if(core) G.giveItem("rimecore", true);
+      for(let i=0;i<4;i++){ const els = Object.keys(DG.Items.elSources(DG.ITEMS[DG.Items.roll(G, "t")])); if(els.indexOf("frost") >= 0) fr++; else if(els.length) oth++; }
+    }
+    return fr/(fr + oth);
+  };
+  const before = count(false), after = count(true);
+  assert.ok(after > before*1.6, "frost's share of element items: " + before.toFixed(2) + " -> " + after.toFixed(2));
+});
+
 test("an item of another element says what it did: the wand stays, and how far behind it is", ()=>{
   const G = game("WAND5"), said = [];
   G.say = t=> said.push(t);

@@ -24,10 +24,19 @@ proto.payloadPower = function(){
   return Math.max(4, s.dmg*s.pellets*Math.min(s.rate, 8)/3);
 };
 /* every element a shot from gun g carries right now */
+/* what a shot carries: the wand's own element, always. The other elements you
+   carry take turns riding along on one shot in DG.TINGE_EVERY, so a frost
+   wand fires frost with a little poison in it, not a rainbow (the Prism Heart
+   and disco are the rainbow, on purpose) */
+DG.TINGE_EVERY = 4;
 proto.shotEls = function(g){
-  const M = this.mods, els = [g.element];
-  if(this.player.discoT > 0){ DG.ELEMENT_ORDER.forEach(e=>{ if(els.indexOf(e) < 0) els.push(e); }); return els; }
-  M.els.forEach(e=>{ if(els.indexOf(e) < 0) els.push(e); });
+  const M = this.mods, p = this.player, els = [g.element];
+  if(p.discoT > 0 || M.special.prismheart){ DG.ELEMENT_ORDER.forEach(e=>{ if(els.indexOf(e) < 0) els.push(e); }); return els; }
+  const others = M.els.filter(e=> e !== g.element);
+  if(others.length){
+    p.tinge = (p.tinge || 0) + 1;
+    if(p.tinge % DG.TINGE_EVERY === 0) els.push(others[Math.floor(p.tinge/DG.TINGE_EVERY) % others.length]);
+  }
   if(M.special.prism){ const e = this.rng.pick(DG.ELEMENT_ORDER); if(els.indexOf(e) < 0) els.push(e); }
   return els;
 };

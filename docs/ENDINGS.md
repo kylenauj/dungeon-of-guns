@@ -35,7 +35,14 @@ Thrones**. `G.meta.thrones` remembers which.
 On the way, the robes show it (`Items.costume(ids, sets, { el, tier })`):
 at attunement I the cape takes the element's dye, at II the robe runs half
 way to it, at III all of him, with its motes about him. The wand keeps its
-element on a tie; another element has to pass it. Picking up another
+element on a tie; another element has to pass it. Every shot carries the
+wand's element; the others take turns riding on one shot in four
+(`DG.TINGE_EVERY`, `G.shotEls`), so a frost build fires frost, not a
+rainbow (the Prism Heart is the rainbow, on purpose). Item rolls lean the
+same way (`DG.EL_PULL`): each item of the wand's element makes more of it
+turn up (x1.8 for one, to x3.5) and other elements less (x0.45). Ten items
+in, the wand's element went from 55% of a build's element items to 72%,
+and builds with three or more of one element from 26% to 48%. Picking up another
 element's item says so ("Poison stirs in you, but your wand stays frost
 (frost 2, poison 1)") and the HUD rings the wand's element in gold.
 

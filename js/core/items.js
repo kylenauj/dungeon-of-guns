@@ -770,7 +770,7 @@ Items.roll = function(G, pool, opts){
   for(let tries=0; tries<6; tries++){
     const tier = rng.weighted(tierW.map((x, i)=> ({ i, w:x }))).i;
     const cand = P.filter(id=> DG.ITEMS[id].tier === tier && (!G.seenItems[id] || DG.ITEMS[id].stack));
-    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id)*fresh(G, id)*buildPull(G, id)*stackW(G, id) }))).id; Items.offer(G, id); return id; }
+    if(cand.length){ const id = rng.weighted(cand.map(id=> ({ id, w:setPull(G, id)*fresh(G, id)*buildPull(G, id)*stackW(G, id)*elPull(G, id) }))).id; Items.offer(G, id); return id; }
   }
   // the pool's run dry at those tiers: anything left, anywhere
   const any = Object.keys(DG.ITEMS).filter(id=> !G.seenItems[id] && DG.ITEMS[id].tier < 4);
@@ -789,6 +789,18 @@ function buildPull(G, id){
   if(!G.player) return 1;
   const dir = Items.direction(G.player.items, G.player.boons);
   return Math.min(BUILD_PULL_MAX, 1 + BUILD_PULL*Items.pull(DG.ITEMS[id], dir));
+}
+/* the wand's element pulls its own kind: once you've taken one of an element,
+   more of it turns up (x1.6 a source, to x3), and other elements less (x0.6),
+   so a run settles into an element instead of a bit of everything */
+DG.EL_PULL = { per:0.8, max:3.5, other:0.45 };
+function elPull(G, id){
+  if(!G.player || !G.elementCounts) return 1;
+  const g = G.gun && G.gun(), el = g && g.element, n = el ? (G.elementCounts()[el] || 0) : 0;
+  if(!n) return 1;
+  const its = Object.keys(Items.elSources(DG.ITEMS[id]));
+  if(!its.length) return 1;
+  return its.indexOf(el) >= 0 ? Math.min(DG.EL_PULL.max, 1 + DG.EL_PULL.per*n) : DG.EL_PULL.other;
 }
 function fresh(G, id){ const r = G.meta && G.meta.recent; return r && r.indexOf(id) >= 0 ? STALE : 1; }
 /* at the end of a run: remember what it carried (this run, then the one before) */

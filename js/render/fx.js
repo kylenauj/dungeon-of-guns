@@ -367,9 +367,10 @@ FX.update = function(dt, G){
     if(n >= NB) break;
     let col, size, rim = 0, y = 0.75;
     if(b.team === "p"){
-      // a shot with several elements cycles through their colours
+      // a shot is the wand's colour (its first element); any other element riding
+      // on it shows as sparks (below), except a true rainbow (three or more) cycles
       const els = b.els || [b.el];
-      col = EL(els.length > 1 ? els[Math.floor(G.t*10 + b.id) % els.length] : els[0]); size = Math.max(0.2, b.r*2.2);
+      col = EL(els.length > 2 ? els[Math.floor(G.t*10 + b.id) % els.length] : els[0]); size = Math.max(0.2, b.r*2.2);
       if(b.kind === "shard") size = 0.18;
       if(b.kind === "spit"){ col = 0x9cff6a; size = 0.32; }
       if(b.kind === "bubble"){ col = 0xb8f0ff; size = 0.7; }
@@ -381,6 +382,7 @@ FX.update = function(dt, G){
       if(els.indexOf("poison") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, 0, -0.3, 0, 0x7dff3a, 0.15, 0.4, 0, 1);
       if(els.indexOf("fire") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, (Math.random() - 0.5)*0.4, 0.7, (Math.random() - 0.5)*0.4, 0xff7a1a, 0.14, 0.4, 0, 1);
       if(els.indexOf("frost") >= 0 && Math.random() < 0.08) emit(b.x, y, b.y, 0, 0, 0, 0xcff0ff, 0.14, 0.4, 0, 1);
+      if(els.length === 2 && Math.random() < 0.35) emit(b.x, y, b.y, (Math.random() - 0.5)*0.3, 0.2, (Math.random() - 0.5)*0.3, EL(els[1]), 0.13, 0.3, 0, 1);
       if(b.orbitLeft) y = 0.9;
     } else {
       const E = ENEMY_SHOT[b.kind] || ENEMY_SHOT.orb; col = E[0]; size = E[1]*(b.r > 0.2 ? 1.2 : 1); rim = 1; y = 0.6;

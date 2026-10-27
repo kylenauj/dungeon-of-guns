@@ -166,6 +166,10 @@ proto.warmAll = function(){
     FX.soul(x, y, 3, 1, 0xd8c8a0); FX.arc(x, y, x + 1, y, 0xffffff, 0.2); FX.disc(x, y, 1, 0xffffff, 0.3); FX.warn(x, y, 1, 0.3); FX.lane(x, y, 0, 2, 0.5, 0.3);
     FX.update(1/60, fake);
     V.lanternBeam({ x, y, a:0, len:3 });
+    // compiled, not only drawn: on a floor's first build the camera isn't over Zippy
+    // yet, so the draw below culls these, and an arc's line shader (a heal beam, a
+    // chain) was left to compile mid-fight: two and a half seconds on Windows
+    R.compile(S.scene, S.camera);
     R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.render(S.scene, S.camera);
     if(S.portrait && S.portrait.scene) R.render(S.portrait.scene, S.portrait.cam);
     // and one whole real frame, through the post pass to the screen, the way every frame goes
