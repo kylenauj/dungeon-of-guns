@@ -184,7 +184,7 @@ DG.ITEMS = {
   pinata:     I({ name:"Piñata Stick",       tier:1, pools:"ts",   desc:"+5% crit. Crits knock candy out of goblins; candy heals 2.", flavor:"Whack it till it rains.", stats:{ crit:0.05 }, on:{ crit:[{ do:"candy", chance:0.35 }] } }),
 
   /* ---------------- the grim ones: blood, souls and bad bargains ---------------- */
-  membercard: I({ name:"Snibbit's Membership Card", tier:1, pools:"tsx", desc:"Every shop stocks 2 more wares and charges you 20% less.", flavor:"Valued customer since... recently.", special:"member" }),
+  membercard: I({ name:"Bungus' Membership Card", tier:1, pools:"tsx", desc:"Every shop stocks 2 more wares and charges you 20% less.", flavor:"Valued customer since... recently.", special:"member" }),
   bloodvial:  I({ name:"Blood Vial",         tier:0, pools:"ts",   desc:"+15 max health. 1 kill in 12 heals 4.", flavor:"Still warm.", stats:{ hp:15 }, on:{ kill:[{ do:"heal", n:4, chance:0.08 }] } }),
   ashenring:  I({ name:"Ashen Ring",         tier:0, pools:"tsb",  desc:"+12% damage, +8% fire rate.", flavor:"The finger is long gone.", stats:{ dmg:0.12, rate:0.08 } }),
   graveboots: I({ name:"Gravedigger's Boots",tier:0, pools:"ts",   desc:"+12% move speed. Blink recharges 15% faster.", flavor:"Caked in someone's soil.", stats:{ speed:0.12, blinkCd:0.15 } }),

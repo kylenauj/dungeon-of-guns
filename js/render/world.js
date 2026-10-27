@@ -1082,11 +1082,18 @@ proto.addProp = function(p){
     board.position.y = 0.95; board.rotation.x = -0.25; g.add(board);
     g.position.z += 0.2;
   } else if(p.kind === "merchant"){
-    const R = M.goblin("merchant"); g.add(R.root); o.rig = R;
+    // Bungus, behind his counter, and frogs: on the counter, round his feet, among the wares
+    const R = M.bungus(); g.add(R.root); o.rig = R; o.bungus = true;
+    const T0 = M.scrollFrog(0), T1 = M.scrollFrog(1), r = W.D.rooms[p.room];
+    o.frogs = [];
+    const spots = [[-1.3, 0.75, 0.9, 0.5], [1.25, 0.75, 0.85, 0.5], [0.45, 0.75, 1.0, 0.45], [-0.9, 0, -0.4, 0.75], [1.0, 0, -0.5, 0.7]];
+    for(let i=0;i<6;i++){ const x = r.x1 + 1.5 + W.rnd()*(r.x2 - r.x1 - 2), y = r.y2 - 0.3 - W.rnd()*1.2; spots.push([x - p.x - 0.5, 0, y - p.y - 0.5, 0.6 + W.rnd()*0.2]); }
+    spots.forEach(([x, y, z, s], i)=>{ const F = M.copy(i % 3 === 1 ? T1 : T0); F.root.position.set(x, y, z); F.root.rotation.y = W.rnd()*PI*2; F.root.scale.setScalar(s); g.add(F.root); o.frogs.push(F); });
+    W.lights.push({ x:p.x + 0.5, y:1.6, z:p.y + 1.3, c:0x9cff4a, i:1.0, room:p.room, ph:0, small:true });
     P(g, new THREE.BoxGeometry(3.2, 0.7, 0.6), 0x6a4a2a, 0, 0.35, 0.9);
     P(g, new THREE.BoxGeometry(3.25, 0.06, 0.65), 0x8a2a3a, 0, 0.72, 0.9);
     K.bake(g, { w:0.02 });
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.5), new THREE.MeshBasicMaterial({ map:K.textTex(["SNIBBIT'S", "no refunds"], 128, 32, { size:12, bg:"#2a1a10", fg:"#ffd23d" }) }));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.5), new THREE.MeshBasicMaterial({ map:K.textTex(["BUNGUS'", "no refunds, no frogs"], 128, 32, { size:12, bg:"#1a2a10", fg:"#9cff4a" }) }));
     sign.position.set(0, 2.05, -0.3); g.add(sign);
   } else if(p.kind === "pedestal"){
     const altar = W.D.rooms[p.room].type === "altar";
@@ -1507,7 +1514,11 @@ proto.update = function(G, dt, t){
         o.lid.rotation.x += ((pr.open ? -1.9 : 0) - o.lid.rotation.x)*(1 - Math.exp(-dt*10));
         o.glow.material.opacity = pr.open ? 0 : pr.locked ? 0.08 : 0.3 + 0.1*Math.sin(t*3);
       }
-      if(pr.kind === "merchant" && o.rig) M.idle(o.rig, t, 0);
+      if(pr.kind === "merchant" && o.rig){
+        M.idle(o.rig, t, 0);
+        // the frogs: a blink, a turn of the head now and then
+        (o.frogs || []).forEach((F, i)=>{ const h = F.parts.head; if(h) h.rotation.y = Math.max(0, Math.sin(t*0.5 + i*2.1) - 0.8)*3; });
+      }
       if(pr.kind === "pedestal"){
         const key = pr.offer ? (pr.offer.id || (pr.offer.gun && pr.offer.gun.uid) || pr.offer.kind) : null;
         if(o.key !== key || (pr.taken && o.shown)){ if(o.shown) o.holder.remove(o.shown); o.shown = null; o.key = key; }

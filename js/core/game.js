@@ -835,7 +835,7 @@ proto.dropGold = function(x, y, amount){
   while(amount > 0){ const v = amount >= 10 ? 5 : 1; this.addPickup("gold", x, y, v); amount -= v; }
 };
 proto.dropItem = function(x, y, item){ return this.addPickup("item", x, y, 0, item); };
-/* Snibbit's Membership Card: two more wares in the shop, and 20% off the lot */
+/* Bungus' Membership Card: two more wares in the shop, and 20% off the lot */
 proto.memberShop = function(r){
   const G = this; if(r.memberDone) return; r.memberDone = true;
   const peds = r.props.filter(p=> p.kind === "pedestal");
@@ -884,7 +884,7 @@ proto.target = function(){
     if(pr.kind === "pedestal" && !pr.taken && pr.offer) consider(pr, d, G.offerText(pr.offer));
     if(pr.kind === "lilypad" && !pr.taken && pr.buff && !r.pondDone) consider(pr, d, "Gribbus sits here: " + DG.FROG_BUFFS[pr.buff].name);
     if(pr.kind === "sign") consider(pr, d - 0.2, "Read sign");
-    if(pr.kind === "merchant") consider(pr, d - 0.3, "Talk to Snibbit");
+    if(pr.kind === "merchant") consider(pr, d - 0.3, "Talk to Bungus");
   });
   if(r) G.targetSpecial(r, consider);
   if(r && r.puzzle && DG.Puzzles) DG.Puzzles.consider(G, r, consider);
@@ -968,7 +968,7 @@ proto.interact = function(){
   }
   if(o.kind === "lilypad"){ DG.Gribbus.choosePad(G, o); return; }
   if(o.kind === "sign"){ G.say(o.text, o.riddle ? 9 : 6); G.emit("read"); return; }
-  if(o.kind === "merchant"){ G.say("Snibbit: \"" + G.rng.pick(["Buy something or stop breathing on my stuff.", "That wand bit? Barely haunted.", "I'd say 'mint condition' but I ate the mint.", "Is that a frog? Keep him off the merchandise."]) + "\"", 3.5); return; }
+  if(o.kind === "merchant"){ G.say("Bungus: \"" + G.rng.pick(["Buy something, or stop breathing on my frogs.", "Mind the frogs. That one bites. That one's an ottoman.", "Everything's enchanted. Some of it on purpose.", "No refunds. The frogs ate the refunds.", "Ah, a wand-bearer. I have bits for that. Shiny bits.", "Is that your toad? He's very handsome. Don't tell mine."]) + "\"", 3.5); return; }
 };
 
 proto.chestLoot = function(c){

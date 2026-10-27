@@ -348,7 +348,7 @@ DG.TRAPS = {
 
 /* ---- lines ---- */
 DG.LINES = {
-  shop:   ["Snibbit's Emporium of Dubious Wares. No refunds. No survivors.", "A customer! A living one, even. How rare.", "Every ware lawfully looted from the dead. Mostly."],
+  shop:   ["Bungus' Emporium of Dubious Wares and Frogs. No refunds. No touching the frogs.", "A customer! A living one, even. How rare.", "Every ware lawfully looted from the dead. Mostly."],
   broke:  ["No gold, no goods, pointy-hat.", "Your purse is as empty as your future.", "Charity died down here long ago."],
   bonk:   ["BONK. A painting of a door. How cruel.", "Merely paint. Somewhere, a goblin snickers.", "That door is a lie.", "A false door. Your nose will remember it.", "Goblin art. Infuriatingly convincing."],
   secret: ["The wall was a lie. Something waits beyond.", "An illusory wall. Clever, for goblins.", "Hidden things, hidden for a reason."],

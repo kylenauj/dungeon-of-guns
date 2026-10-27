@@ -30,7 +30,7 @@ Gallery.start = function(){
     ].map(([name, ids])=> [name, ()=>{ const R = M.zippy(DG.Items.costume(ids)); M.setGun(R, { base:"pistol", element:"fire", uid:1 }); return R; }]) },
     { name:"FORMS", gap:2.2, items:DG.SETS.map(s=> [s.name, ()=>{ const R = M.zippy(DG.Items.costume([], [s.id])); M.setGun(R, { base:"smg", element:(s.els || ["arcane"])[0], uid:1 }, s.els || []); return R; }]).concat([
       ["Gribbus+", ()=> M.frog(false, ["lily", "zoomies", "hop", "bubble", "flyhunt"])], ["Gribbus++", ()=> M.frog(false, ["doom", "brood", "croak", "gulp", "spit"])]]) },
-    { name:"FRIENDS & ODDITIES", gap:2.6, items:[["Brother Olm", ()=>{ const R = M.olm(); R.olm = true; return R; }], ["scroll frog", ()=>{ const R = M.scrollFrog(0); R.still = true; return R; }],
+    { name:"FRIENDS & ODDITIES", gap:2.6, items:[["Brother Olm", ()=>{ const R = M.olm(); R.olm = true; return R; }], ["Bungus", ()=> M.bungus()], ["scroll frog", ()=>{ const R = M.scrollFrog(0); R.still = true; return R; }],
       ["glowshroom", ()=> M.glowshroom()], ["door of eyes", ()=>{ const R = M.eyedoor(); R.eyedoor = true; return R; }],
       ...["bonethrone", "cage", "dicealtar", "bloodbowl", "padlock", "hearth", "bigfern", "waterfall"].map(k=> [k, ()=>{ const o = DG.Decor.build(k, DG.RNG(7).next); K.bake(o.group, { w:0.018 }); o.glows.forEach(gl=>{ const sp = K.sprite(gl.c, gl.s*1.4, 0.8); sp.position.set(gl.x, gl.y, gl.z); o.group.add(sp); }); if(k === "padlock") o.group.scale.setScalar(3); return { root:o.group }; }])] },
     { name:"GOBLINS", gap:2.2, items:["grunt", "slinger", "bomber", "shaman", "brute", "sneak", "merchant"].map(k=> [k, ()=> M.goblin(k)]) },

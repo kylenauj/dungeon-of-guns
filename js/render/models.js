@@ -296,6 +296,7 @@ const DYE = {
   grey:  { robe:0x9a9aa4, dark:0x6c6c78, light:0xdcdce6, cape:0x82828e, stars:0xf2f2ff },   // the ending: a grey wizard again
   white: { robe:0xe8e4d8, dark:0xc8c2b0, light:0xfffbe8, cape:0xd8d2c0, stars:0xfff0b0 },   // the Flesh Library's end: a white wizard
   olm:   { robe:0x2a4a46, dark:0x16282a, light:0xffc870, cape:0x5a3a1c, stars:0xc8a050 },   // Brother Olm: lantern-keeper's teal and brass
+  bungus:{ robe:0x2e5a22, dark:0x18300f, light:0x9cff4a, cape:0x4a3a1a, stars:0x7dff3a },   // Bungus the shopkeeper: pond green, neon trim
   clown: { robe:0x7a4a30, dark:0x2e4a5a, light:0xffd23d, cape:0x3a6a70, stars:0x8a3a4a }
 };
 Models.DYE = DYE;
@@ -3983,6 +3984,25 @@ Models.olm = function(opts){
   zChain(extra, [0.24, 0.82, 0.1], [0.27, 0.7, 0.07], 4, ZC.brass, 0.012);
   K.bake(extra, { mat:R.mat, outlineMat:R.out });
   R.h = 2.6;
+  return R;
+};
+/* Bungus, who keeps the shop: a green wizard of Zippy's school, short and very
+   round, a frog asleep on his hat, a ledger on a chain and a jar of flies */
+Models.bungus = function(){
+  const R = Models.zippy({ robe:"bungus", cape:"bungus", parts:["tallhat"], auras:[] });
+  R.kind = "bungus";
+  R.body.scale.set(0.86*1.32, 0.98, 0.92*1.3);
+  const extra = new THREE.Group(); R.body.add(extra);
+  // the belly, under the robe, and a belt that's given up
+  P(extra, K.sculpt(new THREE.SphereGeometry(0.3, 18, 14), 0.02, 6, 4), DYE.bungus.robe, 0, 0.62, 0.1, 0, 0, 0, 1, 0.9, 0.85);
+  P(extra, TO(0.27, 0.02), 0x3a2a1a, 0, 0.6, 0.1, PI/2 - 0.2);
+  // a jar of glowing flies at his hip, and a ledger on a chain
+  P(extra, CY(0.06, 0.06, 0.14, 10), 0x9ab8a0, -0.3, 0.62, 0.12); glow(R, extra, 0.04, 0x9cff4a, -0.3, 0.62, 0.12);
+  P(extra, BX(0.13, 0.17, 0.05), 0x2a3a1a, 0.3, 0.6, 0.08, 0, -0.4, 0.15);
+  // the frog on his hat, asleep
+  const fr = Models.scrollFrog(0); fr.root.scale.setScalar(0.32); fr.root.position.set(0.02, 1.86, 0.02); R.body.add(fr.root);
+  K.bake(extra, { mat:R.mat, outlineMat:R.out });
+  R.h = 2.1;
   return R;
 };
 /* he breathes, he turns to the visitor; the lantern swings and gutters */
