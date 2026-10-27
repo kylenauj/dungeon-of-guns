@@ -3644,7 +3644,7 @@ function bloodVial(g, k, R){
 }
 /* the ward rune (algiz, the elk-sedge: protection), with a crack through the stone */
 const runeTex = (()=>{ let t; return ()=> t || (t = (()=>{
-  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d", { willReadFrequently:true });
   g.strokeStyle = "#fff"; g.lineCap = "round"; g.shadowColor = "#fff"; g.shadowBlur = 6;
   g.lineWidth = 6; g.beginPath(); g.moveTo(32, 86); g.lineTo(32, 12); g.moveTo(32, 46); g.lineTo(12, 18); g.moveTo(32, 46); g.lineTo(52, 18); g.stroke();
   g.lineWidth = 2; g.shadowBlur = 3; g.beginPath(); g.moveTo(50, 4); g.lineTo(44, 22); g.lineTo(48, 34); g.lineTo(38, 52); g.lineTo(42, 66); g.lineTo(34, 92); g.stroke();
@@ -3686,7 +3686,7 @@ const flyGeo = ()=> bsPrefab("goldfly", g=>{
 });
 const wingGeo = geo("fly-wing", ()=>{ const w = new THREE.CircleGeometry(0.1, 14); w.scale(0.6, 1.5, 1); w.translate(0, 0.13, 0); return w; });
 const wingTex = (()=>{ let t; return ()=> t || (t = (()=>{
-  const cv = document.createElement("canvas"); cv.width = cv.height = 32; const g = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = cv.height = 32; const g = cv.getContext("2d", { willReadFrequently:true });
   g.fillStyle = "rgba(220,200,140,0.35)"; g.fillRect(0, 0, 32, 32); g.strokeStyle = "rgba(60,40,10,0.9)"; g.lineWidth = 1;
   [[16, 32, 6, 0], [16, 32, 16, 0], [16, 32, 26, 0], [16, 32, 2, 12], [16, 32, 30, 12]].forEach(([a, b, c, d])=>{ g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
   g.beginPath(); g.moveTo(4, 14); g.lineTo(28, 10); g.stroke();

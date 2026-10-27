@@ -201,7 +201,7 @@ FX.rise = function(x, z, col, n, r, opts){
 
 /* a flat ring on the ground that grows and fades: a dusty shock, brightest at its edge */
 const ringTex = (()=>{
-  const S0 = 128, cv = document.createElement("canvas"); cv.width = cv.height = S0; const g = cv.getContext("2d");
+  const S0 = 128, cv = document.createElement("canvas"); cv.width = cv.height = S0; const g = cv.getContext("2d", { willReadFrequently:true });
   const r = g.createRadialGradient(64, 64, 20, 64, 64, 63);
   r.addColorStop(0, "rgba(255,255,255,0)"); r.addColorStop(0.7, "rgba(255,255,255,0)"); r.addColorStop(0.86, "rgba(255,255,255,0.18)"); r.addColorStop(0.94, "rgba(255,255,255,0.8)"); r.addColorStop(0.975, "rgba(255,255,255,0.95)"); r.addColorStop(1, "rgba(255,255,255,0)");
   g.fillStyle = r; g.fillRect(0, 0, S0, S0);
@@ -294,7 +294,7 @@ let soulGeo = null, soulTex = null;
 FX.soul = function(x, z, h, life, col){
   if(!soulGeo){
     soulGeo = new THREE.CylinderGeometry(0.55, 0.8, 1, 20, 1, true); soulGeo.translate(0, 0.5, 0);
-    const cv = document.createElement("canvas"); cv.width = 4; cv.height = 128; const g = cv.getContext("2d");
+    const cv = document.createElement("canvas"); cv.width = 4; cv.height = 128; const g = cv.getContext("2d", { willReadFrequently:true });
     const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.35, "rgba(255,255,255,0.55)"); gr.addColorStop(0.85, "rgba(255,255,255,1)"); gr.addColorStop(1, "rgba(255,255,255,0.6)");
     g.fillStyle = gr; g.fillRect(0, 0, 4, 128); soulTex = new THREE.CanvasTexture(cv);
   }

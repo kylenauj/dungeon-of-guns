@@ -25,7 +25,7 @@ const CELL = { crack:0, stain:1, moss:2, rune:3, rug:4, splat:5, scorch:6, leave
 let _atlas = null;
 function atlas(){
   if(_atlas) return _atlas;
-  const N = 128, cv = document.createElement("canvas"); cv.width = cv.height = N*4; const g = cv.getContext("2d");
+  const N = 128, cv = document.createElement("canvas"); cv.width = cv.height = N*4; const g = cv.getContext("2d", { willReadFrequently:true });
   const r = DG.RNG(1234).next;
   const cell = (i, f)=>{ g.save(); g.translate((i % 4)*N, Math.floor(i/4)*N); g.beginPath(); g.rect(0, 0, N, N); g.clip(); f(); g.restore(); };
   const blob = (x, y, rad, a)=>{ const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, "rgba(255,255,255," + a + ")"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill(); };
@@ -103,7 +103,7 @@ const pickW = (rnd, list)=>{ let tot = 0; list.forEach(e=> tot += e[1]); let v =
 let _rugMat = null;
 function rugMat(){
   if(_rugMat) return _rugMat;
-  const Wd = 512, Ht = 256, cv = document.createElement("canvas"); cv.width = Wd; cv.height = Ht; const g = cv.getContext("2d"), r = DG.RNG(4242).next;
+  const Wd = 512, Ht = 256, cv = document.createElement("canvas"); cv.width = Wd; cv.height = Ht; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(4242).next;
   const field = [92, 30, 24], soot = [30, 24, 26], ochre = [118, 86, 40], bone = [150, 130, 100];
   const px = g.createImageData(Wd, Ht), d = px.data;
   const put = (x, y, c, k)=>{ const i = (y*Wd + x)*4; d[i] = c[0]*k; d[i + 1] = c[1]*k; d[i + 2] = c[2]*k; d[i + 3] = 255; };

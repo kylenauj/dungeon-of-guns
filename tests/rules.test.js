@@ -1878,3 +1878,14 @@ test("the Gravedigger's spade opens a grave that drags at Zippy's feet; the dead
   step(G, 0.1, {});
   assert.ok(G.enemies.filter(e=> !e.dead && e.type === "skeleton").length > n0, "skeletons rise");
 });
+
+/* ---- hitches on Windows ---- */
+test("every 2D canvas is drawn on the CPU: on the GPU, Chrome compiled a DirectX shader for each new kind of stroke or gradient, mid-fight", ()=>{
+  const fs = require("fs"), path = require("path"), root = path.join(__dirname, "..", "js");
+  const files = [];
+  (function walk(d){ fs.readdirSync(d).forEach(f=>{ const p = path.join(d, f); if(fs.statSync(p).isDirectory()) walk(p); else if(/\.js$/.test(f) && f !== "perf.js") files.push(p); }); })(root);
+  files.forEach(f=>{
+    const src = fs.readFileSync(f, "utf8"), bad = src.match(/getContext\(\s*["']2d["']\s*\)/g);
+    assert.ok(!bad, path.relative(root, f) + ": getContext(\"2d\") without { willReadFrequently:true }");
+  });
+});

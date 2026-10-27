@@ -77,7 +77,7 @@ K.at = function(g, x, y, z, rx, ry, rz, sx, sy, sz){
 
 /* a soft round glow */
 K.glowTex = (()=>{
-  const cv = document.createElement("canvas"); cv.width = cv.height = 64; const g = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = cv.height = 64; const g = cv.getContext("2d", { willReadFrequently:true });
   const r = g.createRadialGradient(32, 32, 1, 32, 32, 31);
   r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(0.3, "rgba(255,255,255,.5)"); r.addColorStop(1, "rgba(255,255,255,0)");
   g.fillStyle = r; g.fillRect(0, 0, 64, 64);
@@ -94,7 +94,7 @@ K.sprite = (c, s, opacity)=>{
 /* chunky stone: big blocks with mortar lines and speckle, greyscale so
    vertex colours tint it per floor */
 K.stoneTex = (()=>{
-  const S = 64, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
+  const S = 64, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d", { willReadFrequently:true });
   g.fillStyle = "#c8c8c8"; g.fillRect(0, 0, S, S);
   for(let i=0;i<500;i++){ const v = 170 + Math.floor(Math.random()*70); g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.fillRect(Math.random()*S|0, Math.random()*S|0, 2, 2); }
   g.fillStyle = "#6a6a6a";
@@ -103,7 +103,7 @@ K.stoneTex = (()=>{
   return t;
 })();
 K.floorTex = (()=>{
-  const S = 32, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
+  const S = 32, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d", { willReadFrequently:true });
   g.fillStyle = "#bdbdbd"; g.fillRect(0, 0, S, S);
   for(let i=0;i<180;i++){ const v = 150 + Math.floor(Math.random()*90); g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.fillRect(Math.random()*S|0, Math.random()*S|0, 2, 2); }
   g.fillStyle = "#7a7a7a"; g.fillRect(0, 0, S, 1); g.fillRect(0, 0, 1, S);
@@ -115,7 +115,7 @@ K.floorTex = (()=>{
 /* text on a little canvas, for signs */
 K.textTex = function(lines, w, h, opts){
   opts = opts || {};
-  const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const g = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const g = cv.getContext("2d", { willReadFrequently:true });
   g.fillStyle = opts.bg || "#6a4a2a"; g.fillRect(0, 0, w, h);
   g.fillStyle = opts.fg || "#f3e6c4"; g.font = (opts.weight || "700") + " " + (opts.size || 14) + "px 'Saira Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
   lines.forEach((l, i)=> g.fillText(l, w/2, h/2 + (i - (lines.length - 1)/2)*(opts.size || 14)*1.1));

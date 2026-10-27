@@ -84,7 +84,7 @@ function joints(g, r, N, v){
 /* walls: ashlar courses over 2x2 units, tiling both ways */
 function stoneTex(){
   if(TEX.stone) return TEX.stone;
-  const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(77).next;
+  const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(77).next;
   joints(g, r, N, 88);
   const rows = 8, rh = N/rows;
   for(let row=0; row<rows; row++){
@@ -104,7 +104,7 @@ function stoneTex(){
    so no two neighbours match), tiling seamlessly */
 function floorTex(){
   if(TEX.floor) return TEX.floor;
-  const N = 512, U = N/4, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"), r = DG.RNG(91).next;
+  const N = 512, U = N/4, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(91).next;
   joints(g, r, N, 96);
   const G = 1.8, slabs = [];
   const cut = (x, y, w, h)=>{
@@ -126,14 +126,14 @@ function floorTex(){
    Height is read from the painting's tone, softened, with a fine grain added. */
 function surfaceOf(key, tex, depth){
   if(TEX[key]) return TEX[key];
-  const cv = tex.image, N = cv.width, src = cv.getContext("2d").getImageData(0, 0, N, N).data, r = DG.RNG(key.length*977).next;
+  const cv = tex.image, N = cv.width, src = cv.getContext("2d", { willReadFrequently:true }).getImageData(0, 0, N, N).data, r = DG.RNG(key.length*977).next;
   const h0 = new Float32Array(N*N), h = new Float32Array(N*N), at = (x, y)=> ((y + N) % N)*N + ((x + N) % N);
   for(let i=0;i<N*N;i++) h0[i] = (src[i*4]*0.3 + src[i*4 + 1]*0.59 + src[i*4 + 2]*0.11)/255;
   // soften (two box passes), then a fine grain so the faces aren't glassy
   for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s = 0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) s += h0[at(x + u, y + v)]; h[at(x, y)] = s/9; }
   for(let i=0;i<N*N;i++) h0[i] = h[i]*0.6 + h0[i]*0.4 + (r() - 0.5)*0.05;
   const nc = document.createElement("canvas"), rc = document.createElement("canvas"); nc.width = nc.height = rc.width = rc.height = N;
-  const nd = nc.getContext("2d").createImageData(N, N), rd = rc.getContext("2d").createImageData(N, N);
+  const nd = nc.getContext("2d", { willReadFrequently:true }).createImageData(N, N), rd = rc.getContext("2d", { willReadFrequently:true }).createImageData(N, N);
   for(let y=0;y<N;y++) for(let x=0;x<N;x++){
     const i = at(x, y), dx = (h0[at(x + 1, y)] - h0[at(x - 1, y)])*depth, dy = (h0[at(x, y + 1)] - h0[at(x, y - 1)])*depth;
     const l = Math.hypot(dx, dy, 1), hh = h0[i];
@@ -141,7 +141,7 @@ function surfaceOf(key, tex, depth){
     const ro = Math.max(0.35, Math.min(1, 1.02 - hh*0.55 + (r() - 0.5)*0.08))*255;
     rd.data[i*4] = rd.data[i*4 + 1] = rd.data[i*4 + 2] = ro; rd.data[i*4 + 3] = 255;
   }
-  nc.getContext("2d").putImageData(nd, 0, 0); rc.getContext("2d").putImageData(rd, 0, 0);
+  nc.getContext("2d", { willReadFrequently:true }).putImageData(nd, 0, 0); rc.getContext("2d", { willReadFrequently:true }).putImageData(rd, 0, 0);
   return TEX[key] = { map:tex, normalMap:texDone(nc), roughnessMap:texDone(rc) };
 }
 /* the materials for floors and walls: physically based, sharp at grazing angles */
@@ -765,7 +765,7 @@ const doorTex = {};
 function paintedDoorTex(mark){
   const k = mark || "plain";
   if(doorTex[k]) return doorTex[k];
-  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 96; const g = cv.getContext("2d", { willReadFrequently:true });
   g.fillStyle = "#2a1c12"; g.fillRect(0, 0, 64, 96);
   for(let i=0;i<5;i++){
     const x = 2 + i*12.4, v = 52 + (i*37 % 23);
@@ -1171,7 +1171,7 @@ proto.decorInto = function(g, kind, p, opts){
 const msgTex = {};
 function messageTex(text){
   if(msgTex[text]) return msgTex[text];
-  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d"), r = DG.RNG(text.length*31 + text.charCodeAt(0)).next;
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(text.length*31 + text.charCodeAt(0)).next;
   g.strokeStyle = "#ffb060"; g.fillStyle = "#ffb060"; g.lineCap = "round"; g.lineJoin = "round";
   g.font = "italic bold 40px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
   g.shadowColor = "#ff7a1a"; g.shadowBlur = 10;

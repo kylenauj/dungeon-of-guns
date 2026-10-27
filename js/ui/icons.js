@@ -940,20 +940,20 @@ function drawGlyphs(sp){
 /* how a canvas gets its glyph: an ink outline, a bone (or gilt) body, a bevel */
 function glyphLayer(g, S, sp, Ri){
   const k = Ri*2*(S < 80 ? 0.9 : 0.86)/100;
-  const M = mk(S), m = M.getContext("2d");
+  const M = mk(S), m = M.getContext("2d", { willReadFrequently:true });
   m.setTransform(k, 0, 0, k, S/2 - 50*k, S/2 - 50*k);
   m.fillStyle = m.strokeStyle = "#fff"; m.lineCap = "round"; m.lineJoin = "round";
   C = m; CUTALL = false; add();
   drawGlyphs(sp);
   C = null;
   m.setTransform(1, 0, 0, 1, 0, 0);
-  const tint = (col)=>{ const T = mk(S), t = T.getContext("2d"); t.drawImage(M, 0, 0); t.globalCompositeOperation = "source-in"; t.fillStyle = col; t.fillRect(0, 0, S, S); return T; };
+  const tint = (col)=>{ const T = mk(S), t = T.getContext("2d", { willReadFrequently:true }); t.drawImage(M, 0, 0); t.globalCompositeOperation = "source-in"; t.fillStyle = col; t.fillRect(0, 0, S, S); return T; };
   // the outline, and a soft drop shadow under it
   const o = Math.max(1, S*0.022), ink = tint("#070504");
   g.save(); g.globalAlpha = 0.55; g.drawImage(ink, o*0.5, o*1.6); g.restore();
   for(let i=0;i<12;i++){ const a = i/12*TAU; g.drawImage(ink, Math.cos(a)*o, Math.sin(a)*o); }
   // the body: bone, or gilt for the godly
-  const B = mk(S), b = B.getContext("2d");
+  const B = mk(S), b = B.getContext("2d", { willReadFrequently:true });
   b.drawImage(M, 0, 0); b.globalCompositeOperation = "source-in";
   const gr = b.createLinearGradient(0, S*0.2, 0, S*0.85);
   if(sp.tier >= 4){ gr.addColorStop(0, "#fff4c8"); gr.addColorStop(0.55, "#e2c278"); gr.addColorStop(1, "#9a7434"); }
@@ -961,7 +961,7 @@ function glyphLayer(g, S, sp, Ri){
   b.fillStyle = gr; b.fillRect(0, 0, S, S);
   // the bevel: light on the upper-left edges, shade on the lower-right
   const d = Math.max(0.7, S*0.013);
-  const edge = (dx, dy, col)=>{ const T = mk(S), t = T.getContext("2d"); t.fillStyle = col; t.fillRect(0, 0, S, S); t.globalCompositeOperation = "destination-out"; t.drawImage(M, dx, dy); b.globalCompositeOperation = "source-atop"; b.drawImage(T, 0, 0); };
+  const edge = (dx, dy, col)=>{ const T = mk(S), t = T.getContext("2d", { willReadFrequently:true }); t.fillStyle = col; t.fillRect(0, 0, S, S); t.globalCompositeOperation = "destination-out"; t.drawImage(M, dx, dy); b.globalCompositeOperation = "source-atop"; b.drawImage(T, 0, 0); };
   edge(-d, -d, "rgba(60,40,24,.55)");
   edge(d, d, "rgba(255,252,240,.55)");
   g.drawImage(B, 0, 0);
@@ -1027,7 +1027,7 @@ function pips(g, S, R, els){
 Icons.canvas = function(key, size){
   const S = Math.max(8, Math.round(size || 64)), ck = key + "|" + S;
   if(cache[ck]) return cache[ck];
-  const sp = Icons.spec(key), cv = mk(S), g = cv.getContext("2d");
+  const sp = Icons.spec(key), cv = mk(S), g = cv.getContext("2d", { willReadFrequently:true });
   const m = medallion(g, S, sp);
   glyphLayer(g, S, sp, m.Ri);
   pips(g, S, m.R, m.els);

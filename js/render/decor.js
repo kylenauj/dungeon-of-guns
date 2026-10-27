@@ -872,7 +872,7 @@ Object.assign(B, {
 const _posters = {};
 function posterTex(i){
   if(_posters[i]) return _posters[i];
-  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 80; const g = cv.getContext("2d"), r = DG.RNG(400 + i).next;
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 80; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(400 + i).next;
   g.fillStyle = "#8a7a5a"; g.beginPath(); g.moveTo(3, 2); for(let k=0;k<=8;k++) g.lineTo(3 + k*7 + r()*3, 2 + r()*4); g.lineTo(62, 76 - r()*10); for(let k=8;k>=0;k--) g.lineTo(3 + k*7, 70 + r()*10); g.fill();
   g.fillStyle = "rgba(40,24,10,0.5)"; for(let k=0;k<30;k++) g.fillRect(r()*64|0, r()*80|0, 3, 2);
   g.strokeStyle = "#2a1a0e"; g.lineWidth = 1.2; for(let l=0;l<7;l++){ g.beginPath(); let x = 8; g.moveTo(x, 14 + l*8); while(x < 54){ x += 2 + r()*4; g.lineTo(x, 14 + l*8 + (r() - 0.5)*3); } g.stroke(); }
@@ -885,7 +885,7 @@ function posterTex(i){
 let _glass = null;
 function glassTex(){
   if(_glass) return _glass;
-  const cv = document.createElement("canvas"); cv.width = 32; cv.height = 56; const g = cv.getContext("2d"), r = DG.RNG(55).next;
+  const cv = document.createElement("canvas"); cv.width = 32; cv.height = 56; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(55).next;
   for(let y=0;y<7;y++) for(let x=0;x<4;x++){ const v = r() < 0.25 ? 10 : 60 + (r()*90 | 0); g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.fillRect(x*8, y*8, 8, 8); }
   g.strokeStyle = "#0a0a0e"; g.lineWidth = 2; for(let x=0;x<=32;x+=8){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 56); g.stroke(); } for(let y=0;y<=56;y+=8){ g.beginPath(); g.moveTo(0, y); g.lineTo(32, y); g.stroke(); }
   g.fillStyle = "#050505"; g.beginPath(); g.moveTo(14, 30); g.lineTo(26, 22); g.lineTo(22, 40); g.lineTo(10, 44); g.fill();
@@ -894,7 +894,7 @@ function glassTex(){
 let _web = null;
 function webTex(){
   if(_web) return _web;
-  const cv = document.createElement("canvas"); cv.width = cv.height = 128; const g = cv.getContext("2d"), r = DG.RNG(66).next;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 128; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(66).next;
   g.strokeStyle = "rgba(230,230,235,0.8)"; g.lineWidth = 0.8;
   const spokes = 9;
   for(let i=0;i<spokes;i++){ const a = i/(spokes - 1)*Math.PI/2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a)*128, Math.sin(a)*128); g.stroke(); }

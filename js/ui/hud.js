@@ -35,7 +35,11 @@ const ease = t=> t <= 0 ? 0 : t >= 1 ? 1 : t*t*(3 - 2*t);
 
 H.init = function(){
   const c = H.canvas = document.getElementById("hud");
-  H.g = c.getContext("2d");
+  // drawn on the CPU (willReadFrequently), like every 2D canvas in the game: on the GPU,
+  // Chrome compiles a shader for each new kind of arc, stroke, gradient and blend it
+  // meets, and on Windows (DirectX) each compile froze the game for one to three
+  // seconds, mid-fight. ?gpu2d puts the HUD back on the GPU, to compare
+  H.g = c.getContext("2d", /[?&]gpu2d\b/.test(location.search) ? undefined : { willReadFrequently:true });
   const fit = ()=>{ const d = Math.min(2, devicePixelRatio || 1); c.width = innerWidth*d; c.height = innerHeight*d; c.style.width = innerWidth + "px"; c.style.height = innerHeight + "px"; H.dpr = d; };
   fit(); addEventListener("resize", fit);
   // a canvas never asks for a web font by itself: ask for every face we draw with

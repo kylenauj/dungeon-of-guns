@@ -9,7 +9,7 @@
  *  report to the clipboard to paste back to whoever's fixing it.
  *  Costs a little time while on (every call is timed); nothing when off.
  *
- *  Deep mode (F7, or ?perf=deep) waits for the GPU after every draw, so
+ *  Deep mode (Shift+F8, or ?perf=deep; F7 too, where the browser lets it through) waits for the GPU after every draw, so
  *  a stall shows up on the draw that caused it: the report then names
  *  the very draw (material, mesh, whose) the graphics process was stuck
  *  on, or says that no draw was, and times the HUD canvas on its own.
@@ -24,6 +24,7 @@ const deepQ = /[?&]perf=deep\b/.test(location.search);
 const on = /[?&]perf\b/.test(location.search) || store() === "1" || store() === "deep";
 const DEEP = deepQ || store() === "deep";
 addEventListener("keydown", e=>{
+  if(e.code === "F8" && e.shiftKey){ e.preventDefault(); store(DEEP ? 1 : "deep"); location.reload(); return; }
   if(e.code === "F8"){ e.preventDefault(); store(on ? 0 : 1); location.reload(); }
   if(e.code === "F7"){ e.preventDefault(); store(DEEP ? 1 : "deep"); location.reload(); }
 });
@@ -208,7 +209,7 @@ function hitch(gap, f){
     firsts:firsts.filter(x=> x.at > f.at - 1500 && x.at < f.at + gap).map(x=> Math.round(x.at - f.at) + "ms " + x.what),
     deep:f.deep ? { n:f.deep.n, ms:f.deep.ms, draws:f.deep.draws.slice().sort((a, b)=> b.ms - a.ms).slice(0, 4) } : null,
     where:G ? { floor:G.floor, room:G.room ? G.room.type + (G.room.active ? " (fighting)" : "") : "corridor", enemies:(G.enemies || []).filter(e=> !e.dead).length,
-      shots:(G.shots || []).length, hazards:(G.hazards || []).length, mode:DG.app.mode } : null, dyn:S.dyn });
+      shots:(G.bullets || []).length, hazards:(G.hazards || []).length, mode:DG.app.mode } : null, dyn:S.dyn });
   if(P.hitches.length > 60) P.hitches.shift();
 }
 function median(){
@@ -229,7 +230,7 @@ function draw(){
   }
   const fr = P.frames.slice(-120), gaps = fr.map(f=> f.gap).sort((a, b)=> a - b);
   const fps = fr.length ? 1000/(fr.reduce((a, f)=> a + f.gap, 0)/fr.length) : 0;
-  const lines = [(DEEP ? "PERF DEEP  " : "PERF  ") + Math.round(fps) + " fps  median " + r1(pct(gaps, 0.5)) + " ms  worst(2s) " + r1(gaps[gaps.length - 1] || 0) + " ms  hitches " + P.hitches.length + "   F9 copy report · F8 off · F7 " + (DEEP ? "deep off" : "deep")];
+  const lines = [(DEEP ? "PERF DEEP  " : "PERF  ") + Math.round(fps) + " fps  median " + r1(pct(gaps, 0.5)) + " ms  worst(2s) " + r1(gaps[gaps.length - 1] || 0) + " ms  hitches " + P.hitches.length + "   F9 copy report · F8 off · Shift+F8 " + (DEEP ? "deep off" : "deep")];
   P.hitches.slice(-5).reverse().forEach(h=>{
     const ev = Object.keys(h.events).map(k=> k + (h.events[k] > 1 ? "×" + h.events[k] : "")).slice(0, 4).join(" ");
     lines.push(r1(h.at/1000) + "s  " + Math.round(h.gap) + "ms  js " + Math.round(h.js) + "  " + h.top.slice(0, 2).map(x=> x[0] + " " + Math.round(x[1])).join(", ")
