@@ -42,3 +42,4 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 - **Every logic bug that gets fixed gets a regression test** in `tests/rules.test.js`.
 - **Balance is tuned one knob at a time**, with `npm run balance` numbers quoted before and after.
 - **Don't edit `vendor/`.**
+- **Every 2D canvas is drawn on the CPU:** `getContext("2d", { willReadFrequently:true })`. On the GPU, Chrome compiles a shader for each new kind of stroke, gradient or blend, and on Windows each one froze the game for seconds (a test checks).
