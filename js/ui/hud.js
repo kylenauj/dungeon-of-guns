@@ -361,6 +361,15 @@ H.draw = function(G, dt, opts){
       lines.forEach((ln, i)=> text(g, ln, s.x, s.y + i*16*k, 14*k, mute(hex(d.color), 0.45), "center", "italic 600", BOOK, 1));
     });
   }
+  // the Weighing Stones: how many shoves each has left before it cracks apart
+  if(G.room && G.room.puzzle && G.room.puzzle.kind === "stones" && !G.room.puzzle.solved){
+    G.room.puzzle.blocks.forEach(b=>{
+      if(b.hp === undefined || DG.dist(b.x + 0.5, b.y + 0.5, p.x, p.y) > 9) return;
+      const s = S.project(b.x + 0.5, 1.25, b.y + 0.5); if(s.behind) return;
+      const low = b.hp <= 2, onPlate = G.room.puzzle.plates.some(q=> q.x === b.x && q.y === b.y);
+      text(g, b.hp <= 0 ? "CRACKED THROUGH" : b.hp + (b.hp === 1 ? " shove left" : " shoves left"), s.x, s.y, 12*k, b.hp <= 0 ? "#d0402a" : low ? "#e0a050" : onPlate ? "#8ac8e8" : "#c8bca0", "center", "700", SERIF, 1);
+    });
+  }
   H.barks = H.barks.filter(b=>{
     b.t += dt;
     const e = G.enemies.find(o=> o.id === b.id); if(e){ b.x = e.x; b.y = e.y; }

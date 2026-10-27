@@ -791,7 +791,7 @@ test("Embers: the candles count; the fewest moves always fit; over budget it gut
     assert.ok(pz.flawless === false);
   }
 });
-test("Embers never strands you: a stir that leaves too few candles to finish gutters at once; early floors scramble only a few", ()=>{
+test("Embers never strands you: a stir that leaves too few candles to finish gutters at once; early floors start four or five stirs out, with four to spare", ()=>{
   // the state from a played run: four dark (top middle, top right, middle right,
   // bottom right) needs four stirs, and only three candles were left
   const { G, r } = puzzleRoom("embers", 1), pz = r.puzzle;
@@ -799,7 +799,7 @@ test("Embers never strands you: a stir that leaves too few candles to finish gut
   for(let k=0; k<300 && seen < 30; k++){
     const D = DG.Dungeon.generate(k*7919 + 13, 1 + (k % 2)), q = D.rooms.find(x=> x.puzzle && x.puzzle.kind === "embers");
     if(!q) continue; seen++;
-    assert.ok(q.puzzle.par <= 3 && q.puzzle.budget >= q.puzzle.par + 4, "par " + q.puzzle.par + " budget " + q.puzzle.budget);
+    assert.ok(q.puzzle.par >= 4 && q.puzzle.par <= 5 && q.puzzle.budget === q.puzzle.par + 4, "par " + q.puzzle.par + " budget " + q.puzzle.budget);
   }
   assert.ok(seen >= 10);
   pz.lit = [1, 0, 0, 1, 1, 0, 1, 1, 0];
@@ -847,9 +847,10 @@ test("the Mirror Hall: the answer carries the light to the eye; the scramble doe
   [1, 3, 5].forEach(f=>{
     const { G, r } = puzzleRoom("mirrors", f), pz = r.puzzle;
     assert.ok(!DG.Puzzles.trace(G.D, pz).hit, "scrambled");
-    assert.equal(pz.linked, f >= 4);
+    assert.equal(pz.linked, f >= 2);
     const par = DG.Puzzles.mirrorPar(pz);
-    assert.equal(pz.budget, par + 4);
+    assert.equal(pz.budget, par + 3);
+    assert.ok(pz.want.filter(w=> w >= 0).length >= (f <= 1 ? 3 : 4), "floor " + f + ": three shields or more to set");
     // turn each, in order, until it's right (the chain way: it drags the next one round)
     pz.items.forEach((it, i)=>{ if(pz.want[i] < 0) return; let g = 4; while(it.q !== pz.want[i] && g-- && !pz.solved) usePz(G, it); });
     assert.ok(pz.solved, "floor " + f);
@@ -1941,4 +1942,36 @@ test("every 2D canvas is drawn on the CPU: on the GPU, Chrome compiled a DirectX
     const src = fs.readFileSync(f, "utf8"), bad = src.match(/getContext\(\s*["']2d["']\s*\)/g);
     assert.ok(!bad, path.relative(root, f) + ": getContext(\"2d\") without { willReadFrequently:true }");
   });
+});
+
+/* ---- puzzles that take a while ---- */
+test("the Liar's Doors: four doors when the room is wide (five deep down); one answer, and no single face gives it away", ()=>{
+  [1, 3].forEach(f=>{
+    const colors = DG.DOOR_COLORS.slice(0, f >= 3 ? 5 : 4);
+    for(let s=0; s<6; s++){
+      const rid = DG.Puzzles.liarRiddle(DG.RNG(77 + s*13 + f), f <= 1 ? "one" : "honest", colors);
+      assert.ok(rid, "a riddle for " + colors.length + " doors");
+      const ws = DG.Puzzles.riddleWorlds(f <= 1 ? "one" : "honest", rid.says, colors);
+      assert.equal(ws.length, 1); assert.equal(ws[0].a, rid.answer);
+    }
+  });
+});
+test("the Weighing Stones crack: each takes its share of the answer and a few more, then the next shove crumbles it, puts the stones back and wakes the room", ()=>{
+  const { G, r } = puzzleRoom("stones", 2), pz = r.puzzle;
+  assert.ok(pz.blocks.length >= 3 && pz.solution.length >= 16, pz.blocks.length + " stones, " + pz.solution.length + " shoves");
+  pz.blocks.forEach((b, i)=> assert.ok(b.hp >= 4, "stone " + i + ": " + b.hp));
+  const b = pz.blocks[0];
+  b.hp = 0;
+  // shove it from wherever it can go
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], d = dirs.find(([dx, dy])=> G.D.at(b.x + dx, b.y + dy) === DG.TILE.FLOOR);
+  const sx = b.sx, sy = b.sy;
+  DG.Puzzles.push(G, b.x, b.y, d[0], d[1]);
+  assert.ok(b.x === sx && b.y === sy && b.hp === b.hp0, "back where it started, whole");
+  assert.ok(r.active, "the noise woke the room");
+  assert.ok(pz.flawless === false);
+});
+test("the Choir sings five notes to start, four rounds, and from floor 3 wants them back to front", ()=>{
+  const a = puzzleRoom("choir", 1).r.puzzle, b = puzzleRoom("choir", 3).r.puzzle;
+  assert.equal(a.len, 5); assert.equal(a.rounds, 4); assert.ok(!a.reverse);
+  assert.ok(b.reverse && b.len >= 6);
 });

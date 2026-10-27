@@ -381,6 +381,7 @@ proto.handle = function(ev){
     case "pzFail": S.shake(0.25); break;
     case "chorusSing": play("note", { n:ev.i }); break;
     case "chorus": play(ev.ok ? "note" : "wrongnote", { n:ev.i }); break;
+    case "crumble": FX.burst(ev.x + 0.5, 0.5, ev.y + 0.5, 0x7a746a, 30, 3, 0.3, 0.9, { up:1 }); FX.smoke(ev.x + 0.5, 0.4, ev.y + 0.5, 0x5a564e, 14, 0.6, 1.4); S.shake(0.4); play("error"); break;
     case "push": play("push"); break;
     case "pushStuck": play("error"); break;
     case "pushReset": play("reset"); break;
