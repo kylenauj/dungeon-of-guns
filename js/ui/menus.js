@@ -78,7 +78,7 @@ UI.how = function(back){
       <div class="cols">
       <div class="note">
         <p>You are <b>Zippy</b>, a hexhunter with <b>one wand</b>, and everything you find reshapes it. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
-        <p><b>Forms</b> change how the wand fires: Scatter fans out, Repeater sprays, Lens lances through, Bombard bursts. They stack. <b>Cores</b> and rounds give it an <b>element</b>: whichever you've gathered most is the wand's own, and its spell. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
+        <p><b>Forms</b> change how the wand fires: Scatter fans out, Repeater sprays, Lens lances through, Bombard bursts. They stack. <b>Cores</b> and rounds give it an <b>element</b>: whichever you've gathered most is the wand's own, and its spell (another element has to pass it to turn it; until then its items still work, and still attune). <b>Attunement</b> grows the spell at 2, 4 and 6, and Zippy's robes take the colour. Master the wand's element (attunement III) before the Heart falls, and a throne is waiting. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
         <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
         <p>There are no levels: you grow by what you <b>find</b>. Bosses and the lair on every floor each carry a powerup; shops sell them, and so does Brother Olm, if you meet him. A lucky run breaks wide open. Most don't. Read the enemies: their shots hang, bend and burst, and every one can be dodged.</p>
         <p><b>Gribbus' pond</b> is rare: three of his tricks float on its lily pads and he keeps one. His tricks turn up in shops and on bosses too. Now and then a run hides a <b>side road</b>: glowing mushrooms, Brother Olm met twice, or a sealed reliquary. Never more than one.</p>
@@ -271,9 +271,9 @@ UI.choose = function(G){
 
 /* the ending's lore, a line at a time, before the tally */
 UI.lore = function(G, id){
-  const E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
+  const E = DG.endingFor(id, G.endingEl);
   UI.show(`
-    <div class="lorewrap ending-${id}">
+    <div class="lorewrap ending-${id}${G.endingEl && id === "throne" ? " throne-" + G.endingEl : ""}">
       <h2 class="lore-title">${esc(E.title)}</h2>
       <div class="lore-lines">${E.lore.map((l, i)=> `<p style="animation-delay:${(0.8 + i*1.6).toFixed(1)}s">${esc(l)}</p>`).join("")}</div>
       <div class="menu" style="animation-delay:${(1.2 + E.lore.length*1.6).toFixed(1)}s"><button class="item sel" data-act="lore">CONTINUE</button></div>
@@ -284,7 +284,7 @@ UI.endingSigils = function(){
   let m = {}; try{ m = JSON.parse(localStorage.getItem("dungeonofguns.meta") || "{}").endings || {}; }catch(e){}
   const n = Object.keys(DG.ENDINGS).filter(k=> m[k]).length;
   return `<div class="sigils" title="Endings found">${Object.keys(DG.ENDINGS).map(k=>
-    `<span class="sigil ${k}${m[k] ? " found" : ""}" title="${m[k] ? esc(DG.ENDINGS[k].title) : "???"}">${{ dawn:"&#9788;", flame:"&#10022;", bog:"&#9819;", white:"&#10070;" }[k] || "?"}</span>`).join("")}<small>${n}/${Object.keys(DG.ENDINGS).length} endings</small></div>`;
+    `<span class="sigil ${k}${m[k] ? " found" : ""}" title="${m[k] ? esc(DG.ENDINGS[k].title) : "???"}">${{ dawn:"&#9788;", flame:"&#10022;", bog:"&#9819;", white:"&#10070;", throne:"&#9812;" }[k] || "?"}</span>`).join("")}<small>${n}/${Object.keys(DG.ENDINGS).length} endings</small></div>`;
 };
 
 UI.end = function(G, won){
@@ -293,8 +293,8 @@ UI.end = function(G, won){
     spore:"spores", ecto:"ectoplasm", wail:"a banshee's wail", arrow:"a skeleton's arrow", tear:"the Bride's tears", blood:"the Heart's blood", laser:"a terrible stare", slam:"a tentacle", blob:"a blob", ghost:"a ghost", altar:"the altar's price", matriarch:"the Morel Matriarch", bride:"the Weeping Bride", eye:"the Eye Below", heart:"the Gloom Heart", rotling:"a Rotling", spitter:"Mould Spitter acid", acid:"Mould Spitter acid", bloater:"a Bloater", husk:"a Blight Husk", spores:"Gloom spores", "giving up":"despair",
     soul:"a Lantern Wight's soul-lights", bile:"a toad's bile", page:"the Archivist's pages", evilfrog:"a Gorged Toad", wight:"a Lantern Wight", toadking:"the Toad King", archivist:"the Archivist", tongue:"the Toad King's tongue" };
   const why = G.lastHurt ? (killer[G.lastHurt] || G.lastHurt) : "the dark";
-  const END = Object.assign({ after:"" }, DG.ENDINGS[G.ending] || DG.ENDINGS.dawn,
-    { after:{ dawn:"Daylight, at last.", flame:"The fire is tended again.", bog:"Long may he croak.", white:"The light goes where he goes." }[G.ending] || "" });
+  const E0 = DG.endingFor(G.ending, G.endingEl);
+  const END = Object.assign({}, E0, { after:E0.after || { dawn:"Daylight, at last.", flame:"The fire is tended again.", bog:"Long may he croak.", white:"The light goes where he goes." }[G.ending] || "" });
   UI.show(`
     <div class="endwrap">
       <div class="died-band"><h1 class="died ${won ? "win" : ""}">${won ? esc(END.title) : "YOU DIED"}</h1>

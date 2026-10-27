@@ -239,7 +239,7 @@ Deeper floors are darker. They have more **curses**: Darkness (less light), the 
 
 ---
 
-### 6.1 The three endings
+### 6.1 The endings (the roads and the Throne are in docs/ENDINGS.md §0)
 Two early rooms, rare and locked (each needs a **key**), start a different
 ending:
 - **The Reliquary** (floors 1 and 2) holds the **Ember of the First Flame**.
@@ -250,6 +250,7 @@ ending:
 | **Dawn** | Kill the Gloom Heart and take the portal. | The rot lets go of the Keep; they walk out into the morning. |
 | **The First Flame** | Carry the Ember past floor 5. A sixth floor opens: **the Kiln**, and the **Hollow** (Zippy's master, gone hollow). | Zippy lays him to rest and relights the Flame. |
 | **King of the Bog** | Gribbus wears the Crown when the Gloom Heart dies (and you don't carry the Ember). | Gribbus eats the Heart and becomes king of a bog full of frogs. |
+| **The Throne** | Master the wand's element (attunement III) by the time the Heart dies (no Ember, no Bog). | Its throne rises out of the floor; Zippy, robed in the element, sits in it and shows the dark what it can do. One ending, five thrones (docs/ENDINGS.md §0). |
 
 Every ending plays the same transformation: the camera comes down close,
 light gathers out of the floor, the rot recedes, and in a flash Zippy is a

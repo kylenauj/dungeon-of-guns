@@ -297,6 +297,7 @@ const DYE = {
   white: { robe:0xe8e4d8, dark:0xc8c2b0, light:0xfffbe8, cape:0xd8d2c0, stars:0xfff0b0 },   // the Flesh Library's end: a white wizard
   olm:   { robe:0x2a4a46, dark:0x16282a, light:0xffc870, cape:0x5a3a1c, stars:0xc8a050 },   // Brother Olm: lantern-keeper's teal and brass
   bungus:{ robe:0x2e5a22, dark:0x18300f, light:0x9cff4a, cape:0x4a3a1a, stars:0x7dff3a },   // Bungus the shopkeeper: pond green, neon trim
+  arcanum:{ robe:0x3a2a52, dark:0x1c1428, light:0xc89aff, cape:0x281a3c, stars:0xb89ae0 },   // arcane mastered: the old school's violet
   clown: { robe:0x7a4a30, dark:0x2e4a5a, light:0xffd23d, cape:0x3a6a70, stars:0x8a3a4a }
 };
 Models.DYE = DYE;
@@ -441,7 +442,13 @@ function zHoodGeo(){
 Models.zippy = function(look){
   look = look || { robe:"arcane", cape:"arcane", parts:[], auras:[] };
   const has = p=> look.parts.indexOf(p) >= 0;
-  const D = DYE[look.robe] || DYE.arcane, C = DYE[look.cape] || DYE.arcane;
+  let D = DYE[look.robe] || DYE.arcane;
+  const C = DYE[look.cape] || DYE.arcane;
+  // attunement: the robe running toward the element's colour (Items.costume)
+  if(look.tint && DYE[look.tint] && look.tintK < 1){
+    const T = DYE[look.tint], mix = (a, b)=> new THREE.Color(a).lerp(new THREE.Color(b), look.tintK).getHex();
+    D = {}; for(const k in T) D[k] = mix((DYE[look.robe] || DYE.arcane)[k], T[k]);
+  }
   const R = rig("zippy"), b = R.body;
   R.look = look; R.anim = [];
   // below the belt his coat is its own piece (R.parts.skirt, hung from the

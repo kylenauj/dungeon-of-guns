@@ -20,6 +20,25 @@ stumble on. `?route=bog|olm|ember|none` forces one for testing.
 | **The Bog** | glowing mushrooms down the dungeon (2-3 a floor). Gribbus eats each one and grows a little; at 4, 7 and 10 he grows a size (the old Rot models); from 4 on he **demands praise** (E near him: +50% for 20s, ignore him and he sulks). At ten, the Heart's portal runs green | 6, the Glutton's Bog: everything glows, Gribbus hits twice as hard and wears the crown | the Bog Lord, Toad King | **KING OF THE BOG**: Gribbus eats him; Zippy is his royal wizard |
 | **Olm** | Brother Olm twice (floors 1-2 and 3-4). Hear everything he has to say (Listen, across both visits) and he gives up his lantern; the door of eyes in his second library opens | 6, the Flesh Library: ghosts, Lantern Wights and Gorged Toads | the Archivist, Who Wrote the Dark | **THE WHITE WIZARD**: Zippy, cleansed, robed white, in a column of holy light |
 
+**THE THRONE** isn't a road but a build. Master the wand's element
+(attunement III in it: six sources, the wand counting one) and when the Heart
+falls its portal burns that element's colour (`G.mastered()`, portal kind
+`throne`; mastered after the Heart, by its relic say, the portal turns then,
+`G.checkThrone`). The Ember and the Bog come first. Through it: the ending,
+no climb. The throne rises out of the floor (`Models.throne(el)`,
+`js/render/rigs-throne.js`), Zippy, robed all in the element, sits in it,
+Gribbus hops up on the arm, and the element pours out of him round the room.
+One ending, five thrones, each with its own words (`DG.ENDINGS.throne.els`,
+`DG.endingFor`): the **Ash**, **Rime**, **Blight**, **Storm** and **Star
+Thrones**. `G.meta.thrones` remembers which.
+
+On the way, the robes show it (`Items.costume(ids, sets, { el, tier })`):
+at attunement I the cape takes the element's dye, at II the robe runs half
+way to it, at III all of him, with its motes about him. The wand keeps its
+element on a tie; another element has to pass it. Picking up another
+element's item says so ("Poison stirs in you, but your wand stays frost
+(frost 2, poison 1)") and the HUD rings the wand's element in gold.
+
 Off his road, Olm still turns up once on 35% of runs. He looks like Zippy
 (the same school's coat, hood and hat), a head taller, in teal and brass,
 with ten little frogs sat round him reading scrolls in his library. His

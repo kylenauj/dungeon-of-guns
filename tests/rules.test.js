@@ -320,7 +320,7 @@ test("forms reshape the wand and stack: scatter fans out, lens pierces, bombard 
     assert.ok(k > 0.6 && k < 1.5, id + ": " + k.toFixed(2) + "x the bare wand");
   });
 });
-test("the wand's element is whichever you've gathered most: one core turns it to ice, its spell follows; a tie goes to the last taken", ()=>{
+test("the wand's element is whichever you've gathered most: one core turns it to ice, its spell follows; a tie keeps what it has", ()=>{
   const G = game("WAND4");
   assert.equal(G.gun().element, "arcane");
   G.giveItem("rimecore");
@@ -329,10 +329,23 @@ test("the wand's element is whichever you've gathered most: one core turns it to
   assert.ok(G.shotEls(G.gun()).indexOf("frost") >= 0);
   assert.ok(G.drain().some(e=> e.type === "wand" && e.el === "frost"));
   G.giveItem("embercore");
-  assert.equal(G.gun().element, "fire", "a tie: the last one taken");
+  assert.equal(G.gun().element, "frost", "a tie: the wand keeps its element");
+  G.giveItem("embercore");
+  assert.equal(G.gun().element, "fire", "two fire beat one frost");
   G.giveItem("rimecore");
-  assert.equal(G.gun().element, "frost", "two frost beat one fire");
-  assert.ok(G.player.items.rimecore === 2, "cores stack");
+  assert.equal(G.gun().element, "fire", "and level again, it stays fire");
+  assert.ok(G.player.items.embercore === 2, "cores stack");
+});
+
+test("an item of another element says what it did: the wand stays, and how far behind it is", ()=>{
+  const G = game("WAND5"), said = [];
+  G.say = t=> said.push(t);
+  G.giveItem("rimecore"); G.giveItem("rimecore"); said.length = 0;
+  G.giveItem("venomcore");
+  assert.equal(G.gun().element, "frost", "two frost, one poison: still frost");
+  assert.ok(/stays frost \(frost 2, poison 1\)/.test(said.join(" ")), said.join(" | "));
+  assert.ok(G.drain().some(e=> e.type === "offEl" && e.el === "poison" && e.wand === "frost"));
+  assert.ok(G.mods.attune.frost >= 1, "frost keeps its attunement");
 });
 
 /* ================================================================== *
@@ -1365,6 +1378,50 @@ test("King of the Bog: ten mushrooms, a green portal, the Glutton's Bog and the 
   assert.equal(b.type, "toadking");
   takePortal(G);
   assert.equal(G.ending, "bog");
+});
+
+test("THE THRONE: an element mastered when the Heart falls; its portal leads to that element's throne", ()=>{
+  const G = new DG.Game({ seedWord:"THRONE1", floor:5, route:"none" });
+  for(let i=0;i<5;i++) G.giveItem("rimecore", true);
+  assert.equal(G.mods.attune.frost, 3, "five cores and the wand: attunement III");
+  assert.equal(G.mastered(), "frost");
+  killBoss(G);
+  assert.equal(G.portal.kind, "throne"); assert.equal(G.portal.el, "frost");
+  assert.ok(/Rime Throne/.test(G.portalText()));
+  takePortal(G);
+  assert.equal(G.state, "won"); assert.equal(G.ending, "throne"); assert.equal(G.endingEl, "frost");
+  assert.ok(G.meta.endings.throne && G.meta.thrones.frost, "remembered, and which throne");
+  assert.equal(DG.endingFor("throne", "frost").title, "THE RIME THRONE");
+  assert.ok(DG.endingFor("throne", "fire").lore.length >= 4);
+  // not mastered: the climb out as ever
+  const H = new DG.Game({ seedWord:"THRONE2", floor:5, route:"none" });
+  for(let i=0;i<3;i++) H.giveItem("rimecore", true);
+  assert.equal(H.mastered(), null);
+  killBoss(H);
+  assert.ok(!H.portal.kind, "attunement II isn't mastery");
+});
+test("THE THRONE: mastered after the Heart (its relic, say) turns the portal then; the Ember comes first", ()=>{
+  const G = new DG.Game({ seedWord:"THRONE3", floor:5, route:"none" });
+  for(let i=0;i<4;i++) G.giveItem("embercore", true);
+  killBoss(G);
+  assert.ok(!G.portal.kind);
+  G.drain(); G.giveItem("embercore");
+  assert.equal(G.portal.kind, "throne"); assert.equal(G.portal.el, "fire");
+  assert.ok(G.drain().some(e=> e.type === "portal" && e.kind === "throne"), "the view is told");
+  const H = new DG.Game({ seedWord:"THRONE4", floor:5, route:"ember" });
+  for(let i=0;i<5;i++) H.giveItem("embercore", true);
+  H.player.quests.ember = true;
+  killBoss(H);
+  assert.ok(H.portal.kind !== "throne", "carrying the Ember, it's the Kiln");
+});
+test("the robes take the wand's element a stage at a time: cape at I, half the robe at II, all of him at III", ()=>{
+  const look = t=> DG.Items.costume(["rimecore"], [], { el:"frost", tier:t });
+  assert.equal(look(0).cape, "arcane");
+  assert.equal(look(1).cape, "frost"); assert.equal(look(1).robe, "arcane");
+  assert.equal(look(2).tint, "frost"); assert.equal(look(2).tintK, 0.5);
+  assert.equal(look(3).robe, "frost"); assert.ok(look(3).auras.indexOf("snow") >= 0 && look(3).mastery === "frost");
+  assert.notEqual(look(1).key, look(2).key, "each stage is a new look (the view redresses him)");
+  assert.equal(DG.Items.costume([], [], { el:"arcane", tier:3 }).robe, "arcanum");
 });
 
 test("glowing mushrooms: Gribbus eats them, grows, and from four on he demands praise", ()=>{

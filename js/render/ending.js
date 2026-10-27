@@ -11,6 +11,9 @@
  *    bog    Gribbus swells up huge and crowned, and Zippy bows to his king
  *    white  a column of holy light comes down on Zippy; he rises in it, white
  *           from hat to hem, and the light stays on him
+ *    throne an element mastered: its throne rises out of the floor, Zippy
+ *           (robed all in it) takes his seat, Gribbus hops up on the arm,
+ *           and he shows the dark everything that element can do
  *
  *  View-side only: it reads the game, builds its own rigs and never
  *  writes back. Any key or click skips it.
@@ -31,6 +34,14 @@ const MOOD = {
   flame: { sky:0xffa860, ground:0x4a2010, light:1.2, high:0xffc890, fx:0xff8a2a, len:15 },
   bog:   { sky:0xb8f0a0, ground:0x2a4a1a, light:1.1, high:0xe8ffc0, fx:0x72e050, len:15 },   // the King of the Bog: green, loud and bright
   white: { sky:0xfffbe8, ground:0x8a8a7a, light:1.45, high:0xffffff, fx:0xfff6dc, len:16 }    // the White Wizard: holy light
+};
+/* the Throne: one light for each element */
+const THRONE_MOOD = {
+  fire:  { sky:0xffa060, light:1.15, high:0xffc890, fx:0xff7a2a, fx2:0xffd23d, len:21 },
+  frost: { sky:0xc8e8ff, light:1.25, high:0xeef8ff, fx:0x8ad8ff, fx2:0xffffff, len:21 },
+  poison:{ sky:0xb8f0a0, light:1.05, high:0xe0ffc0, fx:0x9cff3a, fx2:0x3a6a1a, len:21 },
+  shock: { sky:0xfff4c0, light:1.2,  high:0xfffbe0, fx:0xfff04a, fx2:0xffffff, len:21 },
+  arcane:{ sky:0xd8c0ff, light:1.15, high:0xf0e0ff, fx:0xc89aff, fx2:0xffe6a0, len:21 }
 };
 const T_GATHER = 1.6, T_FLASH = 4.2, T_TITLE = 5.2, T_ACT = 6.6;
 
@@ -69,10 +80,19 @@ DG.Ending.prebuild = function(G){
   const fr = M.frog(false, ["crown"], { rot:3 });          // the King of the Bog, swollen on mushrooms
   // the White Wizard, only when Olm's road could get you there
   const zw = !G || (G.roads && G.roads.route === "olm") ? M.zippy({ robe:"white", cape:"white", parts:["tallhat", "halo"], auras:[] }) : null;
-  return { z, f, fr, zw };
+  // the Throne, when an element is mastered (or on its way: the wand's element)
+  const tel = G && (G.endingEl || (G.mastered && G.mastered()));
+  const th = tel ? DG.Ending.throneRigs(tel) : null;
+  return { z, f, fr, zw, zt:th && th.z, throne:th && th.throne, tel };
+};
+/* the master and his seat */
+DG.Ending.throneRigs = function(el){
+  const dye = DG.ATTUNE_DYE[el] || "arcanum";
+  return { z:M.zippy({ robe:dye, cape:dye, parts:["tallhat"], auras:[] }), throne:M.throne(el) };
 };
 DG.Ending.play = function(G, V, id, done){
-  const mood = MOOD[id] || MOOD.dawn, E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
+  const tel = G.endingEl || "arcane";
+  const mood = id === "throne" ? THRONE_MOOD[tel] || THRONE_MOOD.arcane : MOOD[id] || MOOD.dawn, E = DG.endingFor(id, tel);
   const p = G.player, x0 = p.x, y0 = p.y;
   const way = walkway(G, x0, y0);
   const u = S.post.mat.uniforms;
@@ -94,7 +114,9 @@ DG.Ending.play = function(G, V, id, done){
   const darkF = add(M.frog(false, G.gribbus.buffs));
   // and as they will be
   const pre = V.endRigs || DG.Ending.prebuild(G); V.endRigs = null;
-  const brightZ = add(id === "white" && pre.zw ? pre.zw : pre.z); brightZ.root.visible = false;
+  if(id === "throne" && (!pre.zt || pre.tel !== tel)){ const th = DG.Ending.throneRigs(tel); pre.zt = th.z; pre.throne = th.throne; }
+  const brightZ = add(id === "white" && pre.zw ? pre.zw : id === "throne" ? pre.zt : pre.z); brightZ.root.visible = false;
+  if(id === "throne") M.setGun(brightZ, G.gun(), els);
   const brightF = add(id === "bog" && pre.fr ? pre.fr : pre.f); brightF.root.visible = false;
   if(brightF.parts.crown) brightF.parts.crown.visible = id === "bog";
   [brightZ, brightF].forEach(R=>{ if(R.parts.tongue) R.parts.tongue.visible = false; });
@@ -103,6 +125,12 @@ DG.Ending.play = function(G, V, id, done){
   const side = way.dx !== 0 ? { x:0, y:0.9 } : { x:0.95, y:0.25 };
   const fx1 = x0 + side.x, fy1 = y0 + side.y;
   let hearth = null, shaft = null;
+  let throne = null, upN = 0;
+  if(id === "throne"){
+    for(let i=1; i<=3; i++){ if(G.blocked(Math.floor(x0), Math.floor(y0 - i), "player")) break; upN = i; }
+    throne = add(pre.throne); throne.root.visible = false;
+  }
+  const thY = y0 - Math.max(1.3, Math.min(2.1, upN - 0.4));
 
   const c = { t:0, id, done:false };
   let flashed = false, faded = false;
@@ -119,6 +147,7 @@ DG.Ending.play = function(G, V, id, done){
       const bg = id === "bog" ? 2.1 : 0;
       brightZ.root.position.set(x0 - side.x*bg, 0, y0 - side.y*bg); brightZ.root.rotation.y = 0;
       brightF.root.position.set(fx1 + side.x*bg*0.8, 0, fy1 + side.y*bg*0.8); brightF.root.scale.setScalar(id === "bog" ? 4.4 : 1.3); }
+    if(throne && !throne.root.visible){ throne.root.visible = true; throne.root.position.set(x0, 0, thY); seat(brightZ, 1); perch(brightF, 1); }
     K.GLOOM.uGloom.value = mood.gloom || 0; S.hemi.color.copy(hemi1); S.hemi.intensity = mood.light; u.uHigh.value.copy(high1);
     M.tint(brightZ, mood.fx, 0.03); M.tint(brightF, 0x000000, 1);
     S.rig.dist = keep.dist; S.rig.pitch = keep.pitch; S.rig.lead = keep.lead;
@@ -222,6 +251,7 @@ DG.Ending.play = function(G, V, id, done){
     if(id === "dawn") dawn(act, dt, t);
     else if(id === "flame") flame(act, dt, t);
     else if(id === "white") white(act, dt, t);
+    else if(id === "throne") throneAct(act, dt, t);
     else bog(act, dt, t);
   }
 
@@ -337,6 +367,101 @@ DG.Ending.play = function(G, V, id, done){
     if(brightZ.root.visible) M.stalk(brightZ, { speed:0, fwd:0, side:0, max:DG.PLAYER.speed }, t, dt);
     if(brightF.root.visible) M.hop(brightF, { k:-1 }, t, dt);
     if(hearth) hearth.intensity = 3.6 + Math.sin(t*13)*0.3;
+    if(throne && throne.root.visible){ M.throneAnim(throne, t); seat(brightZ, 1); perch(brightF, 1); M.animate(brightF, t, 0); pace(dt, t, 0.35); }
+  }
+
+  /* the Throne. The seat: Zippy sat back in it, his coat over his knees (k 0..1) */
+  function seat(Z, k){
+    Z.root.position.set(x0, 0.1*k, thY + 0.22*k + (1 - k)*0.75);
+    if(k >= 1) Z.root.rotation.y = 0;
+    Z.parts.skirt.rotation.x = -1.25*k;
+    Z.body.rotation.x = -0.08*k;
+  }
+  /* Gribbus up on the throne's right arm */
+  function perch(F, k){
+    F.root.position.set(lerp(fx1, x0 + 0.62, k), lerp(0, 1.1, k) + (k > 0 && k < 1 ? Math.sin(k*PI)*0.6 : 0), lerp(fy1, thY + 0.25, k));
+    F.root.scale.setScalar(lerp(1.3, 0.8, k));
+    F.root.rotation.y += DG.wrapAngle(-0.35 - F.root.rotation.y)*0.1;
+  }
+  /* the show: the element, all of it, all round the throne. k: how much.
+     pace(dt, t, k): about 8 a second at full strength, whatever the frame rate */
+  const later = [];
+  let showT = 0;
+  function pace(dt, t, k){
+    for(let i=later.length - 1; i>=0; i--) if(t >= later[i].t){ later[i].fn(); later.splice(i, 1); }
+    showT += dt*8*k;
+    while(showT >= 1){ showT -= 1; showOff(t, k); }
+  }
+  function showOff(t, k){
+    const el = tel, c1 = mood.fx, c2 = mood.fx2, cx = x0, cy = thY + 0.6;
+    const a = Math.random()*PI*2, r = 1.6 + Math.random()*3, px = cx + Math.cos(a)*r, py = cy + Math.sin(a)*r*0.8;
+    if(el === "fire"){
+      FX.rise(px, py, Math.random() < 0.5 ? c1 : c2, Math.round(10*k), 0.35, { v:3.2, size:0.32, life:1 });
+      if(Math.random() < 0.3*k){ FX.ring(px, py, 1.4, c1, 0.6); FX.burst(px, 0.3, py, c1, 14, 3, 0.22, 0.6, { col2:c2, up:2 }); }
+    } else if(el === "frost"){
+      FX.burst(px, 0.4, py, c1, Math.round(10*k), 2.5, 0.18, 0.8, { col2:c2, up:1.5 });
+      if(Math.random() < 0.3*k) FX.ring(px, py, 1.6, c1, 0.7);
+      for(let i=0;i<3;i++) FX.emit(cx + (Math.random() - 0.5)*9, 5 + Math.random()*2, cy + (Math.random() - 0.5)*7, 0, -1.2, 0, 0xffffff, 0.08, 4, 0, 0.2);
+    } else if(el === "poison"){
+      FX.smoke(px, 0.3, py, c1, Math.round(3*k) + 1, 0.9, 1.6, { spread:0.8, alpha:0.5 });
+      FX.rise(px, py, c1, Math.round(6*k), 0.5, { v:1, size:0.18, life:1.4 });
+      if(Math.random() < 0.25*k) FX.ring(px, py, 1.8, c1, 0.9);
+    } else if(el === "shock"){
+      if(Math.random() < 0.6*k){ FX.arc(cx + (Math.random() - 0.5)*0.9, thY - 0.4, px, py, c1, 0.2); FX.burst(px, 0.5, py, c1, 10, 3, 0.15, 0.4, { col2:c2, up:1 }); }
+      if(Math.random() < 0.2*k){ S.flash.position.set(px, 3, py); S.flash.color.setHex(c1); S.flash.intensity = 5; S.shake(0.08); }
+    } else {
+      // arcane: runes circling the throne, and stars coming down
+      for(let i=0;i<4;i++){ const b = t*1.5 + i/4*PI*2, rr = 2.2 + Math.sin(t + i)*0.3; FX.emit(cx + Math.cos(b)*rr, 1 + Math.sin(t*2 + i)*0.4, cy + Math.sin(b)*rr*0.8, 0, 0.2, 0, i % 2 ? c1 : c2, 0.14, 0.8, 0, 1); }
+      if(Math.random() < 0.4*k){ FX.emit(px, 6, py, 0, -6, 0, c2, 0.22, 0.9, 0, 0); later.push({ t:t + 0.85, fn:()=>{ FX.ring(px, py, 1.2, c1, 0.5); FX.burst(px, 0.3, py, c1, 10, 2.5, 0.16, 0.5, { col2:c2, up:1.5 }); } }); }
+    }
+  }
+  function throneAct(act, dt, t){
+    const Z = brightZ, F = brightF, T = throne;
+    // the throne comes up out of the floor
+    if(act > -1.6 && !T.root.visible){
+      T.root.visible = true;
+      hearth = S.held = S.torches[S.torches.length - 1]; hearth.color.setHex(mood.fx); hearth.intensity = 0; hearth.distance = 14; hearth.decay = 1.5; hearth.position.set(x0, 2.6, thY + 0.6);
+      FX.ring(x0, thY, 3, mood.fx, 1.2); S.shake(0.4);
+    }
+    const rise = seg(act, -1.6, 0.4);
+    T.root.position.set(x0, -3.2*(1 - rise), thY);
+    M.throneAnim(T, t);
+    if(rise < 1){ S.shake(0.05); if(Math.random() < 0.7) FX.burst(x0 + (Math.random() - 0.5)*1.6, 0.1, thY + (Math.random() - 0.5)*1.2, 0x3a3430, 3, 2, 0.2, 0.8, { up:1.5, col2:mood.fx }); }
+    if(hearth) hearth.intensity = Math.min(3.8, hearth.intensity + dt*2.5) + Math.sin(t*9)*0.2;
+    // he turns to it, walks up, turns about and sits
+    const walkK = seg(act, 0.5, 1.7), sitK = seg(act, 1.9, 2.6);
+    if(sitK <= 0){
+      Z.root.position.set(x0, 0, lerp(y0, thY + 0.75, walkK));
+      Z.root.rotation.y += DG.wrapAngle((act > 0.2 && act < 1.8 ? PI : 0) - Z.root.rotation.y)*(1 - Math.exp(-dt*6));
+      M.animate(Z, t, walkK > 0 && walkK < 1 ? 1.4 : 0);
+      M.stalk(Z, { speed:walkK > 0 && walkK < 1 ? 1.4 : 0, fwd:walkK > 0 && walkK < 1 ? 1.4 : 0, side:0, max:DG.PLAYER.speed }, t, dt);
+    } else {
+      M.animate(Z, t, 0); M.stalk(Z, { speed:0, fwd:0, side:0, max:DG.PLAYER.speed }, t, dt);
+      Z.root.rotation.y += DG.wrapAngle(0 - Z.root.rotation.y)*(1 - Math.exp(-dt*8));
+      seat(Z, sitK);
+    }
+    // Gribbus hops up beside him
+    const hopK = seg(act, 2.4, 3.2);
+    if(hopK > 0) perch(F, hopK);
+    M.animate(F, t, 0); M.hop(F, { k:hopK > 0 && hopK < 1 ? hopK : -1 }, t, dt);
+    // and then the show: arms up, the element pouring out of him
+    const show = seg(act, 3.4, 4.2);
+    if(show > 0){
+      const up = show*(1 - 0.25*seg(act, 11, 12.5));
+      Z.parts.armL.rotation.z = -0.3 - 1.3*up; Z.parts.armR.rotation.z = 1.3*up;
+      M.tint(Z, mood.fx, 0.06 + 0.06*Math.sin(t*5)*up);
+      pace(dt, t, show);
+      // the crescendo: a pillar of it, and the room ringing
+      if(act > 7 && !c.crowned){
+        c.crowned = true; S.shake(0.6); S.flash.position.set(x0, 3, thY); S.flash.color.setHex(mood.fx); S.flash.intensity = 10;
+        for(let i=0;i<6;i++){ const b = i/6*PI*2; FX.soul(x0 + Math.cos(b)*2.8, thY + 0.5 + Math.sin(b)*2.2, 8, 3.5, mood.fx); }
+        FX.ring(x0, thY + 0.5, 6, mood.fx, 1.4); FX.ring(x0, thY + 0.5, 3, 0xffffff, 0.8);
+        FX.burst(x0, 2, thY, mood.fx, 60, 7, 0.3, 1.2, { col2:mood.fx2, up:2 });
+        const au = A(); au && au.play && au.play("ending", { kind:"flame" });
+      }
+    }
+    S.rig.tx = x0; S.rig.tz = lerp(y0, thY - 0.2, seg(act, 0, 2.5));
+    S.rig.dist = lerp(10.5, 13, seg(act, 2.5, 6));
   }
 
   // the camera starts on them

@@ -43,6 +43,9 @@ Gallery.start = function(){
     { name:"REDEEMED", gap:2.4, items:[["grey wizard", ()=> M.zippy({ robe:"grey", cape:"grey", parts:["tallhat"], auras:[] })], ["Gribbus", ()=>{ const R = M.frog(false, [], { redeemed:true }); R.root.scale.setScalar(1.3); return R; }],
       ["King of the Bog", ()=>{ const R = M.frog(false, ["crown"], { redeemed:true }); if(R.parts.crown) R.parts.crown.visible = true; R.root.scale.setScalar(2.2); return R; }],
       ["white wizard", ()=> M.zippy({ robe:"white", cape:"white", parts:["tallhat", "halo"], auras:[] })]] },
+    { name:"THRONES", gap:3, items:["fire", "frost", "poison", "shock", "arcane"].map(el=> [DG.ENDINGS.throne.els[el].seat, ()=>{
+      const T = M.throne(el), Z = M.zippy({ robe:DG.ATTUNE_DYE[el], cape:DG.ATTUNE_DYE[el], parts:["tallhat"], auras:[] });
+      Z.root.position.set(0, 0.1, 0.22); Z.parts.skirt.rotation.x = -1.25; Z.body.rotation.x = -0.08; T.root.add(Z.root); T.throne = true; return T; }]) },
     { name:"LOOT", gap:1.6, items:[...["gold", "heart", "mana", "ward"].map(k=> [k, ()=>{ const g = M.pickup({ kind:k, value:5 }); g.position.y = 0.5; return { root:g }; }]),
       ...Object.keys(DG.ITEMS).filter((id, i, a)=> ["spinach", "pinball", "frostrounds", "wispcraft", "plague", "orbiter", "prismheart", "midas", "echo"].indexOf(id) >= 0).map(id=> [DG.ITEMS[id].name, ()=>{ const g = M.powerup(id); g.position.y = 0.8; return { root:g, spin:true }; }])] },
     { name:"BREAKABLES", gap:1.4, items:["pot", "crate", "barrel", "xbarrel", "urn", "coffin", "shroomcap", "eggsac", "pustule"].map(k=> [k, ()=> ({ root:new THREE.Mesh(DG.Decor.breakableGeo(k), K.toon()) })]) },
@@ -95,7 +98,7 @@ Gallery.frame = function(dt, t){
   S.rig.dist = C.dist; S.follow(C.x, C.z, C.x, C.z);
   S.playerLight.position.set(C.x, 3, C.z + 2);
   Gallery.rigs.forEach((R, i)=>{
-    if(R.olm) M.olmIdle(R, t + i*0.7, Math.sin(t*0.5)); else if(R.eyedoor) M.eyedoorOpen(R, 0.5 + 0.5*Math.sin(t*0.6), t); else if(R.still){ R.parts.head.rotation.x = -0.25 + Math.sin(t)*0.05; } else if(R.body) M.idle(R, t + i*0.7, 0);
+    if(R.throne) M.throneAnim(R, t); else if(R.olm) M.olmIdle(R, t + i*0.7, Math.sin(t*0.5)); else if(R.eyedoor) M.eyedoorOpen(R, 0.5 + 0.5*Math.sin(t*0.6), t); else if(R.still){ R.parts.head.rotation.x = -0.25 + Math.sin(t)*0.05; } else if(R.body) M.idle(R, t + i*0.7, 0);
     if(R.spin) R.root.rotation.y = t;
     if(R.parts && R.parts.head && R.kind === "zippy") R.parts.head.rotation.y = Math.sin(t*0.8)*0.3;
   });

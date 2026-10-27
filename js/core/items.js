@@ -718,7 +718,12 @@ Items.build = function(items, boons, extra, gunEl){
 
 /* what Zippy looks like with these items (ids in the order he got them), and
    any transformations (set ids): a transformation's look wins the dyes */
-Items.costume = function(ids, sets){
+/* att: { el, tier }, the wand's element and its attunement: the robes take
+   its colour a stage at a time (DG.ATTUNE_DYE): at I the cape, at II the robe
+   half way, at III all of him, and the element's motes hang about him */
+DG.ATTUNE_DYE = { fire:"fire", frost:"frost", poison:"poison", shock:"shock", arcane:"arcanum" };
+DG.ATTUNE_AURA = { fire:"embers", frost:"snow", poison:"toxic", shock:"sparks", arcane:"stars" };
+Items.costume = function(ids, sets, att){
   const look = { robe:"arcane", cape:"arcane", parts:[], auras:[] };
   let robeT = -1, capeT = -1;
   ids.forEach(id=>{
@@ -735,8 +740,15 @@ Items.costume = function(ids, sets){
     s.look.parts.forEach(p=>{ if(look.parts.indexOf(p) < 0) look.parts.push(p); });
     if(s.look.aura && look.auras.indexOf(s.look.aura) < 0) look.auras.push(s.look.aura);
   });
+  const tier = att && att.el && DG.ATTUNE_DYE[att.el] ? Math.min(3, att.tier || 0) : 0;
+  if(tier){
+    const dye = DG.ATTUNE_DYE[att.el];
+    look.cape = dye;
+    if(tier >= 2){ look.tint = dye; look.tintK = tier >= 3 ? 1 : 0.5; }
+    if(tier >= 3){ look.robe = dye; look.tintK = 1; look.mastery = att.el; const a = DG.ATTUNE_AURA[att.el]; if(look.auras.indexOf(a) < 0) look.auras.push(a); }
+  }
   look.auras = look.auras.slice(-3);
-  look.key = look.robe + "/" + look.cape + "/" + look.parts.join(",") + "/" + look.auras.join(",");
+  look.key = look.robe + "/" + look.cape + "/" + (look.tint ? look.tint + look.tintK : "") + "/" + look.parts.join(",") + "/" + look.auras.join(",");
   return look;
 };
 

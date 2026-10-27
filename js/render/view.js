@@ -233,7 +233,7 @@ proto.warmUp = function(now){
   const k = V.warm.shift();
   try{
     if(k === "@olm"){ V.warmRig(M.olm()); }
-    else if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(V.G); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); if(V.endRigs.zw) V.warmRig(V.endRigs.zw); }
+    else if(k === "@ending"){ V.endRigs = DG.Ending.prebuild(V.G); V.warmRig(V.endRigs.z); V.warmRig(V.endRigs.f); if(V.endRigs.fr) V.warmRig(V.endRigs.fr); if(V.endRigs.zw) V.warmRig(V.endRigs.zw); if(V.endRigs.zt){ V.warmRig(V.endRigs.zt); V.warmRig(V.endRigs.throne); } }
     else {
       // the first of a kind is built (and its shaders warmed), the rest are copies of it
       V.tpl = V.tpl || {};
@@ -434,7 +434,11 @@ proto.handle = function(ev){
     case "bossPhase": S.shake(0.5); play("tellBig"); break;
     case "jump": play("jump"); break;
     case "land": S.shake(0.9); play("boom"); break;
-    case "portal": V.makePortal(ev.x, ev.y, ev.kind === "bog" || G.side === "bog" ? 0x7dff3a : G.side === "flesh" ? 0xfff6dc : 0xb36bff); play("portal"); break;
+    case "portal":
+      if(V.portal){ S.scene.remove(V.portal); V.portal = null; }
+      V.makePortal(ev.x, ev.y, ev.kind === "throne" ? DG.ELEMENTS[ev.el].color : ev.kind === "bog" || G.side === "bog" ? 0x7dff3a : G.side === "flesh" ? 0xfff6dc : 0xb36bff); play("portal");
+      if(ev.kind === "throne"){ FX.soul(ev.x, ev.y, 7, 3, DG.ELEMENTS[ev.el].color); FX.ring(ev.x, ev.y, 3, DG.ELEMENTS[ev.el].color, 1); }
+      break;
     case "read": play("click"); break;
     case "bark": play("bark"); break;
     case "break": FX.burst(ev.x, 0.4, ev.y, ev.kind === "pot" || ev.kind === "urn" ? 0xb8683a : ev.kind === "eggsac" || ev.kind === "pustule" ? 0xd8e84a : 0x8a5a30, 14, 3.5, 0.3, 0.6, { grav:8, up:2 }); play("break"); break;
@@ -623,10 +627,11 @@ proto.update = function(dt, t){
   const V = this, G = V.G, p = G.player;
   V.warmUp();
   // Zippy, dressed in whatever he's carrying
-  const ids = Object.keys(p.items).join(",") + "|" + G.mods.sets.join(",");
+  const wEl = G.gun() && G.gun().element, att = { el:wEl, tier:(G.mods.attune || {})[wEl] || 0 };
+  const ids = Object.keys(p.items).join(",") + "|" + G.mods.sets.join(",") + "|" + att.el + att.tier;
   if(ids !== V.itemIds){
     V.itemIds = ids;
-    const look = DG.Items.costume(Object.keys(p.items), G.mods.sets);
+    const look = DG.Items.costume(Object.keys(p.items), G.mods.sets, att);
     if(look.key !== V.lookKey){
       const first = V.lookKey === undefined;
       V.dressPlayer(look);

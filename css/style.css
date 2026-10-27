@@ -203,6 +203,8 @@ body.cinema #hud{display:none;}
 .sigil.flame.found{color:#ffb070;border-color:#8a4a22;}
 .sigil.bog.found{color:#a8e88a;border-color:#3a6a2a;}
 .sigil.white.found{color:#fffef0;border-color:#c8c8b0;text-shadow:0 0 8px rgba(255,255,230,.7);}
+.sigil.throne.found{color:#d8b8ff;border-color:#6a4a8a;text-shadow:0 0 8px rgba(200,160,255,.6);}
+.throne-fire .lore-title{color:#ffb070;} .throne-frost .lore-title{color:#a8e0ff;} .throne-poison .lore-title{color:#a8e88a;} .throne-shock .lore-title{color:#fff07a;} .throne-arcane .lore-title{color:#d8b8ff;}
 .sigils small{font-style:italic;color:var(--dim);font-size:14px;}
 @media (prefers-reduced-motion:reduce){ .lore-lines p,.lorewrap .menu,.lore-title{animation-duration:.01s !important;animation-delay:0s !important;} }
 /* on the title the sigils share the line with the run tally, small */

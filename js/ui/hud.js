@@ -462,19 +462,25 @@ H.draw = function(G, dt, opts){
   const fy = cy0 + Math.ceil(ids.length/perRow)*(cs + gap) - cs/2 + (ids.length ? 10*k : -4);
   // attunement: a sigil per element you're building into, with its tier as pips
   const att = (G.mods && G.mods.attuneSrc) || {};
-  const els = Object.keys(att).filter(e=> att[e] >= 1 && DG.ATTUNEMENT[e]).sort((a, b)=> att[b] - att[a]);
+  // the wand's own element comes first, ringed in gold: it's the one that sets the
+  // wand's shots, the spell and the robes; the others still give their own tiers
+  const wEl = G.gun() && G.gun().element;
+  const els = Object.keys(att).filter(e=> att[e] >= 1 && DG.ATTUNEMENT[e]).sort((a, b)=> (b === wEl) - (a === wEl) || att[b] - att[a]);
   let ay = fy;
   if(els.length){
     els.forEach((e, i)=>{
-      const ax = x0 + 8*k + i*58*k, tier = (G.mods.attune || {})[e] || 0, col = ATTUNE_COL[e];
+      const ax = x0 + 8*k + i*64*k, tier = (G.mods.attune || {})[e] || 0, col = ATTUNE_COL[e], main = e === wEl;
       g.fillStyle = "rgba(10,8,8,.8)"; g.beginPath(); g.arc(ax, ay + 2, 8*k, 0, Math.PI*2); g.fill();
-      g.strokeStyle = col; g.lineWidth = tier ? 2 : 1; g.globalAlpha = tier ? 1 : 0.5; g.stroke(); g.globalAlpha = 1;
+      g.strokeStyle = col; g.lineWidth = tier ? 2 : 1; g.globalAlpha = tier || main ? 1 : 0.5; g.stroke(); g.globalAlpha = 1;
+      if(main){ g.strokeStyle = GOLD; g.lineWidth = 1.2; g.beginPath(); g.arc(ax, ay + 2, 10.5*k, 0, Math.PI*2); g.stroke(); }
       text(g, ATTUNE_GLYPH[e], ax, ay + 3, 10*k, col, "center", "700");
       // the pips: filled for tiers reached, the next one shows how close you are
       for(let t=0; t<3; t++){ const px = ax + 13*k + t*9*k, on = t < tier; g.fillStyle = on ? col : "rgba(90,80,70,.7)"; g.beginPath(); g.arc(px, ay + 2, 3*k, 0, Math.PI*2); g.fill(); }
-      text(g, att[e] + "", ax + 42*k, ay + 3, 9*k, DIM, "left", "600", BOOK);
+      const next = DG.ATTUNE_AT[tier];
+      text(g, next ? att[e] + "/" + next : "\u2605", ax + 42*k, ay + 3, 9*k, main ? (next ? "#d8c8a0" : GOLD) : DIM, "left", "600", BOOK);
     });
-    ay += 20*k;
+    if(wEl) text(g, "WAND: " + DG.ELEMENTS[wEl].name.toUpperCase() + ((G.mods.attune || {})[wEl] >= 3 ? " \u00b7 MASTERED" : ""), x0, ay + 17*k, 8.5*k, ATTUNE_COL[wEl], "left", "700", SERIF, 1.2);
+    ay += 30*k;
   }
   if(G.gribbus && G.gribbus.buffs.length){
     const fy = ay;

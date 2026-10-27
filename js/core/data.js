@@ -324,6 +324,56 @@ DG.ENDINGS = {
     "Brother Olm says he always knew the lantern was meant for someone else. He is lying. He is very pleased.",
     "There is a white wizard in the Keep now, and the light goes where he goes. Gribbus sits in it. It is warm."] }
 };
+/* THE THRONE: an element mastered (attunement III in the wand's own element)
+   when the Heart falls. The portal burns that colour and leads to its throne;
+   Zippy sits in it, robed in it, and shows the dark what he's learned.
+   One ending, five thrones: DG.endingFor(id, el) picks the words */
+DG.ENDINGS.throne = { title:"THE THRONE", sub:"An element mastered.", lore:["Zippy mastered one thing all the way down, and it was enough."], els:{
+  fire:{ seat:"Ash Throne", title:"THE ASH THRONE", sub:"Zippy is the Flame Unending.", after:"Long burn the Ash King.", lore:[
+    "The Heart stopped, and every fire in the Keep turned to look at Zippy.",
+    "He had fed the flame all the way down: cinders in his sleeves, embers in his beard. It knew him.",
+    "Out of the Heart's ash a throne rose, black glass and slow fire, and he sat in it, and the dark burned off the stone like mist.",
+    "The Gloom will not come back while the Ash King keeps his seat. It is warm in the Keep now. Too warm, for some.",
+    "Gribbus sits on the arm of the throne and toasts flies. He has never eaten so well."] },
+  frost:{ seat:"Rime Throne", title:"THE RIME THRONE", sub:"Zippy is the Winter That Waits.", after:"Winter keeps the Keep.", lore:[
+    "The Heart stopped, and the cold came up after it, and bowed.",
+    "Zippy had carried winter all the way down: frost on his hat, ice in his veins, a silence where his footsteps should be.",
+    "A throne of blue ice grew out of the Heart's grave, and he sat in it, and the rot froze where it stood.",
+    "Nothing spreads in the Keep now. Nothing grows, and nothing rots. It is very clean, and very quiet.",
+    "Gribbus has a little ice slide. He has been down it four hundred times."] },
+  poison:{ seat:"Blight Throne", title:"THE BLIGHT THRONE", sub:"Zippy is the Rot's Own Master.", after:"The rot bows.", lore:[
+    "The Heart stopped, and the Gloom did not die. It turned, slowly, toward the one who had out-rotted it.",
+    "Zippy had drunk every venom in the dungeon, and kept them. The plague knew its betters.",
+    "A throne of bone and fungus rose wet out of the Heart, and he sat in it, and the Gloom lay down at his feet like a dog.",
+    "The rot still grows in the Keep. It grows where he tells it to.",
+    "Gribbus is immune to everything now. He licks things to prove it."] },
+  shock:{ seat:"Storm Throne", title:"THE STORM THRONE", sub:"Zippy is the Lightning Held.", after:"The storm listens.", lore:[
+    "The Heart stopped, and the air in the forest went sharp and bright.",
+    "Zippy had carried the storm down every stair: copper on his fingers, thunder in his chest, his beard standing straight up.",
+    "A throne of black iron and caged lightning crashed down where the Heart had been, and he sat in it, and the Gloom fled every flash.",
+    "When it storms over the Keep now, the storm is listening.",
+    "Gribbus' warts are charged for good. Flies drop out of the air near him. He takes the credit."] },
+  arcane:{ seat:"Star Throne", title:"THE STAR THRONE", sub:"Zippy is the Last Archmage.", after:"The stars stay close.", lore:[
+    "The Heart stopped, and the old runes in the stone woke, one by one, and spelled out his name.",
+    "Zippy had learned the school's last secrets on the way down, the ones his master never dared.",
+    "A throne of floating stone and turning sigils built itself out of nothing, and he sat in it, and the stars came down to see.",
+    "The Gloom was only ever a spell. He unwrote it.",
+    "Gribbus has a small orbit of his own now. He finds it confusing, but dignified."] }
+} };
+/* what the Heart says when its portal turns to a mastered element's colour */
+DG.THRONE_LINES = {
+  fire:"The Gloom Heart is still. Its ashes stir, and the portal burns red. Your fire wants a throne.",
+  frost:"The Gloom Heart is still. Frost runs across the portal. Below it, something cold is waiting for its king.",
+  poison:"The Gloom Heart is still. The portal festers green. The rot has found its master.",
+  shock:"The Gloom Heart is still. The portal crackles. The storm is calling you up to sit.",
+  arcane:"The Gloom Heart is still. Runes spin in the portal and spell your name. A throne is waiting."
+};
+/* an ending's words; the Throne has one set for each element */
+DG.endingFor = function(id, el){
+  const E = DG.ENDINGS[id] || DG.ENDINGS.dawn;
+  return E.els ? Object.assign({}, E, E.els[el] || E.els.arcane) : E;
+};
+
 /* a line on arriving at each floor, so the story seeps in as you go down */
 DG.LORE_FLOORS = [
   "The Keep was built around a fire. The fire is very far down now.",

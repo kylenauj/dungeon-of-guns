@@ -75,15 +75,21 @@ proto.recalc = function(){
 };
 proto.gun = function(){ return this.player.guns[this.player.cur]; };
 /* the wand's element: whichever element Zippy has gathered most of (cores, rounds,
-   relics, what's built into an ascension); a tie goes to the one he took last;
+   relics, what's built into an ascension); on a tie it keeps the element it has
+   (another element has to pass it, not just draw level), else the one he took last;
    with none at all it's arcane, as it began */
-proto.wandElement = function(){
+proto.elementCounts = function(){
   const p = this.player, g = p.guns[p.cur], n = {};
   const count = (d, k)=>{ const e = Items.elSources(d); for(const x in e) n[x] = (n[x] || 0) + e[x]*k; };
   for(const id in p.items) if(DG.ITEMS[id]) count(DG.ITEMS[id], p.items[id]);
   ((g && g.innate) || []).forEach(id=> DG.ITEMS[id] && count(DG.ITEMS[id], 1));
+  return n;
+};
+proto.wandElement = function(){
+  const p = this.player, n = this.elementCounts(), g = p.guns[p.cur], cur = g && g.element;
   let best = "arcane", bn = 0;
   DG.ELEMENT_ORDER.forEach(e=>{ const v = n[e] || 0; if(v > bn || (v === bn && v > 0 && e === p.lastEl)){ best = e; bn = v; } });
+  if(cur && cur !== best && (n[cur] || 0) === bn && bn > 0) best = cur;
   return best;
 };
 proto.gunStats = function(g){ return L.stats(g || this.gun(), this.mods); };
@@ -144,6 +150,8 @@ proto.descend = function(){
   if(G.floor >= DG.FINAL_FLOOR && !G.endless){
     if(G.player.quests.ember){ G.enterSide("kiln", "The Ember pulls you down. Down to the Kiln."); return; }
     if(G.portal && G.portal.kind === "bog"){ G.enterSide("bog", "Gribbus dives into the green. You follow your king."); return; }
+    // an element mastered: the Heart's portal leads to its throne
+    if(G.portal && G.portal.kind === "throne"){ G.endingEl = G.portal.el; G.finish("throne"); return; }
     if(!G.D.climb){ G.enterFloor(DG.FINAL_FLOOR, DG.Dungeon.climb((G.seed ^ 0xc11b) >>> 0)); G.say("The Heart is still, and the forest is coming apart. Up. Run. Toward the light.", 4); return; }
     G.finish("dawn"); return;
   }
@@ -527,8 +535,36 @@ proto.giveItem = function(id, quiet){
   const g = G.gun();
   if(g && g.wand && (g.element !== el0 || g.base !== base0)){
     G.emit("wand", { el:g.element, base:g.base, name:g.name, form:d.form || null });
-    if(!quiet) G.say(d.form ? "Your wand twists into a new shape: the " + g.name + "." : "Your wand turns " + DG.ELEMENTS[g.element].name.toLowerCase() + ": the " + g.name + ".", 3.5);
+    if(!quiet) G.say(d.form ? "Your wand twists into a new shape: the " + g.name + "." : "Your wand turns " + DG.ELEMENTS[g.element].name.toLowerCase() + " (" + G.elementTally(g.element, el0) + "): the " + g.name + ".", 3.5);
   }
+  // another element than the wand's: it still works (its own effects, its own
+  // attunement), but the wand, the spell and the robes follow the one you have most of
+  else if(g && g.wand && !quiet && els.length && els.indexOf(g.element) < 0){
+    const e = els[els.length - 1];
+    G.say(DG.ELEMENTS[e].name + " stirs in you, but your wand stays " + DG.ELEMENTS[g.element].name.toLowerCase() + " (" + G.elementTally(g.element, e) + "). Gather more " + DG.ELEMENTS[e].name.toLowerCase() + " to turn it.", 4);
+    G.emit("offEl", { el:e, wand:g.element });
+  }
+  G.checkThrone();
+};
+/* an element mastered: attunement III in the wand's own element (DG.ATTUNE_AT[2]
+   sources). At the Heart, it opens the way to that element's throne */
+proto.mastered = function(){
+  const g = this.gun(), el = g && g.element;
+  return el && (this.mods.attune || {})[el] >= 3 ? el : null;
+};
+/* mastered after the Heart fell (its boss relic, say): the portal turns now */
+proto.checkThrone = function(){
+  const G = this, P = G.portal;
+  if(!P || P.kind || G.side || G.endless || G.floor < DG.FINAL_FLOOR || G.player.quests.ember || !G.mastered()) return;
+  P.kind = "throne"; P.el = G.mastered();
+  G.emit("portal", P);
+  G.say(DG.THRONE_LINES[P.el], 4.5);
+};
+/* "frost 3, poison 1": the wand's element against another, for the lines above */
+proto.elementTally = function(a, b){
+  const C = this.elementCounts(), n = e=> C[e] || 0, nm = e=> DG.ELEMENTS[e].name.toLowerCase();
+  const two = b && b !== a && n(b) > 0;
+  return nm(a) + " " + n(a) + (two ? ", " + nm(b) + " " + n(b) + (n(a) === n(b) ? ": a tie keeps what it has" : "") : "");
 };
 proto.checkAscensions = function(){
   const G = this, p = G.player;
@@ -810,6 +846,8 @@ proto.bossDown = function(e){
   const p = G.player, last = G.floor >= DG.FINAL_FLOOR && !G.endless && !G.side;
   // ten mushrooms in him: the Heart's portal runs green, down into the Bog
   if(last && DG.Roads && DG.Roads.kingReady(G) && !p.quests.ember) G.portal.kind = "bog";
+  // an element mastered (the Ember and the Bog come first): the portal burns its colour
+  else if(last && !p.quests.ember && G.mastered()){ G.portal.kind = "throne"; G.portal.el = G.mastered(); }
   G.emit("portal", G.portal);
   if(e.type === "hollow") G.say("The Hollow Wizard is still. The hearth is cold, and waiting.", 4);
   else if(e.type === "toadking"){
@@ -820,6 +858,7 @@ proto.bossDown = function(e){
   else if(e.type === "archivist") G.say("The Archivist is still. Every page in the library goes white, and so does the lantern.", 4);
   else if(last && p.quests.ember) G.say("The Gloom Heart is still. The Ember is burning a hole in your pocket. It wants to go down.", 4);
   else if(G.portal.kind === "bog") G.say("The Gloom Heart is still. Gribbus sniffs the portal. It has gone green, and it smells of king.", 4);
+  else if(G.portal.kind === "throne") G.say(DG.THRONE_LINES[G.portal.el], 4.5);
   else G.say(last ? "The Gloom Heart is still. The forest breathes out. The way out is open." : DG.BOSSES[e.type].name + " is down! A portal opens.", 4);
 };
 
@@ -896,6 +935,7 @@ proto.portalText = function(){
   if(G.floor >= DG.FINAL_FLOOR && !G.endless){
     if(p.quests.ember) return "Follow the Ember down";
     if(G.portal && G.portal.kind === "bog") return "Follow Gribbus into the green";
+    if(G.portal && G.portal.kind === "throne") return "Take the " + DG.ENDINGS.throne.els[G.portal.el].seat;
     return "Escape the dungeon";
   }
   return "Jump in the portal";
@@ -906,6 +946,7 @@ proto.finish = function(id){
   if(G.state === "won") return;
   G.state = "won"; G.ending = id;
   G.meta.endings = G.meta.endings || {}; G.meta.endings[id] = true;
+  if(id === "throne" && G.endingEl){ G.meta.thrones = G.meta.thrones || {}; G.meta.thrones[G.endingEl] = true; }
   G.emit("won", { ending:id });
 };
 /* ---- keys ---- */
