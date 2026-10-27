@@ -2018,6 +2018,13 @@ test("the Gravedigger's spade opens a grave that drags at Zippy's feet; the dead
 });
 
 /* ---- hitches on Windows ---- */
+test("no lights are added after load: a new light changes the light count and recompiles every lit shader (the White Wizard's ending froze for a second)", ()=>{
+  const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "js", "render");
+  fs.readdirSync(dir).filter(f=> /\.js$/.test(f) && f !== "stage.js" && f !== "gallery.js").forEach(f=>{
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    assert.ok(!/new THREE\.(Point|Spot|Directional|Hemisphere|RectArea)Light/.test(src), f + " makes a light: borrow one of Stage's torches (S.held) instead");
+  });
+});
 test("every 2D canvas is drawn on the CPU: on the GPU, Chrome compiled a DirectX shader for each new kind of stroke or gradient, mid-fight", ()=>{
   const fs = require("fs"), path = require("path"), root = path.join(__dirname, "..", "js");
   const files = [];

@@ -343,7 +343,8 @@ DG.Ending.play = function(G, V, id, done){
     if(!shaft && act > -1.4){
       shaft = new THREE.Group(); shaft.position.set(x0, 0, y0); S.scene.add(shaft);
       [[0.9, 0.1], [0.45, 0.16], [0.18, 0.3]].forEach(([r, op])=>{ const m = new THREE.Mesh(new THREE.CylinderGeometry(r*0.8, r*1.3, 14, 20, 1, true), new THREE.MeshBasicMaterial({ color:0xfffbe8, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false })); m.position.y = 7; shaft.add(m); });
-      hearth = new THREE.PointLight(0xfffbe8, 0, 12, 1.4); hearth.position.set(x0, 2.5, y0); S.scene.add(hearth);
+      // (a torch light, borrowed: a new light changes the light count, and every lit shader recompiles)
+      hearth = S.held = S.torches[S.torches.length - 1]; hearth.color.setHex(0xfffbe8); hearth.intensity = 0; hearth.distance = 12; hearth.decay = 1.4; hearth.position.set(x0, 2.5, y0);
       FX.soul(x0, y0, 12, 10, 0xfffbe8); FX.ring(x0, y0, 4, 0xfffbe8, 1.4); S.shake(0.35);
     }
     if(hearth) hearth.intensity = Math.min(3.5, hearth.intensity + dt*2.5) + Math.sin(t*3)*0.15;
