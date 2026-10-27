@@ -785,6 +785,11 @@ Icons.ITEMS = {
   sideeyes:"arrows3", rearguard:"arrows2", wiggle:"worm", orbiter:"orbit", boomerang:"boomerang", ghostshot:"ghost", snowball:"snowball",
   rocket:"rocket", corkscrew:"spiral", chaos:"chaos", burstfire:"bullet*3", echo:"waves", kaleido:"arrows4",
   /* elements */
+  cinderskin:"flame+shield@fire", kindling:"pouch@fire", brand:"burst@fire", flamestep:"boot@fire", pyroglove:"hand@fire", ashcrown:"crown@fire", phoenix:"feather@fire", salamander:"worm@fire", hearthstone:"ring@fire", sunsigil:"sun@fire",
+  frostmitts:"hand@frost", rimeshard:"shards@frost", glacialplate:"shield@frost", snowdrift:"boot@frost", iciclecrown:"crown@frost", wintersbite:"fang@frost", permafrost:"rune@frost", hailcharm:"snowball@frost", frozentear:"droplet@frost", glacierheart:"heart+snowflake@frost",
+  rotfang:"fang@poison", toadvenom:"frog@poison", blightgloves:"hand@poison", plaguemask:"mask@poison", sporesack:"pouch@poison", bileflask:"flask@poison", creepmold:"mushroom@poison", cauldron:"keg@poison", leechring:"ring@poison", motherrot:"skull+droplet@poison",
+  copperwire:"chain+bolt@shock", staticgloves:"hand@shock", stormboots:"boot@shock", lightningrod:"spear@shock", teslacoil:"spiral@shock", thunderdrum:"bell@shock", galvanic:"cog@shock", sparklantern:"lantern@shock", voltheart:"heart@shock", stormcrown:"crown+cloud@shock",
+  hexthread:"tangle@arcane", runebangle:"ring+rune@arcane", magemirror:"mirror@arcane", blinkglyph:"sigil+boot@arcane", eldritcheye:"eye@arcane", grimoire:"tome@arcane", voidlens:"blackhole@arcane", astralchime:"bell+star@arcane", echosigil:"bounce@arcane", magusstar:"star@arcane",
   scatterfocus:"wand+fan", repeatercoil:"wand+spiral", longlens:"wand+lens", bombardrune:"wand+bomb",
   rimecore:"gem@frost", embercore:"gem@fire", venomcore:"gem@poison", stormcore:"gem@shock", hexcore:"gem@arcane",
   frostrounds:"snowflake", emberrounds:"flame", venomrounds:"droplet", staticrounds:"bolt", arcanerounds:"sigil", prism:"prism", elementalist:"orb@all",

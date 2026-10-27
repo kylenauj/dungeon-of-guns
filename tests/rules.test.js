@@ -1975,3 +1975,60 @@ test("the Choir sings five notes to start, four rounds, and from floor 3 wants t
   assert.equal(a.len, 5); assert.equal(a.rounds, 4); assert.ok(!a.reverse);
   assert.ok(b.reverse && b.len >= 6);
 });
+
+/* ---- the elements: abilities, and spells that grow ---- */
+test("fifty abilities of the elements, ten each, and every one counts toward its element's attunement", ()=>{
+  const ids = ["cinderskin", "kindling", "brand", "flamestep", "pyroglove", "ashcrown", "phoenix", "salamander", "hearthstone", "sunsigil",
+    "frostmitts", "rimeshard", "glacialplate", "snowdrift", "iciclecrown", "wintersbite", "permafrost", "hailcharm", "frozentear", "glacierheart",
+    "rotfang", "toadvenom", "blightgloves", "plaguemask", "sporesack", "bileflask", "creepmold", "cauldron", "leechring", "motherrot",
+    "copperwire", "staticgloves", "stormboots", "lightningrod", "teslacoil", "thunderdrum", "galvanic", "sparklantern", "voltheart", "stormcrown",
+    "hexthread", "runebangle", "magemirror", "blinkglyph", "eldritcheye", "grimoire", "voidlens", "astralchime", "echosigil", "magusstar"];
+  assert.equal(new Set(ids).size, 50);
+  const per = {};
+  ids.forEach(id=>{ const d = DG.ITEMS[id]; assert.ok(d, id); const e = Object.keys(DG.Items.elSources(d)); assert.equal(e.length, 1, id + " is of one element"); per[e[0]] = (per[e[0]] || 0) + 1; });
+  DG.ELEMENT_ORDER.forEach(e=> assert.equal(per[e], 10, e));
+});
+test("the right-click spell grows with attunement: four tiers of each, every one cast in a fight without anything going NaN", ()=>{
+  DG.ELEMENT_ORDER.forEach(el=>{
+    const key = DG.ELEMENTS[el].spell;
+    assert.equal(DG.SPELLS[key].tiers.length, 4, key);
+    // (the wand itself counts as one source of its element, so one core is tier I already;
+    // tier 0 is the bare wand, arcane)
+    for(let tier=el === "arcane" ? 0 : 1; tier<4; tier++){
+      const G = game("SPELL" + el + tier, 2), r = combatRoom(G); G.god = true;
+      const s0 = G.freeSpot(r, r.cxw, r.cyw); G.player.x = s0.x; G.player.y = s0.y; G.room = r; r.active = true;
+      for(let i=0;i<4;i++) addEnemy(G, r, s0.x + 2 + i*0.5, s0.y + (i % 2));
+      // gather the element until it's this tier (cores: one source each)
+      const core = { frost:"rimecore", fire:"embercore", poison:"venomcore", shock:"stormcore", arcane:"hexcore" }[el];
+      for(let i=0; i<(el === "arcane" ? [0, 1, 3, 5][tier] : 2*tier - 1); i++) G.giveItem(core, true);
+      const s = G.gunStats();
+      assert.equal(G.gun().element, el); assert.equal(s.spellTier, tier, el + " tier");
+      G.player.mana = 999;
+      G.castSpell(G.gun(), s, { ax:s0.x + 3, ay:s0.y });
+      step(G, 1.2);
+      G.enemies.forEach(e=> assert.ok(!isNaN(e.hp) && isFinite(e.x), el + " " + tier));
+    }
+  });
+});
+test("Absolute Zero comes twice, and Storm Crown strikes all over the room", ()=>{
+  const G = game("ZERO", 2), r = combatRoom(G); G.god = true;
+  const s0 = G.freeSpot(r, r.cxw, r.cyw); G.player.x = s0.x; G.player.y = s0.y; G.room = r; r.active = true;
+  for(let i=0;i<6;i++) G.giveItem("rimecore", true);
+  assert.equal(DG.spellAt("nova", G.gunStats().spellTier).name, "Absolute Zero");
+  G.player.mana = 999; G.drain();
+  G.castSpell(G.gun(), G.gunStats(), {});
+  const ev = G.drain().concat(step(G, 1));
+  assert.equal(ev.filter(e=> e.type === "spell" && e.spell === "nova").length, 2, "the nova, and its second wave");
+  const H = game("CROWN", 2), q = combatRoom(H); H.god = true;
+  const s1 = H.freeSpot(q, q.cxw, q.cyw); H.player.x = s1.x; H.player.y = s1.y; H.room = q; q.active = true;
+  const foes = []; for(let i=0;i<6;i++) foes.push(addEnemy(H, q, q.x1 + 2 + i*1.6, q.y1 + 2 + (i % 2)*3));
+  for(let i=0;i<5;i++) H.giveItem("stormcore", true);
+  assert.equal(DG.spellAt("chain", H.gunStats().spellTier).name, "Storm Crown");
+  H.player.mana = 999; H.drain();
+  H.castSpell(H.gun(), H.gunStats(), {});
+  // (the room's next wave comes in once these are down, so count the ones we placed)
+  assert.ok(foes.filter(e=> e.hp < e.maxHp || e.dead).length >= 4, "it reaches all over the room at once");
+  const hits = new Set();
+  step(H, 1.5).forEach(e=>{ if(e.type === "arc") hits.add(e.x2.toFixed(1) + "," + e.y2.toFixed(1)); });
+  assert.ok(hits.size >= 3, "and the storm keeps striking after the first bolt");
+});

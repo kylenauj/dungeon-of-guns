@@ -108,6 +108,7 @@ L.stats = function(gun, M){
     crit: M.crit,
     critMul: 2 + M.critMul,
     spell: DG.ELEMENTS[gun.element].spell,
+    spellTier: (M.attune && M.attune[gun.element]) || 0,
     spellCost: Math.round(DG.SPELLS[DG.ELEMENTS[gun.element].spell].cost*Math.max(0.3, 1 - M.spellCost))
   };
 };

@@ -142,7 +142,7 @@ UI.journal = function(G){
 UI.bag = function(G){
   const p = G.player, L = DG.Loot;
   const gunCard = (gun, gi)=>{
-    const s = L.stats(gun, G.mods), R = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], sp = DG.SPELLS[s.spell];
+    const s = L.stats(gun, G.mods), R = DG.RARITY[gun.rarity], E = DG.ELEMENTS[gun.element], sp = DG.spellAt(s.spell, s.spellTier);
     const innate = (gun.innate || []).filter(id=> DG.ITEMS[id]).map(id=> `<span class="chipx" style="--c:${DG.TIERS[DG.ITEMS[id].tier].color}" title="${esc(DG.ITEMS[id].desc)}">${icon(id, 18, "ico sm")}${esc(DG.ITEMS[id].name)}</span>`).join("");
     return `<div class="gcard ${gi === p.cur ? "cur" : ""}" style="--el:${hex(E.color)};--ra:${gun.ascended ? "#ffb12e" : R.color}">
       <div class="gname">${icon(DG.Icons.keyFor(gun), 34, "ico gico")}${esc(gun.name)}</div>

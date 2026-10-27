@@ -364,6 +364,8 @@ proto.shotEnd = function(b, why, target){
   else G.emit("pop", { x:b.x, y:b.y, team:b.team, el:b.els ? b.els[0] : null, wall:why === "wall" });
   if(b.team !== "p") return;
   if(b.onEnd === "puddle") G.byproduct("poison", b.x, b.y, G.payloadPower(), 2);
+  // a grown Fireball leaves fire burning where it lands (a ring of it, for the Comet)
+  if(b.firePool){ for(let i=0;i<b.firePool;i++){ const a = i/b.firePool*TAU, rr = b.firePool > 1 ? (b.blast || 2)*0.55 : 0; G.byproduct("fire", b.x + Math.cos(a)*rr, b.y + Math.sin(a)*rr, G.payloadPower(), 1); } }
   if(why === "wall") G.trigger("wall", { x:b.x, y:b.y, els:b.els, depth:b.depth });
   if(why === "expire"){
     G.trigger("expire", { x:b.x, y:b.y, els:b.els, depth:b.depth });
@@ -1130,10 +1132,11 @@ proto.updateBeams = function(dt){
  *  Spells (right mouse): the gun's element, through the gun
  * ================================================================== */
 proto.castSpell = function(g, s, I, echo){
-  const G = this, p = G.player, sp = DG.SPELLS[s.spell], pw = s.power*G.dmgBonus()*G.mods.dmgMul*Math.max(0.2, 1 + G.mods.dmg);
+  // the spell as it stands: it grows with the wand's element's attunement (DG.SPELLS tiers)
+  const G = this, p = G.player, tier = s.spellTier || 0, sp = DG.spellAt(s.spell, tier), pw = s.power*G.dmgBonus()*G.mods.dmgMul*Math.max(0.2, 1 + G.mods.dmg);
   if(!echo){ p.mana -= s.spellCost; p.fireCd = 0.25; }
   const a = p.aim, els = G.shotEls(g);
-  G.emit("spell", { spell:s.spell, x:p.x, y:p.y, a, el:g.element });
+  G.emit("spell", { spell:s.spell, tier, name:sp.name, x:p.x, y:p.y, a, el:g.element });
   // the Lantern road: the old fire on the floor, and every fifth (or every) cast a beam of it
   if(!echo){
     const M = G.mods;
@@ -1147,39 +1150,73 @@ proto.castSpell = function(g, s, I, echo){
     G.emit("croak", { x:f.x, y:f.y, kind:"frost" });
   });
   G.trigger("spell", { x:p.x, y:p.y, els, depth:0 });
+  const aimAt = ()=>{ let tx = I.ax === undefined ? p.x + Math.cos(a)*5 : I.ax, ty = I.ay === undefined ? p.y + Math.sin(a)*5 : I.ay;
+    const d = DG.dist(p.x, p.y, tx, ty); if(d > 9){ tx = p.x + (tx - p.x)/d*9; ty = p.y + (ty - p.y)/d*9; } return { tx, ty }; };
   switch(s.spell){
-    case "missiles":
-      for(let i=0;i<sp.n;i++){
-        const o = a + (i - (sp.n - 1)/2)*0.32;
-        G.addShot({ x:p.x, y:p.y, a:o, speed:10, r:0.18, dmg:sp.dmg*pw, range:22, els, power:s.power, knock:1.5, kind:"missile", homing:3.5, depth:0, crit:s.crit, critMul:s.critMul });
+    case "missiles": {
+      // Missiles, a Swarm, a Barrage (in waves), Starfall (three waves and runes at the cursor)
+      const wave = ()=>{ for(let i=0;i<sp.n;i++){ const o = a + (i - (sp.n - 1)/2)*Math.min(0.32, 2.2/sp.n);
+        G.addShot({ x:p.x, y:p.y, a:o, speed:10, r:0.18 + 0.02*tier, dmg:sp.dmg*pw, range:22, els, power:s.power, knock:1.5, kind:"missile", homing:3.5, depth:0, crit:s.crit, critMul:s.critMul }); } };
+      wave();
+      for(let k=1;k<(sp.waves || 1);k++) G.pending.push({ t:0.3*k, fn:()=>{ if(G.player.alive !== false) wave(); } });
+      if(sp.runes){ const { tx, ty } = aimAt(); for(let i=0;i<sp.runes;i++){ const ra = i/sp.runes*TAU; G.byproduct("arcane", tx + Math.cos(ra)*1.4, ty + Math.sin(ra)*1.4, pw*6, 1); } }
+      break;
+    }
+    case "fireball": {
+      // a Fireball, a Great one, a Meteor Volley of three, an Inferno Comet
+      const n = sp.n || 1;
+      for(let i=0;i<n;i++){
+        const o = a + (i - (n - 1)/2)*0.28;
+        const b = G.addShot({ x:p.x + Math.cos(o)*0.6, y:p.y + Math.sin(o)*0.6, a:o, speed:sp.speed || 9, r:sp.size || 0.34, dmg:sp.dmg*pw, range:14, els, power:s.power, knock:3, kind:"fireball", blast:sp.radius, depth:0, homing:0 });
+        if(b && sp.pool) b.firePool = sp.pool;
       }
       break;
-    case "fireball":
-      G.addShot({ x:p.x + Math.cos(a)*0.6, y:p.y + Math.sin(a)*0.6, a, speed:9, r:0.34, dmg:sp.dmg*pw, range:14, els, power:s.power, knock:3, kind:"fireball", blast:sp.radius, depth:0, homing:0 });
+    }
+    case "nova": {
+      // Frost Nova, Glacial (wider, longer), Shatter (icicles), Absolute Zero (a second wave; the great ones stiffen)
+      const burst = (R)=>{
+        G.bullets.forEach(b=>{ if(b.team === "e" && DG.dist(b.x, b.y, p.x, p.y) < R) b.dead = true; });
+        G.nova(p.x, p.y, R, sp.dmg*pw, els, 0);
+        G.enemies.forEach(e=>{ if(e.dead || DG.dist(e.x, e.y, p.x, p.y) > R + e.r) return;
+          if(!e.big) e.st.frozen = Math.max(e.st.frozen || 0, sp.freeze || 1.6);
+          else if(sp.big) e.st.chill = Math.max(e.st.chill || 0, sp.big*2); });
+      };
+      burst(sp.radius);
+      if(sp.shards) G.payload({ do:"shards", n:sp.shards, dmg:1.2, el:"frost", at:"player" }, { x:p.x, y:p.y, els:["frost"], depth:0, power:pw*6 });
+      if(sp.second) G.pending.push({ t:0.55, fn:()=>{ burst(sp.second); G.emit("spell", { spell:"nova", tier, name:sp.name, x:G.player.x, y:G.player.y, a, el:g.element, echo:true }); } });
       break;
-    case "nova":
-      G.bullets.forEach(b=>{ if(b.team === "e" && DG.dist(b.x, b.y, p.x, p.y) < sp.radius) b.dead = true; });
-      G.nova(p.x, p.y, sp.radius, sp.dmg*pw, els, 0);
-      G.enemies.forEach(e=>{ if(!e.dead && !e.big && DG.dist(e.x, e.y, p.x, p.y) < sp.radius + e.r) e.st.frozen = Math.max(e.st.frozen || 0, 1.6); });
-      break;
+    }
     case "plague": {
-      let tx = I.ax === undefined ? p.x + Math.cos(a)*5 : I.ax, ty = I.ay === undefined ? p.y + Math.sin(a)*5 : I.ay;
-      const d = DG.dist(p.x, p.y, tx, ty); if(d > 9){ tx = p.x + (tx - p.x)/d*9; ty = p.y + (ty - p.y)/d*9; }
-      G.addHazard({ kind:"cloud", x:tx, y:ty, r:sp.radius, t:sp.dur, P:s.power, every:1/sp.stacksPerSec, plague:!!G.mods.special.plague });
-      G.emit("cloud", { x:tx, y:ty, r:sp.radius });
+      // a Plague Cloud, Miasma, a Blight Field of three, a Pestilent Bloom of five with wisps
+      const { tx, ty } = aimAt(), n = sp.n || 1;
+      for(let i=0;i<n;i++){
+        const ra = i/n*TAU + 0.5, off = n > 1 ? sp.radius*0.95 : 0, cx = tx + Math.cos(ra)*off, cy = ty + Math.sin(ra)*off;
+        G.addHazard({ kind:"cloud", x:cx, y:cy, r:sp.radius, t:sp.dur, P:s.power, every:1/sp.stacksPerSec, plague:!!G.mods.special.plague });
+        G.emit("cloud", { x:cx, y:cy, r:sp.radius });
+        if(sp.puddles) G.byproduct("poison", cx, cy, pw*6, 1);
+      }
+      for(let i=0;i<(sp.wisps || 0);i++) G.spawnAlly("wisp", tx, ty, { el:"poison", P:pw*6 });
       break;
     }
     case "chain": {
-      let best = null, bs = Infinity;
+      // Chain Lightning, Forked (two bolts), a Thunderstorm (strikes all over), the Storm Crown
+      const cands = [];
       G.enemies.forEach(e=>{
         if(e.spawn > 0 || e.dead || e.untargetable) return;
         const d = DG.dist(p.x, p.y, e.x, e.y); if(d > sp.range) return;
         const off = Math.abs(DG.wrapAngle(Math.atan2(e.y - p.y, e.x - p.x) - a));
-        const sc = d*0.3 + off*4;
-        if(sc < bs && G.los(p.x, p.y, e.x, e.y)){ bs = sc; best = e; }
+        if(G.los(p.x, p.y, e.x, e.y)) cands.push({ e, sc:d*0.3 + off*4 });
       });
-      if(!best){ G.emit("fizzle", { x:p.x + Math.cos(a)*2, y:p.y + Math.sin(a)*2 }); break; }
-      G.chain(best, sp.dmg*pw, sp.jumps, p.x, p.y, { els, power:s.power, depth:0, crit:s.crit });
+      cands.sort((u, v)=> u.sc - v.sc);
+      if(!cands.length && !sp.strikes){ G.emit("fizzle", { x:p.x + Math.cos(a)*2, y:p.y + Math.sin(a)*2 }); break; }
+      cands.slice(0, sp.forks || 1).forEach(c=> G.chain(c.e, sp.dmg*pw, sp.jumps, p.x, p.y, { els, power:s.power, depth:0, crit:s.crit }));
+      for(let i=0;i<(sp.strikes || 0);i++) G.pending.push({ t:0.12 + i*0.09, fn:()=>{
+        const live = G.enemies.filter(e=> !e.dead && e.spawn <= 0 && !e.untargetable && G.room && e.room === G.room.id);
+        if(!live.length) return;
+        const e = G.rng.pick(live);
+        G.chain(e, sp.dmg*pw*0.7, 1, e.x, e.y - 6, { els:["shock"], power:s.power, depth:1, noArc:true });
+        if(sp.sparks) G.byproduct("shock", e.x, e.y, pw*6, 1);
+      } });
       break;
     }
   }

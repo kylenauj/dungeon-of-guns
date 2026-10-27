@@ -51,13 +51,37 @@ DG.REACTIONS = {
 };
 
 /* ---- spells (right mouse) ---- */
+/* each grows as you attune to its element (tiers I, II, III: 2, 4 and 6 sources,
+   DG.ATTUNE_AT): tiers[n] is the spell at attunement n, name, words and numbers */
 DG.SPELLS = {
-  missiles: { name:"Magic Missiles", cost:30, desc:"Five homing missiles.", n:5, dmg:9 },
-  fireball: { name:"Fireball",       cost:40, desc:"A slow orb that explodes and sets things alight.", dmg:34, radius:2.4 },
-  nova:     { name:"Frost Nova",     cost:35, desc:"Freezes everything near you and shatters enemy shots.", dmg:12, radius:3.6 },
-  plague:   { name:"Plague Cloud",   cost:35, desc:"A lingering cloud at the cursor: poison, poison, poison.", radius:2.6, dur:5, stacksPerSec:3 },
-  chain:    { name:"Chain Lightning",cost:30, desc:"Lightning that leaps between six enemies.", dmg:20, jumps:6, range:8 }
+  missiles: { name:"Magic Missiles", cost:30, desc:"Five homing missiles.", n:5, dmg:9, tiers:[
+    { name:"Magic Missiles",  desc:"Five homing missiles." },
+    { name:"Missile Swarm",   desc:"Eight homing missiles, each a little heavier.", n:8, dmg:10 },
+    { name:"Arcane Barrage",  desc:"Eight homing missiles, and a second wave right behind them.", n:8, dmg:10, waves:2 },
+    { name:"Starfall",        desc:"Twelve homing missiles in three waves, and burning runes where they're aimed.", n:12, dmg:11, waves:3, runes:5 }] },
+  fireball: { name:"Fireball",       cost:40, desc:"A slow orb that explodes and sets things alight.", dmg:34, radius:2.4, tiers:[
+    { name:"Fireball",        desc:"A slow orb that explodes and sets things alight." },
+    { name:"Great Fireball",  desc:"A bigger orb, a wider blast, and fire left burning where it lands.", dmg:40, radius:3.1, pool:3 },
+    { name:"Meteor Volley",   desc:"Three fireballs in a fan, each leaving fire where it lands.", dmg:34, radius:2.8, n:3, pool:2 },
+    { name:"Inferno Comet",   desc:"A huge slow comet that bursts into a ring of fire.", dmg:85, radius:4, size:0.6, speed:6.5, pool:7 }] },
+  nova:     { name:"Frost Nova",     cost:35, desc:"Freezes everything near you and shatters enemy shots.", dmg:12, radius:3.6, tiers:[
+    { name:"Frost Nova",      desc:"Freezes everything near you and shatters enemy shots." },
+    { name:"Glacial Nova",    desc:"A wider nova that freezes for longer.", dmg:15, radius:4.6, freeze:2.4 },
+    { name:"Shatter Nova",    desc:"A wide nova, and a burst of icicles flies out of it.", dmg:16, radius:4.6, freeze:2.4, shards:10 },
+    { name:"Absolute Zero",   desc:"A nova, then a second, wider one; even the great ones stiffen.", dmg:18, radius:5, freeze:2.8, shards:14, second:6.4, big:0.8 }] },
+  plague:   { name:"Plague Cloud",   cost:35, desc:"A lingering cloud at the cursor: poison, poison, poison.", radius:2.6, dur:5, stacksPerSec:3, tiers:[
+    { name:"Plague Cloud",    desc:"A lingering cloud at the cursor: poison, poison, poison." },
+    { name:"Miasma",          desc:"A bigger cloud that lingers longer.", radius:3.4, dur:7 },
+    { name:"Blight Field",    desc:"Three clouds round the cursor, and toxic puddles under them.", radius:2.8, dur:7, n:3, puddles:true },
+    { name:"Pestilent Bloom", desc:"Five clouds that poison twice as fast, puddles, and poison wisps.", radius:3, dur:8, n:5, stacksPerSec:6, puddles:true, wisps:3 }] },
+  chain:    { name:"Chain Lightning",cost:30, desc:"Lightning that leaps between six enemies.", dmg:20, jumps:6, range:8, tiers:[
+    { name:"Chain Lightning", desc:"Lightning that leaps between six enemies." },
+    { name:"Forked Lightning",desc:"Two bolts at once, each leaping through nine.", dmg:22, jumps:9, forks:2 },
+    { name:"Thunderstorm",    desc:"Forked lightning, and five more strikes fall on goblins all over the room.", dmg:22, jumps:9, forks:2, strikes:5 },
+    { name:"Storm Crown",     desc:"Three bolts leaping through twelve, eight strikes from above, and sparks where they land.", dmg:26, jumps:12, forks:3, strikes:8, sparks:true }] }
 };
+/* the spell as it stands at an attunement tier: its tier's numbers over the base */
+DG.spellAt = (key, tier)=>{ const S = DG.SPELLS[key], t = S.tiers && S.tiers[Math.max(0, Math.min(3, tier || 0))]; return Object.assign({}, S, t || {}); };
 
 /* ---- gun bases: the fire pattern ---- */
 DG.GUNS = {

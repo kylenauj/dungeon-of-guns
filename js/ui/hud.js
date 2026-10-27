@@ -99,7 +99,8 @@ H.handle = function(ev, G){
     case "nomana": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"no mana", t:0, col:MANA2 }); break;
     case "nocharge": H.nums.push({ x:p.x, y:p.y, z:2.2, v:"not charged", t:0, col:DIM }); break;
     case "item": H.card = { title:ev.name, sub:ev.desc, flavor:ev.flavor, col:DG.TIERS[ev.tier].color, tier:DG.TIERS[ev.tier].name, t:0, life:ev.tier >= 4 ? 5 : 3.6, icons:[ev.id] }; break;
-    case "attune": H.card = { title:"Attunement " + ["", "I", "II", "III"][ev.tier] + " · " + ev.name, sub:ev.desc, col:ATTUNE_COL[ev.el] || GOLD, tier:"Your " + ev.el + " answers", t:0, life:4.5 }; break;
+    case "attune": { const gun = G.gun && G.gun(), sp = gun && gun.element === ev.el ? DG.spellAt(DG.ELEMENTS[ev.el].spell, ev.tier) : null;
+      H.card = { title:"Attunement " + ["", "I", "II", "III"][ev.tier] + " · " + ev.name, sub:ev.desc + (sp ? " Your spell grows: " + sp.name + ". " + sp.desc : ""), col:ATTUNE_COL[ev.el] || GOLD, tier:"Your " + ev.el + " answers", t:0, life:sp ? 6 : 4.5 }; break; }
     case "transform": H.card = { title:ev.name, sub:ev.desc, col:"#c07ab8", tier:"Transformation", t:0, life:5, icons:["set:" + ev.id] }; H.banner = { kind:"transform", a:"TRANSFORMATION", b:ev.name, t:0 }; break;
     case "duo": { const duo = DG.DUOS.find(x=> x.name === ev.name); H.card = { title:ev.name, sub:ev.desc, col:"#c86aa8", tier:"Duo · Synergy", t:0, life:4, icons:duo ? [duo.a, duo.b] : null }; break; }
     case "ascend": { const gun = G.gun && G.gun(); H.card = { title:ev.name, sub:ev.flavor, col:"#e0a848", tier:"Ascension · your gun evolved", t:0, life:4.5, icons:gun ? [DG.Icons.keyFor(gun)] : null }; break; }
@@ -846,10 +847,10 @@ H.guns = function(g, G, x, yb, k, maxW){
       if(s.mag <= 14){ for(let j=0;j<s.mag;j++){ const bx = R(x + 14 + j*10*k); g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(bx - 1, R(ay - 1), R(6*k) + 2, R(13*k) + 2); g.fillStyle = j < gun.ammo ? BONE : "#2a2622"; g.fillRect(bx, R(ay), R(6*k), R(13*k)); } }
       else text(g, gun.ammo + " / " + s.mag, x + 14, ay + 6*k, 15*k, IVORY, "left", "700");
       if(p.reloadT > 0) text(g, "RELOADING", x + w - 12, ay + 6*k, 10*k, GOLD2, "right", "700", SERIF, 2);
-      const sp = DG.SPELLS[s.spell], can = p.mana >= s.spellCost;
+      const sp = DG.spellAt(s.spell, s.spellTier), can = p.mana >= s.spellCost;
       text(g, "RMB", x + 14, y + 76*k, 9*k, DIM, "left", "700", SERIF, 1);
       text(g, sp.name, x + 14 + 30*k, y + 76*k, 14*k, can ? ec : "#5a524a", "left", "600", BOOK);
-      text(g, s.spellCost + "", x + 14 + 36*k + measure(g, sp.name, 14*k, "600", BOOK), y + 76*k, 11*k, can ? MANA2 : "#5a524a", "left", "700");
+      text(g, s.spellCost + (s.spellTier ? "  " + ["", "I", "II", "III"][s.spellTier] : ""), x + 14 + 36*k + measure(g, sp.name, 14*k, "600", BOOK), y + 76*k, 11*k, can ? MANA2 : "#5a524a", "left", "700");
       if(gun.innate && gun.innate.length && !small) text(g, gun.innate.map(id=> DG.ITEMS[id] ? DG.ITEMS[id].name : id).join(", "), x + w - 10, y + 77*k, 12*k, "#a898b0", "right", "italic 500", BOOK);
       x += w + 18;
     } else others.push({ gun, i, s, rc, ec });
