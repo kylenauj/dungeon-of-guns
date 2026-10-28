@@ -354,7 +354,13 @@ H.draw = function(G, dt, opts){
   }
   // the Liar's Doors: what each stone face says, under it, while the doors are still shut
   if(G.room && G.room.puzzle && G.room.puzzle.kind === "doors" && !G.room.puzzle.solved && !G.room.puzzle.failed){
-    G.room.puzzle.doors.forEach(d=>{
+    // and the rule, carved over the row of them, so nobody has to go and find the sign
+    const D = G.room.puzzle.doors, mx = D.reduce((a, d)=> a + d.x, 0)/D.length;
+    if(G.room.puzzle.ruleText && DG.dist(mx, D[0].y, p.x, p.y) < 12){
+      const s = S.project(mx, 3.3, D[0].ty + 1.1);
+      if(!s.behind) text(g, G.room.puzzle.ruleText.toUpperCase(), s.x, s.y, 14*k, "#e8d8b0", "center", "700", SERIF, 2);
+    }
+    D.forEach(d=>{
       if(d.open || DG.dist(d.x, d.y, p.x, p.y) > 9) return;
       const s = S.project(d.x, 1.62, d.ty + 1.1); if(s.behind) return;
       const lines = wrapWords(g, "\u201c" + d.says + "\u201d", 14*k, 150*k);

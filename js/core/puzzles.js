@@ -4,8 +4,10 @@
  *  at stake (a budget of moves, or mistakes), and gets harder deeper
  *  down. Each is generated so it can always be solved (the tests check).
  *
- *  doors    the Liar's Doors: four doors (five deep down), a stone face over each saying
- *           one thing, and a rule about who lies. One door is true.
+ *  doors    the Liar's Doors: three doors (four deep down), a stone face over each saying
+ *           one thing, and a plain rule about who lies, written over the doors.
+ *           Early on the faces only say where the way is; deeper, they talk
+ *           about each other too. One door is true.
  *           Every door has a closet, and they all look the same. Open the
  *           wrong one and you're ambushed, and the others seal.
  *  embers   lights-out with E: a brazier flips itself and its neighbours
@@ -15,9 +17,9 @@
  *           so it's always solvable and takes real pushing. Each stone takes
  *           only so many pushes before it cracks apart (its share of the
  *           answer and a few to spare). The reset rune costs blood.
- *  choir    the mushrooms sing a phrase, you sing it back (three rounds,
- *           each a note longer; deep down, back to front). A wrong note
- *           bursts spores in your face.
+ *  choir    the mushrooms sing a phrase; step on them to sing it back (three
+ *           rounds, each a note longer; deep down, back to front). A wrong
+ *           note bursts spores in your face.
  *  mirrors  the Mirror Hall: a shaft of light, statues holding shields;
  *           turn the shields to carry the beam to the eye.
  *
@@ -54,18 +56,19 @@ const GEN = Pz.GEN = {
       if(xs.length && x - xs[xs.length - 1] < 4) continue;
       xs.push(x);
     }
-    // four doors, five from floor 3 (a guess pays a quarter of the time, then a fifth);
-    // a room too narrow for that many makes do with fewer, never under three
-    let n = Math.min(floor >= 3 ? 5 : 4, xs.length, DG.DOOR_COLORS.length);
+    // three doors, four from floor 4 (four and five were a slog nobody could read)
+    let n = Math.min(floor >= 4 ? 4 : 3, xs.length, DG.DOOR_COLORS.length);
     if(n < 3) return false;
     const pick = [];
     for(let i=0;i<n;i++) pick.push(xs[Math.round(i*(xs.length - 1)/(n - 1))]);
     if(pick.some((x, i)=> i && x - pick[i - 1] < 4)) return false;
-    const rule = floor <= 1 ? "one" : floor <= 3 ? "honest" : "two";
+    // the classic first ("one tells the truth"), faces that only say where the way is;
+    // from floor 3 one liar among honest faces; from floor 4 they speak of each other
+    const rule = floor <= 2 ? "two" : floor === 3 ? "one" : "honest", simple = floor <= 3;
     const colors = rng.shuffle(DG.DOOR_COLORS.slice()).slice(0, n);
-    const rid = liarRiddle(rng, rule, colors);
+    const rid = liarRiddle(rng, rule, colors, simple);
     if(!rid) return false;
-    r.puzzle = { kind:"doors", rule, answer:rid.answer, solved:false, failed:false, opened:-1,
+    r.puzzle = { kind:"doors", rule, ruleText:RULE_SHORT[rule], answer:rid.answer, solved:false, failed:false, opened:-1,
       doors:pick.map((x, i)=> ({ x:x + 0.5, y:y + 0.5, tx:x, ty:y, i, color:colors[i].hex, name:colors[i].name, says:rid.says[i], open:false, pz:true, room:r.id, part:"door" })) };
     pick.forEach((x, i)=>{
       // every door has a closet behind it, and every closet is the same: dark, and empty until it's opened
@@ -107,7 +110,11 @@ const GEN = Pz.GEN = {
       D.set(x, y, T.BLOCK); pillars.push([x, y]); k++;
     }
     if(!DG.Dungeon.roomConnected(D, r)){ pillars.forEach(([x, y])=> D.set(x, y, T.FLOOR)); return false; }
-    for(let attempt=0; attempt<60; attempt++){
+    // several layouts, and the hardest kept: the first that worked was often a couple of
+    // straight shoves. Cheap ones first (each stone far from its plate, its pulls turning
+    // corners), then a real answer for the most promising few, and the hardest of those
+    const cands = [];
+    for(let attempt=0; attempt<90 && cands.length < 6; attempt++){
       const free = [];
       for(let y=r.y1 + 2; y<r.y2 - 1; y++) for(let x=r.x1 + 1; x<r.x2; x++) if(ok(x, y)) free.push([x, y]);
       if(free.length < 20) break;
@@ -142,16 +149,40 @@ const GEN = Pz.GEN = {
       const entry = r.doors.length ? doorStep(D, r) : pl;
       if(entry && !reachable(entry, pl, wall, r)) continue;
       blocks.forEach(b=> D.set(b.x, b.y, T.PUSH));
-      if(!DG.Dungeon.roomConnected(D, r) && !blocksOnlyCut(D, r)){ blocks.forEach(b=> D.set(b.x, b.y, T.FLOOR)); continue; }
-      // each stone cracks after so many pushes: its share of the answer, and a few to spare
+      const connected = DG.Dungeon.roomConnected(D, r) || blocksOnlyCut(D, r);
+      blocks.forEach(b=> D.set(b.x, b.y, T.FLOOR));
+      if(!connected) continue;
+      const cheap = Pz.stonesScore(blocks, plates, moves);
+      if(cheap < 0) continue;
+      cands.push({ cheap, blocks:blocks.map(b=> ({ x:b.x, y:b.y })), plates, entry:entry || pl, pulls });
+    }
+    // how hard each really is: a real answer, nearly the shortest (the random pulls were often
+    // twenty-odd shoves undoing what six would do); its shoves and its corners
+    let best = null, tried = 0;
+    cands.sort((a, b)=> b.cheap - a.cheap);
+    for(const c of cands){
+      if(tried >= 3) break;
+      c.blocks.forEach(b=> D.set(b.x, b.y, T.PUSH));
+      const ans = Pz.stonesAnswer(D, r, c.blocks.map(b=> [b.x, b.y]), c.plates, c.entry);
+      c.blocks.forEach(b=> D.set(b.x, b.y, T.FLOOR));
+      if(!ans || ans.per.some(k=> k < 3)) continue;
+      tried++;
+      let corners = 0; for(let k=1;k<ans.moves.length;k++){ const a = ans.moves[k], z = ans.moves[k - 1]; if(a.b === z.b && (a.dx !== z.dx || a.dy !== z.dy)) corners++; }
+      const score = ans.moves.length + 3*corners;
+      if(!best || score > best.score) best = Object.assign({ score, ans }, c);
+    }
+    if(best){
+      const { blocks, plates, ans, pulls } = best;
+      blocks.forEach(b=> D.set(b.x, b.y, T.PUSH));
+      // each stone cracks after so many shoves: its share of a near-shortest answer, and a few to spare
       const spare = floor <= 2 ? 4 : 3;
-      const pz = { kind:"stones", blocks:blocks.map((b, i)=>{ const hp = moves.filter(m=> m.b === i).length + spare; return { x:b.x, y:b.y, sx:b.x, sy:b.y, hp, hp0:hp }; }), plates:plates.map(([x, y])=> ({ x, y })), pulls, solved:false, cd:0,
-        solution:moves.reverse() };
+      const pz = { kind:"stones", blocks:blocks.map((b, i)=>{ const hp = ans.per[i] + spare; return { x:b.x, y:b.y, sx:b.x, sy:b.y, hp, hp0:hp }; }), plates:plates.map(([x, y])=> ({ x, y })), pulls, solved:false, cd:0,
+        solution:ans.moves.map(m=> ({ x:m.x, y:m.y, dx:m.dx, dy:m.dy, b:m.b })), par:ans.moves.length };
       pz.plates.forEach((p, i)=> r.props.push({ kind:"plate", x:p.x, y:p.y, slot:i }));
       const rr = [Math.floor(r.cxw) + 3, Math.floor(r.cxw) - 3].map(x=> [x, r.y1]).find(([x, y])=> D.at(x, y) === T.FLOOR && !DG.Dungeon.inDoorway(D, r, x + 0.5, y + 0.5));
       if(rr){ pz.reset = { x:rr[0] + 0.5, y:rr[1] + 0.5, pz:true, room:r.id, part:"reset" }; r.props.push({ kind:"resetrune", x:rr[0], y:rr[1] }); }
       r.puzzle = pz;
-      r.props.push({ kind:"sign", x:Math.floor(r.cxw), y:r.y1, text:"THE WEIGHING STONES. Every plate wants its stone. Walk into a stone to shove it. They're old: each cracks a little with every shove, and one shoved too often falls apart. The blue rune puts them back, whole, and it drinks blood for it." });
+      r.props.push({ kind:"sign", x:Math.floor(r.cxw), y:r.y1, text:"THE WEIGHING STONES. Every plate wants its stone. Walk into a stone to shove it. Each cracks with every shove. The blue rune puts them back, for blood." });
       return true;
     }
     pillars.forEach(([x, y])=> D.set(x, y, T.FLOOR));
@@ -164,11 +195,12 @@ const GEN = Pz.GEN = {
     const pos = [[0, -2], [2, 0], [0, 2], [-2, 0]];
     const items = pos.map(([dx, dy], i)=> ({ x:cx + dx + 0.5, y:cy + dy + 0.5, cd:0, glow:0, pz:true, room:r.id, part:"shroom", i }));
     if(items.some(it=> !usable(D, r, Math.floor(it.x), Math.floor(it.y)))) return false;
-    // five notes to start (more deeper down), four rounds, each a note longer; from floor 3, back to front
-    const len = 4 + Math.ceil(floor/2), rounds = 4, reverse = floor >= 3;
+    // three notes to start (four from floor 3), three rounds, each a note longer; from floor 4,
+    // back to front (it was five to seven notes and four rounds: long, and dull)
+    const len = floor >= 3 ? 4 : 3, rounds = 3, reverse = floor >= 4;
     const seq = []; for(let i=0;i<len + rounds;i++) seq.push(rng.int(0, 3));
     r.puzzle = { kind:"choir", items, seq, len, round:0, rounds, reverse, phase:"wait", i:0, t:1, solved:false, mistakes:0 };
-    r.props.push({ kind:"sign", x:cx, y:r.y1, text:reverse ? "THE CHOIR. Hear them out. Then sing it back to them, back to front. They hate a wrong note." : "THE CHOIR. Hear them out. Then sing it back to them. They hate a wrong note." });
+    r.props.push({ kind:"sign", x:cx, y:r.y1, text:reverse ? "THE CHOIR. Hear them. Then step on them, back to front." : "THE CHOIR. Hear them. Then step on them, in the same order." });
     return true;
   },
 
@@ -225,10 +257,15 @@ const GEN = Pz.GEN = {
 
 /* ---- the Liar's Doors: riddles in the knights-and-knaves way ---- */
 const NUM = ["", "", "", "THREE", "FOUR", "FIVE"];
+const RULE_SHORT = {
+  two:"One face tells the truth. The others lie.",
+  one:"One face lies. The others tell the truth.",
+  honest:"The true door's face tells the truth. The others lie."
+};
 const RULE_TEXT = {
-  one:n=> NUM[n] + " FACES. EXACTLY ONE OF THEM LIES. ONE DOOR IS TRUE. Read them all. Then open one, and only one.",
-  honest:n=> "THE FACE OVER THE TRUE DOOR SPEAKS TRUE. EVERY OTHER FACE LIES. Open one, and only one.",
-  two:n=> NUM[n] + " FACES. ONLY ONE OF THEM SPEAKS TRUE, AND IT NEED NOT BE THE TRUE DOOR'S. Open one, and only one."
+  two:n=> "ONE FACE TELLS THE TRUTH. THE OTHERS LIE. One door is true. Open only one.",
+  one:n=> "ONE FACE LIES. THE OTHERS TELL THE TRUTH. One door is true. Open only one.",
+  honest:n=> "THE TRUE DOOR'S FACE TELLS THE TRUTH. THE OTHERS LIE. Open only one."
 };
 const range = n=> [...Array(n).keys()];
 /* the worlds a rule allows: where the way is (a), and who lies */
@@ -241,13 +278,17 @@ function worlds(rule, n){
   return out;
 }
 /* what face i could say: about the way, about the other faces, about counting */
-function statements(i, colors){
+function statements(i, colors, simple){
   const n = colors.length, S = [], other = range(n).filter(j=> j !== i), nm = j=> colors[j].name;
   S.push({ t:"The way is behind me.", f:w=> w.a === i });
   S.push({ t:"The way is not behind me.", f:w=> w.a !== i });
   other.forEach(j=>{
     S.push({ t:"The way is behind the " + nm(j) + " door.", f:w=> w.a === j });
     S.push({ t:"The way is not behind the " + nm(j) + " door.", f:w=> w.a !== j });
+  });
+  // early: only where the way is (no "the red face lies"), so it reads in one go
+  if(simple) return S;
+  other.forEach(j=>{
     S.push({ t:"The " + nm(j) + " face lies.", f:w=> w.liar[j] });
     S.push({ t:"The " + nm(j) + " face speaks true.", f:w=> !w.liar[j] });
     S.push({ t:"The " + nm(j) + " face and I are both honest.", f:w=> !w.liar[j] && !w.liar[i] });
@@ -268,8 +309,8 @@ function statements(i, colors){
 }
 /* the worlds where every face says what its honesty demands */
 function consistent(rule, says){ return worlds(rule, says.length).filter(w=> says.every((s, i)=> !!s.f(w) === !w.liar[i])); }
-function liarRiddle(rng, rule, colors){
-  const n = colors.length, pools = range(n).map(i=> statements(i, colors));
+function liarRiddle(rng, rule, colors, simple){
+  const n = colors.length, pools = range(n).map(i=> statements(i, colors, simple));
   for(let tries=0; tries<12000; tries++){
     const says = pools.map(p=> rng.pick(p));
     const ws = consistent(rule, says);
@@ -286,7 +327,7 @@ function liarRiddle(rng, rule, colors){
 }
 Pz.liarRiddle = liarRiddle;
 Pz.riddleWorlds = (rule, texts, colors)=>{
-  const pools = range(colors.length).map(i=> statements(i, colors));
+  const pools = range(colors.length).map(i=> statements(i, colors, false));
   const says = texts.map((t, i)=> pools[i].find(s=> s.t === t));
   return consistent(rule, says);
 };
@@ -318,12 +359,27 @@ Pz.emberPar = function(pz){
   }
   return best;
 };
+/* a fair start: several dark (one or two dark looks like "just light that one", and
+   lighting it flips its neighbours: it read as unbeatable), and a shortest answer of
+   three to five stirs on 3x3, four to six on 4x4 */
+Pz.EMBER_FAIR = { dark:3, par3:[3, 5], par4:[4, 6] };
+Pz.emberFair = function(pz){
+  const dark = pz.lit.filter(v=> !v).length, N = pz.items.length, [lo, hi] = pz.n === 4 ? Pz.EMBER_FAIR.par4 : Pz.EMBER_FAIR.par3;
+  return dark >= Pz.EMBER_FAIR.dark && dark <= N - 2 && pz.par >= lo && pz.par <= hi;
+};
+Pz.scrambleEmbers = (pz, rng, floor)=> scrambleEmbers(pz, rng, floor);
+Pz.flipMask = (pz, i)=> flipMask(pz, i);
 function scrambleEmbers(pz, rng, floor){
-  pz.lit = pz.lit.map(()=> 1);
-  // four or five stirs from all-lit on 3x3, five to seven on 4x4: a real think (the rings show
-  // what each stir flips, and it gutters the moment it can't come out, so it's hard, not cruel)
-  const N = pz.items.length, presses = rng.shuffle([...Array(N).keys()]).slice(0, pz.n === 4 ? rng.int(5, 7) : rng.int(4, 5));
-  presses.forEach(i=> flipEmber(pz, i));
+  const N = pz.items.length;
+  for(let tries=0; tries<60; tries++){
+    pz.lit = pz.lit.map(()=> 1);
+    // stirs from all-lit (so it can always come out): the rings show what each stir flips,
+    // and it gutters the moment it can't come out, so it's hard, not cruel
+    const presses = rng.shuffle([...Array(N).keys()]).slice(0, pz.n === 4 ? rng.int(4, 7) : rng.int(3, 5));
+    presses.forEach(i=> flipEmber(pz, i));
+    pz.par = Pz.emberPar(pz);
+    if(Pz.emberFair(pz)) break;
+  }
   if(pz.lit.every(v=> v)) flipEmber(pz, Math.floor(N/2));
   pz.par = Pz.emberPar(pz);
   if(pz.par === Infinity){ pz.lit = pz.lit.map(()=> 1); flipEmber(pz, 0); pz.par = 1; }
@@ -331,6 +387,122 @@ function scrambleEmbers(pz, rng, floor){
 }
 
 /* ---- Weighing Stones ---- */
+/* how hard a layout is: each stone's distance from its plate, and how often its
+   answer turns a corner (a straight shove is no puzzle); -1 if a stone starts
+   within two steps of its plate */
+Pz.stonesScore = function(blocks, plates, moves){
+  let score = 0;
+  for(let i=0;i<blocks.length;i++){
+    const mine = moves.filter(m=> m.b === i), [px, py] = plates[i];
+    const dist = Math.abs(blocks[i].x - px) + Math.abs(blocks[i].y - py);
+    if(dist < 3) return -1;
+    let turns = 0; for(let k=1;k<mine.length;k++) if(mine[k].dx !== mine[k - 1].dx || mine[k].dy !== mine[k - 1].dy) turns++;
+    score += dist + 4*turns;
+  }
+  return score;
+};
+/* the shortest answer, in shoves, the way the game moves stones (Pz.push): a stone
+   goes onto open floor in the room, Zippy has to get round behind it, and any stone
+   will do on any plate. A breadth-first search over (stones, where Zippy can reach),
+   stopped after `cap` positions (null: not found that soon, which only means hard).
+   Returns the shoves: [{ x, y, dx, dy }] from where each stone stands */
+Pz.solveStones = function(D, r, stones, plates, player, cap, fixed){
+  const W = r.x2 - r.x1 + 1, H = r.y2 - r.y1 + 1, N = W*H;
+  const id = (x, y)=> (y - r.y1)*W + (x - r.x1);
+  const open = new Uint8Array(N);
+  for(let y=r.y1; y<=r.y2; y++) for(let x=r.x1; x<=r.x2; x++){ const t = D.at(x, y); open[id(x, y)] = t === T.FLOOR || t === T.PUSH ? 1 : 0; }
+  (fixed || []).forEach(([x, y])=>{ open[id(x, y)] = 0; });                // stones that stay put this time
+  if(!open[id(player[0], player[1])]) return null;
+  const goal = plates.map(([x, y])=> id(x, y)).sort((a, b)=> a - b);
+  const done = st=> st.every((v, i)=> v === goal[i]);
+  const step = [1, W, -1, -W], dxs = [1, 0, -1, 0], dys = [0, 1, 0, -1];
+  const seen = new Uint32Array(N), q = new Int32Array(N); let stamp = 0;
+  // where Zippy can get to (stamped in seen), the stones in his way
+  const fill = (st, from)=>{
+    stamp++; let n = 0; q[n++] = from; seen[from] = stamp;
+    for(let h=0; h<n; h++){
+      const c = q[h], cx = c % W, cy = (c - cx)/W;
+      for(let d=0; d<4; d++){
+        const nx = cx + dxs[d], ny = cy + dys[d]; if(nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const m = c + step[d]; if(!open[m] || seen[m] === stamp || st.indexOf(m) >= 0) continue;
+        seen[m] = stamp; q[n++] = m;
+      }
+    }
+  };
+  // a position: the stones, and the tile Zippy stands on (just after a shove, the one the
+  // stone left). Not reduced to "where he can reach", so a few equal positions count
+  // twice; that costs less than a fill per move did
+  const keyOf = (st, p)=> st.length === 1 ? st[0]*N + p : st.join(",") + "|" + p;
+  const s0 = stones.map(([x, y])=> id(x, y)).sort((a, b)=> a - b), p0 = id(player[0], player[1]);
+  if(done(s0)) return [];
+  const k0 = keyOf(s0, p0), prev = new Map([[k0, null]]);
+  let frontier = [{ st:s0, p:p0, k:k0 }];
+  while(frontier.length && prev.size < cap){
+    const next = [];
+    for(const S of frontier){
+      fill(S.st, S.p);
+      for(let i=0; i<S.st.length; i++){
+        const c = S.st[i], cx = c % W, cy = (c - cx)/W;
+        for(let d=0; d<4; d++){
+          const bx = cx - dxs[d], by = cy - dys[d], tx = cx + dxs[d], ty = cy + dys[d];
+          if(bx < 0 || by < 0 || bx >= W || by >= H || tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
+          const behind = c - step[d], to = c + step[d];
+          if(seen[behind] !== stamp || !open[to] || S.st.indexOf(to) >= 0) continue;
+          const st = S.st.slice(); st[i] = to; if(st.length > 1) st.sort((a, b)=> a - b);
+          const k = keyOf(st, c);
+          if(prev.has(k)) continue;
+          prev.set(k, { from:S.k, x:cx + r.x1, y:cy + r.y1, dx:dxs[d], dy:dys[d] });
+          if(done(st)){
+            const out = []; let at = k;
+            while(prev.get(at)){ const m = prev.get(at); out.push({ x:m.x, y:m.y, dx:m.dx, dy:m.dy }); at = m.from; }
+            return out.reverse();
+          }
+          next.push({ st, p:c, k });
+        }
+      }
+    }
+    frontier = next;
+  }
+  return null;
+};
+/* a whole answer, one stone at a time: each order of the stones, each to the plate it
+   reaches in the fewest shoves (the others standing still), and the shortest of those.
+   Not always the very shortest answer, but a real one, close to it, and cheap.
+   Returns { moves:[{ x, y, dx, dy, b }], per:[shoves for each stone] } or null */
+Pz.stonesAnswer = function(D, r, stones, plates, player){
+  // three orders, not every one: the farthest stone first, the nearest first, and as built
+  const n = stones.length, far = i=> Math.min(...plates.map(([x, y])=> Math.abs(stones[i][0] - x) + Math.abs(stones[i][1] - y)));
+  const idx = [...Array(n).keys()], byFar = idx.slice().sort((a, b)=> far(b) - far(a));
+  const perms = [byFar, byFar.slice().reverse(), idx].filter((o, i, all)=> all.findIndex(p=> p.join() === o.join()) === i);
+  let best = null;
+  const memo = new Map(), solve = (stone, pt, pl, fixed)=>{
+    const k = stone + "|" + pt + "|" + pl + "|" + fixed.map(f=> f.join(".")).sort().join(";");
+    if(!memo.has(k)) memo.set(k, Pz.solveStones(D, r, [stone], [pt], pl, 1500, fixed));
+    return memo.get(k);
+  };
+  for(const order of perms){
+    const at = stones.map(s=> s.slice()), free = plates.map(p=> p.slice()), moves = [], per = new Array(n).fill(0);
+    let pl = player.slice(), ok = true;
+    for(const b of order){
+      let pick = null;
+      free.forEach((pt, pi)=>{
+        const fixed = at.filter((_, j)=> j !== b);
+        if(fixed.some(([x, y])=> x === pt[0] && y === pt[1])) return;
+        const sol = solve(at[b], pt, pl, fixed);
+        if(sol && (!pick || sol.length < pick.sol.length)) pick = { sol, pi };
+      });
+      if(!pick){ ok = false; break; }
+      pick.sol.forEach(m=> moves.push(Object.assign({ b }, m)));
+      per[b] = pick.sol.length;
+      const last = pick.sol[pick.sol.length - 1];
+      if(last){ at[b] = [last.x + last.dx, last.y + last.dy]; pl = [last.x, last.y]; }
+      free.splice(pick.pi, 1);
+      if(best && moves.length >= best.moves.length){ ok = false; break; }
+    }
+    if(ok && (!best || moves.length < best.moves.length)) best = { moves, per };
+  }
+  return best;
+};
 function reachable(from, to, solid, r){
   if(!from) return false;
   const seen = new Set([from[0] + "," + from[1]]), q = [from];
@@ -561,8 +733,15 @@ Pz.update = function(G, dt){
     if(pz.phase === "wait" && pz.t <= 0){ pz.phase = "sing"; pz.i = 0; pz.t = 0.4; }
     else if(pz.phase === "sing" && pz.t <= 0){
       const n = pz.len + pz.round;
-      if(pz.i < n){ const k = pz.seq[pz.i]; pz.items[k].glow = 0.55; G.emit("chorusSing", { room:r.id, i:k, note:pz.i }); pz.i++; pz.t = Math.max(0.5, 0.75 - G.floor*0.04); }
-      else { pz.phase = "listen"; pz.i = 0; G.emit("chorusListen", { room:r.id, reverse:pz.reverse }); }
+      if(pz.i < n){ const k = pz.seq[pz.i]; pz.items[k].glow = 0.55; G.emit("chorusSing", { room:r.id, i:k, note:pz.i }); pz.i++; pz.t = Math.max(0.42, 0.62 - G.floor*0.03); }
+      else { pz.phase = "listen"; pz.i = 0; pz.on = -1; G.emit("chorusListen", { room:r.id, reverse:pz.reverse }); }
+    }
+    // singing back: step onto a mushroom (E on it works too). It sings once as you
+    // arrive, and again only after you've stepped off
+    if(pz.phase === "listen"){
+      const p = G.player, at = pz.items.findIndex(it=> DG.dist(it.x, it.y, p.x, p.y) < 0.8);
+      if(at < 0) pz.on = -1;
+      else if(at !== pz.on){ pz.on = at; if(pz.items[at].cd <= G.t){ pz.items[at].cd = G.t + 0.18; sing(G, r, pz, at); } }
     }
   }
 };

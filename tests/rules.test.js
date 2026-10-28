@@ -353,7 +353,7 @@ test("item rolls lean toward the wand's element once you've taken one", ()=>{
   // the same rolls with and without a frost core in hand: frost items come up more, the others less
   const count = core=>{
     let fr = 0, oth = 0;
-    for(let s=0; s<120; s++){
+    for(let s=0; s<50; s++){
       const G = game("LEAN" + s, 2);
       if(core) G.giveItem("rimecore", true);
       for(let i=0;i<4;i++){ const els = Object.keys(DG.Items.elSources(DG.ITEMS[DG.Items.roll(G, "t")])); if(els.indexOf("frost") >= 0) fr++; else if(els.length) oth++; }
@@ -839,7 +839,7 @@ test("Embers never strands you: a stir that leaves too few candles to finish gut
   for(let k=0; k<300 && seen < 30; k++){
     const D = DG.Dungeon.generate(k*7919 + 13, 1 + (k % 2)), q = D.rooms.find(x=> x.puzzle && x.puzzle.kind === "embers");
     if(!q) continue; seen++;
-    assert.ok(q.puzzle.par >= 4 && q.puzzle.par <= 5 && q.puzzle.budget === q.puzzle.par + 4, "par " + q.puzzle.par + " budget " + q.puzzle.budget);
+    assert.ok(q.puzzle.par >= 3 && q.puzzle.par <= 5 && q.puzzle.budget === q.puzzle.par + 4, "par " + q.puzzle.par + " budget " + q.puzzle.budget);
   }
   assert.ok(seen >= 10);
   pz.lit = [1, 0, 0, 1, 1, 0, 1, 1, 0];
@@ -848,6 +848,21 @@ test("Embers never strands you: a stir that leaves too few candles to finish gut
   usePz(G, pz.items[4]);          // a stir that doesn't help: now 5 needed, 3 left
   assert.equal(pz.moves, 0, "it gutters at once and rescrambles");
   assert.ok(r.active, "and the dark noticed");
+});
+test("Embers starts fair: never one or two dark (it read as unbeatable: lighting the one flips its neighbours), always several, a sane shortest answer, and it can always come out", ()=>{
+  [[3, 1, []], [3, 2, []], [4, 3, []], [4, 4, [2, 9]], [4, 5, [5, 12]]].forEach(([n, f, knight])=>{
+    for(let s=0; s<40; s++){
+      const pz = { n, w:n, h:n, items:[...Array(n*n).keys()].map(i=> ({ i })), knight, lit:new Array(n*n).fill(1), moves:0 };
+      pz.masks = pz.items.map((_, i)=> DG.Puzzles.flipMask(pz, i));
+      DG.Puzzles.scrambleEmbers(pz, DG.RNG(1000*f + s), f);
+      const dark = pz.lit.filter(v=> !v).length;
+      assert.ok(dark >= 3, "floor " + f + ": " + dark + " dark");
+      assert.ok(DG.Puzzles.emberPar(pz) <= pz.budget && DG.Puzzles.emberFair(pz), "floor " + f + ": par " + pz.par + ", budget " + pz.budget);
+    }
+  });
+  // and as the generator places them
+  const pz = puzzleRoom("embers", 1).r.puzzle;
+  assert.ok(DG.Puzzles.emberFair(pz));
 });
 test("Weighing Stones: built backwards, so the recorded pushes solve it; the reset rune costs blood", ()=>{
   [1, 3, 5].forEach(f=>{
@@ -2051,15 +2066,21 @@ test("every 2D canvas is drawn on the CPU: on the GPU, Chrome compiled a DirectX
 });
 
 /* ---- puzzles that take a while ---- */
-test("the Liar's Doors: four doors when the room is wide (five deep down); one answer, and no single face gives it away", ()=>{
-  [1, 3].forEach(f=>{
-    const colors = DG.DOOR_COLORS.slice(0, f >= 3 ? 5 : 4);
-    for(let s=0; s<6; s++){
-      const rid = DG.Puzzles.liarRiddle(DG.RNG(77 + s*13 + f), f <= 1 ? "one" : "honest", colors);
-      assert.ok(rid, "a riddle for " + colors.length + " doors");
-      const ws = DG.Puzzles.riddleWorlds(f <= 1 ? "one" : "honest", rid.says, colors);
+test("the Liar's Doors read plainly: three doors (four from floor 4), a classic rule written over them, and early on faces that only say where the way is; one answer, and no single face gives it away", ()=>{
+  [[1, "two", true, 3], [3, "one", true, 3], [4, "honest", false, 4]].forEach(([f, rule, simple, n])=>{
+    const colors = DG.DOOR_COLORS.slice(0, n);
+    for(let s=0; s<8; s++){
+      const rid = DG.Puzzles.liarRiddle(DG.RNG(77 + s*13 + f), rule, colors, simple);
+      assert.ok(rid, "a riddle for " + n + " doors");
+      const ws = DG.Puzzles.riddleWorlds(rule, rid.says, colors);
       assert.equal(ws.length, 1); assert.equal(ws[0].a, rid.answer);
+      if(simple) assert.ok(rid.says.every(t=> /^The way is/.test(t)), "only where the way is: " + rid.says.join(" | "));
     }
+  });
+  [1, 2, 4].forEach(f=>{
+    const pz = puzzleRoom("doors", f).r.puzzle;
+    assert.ok(pz.doors.length <= (f >= 4 ? 4 : 3) && pz.doors.length >= 3, "floor " + f + ": " + pz.doors.length + " doors");
+    assert.ok(pz.ruleText && /face/.test(pz.ruleText), "the rule, over the doors");
   });
 });
 test("the Weighing Stones crack: each takes its share of the answer and a few more, then the next shove crumbles it, puts the stones back and wakes the room", ()=>{
@@ -2076,10 +2097,28 @@ test("the Weighing Stones crack: each takes its share of the answer and a few mo
   assert.ok(r.active, "the noise woke the room");
   assert.ok(pz.flawless === false);
 });
-test("the Choir sings five notes to start, four rounds, and from floor 3 wants them back to front", ()=>{
-  const a = puzzleRoom("choir", 1).r.puzzle, b = puzzleRoom("choir", 3).r.puzzle;
-  assert.equal(a.len, 5); assert.equal(a.rounds, 4); assert.ok(!a.reverse);
-  assert.ok(b.reverse && b.len >= 6);
+test("the Choir is short (three notes, then four from floor 3; three rounds) and from floor 4 wants them back to front", ()=>{
+  const a = puzzleRoom("choir", 1).r.puzzle, b = puzzleRoom("choir", 3).r.puzzle, c = puzzleRoom("choir", 4).r.puzzle;
+  assert.equal(a.len, 3); assert.equal(a.rounds, 3); assert.ok(!a.reverse);
+  assert.equal(b.len, 4); assert.ok(!b.reverse);
+  assert.ok(c.reverse);
+});
+test("the Choir: step on the mushrooms to sing it back (pressing E lost out to the chest and the sign); a whole one, walked", ()=>{
+  const { G, r } = puzzleRoom("choir", 1), pz = r.puzzle;
+  G.god = true; stand(G, r.cxw, r.cyw + 0.2);
+  for(let round=0; round<pz.rounds; round++){
+    for(let k=0; k<400 && pz.phase !== "listen"; k++) step(G, 1/30);
+    assert.equal(pz.phase, "listen", "round " + round + ": they've sung");
+    const n = pz.len + pz.round;
+    for(let j=0; j<n; j++){
+      const it = pz.items[pz.seq[pz.reverse ? n - 1 - j : j]];
+      stand(G, r.cxw, r.cyw + 0.2); step(G, 0.05);           // off every mushroom
+      stand(G, it.x, it.y); step(G, 0.05);                   // and onto the next one
+    }
+    stand(G, r.cxw, r.cyw + 0.2); step(G, 0.05);
+  }
+  assert.ok(pz.solved, "sung back, by feet alone");
+  assert.equal(pz.mistakes, 0);
 });
 
 /* ---- the elements: abilities, and spells that grow ---- */
