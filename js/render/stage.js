@@ -40,9 +40,12 @@ S.init = function(){
   // the PSX look: a 240-line picture blown up in hard pixels, vertices that snap
   // and swim, and colour cut to the PlayStation's 15 bits with an ordered dither.
   // Off by default; P, the pause menu or ?psx turn it on (remembered)
-  let psx = false; try{ psx = localStorage.getItem("zg.psx") === "1"; }catch(e){}
-  if(/[?&]psx\b/.test(location.search)) psx = !/[?&]psx=0\b/.test(location.search);
-  S.psx = psx;
+  // how strong (S.psxK, 0..1: 0 is off) is a slider in the menus
+  let k = 0;
+  try{ const v = localStorage.getItem("zg.psxK"); k = v !== null ? +v || 0 : localStorage.getItem("zg.psx") === "1" ? 0.8 : 0; }catch(e){}
+  const q = location.search.match(/[?&]psx(?:=([\d.]+))?(?=&|$)/);
+  if(q) k = q[1] === undefined ? 0.8 : Math.min(1, +q[1]);
+  S.psxK = Math.max(0, Math.min(1, k)); S.psx = S.psxK > 0; S.psxLast = S.psxK || 0.8;
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
@@ -96,7 +99,7 @@ S.resize = function(){
   const w = window.innerWidth, h = window.innerHeight;
   // S.dyn: the adaptive resolution (1 is full; it drops when frames run slow)
   const chunky = S.pixel || S.psx;
-  const k = S.psx ? Math.max(1, h/S.PSX_LINES) : (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.25)**-1)/(S.dyn || 1);
+  const k = S.psx ? Math.max(1, h/S.psxLines()) : (S.pixel ? Math.max(1, h/500) : Math.min(window.devicePixelRatio || 1, 1.25)**-1)/(S.dyn || 1);
   S.scale = k;
   S.renderer.setSize(Math.round(w/k), Math.round(h/k), false);
   if(S.post){
@@ -110,19 +113,25 @@ S.resize = function(){
   c.style.imageRendering = chunky ? "pixelated" : "auto";
   // the wobble: a grid one picture-pixel fine (NDC spans two, so half the lines)
   const rh = Math.round(h/k); K.INK.uSnap.value = S.psx ? rh/2 : 0; K.INK.uSnapAsp.value = w/h;
-  if(S.post) S.post.mat.uniforms.uPsx.value = S.psx ? 1 : 0;
+  if(S.post){ S.post.mat.uniforms.uPsx.value = S.psxK; S.post.mat.uniforms.uPsxLv.value = Math.round(63 - 40*S.psxK); }
   S.camera.aspect = w/h; S.camera.updateProjectionMatrix();
   // the post pass rebuilds positions from depth (for its ambient occlusion): it needs the lens
   if(S.post){ const ty = Math.tan(S.camera.fov*Math.PI/360); S.post.mat.uniforms.uProj.value.set(ty*S.camera.aspect, ty); }
   K.timed.forEach(m=>{ if(m.uniforms && m.uniforms.uScale) m.uniforms.uScale.value = h/k/2; });
 };
+/* the PSX slider: at 0.8 it's the old look (240 lines, 15-bit colour); up to 1
+   it's 180 lines and 23 levels a channel; down toward 0 the picture gets finer
+   (450 lines at 0.1) and the colour smoother, and 0 is off */
 S.PSX_LINES = 240;
-S.setPsx = function(on){
-  S.psx = !!on;
-  try{ localStorage.setItem("zg.psx", S.psx ? "1" : "0"); }catch(e){}
+S.psxLines = ()=> Math.round(480 - 300*S.psxK);
+S.setPsxK = function(k){
+  S.psxK = Math.max(0, Math.min(1, k)); S.psx = S.psxK > 0;
+  if(S.psx) S.psxLast = S.psxK;
+  try{ localStorage.setItem("zg.psxK", String(S.psxK)); }catch(e){}
   S.resize();
   return S.psx;
 };
+S.setPsx = on=> S.setPsxK(on ? S.psxLast || 0.8 : 0);
 S.initPost = function(){
   const rt = new THREE.WebGLRenderTarget(16, 16, { minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter });
   rt.depthTexture = new THREE.DepthTexture(16, 16); rt.depthTexture.type = THREE.UnsignedIntType;
@@ -131,11 +140,11 @@ S.initPost = function(){
       uProj:{ value:new THREE.Vector2(1, 1) }, uAO:{ value:1.0 },
       uTime:{ value:0 }, uWeird:{ value:0 }, uEdge:{ value:0.045 }, uVig:{ value:0.85 }, uHurt:{ value:0 },
       uInk:K.INK.uInk, uShade:{ value:new THREE.Color(0x0c0c10) }, uHigh:{ value:new THREE.Color(0xffe2b0) }, uFog:{ value:new THREE.Color(0x0d0a0a) },
-      uDesat:{ value:0.18 }, uBloom:{ value:0.6 }, uPsx:{ value:0 } },
+      uDesat:{ value:0.18 }, uBloom:{ value:0.6 }, uPsx:{ value:0 }, uPsxLv:{ value:31 } },
     depthTest:false, depthWrite:false,
     vertexShader:"varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
     fragmentShader:[
-      "uniform sampler2D tCol, tDep; uniform vec2 uRes, uProj; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom, uAO, uPsx;",
+      "uniform sampler2D tCol, tDep; uniform vec2 uRes, uProj; uniform float uNear, uFar, uTime, uWeird, uEdge, uVig, uHurt, uDesat, uBloom, uAO, uPsx, uPsxLv;",
       // the PlayStation's ordered dither: a 4x4 Bayer matrix, 0..15/16
       "float bayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y*0.75))); }",
       "float bayer4(vec2 a){ return bayer2(0.5*a)*0.25 + bayer2(a); }",
@@ -161,7 +170,7 @@ S.initPost = function(){
       // the deep floors breathe: the edges of the picture swim and split
       "  uv += uWeird*0.0055*vec2(sin(uv.y*17.0 + uTime*1.7), cos(uv.x*13.0 + uTime*1.3))*smoothstep(0.04, 0.3, r2);",
       "  vec2 px = 1.0/uRes;",
-      "  vec3 col = uPsx > 0.5 ? texture2D(tCol, uv).rgb : fxaa(uv, px);",
+      "  vec3 col = uPsx > 0.0 ? texture2D(tCol, uv).rgb : fxaa(uv, px);",
       "  float ca = uWeird*0.012*r2;",
       "  if(ca > 0.0001){ col.r = texture2D(tCol, uv + c*ca).r; col.b = texture2D(tCol, uv - c*ca).b; }",
       // ambient occlusion from the depth alone: every crease, corner and foot sinks
@@ -208,11 +217,11 @@ S.initPost = function(){
       // that crawls (24 times a second, like film), heavy in the dark: the picture rasps
       "  float n = ph(floor(gl_FragCoord.xy) + 0.37), fn = ph(floor(gl_FragCoord.xy*0.5) + floor(uTime*24.0)*7.31);",
       "  float dk = 1.0 - smoothstep(0.0, 0.5, l);",
-      "  col += ((n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk)*(1.0 - uPsx);",
+      "  col += ((n - 0.5)*0.028*(0.5 + 0.5*(1.0 - l)) + (fn - 0.5)*0.05*dk)*(uPsx > 0.0 ? 0.0 : 1.0);",
       // the PSX: 32 levels a channel (15-bit colour), stepped through the dither
       // (lifted first: 15-bit colour and a dither swallow the dark, so the shadows come up a little)
-      "  if(uPsx > 0.5) col = pow(max(col, 0.0), vec3(0.8))*1.06;",
-      "  if(uPsx > 0.5) col = floor(clamp(col, 0.0, 1.0)*31.0 + bayer4(gl_FragCoord.xy))/31.0;",
+      "  if(uPsx > 0.0) col = mix(col, pow(max(col, 0.0), vec3(0.8))*1.06, min(1.0, uPsx*1.25));",
+      "  if(uPsx > 0.0) col = floor(clamp(col, 0.0, 1.0)*uPsxLv + bayer4(gl_FragCoord.xy))/uPsxLv;",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n")
   });

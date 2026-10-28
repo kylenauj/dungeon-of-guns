@@ -1180,9 +1180,18 @@ function messageTex(text){
   if(msgTex[text]) return msgTex[text];
   const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d", { willReadFrequently:true }), r = DG.RNG(text.length*31 + text.charCodeAt(0)).next;
   g.strokeStyle = "#ffb060"; g.fillStyle = "#ffb060"; g.lineCap = "round"; g.lineJoin = "round";
-  g.font = "italic bold 40px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.textAlign = "center"; g.textBaseline = "middle";
   g.shadowColor = "#ff7a1a"; g.shadowBlur = 10;
-  g.save(); g.translate(128, 60); g.rotate(-0.08); g.fillText(text.length > 18 ? text.slice(0, 18) + "…" : text, 0, 0); g.restore();
+  // a long one breaks at its full stop onto two lines; each line shrinks to fit the stone
+  const lines = text.length > 16 && /\.\s/.test(text) ? text.split(/(?<=\.)\s+/).slice(0, 2) : [text];
+  const size = lines.length > 1 ? 32 : 40;
+  g.save(); g.translate(128, lines.length > 1 ? 46 : 60); g.rotate(-0.08);
+  lines.forEach((ln, i)=>{
+    g.font = "italic bold " + size + "px Georgia, serif";
+    const w = g.measureText(ln).width; if(w > 236) g.font = "italic bold " + Math.floor(size*236/w) + "px Georgia, serif";
+    g.fillText(ln, 0, i*34);
+  });
+  g.restore();
   g.lineWidth = 2.5; g.beginPath(); g.moveTo(30, 98); for(let x=30; x<226; x+=14) g.quadraticCurveTo(x + 7, 92 + r()*12, x + 14, 98); g.stroke();
   return (msgTex[text] = new THREE.CanvasTexture(cv));
 }

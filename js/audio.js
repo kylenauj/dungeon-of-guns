@@ -25,7 +25,7 @@ A.start = function(){
   const AC = window.AudioContext || window.webkitAudioContext;
   if(A.ctx){ if(A.ctx.state === "suspended") A.ctx.resume(); return; }
   if(!AC) return;
-  try{ A.muted = localStorage.getItem("dungeonofguns.muted") === "1"; A.musicOn = localStorage.getItem("dungeonofguns.music") !== "0"; }catch(e){}
+  A.load();
   let c; try{ c = new AC(); }catch(e){ return; }
   A.init(c);
   A.timer = setInterval(A.tick, 50);
@@ -39,10 +39,10 @@ A.init = function(c, offline){
   const lim = c.createDynamicsCompressor();
   lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12;
   comp.connect(lim); lim.connect(c.destination);
-  A.master = c.createGain(); A.master.gain.value = A.muted ? 0 : 0.8; A.master.connect(comp);
+  A.master = c.createGain(); A.master.gain.value = A.masterGain(); A.master.connect(comp);
   A.sfx = c.createGain(); A.sfx.gain.value = 0.9; A.sfx.connect(A.master);
   A.musicLP = c.createBiquadFilter(); A.musicLP.type = "lowpass"; A.musicLP.frequency.value = 3600; A.musicLP.connect(A.master);
-  A.music = c.createGain(); A.music.gain.value = A.musicOn === false ? 0 : MUSIC_GAIN; A.music.connect(A.musicLP);
+  A.music = c.createGain(); A.music.gain.value = MUSIC_GAIN*A.musicVol; A.music.connect(A.musicLP);
   makeBuffers(c);
   // the hall: a long dark tail behind everything, high-passed so it never muddies
   A.verbIn = c.createGain(); A.verbIn.gain.value = 1;
@@ -60,16 +60,40 @@ A.init = function(c, offline){
   if(A.buildMusic) A.buildMusic();
 };
 /* the score alone, for those who'd rather hear the dungeon */
+/* the two sliders (0..1, remembered): the whole mix, and the music in it.
+   M still mutes everything without losing where the slider was */
+A.vol = 1; A.musicVol = 1;
+A.load = function(){
+  try{
+    const v = localStorage.getItem("dungeonofguns.vol"), mv = localStorage.getItem("dungeonofguns.musicVol");
+    A.muted = localStorage.getItem("dungeonofguns.muted") === "1";
+    A.vol = v === null ? 1 : Math.max(0, Math.min(1, +v || 0));
+    // (before the slider, music was a switch)
+    A.musicVol = mv === null ? (localStorage.getItem("dungeonofguns.music") === "0" ? 0 : 1) : Math.max(0, Math.min(1, +mv || 0));
+  }catch(e){}
+  A.musicOn = A.musicVol > 0;
+};
+A.load();
+A.masterGain = ()=> A.muted ? 0 : 0.8*A.vol;
+A.setVolume = function(v){
+  A.vol = Math.max(0, Math.min(1, v));
+  if(A.vol > 0 && A.muted){ A.muted = false; try{ localStorage.setItem("dungeonofguns.muted", "0"); }catch(e){} }
+  try{ localStorage.setItem("dungeonofguns.vol", String(A.vol)); }catch(e){}
+  if(A.master) A.master.gain.setTargetAtTime(A.masterGain(), A.ctx.currentTime, 0.05);
+};
+A.setMusic = function(v){
+  A.musicVol = Math.max(0, Math.min(1, v)); A.musicOn = A.musicVol > 0;
+  try{ localStorage.setItem("dungeonofguns.musicVol", String(A.musicVol)); }catch(e){}
+  if(A.music) A.music.gain.setTargetAtTime(MUSIC_GAIN*A.musicVol, A.ctx.currentTime, 0.2);
+};
 A.toggleMusic = function(){
-  A.musicOn = A.musicOn === false;
-  try{ localStorage.setItem("dungeonofguns.music", A.musicOn ? "1" : "0"); }catch(e){}
-  if(A.music) A.music.gain.setTargetAtTime(A.musicOn ? MUSIC_GAIN : 0, A.ctx.currentTime, 0.3);
+  A.setMusic(A.musicVol > 0 ? 0 : 1);
   return A.musicOn;
 };
 A.toggleMute = function(){
   A.muted = !A.muted;
   try{ localStorage.setItem("dungeonofguns.muted", A.muted ? "1" : "0"); }catch(e){}
-  if(A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : 0.8, A.ctx.currentTime, 0.05);
+  if(A.master) A.master.gain.setTargetAtTime(A.masterGain(), A.ctx.currentTime, 0.05);
   return A.muted;
 };
 
@@ -286,7 +310,7 @@ const SND = {};
 
 function playSafe(name, o){
   const c = A.ctx;
-  if(!c || A.muted || typeof name !== "string") return;
+  if(!c || A.muted || !A.vol || typeof name !== "string") return;
   let fn = SND[name];
   if(!fn){
     if(name.indexOf("shoot_") === 0) fn = SND.shoot_pistol;

@@ -45,6 +45,11 @@ button{font:inherit;color:inherit;}
 .item.back{font-size:clamp(13px,1.2vw,16px);padding:7px 18px 6px 30px;width:auto;}
 .item.small{width:auto;font-size:14px;padding:8px 14px 7px 28px;}
 .item[disabled]{opacity:.4;cursor:default;}
+/* the sliders: a name, and a thin gold rule with a diamond on it */
+.item.slide{cursor:default;align-items:center;}
+.item.slide input{-webkit-appearance:none;appearance:none;width:52%;height:2px;margin:0;background:linear-gradient(90deg,var(--gold-dim),var(--faint));outline:none;cursor:pointer;}
+.item.slide input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:11px;height:11px;transform:rotate(45deg);background:var(--gold);border:1px solid var(--gold2);box-shadow:0 0 6px rgba(232,200,120,.5);cursor:pointer;}
+.item.slide input::-moz-range-thumb{width:10px;height:10px;transform:rotate(45deg);border-radius:0;background:var(--gold);border:1px solid var(--gold2);cursor:pointer;}
 .menu{display:flex;flex-direction:column;gap:clamp(1px,.5vh,4px);}
 h2.head{font-family:var(--display);font-weight:400;font-size:clamp(28px,3.6vw,46px);margin:0 0 6px;letter-spacing:.16em;color:var(--ivory);text-shadow:0 2px 14px rgba(0,0,0,.9);}
 h2.head::after{content:"";display:block;width:min(360px,80%);height:1px;margin:12px 0 8px;background:linear-gradient(90deg,var(--gold),rgba(200,164,90,.35) 60%,transparent);}
@@ -77,11 +82,6 @@ kbd{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.06
 .logo .of i{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold) 50%,transparent);}
 .tag-line{margin:0;font-family:var(--body);font-style:italic;font-size:clamp(17px,1.6vw,20px);color:#d8ccb0;line-height:1.4;}
 .tag-line b{display:block;font-style:normal;font-family:var(--display);font-weight:600;font-size:.78em;letter-spacing:.24em;color:var(--blood2);margin-bottom:4px;text-transform:uppercase;}
-.seed-row{display:flex;gap:10px;align-items:stretch;padding-left:12px;}
-.seed-row input{flex:1;min-width:0;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.2em;padding:8px 6px 6px;color:var(--ivory);background:transparent;
-  border:0;border-bottom:1px solid var(--gold-dim);outline:none;user-select:text;-webkit-user-select:text;border-radius:0;}
-.seed-row input::placeholder{color:var(--faint);}
-.seed-row input:focus{border-bottom-color:var(--gold2);background:linear-gradient(0deg,rgba(200,164,90,.1),transparent);}
 .panel{max-width:1100px;}
 .cols{display:grid;grid-template-columns:1.3fr 1fr;gap:32px;}
 .keys p{margin:0 0 .65em;}

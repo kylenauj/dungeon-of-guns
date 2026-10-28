@@ -184,7 +184,15 @@ function tryGenerate(rng, floor, seed, opts){
   });
   const st = rooms[0];
   D.start = { x:st.cxw, y:st.cyw + 1 };
-  st.props.push({ kind:"sign", x:Math.floor(st.cxw), y:st.y1, text:"WASD move · mouse aim · click shoot · right-click cast · SPACE blink · E use · F active · Q swap guns · TAB inventory. Gribbus fights on his own. He's a good frog." });
+  // the controls, the Dark Souls way: a few words scrawled in orange on the
+  // first room's floor (fixed tiles, so no roll of the floor's dice moves)
+  if(floor === 1){
+    const cx = Math.floor(st.cxw), cy = Math.floor(st.cyw);
+    DG.SOAPSTONE.teach.forEach((text, i)=>{
+      const x = cx + [-3, 3, -3, 3][i], y = cy + [-2, -2, 2, 2][i];
+      if(D.at(x, y) === T.FLOOR && !st.props.some(p=> p.x === x && p.y === y)) st.props.push({ kind:"message", x, y, text, teach:true });
+    });
+  }
 
   rooms.forEach(r=>{
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);

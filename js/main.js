@@ -115,12 +115,9 @@ app.end = function(won){
 
 UI.on({
   new: ()=> app.newRun(),
-  seeded: ()=>{ const v = (document.getElementById("seed") || {}).value; app.newRun(v ? v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12) || undefined : undefined); },
-  again: ()=> app.newRun(app.G.seedWord),
+
   title: ()=> app.startDemo(),
-  how: ()=> UI.how("backTitle"),
   backTitle: ()=> UI.title(),
-  howPause: ()=> UI.how("backPause"),
   backPause: ()=> UI.pause(app.G),
   resume: ()=> app.resume(),
   bag: ()=> app.openBag(),
@@ -128,8 +125,6 @@ UI.on({
   abandon: ()=>{ app.G.state = "dead"; app.G.lastHurt = "giving up"; app.end(false); },
   lore: ()=>{ if(app.mode === "end") UI.end(app.G, true); },
   endless: ()=>{ if(app.V && app.V.cine){ app.V.cine.dispose(); app.V.cine = null; } app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
-  psx: b=>{ const on = S.setPsx(!S.psx); if(b) b.querySelector("small").textContent = on ? "PSX" : "modern"; },
-  mute: b=>{ const m = AU.toggleMute(); if(b) b.querySelector("small").textContent = m ? "off" : "on"; },
   boon: b=> app.pick(+b.dataset.i)
 });
 
@@ -151,7 +146,6 @@ IN.onKey = function(e){
     return;
   }
   if(app.mode === "choose"){ const i = { Digit1:0, Digit2:1, Digit3:2, Numpad1:0, Numpad2:1, Numpad3:2 }[e.code]; if(i !== undefined){ app.pick(i); return; } }
-  if(e.code === "Enter" && e.target && e.target.id === "seed"){ UI.act("seeded"); return; }
   if(app.mode !== "play") UI.key(e);
 };
 IN.onPadStart = ()=>{ if(app.mode === "play") app.pause(); else if(app.mode === "pause" || app.mode === "bag") app.resume(); };

@@ -1,6 +1,7 @@
 /* ------------------------------------------------------------------ *
- *  Everything that isn't the game: the title, pause, the satchel, level-up
- *  boons, how to play, and the end of a run.
+ *  Everything that isn't the game: the title, pause, the satchel, boons,
+ *  and the end of a run. Few words, Dark Souls fashion: the controls are
+ *  scrawled on the first room's floor, and the rest you find out.
  *  Plain DOM, dressed as an old grim book: engraved capitals, thin gold
  *  rules, and a YOU DIED that takes its time.
  * ------------------------------------------------------------------ */
@@ -19,6 +20,11 @@ UI.show = function(html, cls){
   s.className = "screens on " + (cls || "");
   s.innerHTML = html;
   s.querySelectorAll("[data-act]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); DG.Audio.play("select"); UI.act(b.dataset.act, b); }));
+  s.querySelectorAll("[data-set] input").forEach(inp=>{
+    const key = inp.closest("[data-set]").dataset.set;
+    inp.addEventListener("input", ()=> UI.act("set:" + key, +inp.value/100));
+    inp.addEventListener("click", e=> e.stopPropagation());
+  });
   const first = s.querySelector(".item:not([disabled])"); if(first) first.classList.add("sel");
   UI.open = true;
 };
@@ -26,7 +32,11 @@ UI.hide = function(){ const s = el("screens"); s.className = "screens"; s.innerH
 UI.handlers = {};
 UI.act = function(a, b){ const f = UI.handlers[a]; if(f) f(b); };
 UI.on = function(map){ Object.assign(UI.handlers, map); };
-UI.on({ music: b=>{ const on = DG.Audio.toggleMusic(); if(b) b.querySelector("small").textContent = on ? "on" : "off"; } });
+UI.on({
+  "set:vol": v=> DG.Audio.setVolume(v),
+  "set:music": v=> DG.Audio.setMusic(v),
+  "set:psx": v=> DG.Stage.setPsxK(v)
+});
 
 /* keyboard through menus: up/down, enter */
 UI.key = function(e){
@@ -36,7 +46,12 @@ UI.key = function(e){
   let i = items.findIndex(x=> x.classList.contains("sel"));
   if(e.code === "ArrowDown" || e.code === "KeyS"){ i = (i + 1) % items.length; }
   else if(e.code === "ArrowUp" || e.code === "KeyW"){ i = (i - 1 + items.length) % items.length; }
-  else if(e.code === "Enter"){ if(items[i]) items[i].click(); return true; }
+  else if(e.code === "Enter"){ if(items[i] && !items[i].dataset.set) items[i].click(); return true; }
+  else if((e.code === "ArrowLeft" || e.code === "ArrowRight" || e.code === "KeyA" || e.code === "KeyD") && items[i] && items[i].dataset.set){
+    const inp = items[i].querySelector("input"), d = e.code === "ArrowLeft" || e.code === "KeyA" ? -10 : 10;
+    inp.value = Math.max(0, Math.min(100, +inp.value + d)); inp.dispatchEvent(new Event("input"));
+    return true;
+  }
   else return false;
   items.forEach(x=> x.classList.remove("sel")); items[i].classList.add("sel"); DG.Audio.play("click");
   return true;
@@ -57,61 +72,30 @@ UI.title = function(){
   UI.show(`
     <div class="title-wrap">
       <div class="logo"><span>ZIPPY</span><div class="of"><i></i>&amp;<i></i></div><span>GRIBBUS</span></div>
-      <p class="tag-line"><b>Abandon hope. Bring ammunition.</b>A wizard, a frog, and a dungeon that rots a little more with every floor you descend.</p>
       <div class="menu">
-        <button class="item" data-act="new">NEW RUN <small>a fresh descent</small></button>
-        <div class="seed-row"><input id="seed" maxlength="12" placeholder="SEED (optional)" spellcheck="false" autocomplete="off"><button class="item small" data-act="seeded">PLAY SEED</button></div>
-        <button class="item" data-act="how">HOW TO PLAY</button>
-        <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
-        <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
-        <button class="item" data-act="psx">LOOK <small>${DG.Stage.psx ? "PSX" : "modern"}</small></button>
+        <button class="item" data-act="new">NEW RUN</button>
+        ${UI.settings()}
       </div>
       <div class="title-foot">${UI.endingSigils()}
-      ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest floor ${b.floor} · foes slain ${b.kills}${b.wins ? " · escapes " + b.wins : ""}</p>` : `<p class="hint">Click anywhere to wake the sound. Something down there is listening.</p>`}</div>
+      ${b.runs ? `<p class="hint">Descents ${b.runs} · deepest ${b.floor}${b.wins ? " · escapes " + b.wins : ""}</p>` : ""}</div>
     </div>`, "title");
 };
 
-UI.how = function(back){
-  UI.show(`
-    <div class="panel scroll">
-      <h2 class="head">HOW TO PLAY</h2>
-      <div class="cols">
-      <div class="note">
-        <p>You are <b>Zippy</b>, a hexhunter with <b>one wand</b>, and everything you find reshapes it. <b>Gribbus</b> the toad hops at your heel and licks things best left unlicked. Clear a room and its doors unseal. Slay the floor's <b>boss</b> and take the portal down. Five floors, each fouler than the last.</p>
-        <p><b>Forms</b> change how the wand fires: Scatter fans out, Repeater sprays, Lens lances through, Bombard bursts. They stack. <b>Cores</b> and rounds give it an <b>element</b>: whichever you've gathered most is the wand's own: every shot carries it, and its spell. Another element has to pass it to turn it; until then its items still work, still attune, and ride along on one shot in four. Once you lean into an element, more of it turns up. <b>Attunement</b> grows the spell at 2, 4 and 6, and Zippy's robes take the colour. Master the wand's element (attunement III) before the Heart falls, and a throne is waiting. Elements <b>react</b>: fire + frost is Steam, shock + water is Conduct, and so on.</p>
-        <p><b>Powerups</b> are passive and stack with everything. Ricochet + frost + crystal + wisps means bounces spawn icicles that spawn ice wisps. Godly items are rare, and some pairs make <b>duos</b>.</p>
-        <p>There are no levels: you grow by what you <b>find</b>. Bosses and the lair on every floor each carry a powerup; shops sell them, and so does Brother Olm, if you meet him. A lucky run breaks wide open. Most don't. Read the enemies: their shots hang, bend and burst, and every one can be dodged.</p>
-        <p><b>Gribbus' pond</b> is rare: three of his tricks float on its lily pads and he keeps one. His tricks turn up in shops and on bosses too. Now and then a run hides a <b>side road</b>: glowing mushrooms, Brother Olm met twice, or a sealed reliquary. Never more than one.</p>
-        <p><b>Not every door is a door.</b> Some are paintings. Some walls are not walls: shoot or walk into suspicious stone. Trust nothing down here.</p>
-      </div>
-      <div class="note keys">
-        <p><kbd>WASD</kbd> move &nbsp; <kbd>mouse</kbd> aim</p>
-        <p><kbd>LMB</kbd> shoot &nbsp; <kbd>RMB</kbd> cast the wand's spell</p>
-        <p><kbd>SPACE</kbd> blink (dodge through shots and over pits)</p>
-        <p><kbd>E</kbd> open, take, buy, read &nbsp; <kbd>R</kbd> reload</p>
-        <p><kbd>F</kbd> use your active item</p>
-        <p><kbd>TAB</kbd> satchel: everything you carry</p>
-        <p><kbd>ESC</kbd> pause &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>P</kbd> PSX look</p>
-        <p class="hint">Gamepad: left stick move, right stick aim, RT shoot, LT spell, A blink, X use, B active, Y swap, RB satchel.</p>
-      </div>
-      </div>
-      <div class="row"><button class="item back" data-act="${back}">BACK</button></div>
-    </div>`);
+/* the three sliders: the whole mix, the music, and how PSX the picture is (0: off) */
+UI.settings = function(){
+  const row = (key, name, v)=> `<div class="item slide" data-set="${key}"><span>${name}</span><input type="range" min="0" max="100" step="5" value="${Math.round(v*100)}"></div>`;
+  return row("vol", "VOLUME", DG.Audio.muted ? 0 : DG.Audio.vol) + row("music", "MUSIC", DG.Audio.musicVol) + row("psx", "PSX", DG.Stage.psxK);
 };
 
 UI.pause = function(G){
   UI.show(`
     <div class="title-wrap">
       <h2 class="head">PAUSED</h2>
-      <p class="hint">Floor ${G.floor} · ${esc(G.D.theme.name)} · seed <b>${G.seedWord}</b><br>The dark waits. It is patient.</p>
       <div class="menu">
         <button class="item" data-act="resume">RESUME</button>
-        <button class="item" data-act="bag">SATCHEL <small>the wand and powerups</small></button>
-        <button class="item" data-act="howPause">HOW TO PLAY</button>
-        <button class="item" data-act="mute">SOUND <small>${DG.Audio.muted ? "off" : "on"}</small></button>
-        <button class="item" data-act="music">MUSIC <small>${DG.Audio.musicOn === false ? "off" : "on"}</small></button>
-        <button class="item" data-act="psx">LOOK <small>${DG.Stage.psx ? "PSX" : "modern"}</small></button>
-        <button class="item" data-act="abandon">GIVE UP <small>end this run</small></button>
+        <button class="item" data-act="bag">SATCHEL</button>
+        ${UI.settings()}
+        <button class="item" data-act="abandon">GIVE UP</button>
       </div>
     </div>`, "pause");
 };
@@ -305,11 +289,10 @@ UI.end = function(G, won){
         <span><b>${s.gold}</b>gold</span><span><b>${s.secrets}</b>secrets</span><span><b>${s.puzzles}</b>puzzles</span><span><b>${m}:${String(sec).padStart(2, "0")}</b>time</span>
       </div>
       ${won ? UI.endingSigils() : ""}
-      <p class="hint">The wand: <b>${esc(G.player.guns[0].name)}</b> · seed <b>${G.seedWord}</b></p>
+      <p class="hint">${esc(G.player.guns[0].name)}</p>
       <div class="menu">
-        ${won ? `<button class="item" data-act="endless">KEEP GOING <small>endless: deeper, and worse</small></button>` : ""}
-        <button class="item" data-act="new">NEW RUN <small>try again</small></button>
-        <button class="item" data-act="again">SAME SEED <small>${G.seedWord}</small></button>
+        ${won ? `<button class="item" data-act="endless">KEEP GOING</button>` : ""}
+        <button class="item" data-act="new">NEW RUN</button>
         <button class="item" data-act="title">TITLE</button>
       </div>
       </div>

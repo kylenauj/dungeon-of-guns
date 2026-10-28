@@ -541,7 +541,9 @@ DG.OLM = {
 /* orange messages scrawled on the floor, by the dead, for the living */
 DG.SOAPSTONE = {
   honest: ["Try wall", "Hidden path ahead", "Could this be a secret?", "Wall, therefore try", "Try wall... O wall!"],
-  joke:   ["Praise the frog!", "Be wary of frog", "Amazing chest ahead", "Liar ahead", "Time for crossbow", "Visions of key..."]
+  joke:   ["Praise the frog!", "Be wary of frog", "Amazing chest ahead", "Liar ahead", "Time for crossbow", "Visions of key..."],
+  // floor 1's first room: the controls, and nothing else
+  teach:  ["Click: shoot. Right click: spell", "Space: blink. Through harm", "E: take, open, read", "Tab: satchel. F: relic"]
 };
 
 Object.assign(DG.LINES, {
