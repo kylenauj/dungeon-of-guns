@@ -46,6 +46,14 @@ S.init = function(){
   const q = location.search.match(/[?&]psx(?:=([\d.]+))?(?=&|$)/);
   if(q) k = q[1] === undefined ? 0.8 : Math.min(1, +q[1]);
   S.psxK = Math.max(0, Math.min(1, k)); S.psx = S.psxK > 0; S.psxLast = S.psxK || 0.8;
+  // first person (an experiment): through Zippy's eyes, the mouse turns his head.
+  // ?fps (or ?fps=0) or the menus' VIEW (remembered). A floor is built for it
+  // (full walls, a ceiling), so a change shows from the next floor (S.fpsWorld)
+  let fp = false;
+  try{ fp = localStorage.getItem("zg.fps") === "1"; }catch(e){}
+  const qf = location.search.match(/[?&]fps(?:=(\d))?(?=&|$)/);
+  if(qf) fp = qf[1] !== "0";
+  S.fps = fp; S.fpsWorld = fp; S.fpsLive = false; S.fpsCamOn = false;
 
   const scene = S.scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
@@ -87,6 +95,8 @@ S.init = function(){
   // show their faces, and the room stops looking like a board seen from above;
   // zoom eases out a little in a fight (main.js), so an arena still fits
   S.rig = { x:0, z:0, tx:0, tz:0, dist:15.5, pitch:0.84, shake:0, lead:0.22, zoom:1, zoomWant:1 };
+  // where Zippy looks in first person: yaw is the game's own angle (atan2 of y, x)
+  S.look = { yaw:-Math.PI/2, pitch:-0.08, bob:0, speed:0 };
   S.initPortrait();
   S.clock = new THREE.Clock();
   S.updaters = [];
@@ -296,8 +306,35 @@ S.follow = function(x, z, ax, az, snap){
   if(snap){ R.x = R.tx; R.z = R.tz; }
 };
 S.shake = function(n){ S.rig.shake = Math.min(1.2, Math.max(S.rig.shake, n)); };
+/* first person: the lens is wider and sees nearer, for a view from inside the room */
+S.FPS = { fov:74, near:0.05, eye:1.32, bob:0.035 };
+S.setFps = function(on){
+  S.fps = !!on;
+  try{ localStorage.setItem("zg.fps", on ? "1" : "0"); }catch(e){}
+  return S.fps;
+};
+S.fpsLens = function(on){
+  if(S.fpsCamOn === on) return;
+  S.fpsCamOn = on;
+  S.camera.fov = on ? S.FPS.fov : 34; S.camera.near = on ? S.FPS.near : 0.5;
+  S.camera.updateProjectionMatrix();
+  if(S.post) S.post.mat.uniforms.uNear.value = S.camera.near;
+  S.resize();
+};
 S.updateCamera = function(dt){
   const R = S.rig, k = 1 - Math.exp(-dt*8);
+  S.fpsLens(!!S.fpsLive);
+  if(S.fpsLive){
+    // through his eyes: no lead, no zoom; a little walk bob, and the shake
+    const L = S.look; R.x = R.tx; R.z = R.tz;
+    L.bob += dt*(4 + 5*Math.min(1, L.speed/5))*Math.min(1, L.speed/1.5);
+    const by = Math.sin(L.bob*2)*S.FPS.bob*Math.min(1, L.speed/3), bx = Math.cos(L.bob)*S.FPS.bob*0.6*Math.min(1, L.speed/3);
+    const sh = R.shake*0.12, sx = (Math.random() - 0.5)*sh, sy = (Math.random() - 0.5)*sh; R.shake *= Math.exp(-dt*10);
+    const cy = Math.cos(L.yaw), sy2 = Math.sin(L.yaw), cp = Math.cos(L.pitch);
+    S.camera.position.set(R.x - sy2*bx, S.FPS.eye + by, R.z + cy*bx);
+    S.camera.lookAt(S.camera.position.x + cy*cp + sx, S.camera.position.y + Math.sin(L.pitch) + sy, S.camera.position.z + sy2*cp);
+    return;
+  }
   R.x += (R.tx - R.x)*k; R.z += (R.tz - R.z)*k;
   R.zoom += ((R.zoomWant || 1) - R.zoom)*(1 - Math.exp(-dt*1.5));
   const dist = R.dist*R.zoom;

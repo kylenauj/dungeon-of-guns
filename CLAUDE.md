@@ -10,7 +10,7 @@ A real-time top-down roguelike (Zippy the hexhunter and Gribbus the toad, with s
 | `npm run balance` | A bot plays full runs, no cheats. Quote it before and after any balance change. |
 | `npm run look` | Screenshots floors 1, 3 and 5 and two gallery rows headless and measures them against the look contract (docs/ART_DIRECTION.md). Quote it before and after any change to the look. |
 | `npm run power` | Rolls floor-4 builds and reports their power spread and peak shot count. Quote it before and after any change to items or combat numbers. |
-| `npm start` | Serves the game on http://localhost:8080. Shortcuts: `?play&seed=WORD&floor=3&god`, plus `&boss=gibbet` (any `DG.BOSSES` key), `&lair=hound` (any `DG.LAIRS` id) , `&route=bog` (`bog`, `olm`, `ember` or `none`: the run's side road), `&mood=ember` (any id in that floor's `DG.FLOOR_MOODS`: the floor's light) and `&psx` or `&psx=0.5` (the PSX look at a strength from 0 to 1: fewer lines, wobbling vertices, dithered colour; the menus have a slider, P toggles it, and it's remembered). Seeds are for testing only: players always get a random run. |
+| `npm start` | Serves the game on http://localhost:8080. Shortcuts: `?play&seed=WORD&floor=3&god`, plus `&boss=gibbet` (any `DG.BOSSES` key), `&lair=hound` (any `DG.LAIRS` id) , `&route=bog` (`bog`, `olm`, `ember` or `none`: the run's side road), `&mood=ember` (any id in that floor's `DG.FLOOR_MOODS`: the floor's light), `&fps` (first person, an experiment; VIEW in the menus, remembered) and `&psx` or `&psx=0.5` (the PSX look at a strength from 0 to 1: fewer lines, wobbling vertices, dithered colour; the menus have a slider, P toggles it, and it's remembered). Seeds are for testing only: players always get a random run. |
 
 ## Layout
 

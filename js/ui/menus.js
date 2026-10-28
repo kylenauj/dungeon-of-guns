@@ -86,7 +86,8 @@ UI.title = function(){
 /* the three sliders: the sound effects, the music (each on its own), and how PSX the picture is (0: off) */
 UI.settings = function(){
   const row = (key, name, v)=> `<div class="item slide" data-set="${key}"><span>${name}</span><input type="range" min="0" max="100" step="5" value="${Math.round(v*100)}"></div>`;
-  return row("vol", "EFFECTS", DG.Audio.muted ? 0 : DG.Audio.vol) + row("music", "MUSIC", DG.Audio.musicVol) + row("psx", "PSX", DG.Stage.psxK);
+  return row("vol", "EFFECTS", DG.Audio.muted ? 0 : DG.Audio.vol) + row("music", "MUSIC", DG.Audio.musicVol) + row("psx", "PSX", DG.Stage.psxK)
+    + `<button class="item" data-act="view"><span>VIEW</span><span class="val">${DG.Stage.fps ? "FIRST PERSON" : "TOP-DOWN"}</span></button>`;
 };
 
 UI.pause = function(G){

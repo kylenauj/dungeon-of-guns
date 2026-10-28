@@ -26,8 +26,21 @@ I.init = function(){
   });
   addEventListener("keyup", e=>{ const k = MAP[e.code]; if(k) I.keys[k] = false; });
   addEventListener("blur", ()=>{ I.keys = {}; I.mouse.l = I.mouse.r = false; });
-  addEventListener("mousemove", e=>{ I.mouse.x = e.clientX; I.mouse.y = e.clientY; I.usingPad = false; });
-  addEventListener("mousedown", e=>{ if(e.button === 0) I.mouse.l = true; if(e.button === 2) I.mouse.r = true; });
+  addEventListener("mousemove", e=>{
+    I.usingPad = false;
+    // first person: the mouse turns his head (locked to the window once you click in)
+    const S = DG.Stage;
+    if(S && S.fpsLive){
+      if(document.pointerLockElement){ const L = S.look; L.yaw += e.movementX*I.sens; L.pitch = Math.max(-1.1, Math.min(0.9, L.pitch - e.movementY*I.sens)); }
+      return;
+    }
+    I.mouse.x = e.clientX; I.mouse.y = e.clientY;
+  });
+  addEventListener("mousedown", e=>{
+    const S = DG.Stage;
+    if(S && S.fpsLive && I.lockable && I.lockable() && !document.pointerLockElement){ I.lock(); return; }   // the click that takes the mouse doesn't fire
+    if(e.button === 0) I.mouse.l = true; if(e.button === 2) I.mouse.r = true;
+  });
   addEventListener("mouseup", e=>{ if(e.button === 0) I.mouse.l = false; if(e.button === 2) I.mouse.r = false; });
   addEventListener("contextmenu", e=> e.preventDefault());
   // the wheel swaps guns; over the game it mustn't also scroll a page the game is
@@ -40,9 +53,18 @@ I.init = function(){
   }, { passive:false });
 };
 
+/* first person: how far the mouse turns him, and taking the mouse (pointer lock) */
+I.sens = 0.0024;
+I.lock = function(){
+  const c = DG.Stage.renderer && DG.Stage.renderer.domElement;
+  try{ const r = c && c.requestPointerLock && c.requestPointerLock(); if(r && r.catch) r.catch(()=>{}); }catch(e){}
+};
+I.unlock = function(){ try{ if(document.pointerLockElement) document.exitPointerLock(); }catch(e){} };
+
 /* one frame's input for the game, given where the wizard is */
 I.sample = function(G){
   const S = DG.Stage, p = G.player, K = I.keys, E = I.edge;
+  const tnow = performance.now(), fdt = Math.min(0.05, ((tnow - (I.lastT || tnow)) || 16)/1000); I.lastT = tnow;
   const out = { mx:(K.right ? 1 : 0) - (K.left ? 1 : 0), my:(K.down ? 1 : 0) - (K.up ? 1 : 0),
     fire:I.mouse.l, spell:I.mouse.r, blink:!!E.blink, use:!!E.use, active:!!E.active, swap:!!E.swap || I.wheel !== 0, reload:!!E.reload, warp:!!E.warp,
     slot:E.slot0 ? 0 : E.slot1 ? 1 : E.slot2 ? 2 : -1 };
@@ -76,9 +98,26 @@ I.sample = function(G){
       if(now.lb && !prev.lb) out.reload = true;
       if(now.start && !prev.start && I.onPadStart) I.onPadStart();
       if(now.rb && !prev.rb && I.onPadBag) I.onPadBag();
-      const sp = DG.Stage.project(out.ax, 0.75, out.ay); I.mouse.x = sp.x; I.mouse.y = sp.y;
+      if(S.fpsLive){
+        // first person on a pad: the left stick walks, the right stick turns his head
+        const L = S.look; L.yaw += rx*fdt*3.2; L.pitch = Math.max(-1.1, Math.min(0.9, L.pitch - ry*fdt*2));
+        out.fire = b(7) || (gp.buttons[7] && gp.buttons[7].value > 0.3);
+      } else { const sp = DG.Stage.project(out.ax, 0.75, out.ay); I.mouse.x = sp.x; I.mouse.y = sp.y; }
     }
     I.padPrev = now;
+  }
+  if(S.fpsLive){
+    // first person: WASD is forward, back and sideways from where he looks, and he aims
+    // where he looks (the crosshair sits in the middle of the screen)
+    const L = S.look, cy = Math.cos(L.yaw), sy = Math.sin(L.yaw), f = -out.my, st = out.mx;
+    out.mx = f*cy - st*sy; out.my = f*sy + st*cy;
+    const n = Math.hypot(out.mx, out.my); if(n > 1){ out.mx /= n; out.my /= n; }
+    // he aims at the first wall straight ahead (or 8 tiles out), so a spell
+    // cast at a spot doesn't land behind a wall
+    let d = 0.5; const D = G.D, T = DG.TILE;
+    while(d < 8){ const t = D.at(Math.floor(p.x + cy*d), Math.floor(p.y + sy*d)); if(t === T.SOLID || t === T.FAKE) break; d += 0.25; }
+    out.ax = p.x + cy*Math.max(1, d - 0.3); out.ay = p.y + sy*Math.max(1, d - 0.3);
+    I.mouse.x = innerWidth/2; I.mouse.y = innerHeight/2;
   }
   I.edge = {}; I.wheel = 0;
   return out;
