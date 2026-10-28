@@ -246,7 +246,7 @@ DG.AFFIXES = {
 DG.FLOOR_SCALE = f=>({
   hp:  1 + 0.5*(f - 1) + 0.14*(f - 1)*(f - 1),
   dmg: 1.15 + 0.3*(f - 1),
-  budget: 4 + f*2.4,
+  budget: 4 + f*2.4 + 0.5*(f - 1)*(f - 1),     // more of them the deeper you go (6, 9, 13, 18, 24)
   waves: f >= 3 ? 2 : 1,
   elite: Math.min(0.45, 0.04 + 0.08*(f - 1)),
   traps: Math.min(0.85, 0.3 + 0.12*(f - 1)),

@@ -2085,8 +2085,13 @@ test("the Liar's Doors read plainly: three doors (four from floor 4), a classic 
 });
 test("the Weighing Stones crack: each takes its share of the answer and a few more, then the next shove crumbles it, puts the stones back and wakes the room", ()=>{
   const { G, r } = puzzleRoom("stones", 2), pz = r.puzzle;
-  assert.ok(pz.blocks.length >= 3 && pz.solution.length >= 16, pz.blocks.length + " stones, " + pz.solution.length + " shoves");
-  pz.blocks.forEach((b, i)=> assert.ok(b.hp >= 4, "stone " + i + ": " + b.hp));
+  // the answer kept is a near-shortest one (the solver's), not the random pulls it was built by
+  assert.ok(pz.blocks.length >= 3 && pz.solution.length >= 9 && pz.par === pz.solution.length, pz.blocks.length + " stones, " + pz.solution.length + " shoves");
+  pz.blocks.forEach((b, i)=>{
+    const share = pz.solution.filter(m=> m.b === i).length;
+    assert.ok(share >= 3, "stone " + i + " needs real shoving: " + share);
+    assert.ok(b.hp >= share + 3 && b.hp <= share + 4, "stone " + i + ": " + b.hp + " shoves for a share of " + share);
+  });
   const b = pz.blocks[0];
   b.hp = 0;
   // shove it from wherever it can go
