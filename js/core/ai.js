@@ -35,8 +35,8 @@ AI.update = function(G, e, dt){
     G.killEnemy(e, {}, true);
     return;
   }
-  e.vx = 0; e.vy = 0;
-  if(e.st.frozen > 0 || e.st.stun > 0) return;
+  // (velocity carries over between frames now: see walk, and the slide to a stop below)
+  if(e.st.frozen > 0 || e.st.stun > 0){ e.vx = 0; e.vy = 0; return; }
   // the climb: the last of the Gloom flees down the shaft, and whatever's in its way gets hurt
   if(e.flee){
     e.vx = 0; e.vy = 5.5; e.y += e.vy*dt; e.face = Math.PI/2;
@@ -63,17 +63,40 @@ AI.update = function(G, e, dt){
     e.ai.touch = G.t + 0.9; G.hurtPlayer(e.dmg*0.6, e.type);
   }
   const B = (e.lair && LAIR[e.lair]) || BEHAVIOUR[e.def.ai] || BEHAVIOUR.melee;
+  const x0 = e.x, y0 = e.y;
+  e.walked = false;
   B(G, e, dt, p);
+  // it didn't walk this frame: it slides to a stop rather than freezing mid-stride
+  // (unless it leapt, burrowed or blinked, which move it themselves)
+  if(!e.walked){
+    if(e.x === x0 && e.y === y0 && e.def.speed && Math.abs(e.vx) + Math.abs(e.vy) > 0.05){
+      const f = Math.exp(-dt*(e.big ? 7 : 12)); e.vx *= f; e.vy *= f;
+      if(G.move(e, e.vx*dt, e.vy*dt, e.phases ? "ghost" : "enemy")){ e.vx = e.vy = 0; }
+    } else { e.vx = 0; e.vy = 0; }
+  }
 };
 
 /* ---- shared moves ---- */
 function speedOf(e){ return e.speed*(e.st.chill > 0 ? DG.STATUS.chill.slow : 1); }
+/* walking has weight now: the velocity eases toward where it wants to go (it used to
+   be set outright every frame, so things started, stopped and turned in an instant and
+   zig-zagged along the path grid). The heavy ones lean in slower, the small quick ones
+   snap; a sharp turn back takes more of it at once, so nothing crawls through a U-turn */
+DG.ENEMY_ACCEL = { big:6, quick:16, base:10 };
 function walk(G, e, dx, dy, mul, dt){
   const l = Math.hypot(dx, dy); if(l < 0.001) return false;
-  const s = speedOf(e)*(mul || 1);
-  e.vx = dx/l*s; e.vy = dy/l*s;
+  const s = speedOf(e)*(mul || 1), tx = dx/l*s, ty = dy/l*s, A = DG.ENEMY_ACCEL;
+  const rate = e.big || e.boss ? A.big : e.speed >= 4 ? A.quick : A.base;
+  const back = e.vx*tx + e.vy*ty < 0 ? 2 : 1;
+  const k = 1 - Math.exp(-dt*rate*back);
+  e.vx += (tx - e.vx)*k; e.vy += (ty - e.vy)*k;
+  e.walked = true;
   e.face = Math.atan2(dy, dx);
-  return G.move(e, e.vx*dt, e.vy*dt, e.phases ? "ghost" : "enemy");
+  const x0 = e.x, y0 = e.y, mx = e.vx*dt, my = e.vy*dt;
+  const blocked = G.move(e, mx, my, e.phases ? "ghost" : "enemy");
+  // against a wall, only the way into it stops (it still slides along it)
+  if(blocked){ if(Math.abs(e.x - x0) < Math.abs(mx)*0.5) e.vx = 0; if(Math.abs(e.y - y0) < Math.abs(my)*0.5) e.vy = 0; }
+  return blocked;
 }
 function approach(G, e, p, dt, mul){
   if(e.phases || (G.los(e.x, e.y, p.x, p.y) && clearPath(G, e, p))) return walk(G, e, p.x - e.x, p.y - e.y, mul, dt);

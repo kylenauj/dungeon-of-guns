@@ -98,7 +98,8 @@ Gallery.frame = function(dt, t){
   S.rig.dist = C.dist; S.follow(C.x, C.z, C.x, C.z);
   S.playerLight.position.set(C.x, 3, C.z + 2);
   Gallery.rigs.forEach((R, i)=>{
-    if(R.throne) M.throneAnim(R, t); else if(R.olm) M.olmIdle(R, t + i*0.7, Math.sin(t*0.5)); else if(R.eyedoor) M.eyedoorOpen(R, 0.5 + 0.5*Math.sin(t*0.6), t); else if(R.still){ R.parts.head.rotation.x = -0.25 + Math.sin(t)*0.05; } else if(R.body) M.idle(R, t + i*0.7, 0);
+    if(R.throne) M.throneAnim(R, t); else if(R.olm) M.olmIdle(R, t + i*0.7, Math.sin(t*0.5)); else if(R.eyedoor) M.eyedoorOpen(R, 0.5 + 0.5*Math.sin(t*0.6), t); else if(R.still){ R.parts.head.rotation.x = -0.25 + Math.sin(t)*0.05; } else if(R.body && M.MOVES[R.kind]) M.creep(R, { speed:0 }, t + i*0.7, dt);       // a rig with its own moves stands as it does in the game
+    else if(R.body) M.idle(R, t + i*0.7, 0);
     if(R.spin) R.root.rotation.y = t;
     if(R.parts && R.parts.head && R.kind === "zippy") R.parts.head.rotation.y = Math.sin(t*0.8)*0.3;
   });

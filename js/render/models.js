@@ -3221,7 +3221,14 @@ Models.copy = function(R){
 const clamp01 = x=> x < 0 ? 0 : x > 1 ? 1 : x;
 const smooth = (a, b, x)=>{ const k = clamp01((x - a)/(b - a)); return k*k*(3 - 2*k); };
 /* a damped spring toward a target: s = { x, v }; k stiffness, c damping */
-function spring(s, target, k, c, dt){ s.v += ((target - s.x)*k - s.v*c)*dt; s.x += s.v*dt; return s.x; }
+/* a damped spring, stepped at 1/120 s at most: in one step a frame, the stiff ones went
+   unstable below ~30 frames a second (a hitch, a slow machine) and heads, jaws and
+   limbs flung themselves about, winding up by hundreds of radians */
+function spring(s, target, k, c, dt){
+  let left = dt;
+  while(left > 1e-6){ const h = Math.min(left, 1/120); s.v += ((target - s.x)*k - s.v*c)*h; s.x += s.v*h; left -= h; }
+  return s.x;
+}
 Models.spring = spring;
 function stepDt(m, t, dt){
   if(dt === undefined){ dt = m.lastT === undefined ? 1/60 : t - m.lastT; }
