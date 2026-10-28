@@ -133,7 +133,7 @@ const SIDE_LINES = {
   flesh:"The Flesh Library. The shelves breathe. The books have eyes. Olm's lantern burns white."
 };
 const SIDE_END = { kiln:"flame", bog:"bog", flesh:"white" };
-/* a side road's last floor, under the Heart (or behind Olm's door) */
+/* a side road's last floor, under the Heart (or through the door of eyes that rises where it died) */
 proto.enterSide = function(side, line){
   const G = this;
   G.side = side; G.kiln = side === "kiln";
@@ -185,7 +185,6 @@ proto.initProp = function(r, pr){
   pr.id = G.nextId++; pr.room = r.id;
   if(pr.kind === "chest") pr.open = false;
   if(pr.kind === "pedestal" && !pr.offer) pr.offer = G.makeOffer(r, pr);
-  if(pr.kind === "eyedoor") pr.open = !!G.player.quests.lantern;
   return pr;
 };
 /* what sits on a pedestal: an item from the room's pool, a gun, soup... */
@@ -840,10 +839,16 @@ proto.bossDown = function(e){
   G.enemies.forEach(o=>{ if(o !== e && !o.dead && o.room === r.id) G.killEnemy(o, {}); });
   G.bullets.forEach(b=>{ if(b.team === "e") b.dead = true; });
   G.beams = [];
-  G.portal = { x:r.cxw, y:r.cyw + 2 };
   G.addProp(r, { kind:"pedestal", x:Math.floor(r.cxw), y:Math.floor(r.cyw) - 1, pool:"b" });
   G.dropGold(e.x, e.y, 25 + 10*G.floor);
   const p = G.player, last = G.floor >= DG.FINAL_FLOOR && !G.endless && !G.side;
+  // Olm's lantern, carried to the Heart: no portal, a door of eyes (docs/ENDINGS.md §0)
+  if(last && p.quests.lantern && DG.Roads){
+    DG.Roads.raiseEyeDoor(G, r);
+    G.say("The Gloom Heart is still. Olm's lantern burns white, and something huge pushes up through the floor where the portal should be. It has eyes.", 4.5);
+    return;
+  }
+  G.portal = { x:r.cxw, y:r.cyw + 2 };
   // ten mushrooms in him: the Heart's portal runs green, down into the Bog
   if(last && DG.Roads && DG.Roads.kingReady(G) && !p.quests.ember) G.portal.kind = "bog";
   // an element mastered (the Ember and the Bog come first): the portal burns its colour
@@ -1218,7 +1223,7 @@ proto.interactSpecial = function(o){
   if(o.kind === "olm"){ G.talkOlm(o); return true; }
   if(o.kind === "glowshroom"){ DG.Roads.eatShroom(G, o); return true; }
   if(o.kind === "eyedoor"){
-    if(!o.open){ G.say("Every eye on the door is shut. Something in Olm's lantern would wake them.", 3.5); G.emit("broke"); return true; }
+    if(!o.open){ G.say("Every eye on the door is shut. They're waking.", 2.5); G.emit("broke"); return true; }
     G.emit("eyedoor", { x:o.x + 0.5, y:o.y + 0.5 });
     G.enterSide("flesh", "The eyes open. All of them. Olm's lantern burns white, and you go in.");
     return true;

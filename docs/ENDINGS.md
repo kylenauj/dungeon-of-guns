@@ -18,7 +18,7 @@ stumble on. `?route=bog|olm|ember|none` forces one for testing.
 | **None** | the Mission only | the climb out | the Gloom Heart | **DAWN** |
 | **The Ember** | the Sealed Reliquary on floor 2 or 3, its Warden keeping the Ember | 6, the Kiln | the Hollow Wizard | **THE FIRST FLAME** |
 | **The Bog** | glowing mushrooms down the dungeon (2-3 a floor). Gribbus eats each one and grows a little; at 4, 7 and 10 he grows a size (the old Rot models); from 4 on he **demands praise** (E near him: +50% for 20s, ignore him and he sulks). At ten, the Heart's portal runs green | 6, the Glutton's Bog: everything glows, Gribbus hits twice as hard and wears the crown | the Bog Lord, Toad King | **KING OF THE BOG**: Gribbus eats him; Zippy is his royal wizard |
-| **Olm** | Brother Olm twice (floors 1-2 and 3-4). Hear everything he has to say (Listen, across both visits) and he gives up his lantern; the door of eyes in his second library opens | 6, the Flesh Library: ghosts, Lantern Wights and Gorged Toads | the Archivist, Who Wrote the Dark | **THE WHITE WIZARD**: Zippy, cleansed, robed white, in a column of holy light |
+| **Olm** | Brother Olm twice (floors 1-2 and 3-4). Hear everything he has to say (Listen, across both visits) and he gives up his lantern. Carry it to the Heart: when the Heart dies there's no portal; a giant door of eyes rises out of the floor in its place, and a moment later every eye opens (`Roads.raiseEyeDoor`) | 6, the Flesh Library: ghosts, Lantern Wights and Gorged Toads | the Archivist, Who Wrote the Dark | **THE WHITE WIZARD**: Zippy, cleansed, robed white, in a column of holy light |
 
 **THE THRONE** isn't a road but a build. Master the wand's element
 (attunement III in it: six sources, the wand counting one) and when the Heart

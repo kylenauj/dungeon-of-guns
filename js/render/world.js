@@ -1260,6 +1260,11 @@ proto.roomProp = function(p, g, o){
   }
   if(p.kind === "eyedoor"){
     const R = M.eyedoor(); g.add(R.root); o.rig = R; R.root.position.z = -0.42; o.openK = p.open ? 1 : 0;
+    // the one that rises where the Heart died: twice the size, standing free, coming up out of the floor
+    if(p.big){
+      R.root.scale.setScalar(1.9); R.root.position.z = 0; o.rise = 0;
+      W.lights.push({ x:p.x + 0.5, y:2.2, z:p.y + 1.2, c:M.NEON, i:1.4, room:p.room, ph:0 });
+    }
     return true;
   }
   if(p.kind === "message"){
@@ -1297,6 +1302,12 @@ proto.updateRoomProp = function(pr, o, G, dt, t){
   if(pr.kind === "eyedoor" && o.rig){
     o.openK += ((pr.open ? 1 : 0) - o.openK)*(1 - Math.exp(-dt*1.5));
     M.eyedoorOpen(o.rig, o.openK, t);
+    if(o.rise !== undefined && o.rise < 1){
+      o.rise = Math.min(1, o.rise + dt/2);
+      const k = 1 - Math.pow(1 - o.rise, 3);
+      o.rig.root.position.y = -4.6*(1 - k);
+      if(Math.random() < 0.8) DG.FX.burst(pr.x + 0.5 + (Math.random() - 0.5)*2.6, 0.1, pr.y + 0.5 + (Math.random() - 0.5)*0.8, 0x3a2a2a, 3, 2, 0.22, 0.7, { up:1.5, col2:0x6a2a34 });
+    }
     if(pr.open && Math.random() < 0.3) DG.FX.emit(pr.x + 0.5 + (Math.random() - 0.5)*1.2, 0.3 + Math.random()*2, pr.y + 0.2, 0, 0.3, 0.3, M.NEON, 0.16, 1, 0, 1);
   }
   if(o.msg){ const near = DG.dist(pr.x + 0.5, pr.y + 0.5, p.x, p.y) < 2.5 ? 1 : 0; o.msgK = (o.msgK || 0) + (near - (o.msgK || 0))*(1 - Math.exp(-dt*4)); o.msg.material.opacity = 0.55 + 0.15*Math.sin(t*1.7 + pr.x) + 0.3*o.msgK; }

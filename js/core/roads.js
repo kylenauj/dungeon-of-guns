@@ -13,8 +13,9 @@
  *         Glutton's Bog, where he's king and Zippy the sidekick; he eats
  *         the Bog Lord, Toad King.
  *  olm    THE WHITE WIZARD. Brother Olm, met twice. Hear everything he has
- *         to say and he gives up his lantern; a door of eyes in his
- *         library opens on the Flesh Library and the Archivist.
+ *         to say and he gives up his lantern. Carry it to the Heart: where
+ *         the Heart dies, a giant door of eyes rises in place of the portal,
+ *         and opens on the Flesh Library and the Archivist.
  *
  *  A step done is remembered for the run (G.roads) and, once ever
  *  reached, between runs (meta.roads), for the journal.
@@ -51,7 +52,7 @@ DG.LANTERN = {
     { id:"olm1",    text:"Find Brother Olm, and listen" },
     { id:"olm2",    text:"Find him again, deeper down, and hear the rest" },
     { id:"lantern", text:"Take his lantern" },
-    { id:"door",    text:"Go through the door of eyes" },
+    { id:"door",    text:"Carry it to the Heart: where it dies, a door of eyes rises" },
     { id:"white",   text:"Close the Archivist's book" }
   ]
 };
@@ -93,7 +94,7 @@ Roads.genOpts = function(G, n){
   if(G.endless || n > DG.FINAL_FLOOR) return o;
   if(R.plan.emberFloor === n && !R.ember.found) o.reliquary = true;
   const v = R.plan.olmFloors.indexOf(n);
-  if(v >= 0) o.olm = { visit:v + 1, door:R.route === "olm" && v === 1 };
+  if(v >= 0) o.olm = { visit:v + 1 };
   if(R.route === "bog") o.shrooms = DG.SHROOMS_PER_FLOOR[n - 1] || 0;
   return o;
 };
@@ -150,8 +151,16 @@ Roads.takeLantern = function(G){
   rem(G, "olm", "lantern");
   G.emit("quest", { id:"lantern", name:DG.QUESTS.lantern.name });
   G.emit("lantern", {});
-  // the door of eyes in his library opens to it
-  G.D.rooms.forEach(r=> r.props.forEach(pr=>{ if(pr.kind === "eyedoor" && !pr.open){ pr.open = true; G.emit("eyesOpen", { id:pr.id, x:pr.x + 0.5, y:pr.y + 0.5 }); } }));
+};
+/* the Heart is still, and Olm's lantern is in your hand: no portal. The door of
+   eyes comes up out of the floor where the portal would be, shut, and a moment
+   later every eye on it opens */
+Roads.raiseEyeDoor = function(G, r){
+  const pr = G.addProp(r, { kind:"eyedoor", x:Math.floor(r.cxw), y:Math.floor(r.cyw) + 2, big:true });
+  pr.open = false;
+  G.emit("eyesRise", { id:pr.id, x:pr.x + 0.5, y:pr.y + 0.5 });
+  G.pending.push({ t:2.2, fn:()=>{ pr.open = true; G.emit("eyesOpen", { id:pr.id, x:pr.x + 0.5, y:pr.y + 0.5 }); } });
+  return pr;
 };
 Roads.olmVisited = function(G, visits){ rem(G, "olm", visits >= 2 ? "olm2" : "olm1"); };
 

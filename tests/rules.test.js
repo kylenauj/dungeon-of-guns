@@ -1339,7 +1339,7 @@ test("side routes: at most one a run, by chance; only its own things turn up", (
   const bog = things(new DG.Game({ seedWord:"R2", route:"bog" }));
   assert.equal(bog.reliquary, 0); assert.ok(bog.shroom >= DG.SHROOMS_NEED, bog.shroom + " mushrooms, ten needed"); assert.equal(bog.eyedoor, 0);
   const olm = things(new DG.Game({ seedWord:"R3", route:"olm" }));
-  assert.equal(olm.olm, 2, "Olm twice"); assert.equal(olm.eyedoor, 1, "the door of eyes on his second visit's floor"); assert.equal(olm.shroom + olm.reliquary, 0);
+  assert.equal(olm.olm, 2, "Olm twice"); assert.equal(olm.eyedoor, 0, "no door in his library: it rises where the Heart dies"); assert.equal(olm.shroom + olm.reliquary, 0);
   const none = things(new DG.Game({ seedWord:"R4", route:null }));
   assert.ok(none.olm <= 1 && none.eyedoor === 0 && none.shroom === 0 && none.reliquary === 0);
 });
@@ -1873,7 +1873,7 @@ test("a frog build finds his pond on every floor", ()=>{
 });
 
 /* ---- the roads: Olm's, and the new things on them ---- */
-test("Olm's route: hear all he has to say over two visits, take his lantern, and the door of eyes opens on the Flesh Library", ()=>{
+test("Olm's route: hear all he has to say over two visits, take his lantern, and where the Heart dies a door of eyes rises onto the Flesh Library", ()=>{
   const A = olmGame("LANTERN", 1), S = A.G.olmState();
   A.G.talkOlm(A.o);
   for(let k=0;k<30;k++) A.G.choose(A.G.choice.options.findIndex(x=> x.act === "listen"));
@@ -1881,24 +1881,39 @@ test("Olm's route: hear all he has to say over two visits, take his lantern, and
   // the second visit (a new floor of the same run): carry what he's said
   const B = olmGame("LANTERN", 2);
   B.G.olm = { said:Object.assign({}, S.said), visits:S.visits, idle:0 };
-  const door = B.r.props.find(p=> p.kind === "eyedoor");
-  assert.ok(door && !door.open, "a door of shut eyes in his library");
-  stand(B.G, door.x + 0.5, door.y + 0.6);
-  assert.ok(/shut eyes/.test(B.G.target().text)); B.G.interact(); assert.equal(B.G.floor, B.G.roads.plan.olmFloors[1], "shut: it goes nowhere");
+  assert.ok(!B.r.props.some(p=> p.kind === "eyedoor"), "no door in his library");
   B.G.talkOlm(B.o);
   for(let k=0;k<30 && !B.G.choice.options.some(x=> x.act === "lantern"); k++) B.G.choose(B.G.choice.options.findIndex(x=> x.act === "listen"));
   const li = B.G.choice.options.findIndex(x=> x.act === "lantern");
   assert.ok(li >= 0, "everything heard: he'll give up the lantern");
   B.G.choose(li);
-  assert.ok(B.G.player.quests.lantern && door.open);
+  assert.ok(B.G.player.quests.lantern);
   B.G.choose(B.G.choice.leave);
-  stand(B.G, door.x + 0.5, door.y + 0.6); B.G.interact();
-  assert.equal(B.G.floor, DG.FINAL_FLOOR + 1); assert.equal(B.G.D.theme, DG.FLESH);
+  // down at the Heart, lantern in hand
+  const H = new DG.Game({ seedWord:"LANTERN", floor:5, route:"olm" });
+  H.player.quests.lantern = true;
+  const { r } = killBoss(H);
+  assert.ok(!H.portal, "no portal");
+  const door = r.props.find(p=> p.kind === "eyedoor");
+  assert.ok(door && door.big, "a giant door of eyes where the portal would be");
+  stand(H, door.x + 0.5, door.y + 0.6); H.interact();
+  assert.equal(H.floor, DG.FINAL_FLOOR, "shut for a moment: it goes nowhere yet");
+  const ev = step(H, 2.5);
+  assert.ok(door.open, "then every eye opens");
+  assert.ok(ev.some(e=> e.type === "eyesOpen"));
+  stand(H, door.x + 0.5, door.y + 0.6);
+  assert.ok(/Flesh Library/.test(H.target().text));
+  H.interact();
+  assert.equal(H.floor, DG.FINAL_FLOOR + 1); assert.equal(H.D.theme, DG.FLESH);
   assert.ok(Object.keys(DG.FLESH.enemies).some(t=> t === "evilfrog") && DG.FLESH.enemies.ghost, "ghosts and evil frogs");
-  const { b } = killBoss(B.G);
+  const { b } = killBoss(H);
   assert.equal(b.type, "archivist");
-  takePortal(B.G);
-  assert.equal(B.G.ending, "white");
+  takePortal(H);
+  assert.equal(H.ending, "white");
+  // without the lantern, the Heart's portal as ever
+  const N = new DG.Game({ seedWord:"LANTERN2", floor:5, route:"olm" });
+  killBoss(N);
+  assert.ok(N.portal && !N.D.rooms.some(x=> x.props.some(p=> p.kind === "eyedoor")));
 });
 
 test("creepy shots: hang in the air then dart at you, bend, or burst; all of them dodgeable", ()=>{

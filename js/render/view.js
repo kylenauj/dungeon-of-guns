@@ -529,6 +529,7 @@ proto.handle = function(ev){
     case "championDown": FX.soul(ev.x, ev.y, 5, 2, M.NEON); FX.ring(ev.x, ev.y, 3, M.NEON, 0.9); S.shake(0.5); play("godly"); break;
     case "dart": if(Math.random() < 0.3) FX.burst(ev.x, 0.6, ev.y, M.NEON, 3, 1.5, 0.12, 0.2); break;
     case "lantern": FX.rise(ev.x, ev.y, 0xfff6dc, 40, 1, { v:3 }); FX.ring(ev.x, ev.y, 4, 0xfff6dc, 1); S.shake(0.3); play("blessing"); break;
+    case "eyesRise": S.shake(0.6); FX.ring(ev.x, ev.y, 3.5, 0x6a2a34, 1.2); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
     case "eyesOpen": S.shake(0.4); FX.burst(ev.x, 1.2, ev.y, M.NEON, 40, 3, 0.3, 1, { up:1 }); play("pact"); break;
     case "eyedoor": S.flash.position.set(ev.x, 2, ev.y); S.flash.color.setHex(0xfff6dc); S.flash.intensity = 8; play("portal"); break;
     case "olmBye": play("olmTalk", { x:ev.x, y:ev.y }); break;

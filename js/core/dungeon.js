@@ -734,17 +734,12 @@ const SPECIAL = {
     const cx = Math.floor(r.cxw), cy = Math.floor(r.cyw);
     r.props.push({ kind:"olm", x:cx, y:cy });
     wallDeco(D, r, "hearth", cx, { s:1 });
-    const door = opts && opts.olm && opts.olm.door ? cx - 4 : -99;
-    for(let x=r.x1 + 1; x<r.x2; x+=2) if(Math.abs(x - cx) > 1 && Math.abs(x - door) > 1) wallDeco(D, r, "bookshelf", x, { s:1 });
+    for(let x=r.x1 + 1; x<r.x2; x+=2) if(Math.abs(x - cx) > 1) wallDeco(D, r, "bookshelf", x, { s:1 });
     [[r.x1 + 1.6, cy - 1.5], [r.x2 - 0.6, cy - 1.5], [r.x1 + 1.6, cy + 2], [r.x2 - 0.6, cy + 2]].forEach(([x, y], i)=> deco(D, r, "lectern", x, y, { rot:i % 2 ? -Math.PI/2 : Math.PI/2, s:1 }));
     for(let k=0;k<6;k++) deco(D, r, rng.chance(0.5) ? "scrollpile" : "bookpile", r.x1 + 1 + rng.next()*(r.x2 - r.x1 - 1), rng.chance(0.5) ? r.y2 - 0.2 : r.y1 + 1.2, { rot:rng.next()*6, s:1 });
     deco(D, r, "kettle", cx + 1.6, r.y1 + 0.7, { rot:0, s:1 });
     deco(D, r, "candlecluster", r.x1 + 0.8, r.y2 - 0.2, { rot:1, s:1 }); deco(D, r, "candlecluster", r.x2 - 0.2, r.y1 + 0.8, { rot:2, s:1 });
     r.library = true;
-    if(opts && opts.olm && opts.olm.door){
-      // the door of eyes: in the north wall, facing you, so you see every eye open
-      r.props.push({ kind:"eyedoor", x:door, y:r.y1 });
-    }
   }
 };
 Dungeon.SPECIAL = SPECIAL;

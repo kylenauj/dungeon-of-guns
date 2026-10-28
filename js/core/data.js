@@ -267,7 +267,7 @@ DG.FINAL_FLOOR = 5;
    flies, and who followed Zippy down because nobody told him not to. */
 DG.QUESTS = {
   ember:  { name:"Ember of the First Flame", desc:"A coal that will not go out. It wants to go home, down to the Kiln.", flavor:"Warm as a hand on your shoulder." },
-  lantern:{ name:"Olm's Lantern",            desc:"It has never once gone out. In its light, a door of eyes opens.", flavor:"It is heavier than a lantern should be." },
+  lantern:{ name:"Olm's Lantern",            desc:"It has never once gone out. Carry it to the Heart: where the Heart dies, a door of eyes opens to it.", flavor:"It is heavier than a lantern should be." },
   shrooms:{ name:"Glowing Mushrooms",        desc:"Gribbus has been eating them. He has opinions now. Loud ones.", flavor:"They glow on the way down, too." }
 };
 /* ---- side roads: at most one a run, and only by chance (js/core/roads.js) ----
@@ -277,8 +277,9 @@ DG.QUESTS = {
            grows; the Heart's portal runs green into the Glutton's Bog and
            the Bog Lord, Toad King (KING OF THE BOG)
    olm     Brother Olm, met twice; hear all he has to say and he gives up
-           his lantern; a door of eyes in his library opens on the Flesh
-           Library and the Archivist (THE WHITE WIZARD)  */
+           his lantern; carry it to the Heart, and where the Heart dies a
+           door of eyes rises, onto the Flesh Library and the Archivist
+           (THE WHITE WIZARD)  */
 DG.ROUTES = { none:0.4, ember:0.2, bog:0.2, olm:0.2 };
 DG.SHROOMS_NEED = 10;
 DG.SHROOMS_PER_FLOOR = [2, 3, 2, 3, 3];       // 13 down the five floors; ten will do
@@ -517,14 +518,14 @@ DG.OLM = {
     { id:"throne",    text:"There's a red throne somewhere below. If you find it... no. If you find it, think of me. Then think again." },
     { id:"heart",     text:"The Heart at the bottom of all this beats. What beats can be stopped." },
     { id:"lamp1",     text:"This lantern has never once gone out. Forty years. I've never fed it. I find that suspicious.", route:"olm", pri:2 },
-    { id:"lamp2",     text:"There's a door down here that only opens to it. Eyes, all over. I've seen it in the light, out of the corner of mine.", route:"olm" },
+    { id:"lamp2",     text:"There's a door at the very bottom that only opens to it. Where the Heart beats. Eyes, all over. I've seen it in the light, out of the corner of mine.", route:"olm" },
     { id:"lamp3",     text:"Behind it is the library the dark was written in. I went in once. The books read me back.", route:"olm", visit:2, pri:2 },
     { id:"lamp4",     text:"I'm too old to go back in. You aren't. I hate that you aren't.", route:"olm", visit:2 },
     { id:"lamp5",     text:"If you went... no. If you went, you'd need the lantern. And you'd need to come back out. Promise me the second part.", route:"olm", visit:2 },
     { id:"bored",     text:"I'm not afraid of dying down here. I'm afraid of dying bored. You help with that." }
   ],
-  lantern: "Fine. FINE. Take it. It's heavier than it looks. When the door opens, don't read anything in there. Not one word.",
-  lanternGone: "Go on. The door's open now. I can feel it from here, like a draught.",
+  lantern: "Fine. FINE. Take it. It's heavier than it looks. Carry it down to the Heart. When the Heart stops, the door comes up, and when it opens, don't read anything in there. Not one word.",
+  lanternGone: "Go on. Take it all the way down, to the Heart. When the Heart stops, the door comes. I can feel it from here, like a draught.",
   idle:    ["Hmm. Hmmm.", "The little ones say hello. That one says something rude.", "Go on. The dark won't clear itself. Well. It might. Unlikely.", "Mind the frogs near the candles."],
   bless:   ["Kneel. No, the other knee. There.", "May it hold longer than my knees did.", "The lantern remembers you now. Lucky you."],
   scroll:  ["Take it. The frogs have finished with it. Mostly.", "One of the little ones copied this out. Badly. It still works.", "A good one. Don't let your frog eat it."],
