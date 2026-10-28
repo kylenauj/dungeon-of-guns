@@ -84,12 +84,15 @@ FX.init = function(scene){
       "  float r = mix(0.012, 0.12 + 0.1*(1.0 - st), pow(h, 1.6));",
       // ragged: it crackles and tears along its length, differently for every shot, every frame
       "  float ang = atan(q.y, q.x - hd.x), jag = 0.3*(hh(floor(ang*4.0 + uTime*24.0) + vS*91.0) - 0.5) + 0.45*(hh(floor(h*16.0 - uTime*40.0) + vS*37.0) - 0.5);",
-      "  float d = length(q - (tl + ba*h)) - r*(1.0 + jag);",
+      "  float d = length(q - (tl + ba*h)) - r*(1.0 + jag*(vR > 0.5 ? 0.25 : 1.0));",
       "  if(d > 0.0) discard;",
       "  float t = clamp(-d/r, 0.0, 1.0);",
       "  vec3 hot = mix(vC, vec3(1.0, 0.93, 0.78), 0.75);",
       "  vec3 c;",
-      "  if(vR > 0.5){ c = mix(vec3(0.3, 0.02, 0.02)*1.4, vec3(0.03, 0.0, 0.01), smoothstep(0.15, 0.55, t)); c = mix(c, vC*0.5, smoothstep(0.8, 1.0, t)*0.6); }",
+      // enemy shots: made to be seen. A crisp black outline, then the shot's colour at full
+      // strength (even the brown and grey ones), a white-hot heart, and a quick pulse
+      "  if(vR > 0.5){ vec3 b = vC/max(max(vC.r, max(vC.g, vC.b)), 0.05); float pu = 0.88 + 0.12*sin(uTime*14.0 + vS*40.0);",
+      "    c = mix(vec3(0.02, 0.0, 0.0), b*pu, smoothstep(0.0, 0.2, t)); c = mix(c, vec3(1.0, 0.97, 0.9), smoothstep(0.5, 0.92, t)); }",
       // deep, not pastel: a burnt black edge, the element's colour dark and strong, a thin white-hot line down the middle
       "  else { vec3 deep = vC*vC*1.15; c = mix(vec3(0.03, 0.02, 0.02), deep, smoothstep(0.08, 0.4, t)); c = mix(c, hot, smoothstep(0.72, 0.97, t)*(0.3 + 0.7*h)); }",
       "  gl_FragColor = vec4(c, 1.0); }"].join("\n") });
@@ -385,7 +388,7 @@ FX.update = function(dt, G){
       if(els.length === 2 && Math.random() < 0.35) emit(b.x, y, b.y, (Math.random() - 0.5)*0.3, 0.2, (Math.random() - 0.5)*0.3, EL(els[1]), 0.13, 0.3, 0, 1);
       if(b.orbitLeft) y = 0.9;
     } else {
-      const E = ENEMY_SHOT[b.kind] || ENEMY_SHOT.orb; col = E[0]; size = E[1]*(b.r > 0.2 ? 1.2 : 1); rim = 1; y = 0.6;
+      const E = ENEMY_SHOT[b.kind] || ENEMY_SHOT.orb; col = E[0]; size = E[1]*(b.r > 0.2 ? 1.2 : 1)*1.6; rim = 1; y = 0.6;
       if(b.kind === "blood" && Math.random() < 0.06) dark(b.x, y, b.y, 0, 0, 0, 0x2a0404, 0.1, 0.8, 0.8, -0.2, 9, 0.5);
       // a shot that hangs in the air pulses while it waits, so you can see it's coming
       if(b.hanging){ size *= 1 + 0.25*Math.sin(clock*18 + b.id); if(Math.random() < 0.08) emit(b.x, y, b.y, 0, 0.4, 0, col, 0.12, 0.4, 0, 1); }
@@ -399,7 +402,7 @@ FX.update = function(dt, G){
     B.dir[n*2] = sp > 0.01 ? vx/sp*stretch : 0; B.dir[n*2 + 1] = sp > 0.01 ? -vy*0.8/sp*stretch : 0;
     // the sprite holds the whole streak, so it's longer than the shot is wide; the glow under it
     // is small and dim (2.6x the shot, overlapping by the dozen, was most of the late-game lag)
-    B.size[n] = size*(1 + 0.7*stretch); B.rim[n] = rim; B.gsize[n] = size*(b.team === "p" ? 0.85 : 0.8);
+    B.size[n] = size*(1 + 0.7*stretch); B.rim[n] = rim; B.gsize[n] = size*(b.team === "p" ? 0.85 : 2.4);
     n++;
   }
   for(let i=n;i<NB;i++){ if(!B.size[i]) break; B.size[i] = 0; B.gsize[i] = 0; }

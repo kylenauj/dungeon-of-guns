@@ -268,7 +268,7 @@ proto.areaOfTile = function(x, y){ const a = this.area[Math.floor(y)*this.D.w + 
 const walkable = t=> t === T.FLOOR || t === T.DOOR || t === T.PIT || t === T.BLOCK || t === T.BREAK || t === T.PUSH || t === T.WATER;
 proto.buildAreas = function(){
   const W = this, D = W.D, th = W.th, gl = th.gloom || 0, buckets = {};
-  const Bk = id=> buckets[id] || (buckets[id] = { floor:[], wall:[], plain:[], parts:new THREE.Group(), lit:new THREE.Group() });
+  const Bk = id=> buckets[id] || (buckets[id] = { floor:[], wall:[], plain:[], edge:[], edgeSoft:[], parts:new THREE.Group(), lit:new THREE.Group() });
   const solidish = (x, y)=>{ const t = D.at(x, y); return t === T.SOLID || t === T.FAKE; };
   const cF1 = new THREE.Color(th.floor).multiplyScalar(1.35), cF2 = new THREE.Color(th.floor2).multiplyScalar(1.35), cW = new THREE.Color(th.wall).multiplyScalar(1.2), cTop = new THREE.Color(th.top).multiplyScalar(1.2);
   const style = (x, y)=>{ const r = DG.Dungeon.roomAt(D, x + 0.5, y + 0.5); return r ? r.style : null; };
@@ -312,6 +312,10 @@ proto.buildAreas = function(){
         // a broken lip of stone round the edge
         const lip = box(dx ? 0.1 : 1, 0.06, dy ? 0.1 : 1, x + 0.5 + dx*0.47, 0.03, y + 0.5 + dy*0.47);
         stone(b.wall, lip, cF1, cF1, 0.8);
+        // and an ember-red line along the drop, with a soft glow either side: a black hole
+        // on a dark floor was invisible until you were in it
+        const strip = (w, yy)=>{ const e = new THREE.PlaneGeometry(dx ? w : 1, dy ? w : 1); e.rotateX(-PI/2); e.translate(x + 0.5 + dx*0.5, yy, y + 0.5 + dy*0.5); return e; };
+        b.edge.push(strip(0.07, 0.075)); b.edgeSoft.push(strip(0.5, 0.07));
       });
     }
     if(t === T.WATER){
@@ -347,6 +351,11 @@ proto.buildAreas = function(){
     if(b.floor.length){ const m = new THREE.Mesh(K.merge(b.floor), W.mats.floor); g.add(m); }
     if(b.wall.length) g.add(new THREE.Mesh(K.merge(b.wall), W.mats.wall));
     if(b.plain.length) g.add(new THREE.Mesh(K.merge(b.plain), W.mats.plain));
+    if(b.edge.length){
+      W.mats.pitEdge = W.mats.pitEdge || new THREE.MeshBasicMaterial({ color:0xff5a22, transparent:true, opacity:0.85, blending:THREE.AdditiveBlending, depthWrite:false });
+      W.mats.pitSoft = W.mats.pitSoft || new THREE.MeshBasicMaterial({ color:0xc8301a, transparent:true, opacity:0.22, blending:THREE.AdditiveBlending, depthWrite:false });
+      g.add(new THREE.Mesh(K.merge(b.edge), W.mats.pitEdge)); g.add(new THREE.Mesh(K.merge(b.edgeSoft), W.mats.pitSoft));
+    }
     if(b.parts.children.length){ g.add(b.parts); K.bake(b.parts, { w:0.02 }); }
     if(b.lit.children.length){ g.add(b.lit); K.bake(b.lit, { mat:W.mats.lit, outline:false }); }
   }
@@ -876,7 +885,7 @@ proto.buildTraps = function(){
     const o = { t, g };
     // every trap shows a faint warning glow even at rest, so it reads in the dark and
     // the fog; it flares as the trap arms (see update)
-    const warn = new THREE.Mesh(K.glowPlane, K.glowMat(t.kind === "vent" ? 0xff6a1a : 0xc8402a, 0.14)); warn.scale.set(1.5, 1, 1.5); warn.position.y = 0.05;
+    const warn = new THREE.Mesh(K.glowPlane, K.glowMat(t.kind === "vent" ? 0xff6a1a : 0xff3a1a, 0.3)); warn.scale.set(1.7, 1, 1.7); warn.position.y = 0.05;
     if(t.kind === "spikes" || t.kind === "vent"){ g.add(warn); o.warn = warn; }
     if(t.kind === "spikes"){
       // a rusted iron plate, darker rim, holes the spikes come up through, old blood
@@ -1513,11 +1522,12 @@ proto.update = function(G, dt, t){
   W.traps.forEach(o=>{
     const tr = o.t;
     if(o.spikes){
-      const want = tr.state === "up" ? 0 : tr.state === "warn" ? -0.32 : -0.45;
+      // at rest the tips show through the holes, so a spike plate reads as one
+      const want = tr.state === "up" ? 0 : tr.state === "warn" ? -0.26 : -0.36;
       o.spikes.position.y += (want - o.spikes.position.y)*(1 - Math.exp(-dt*(tr.state === "up" ? 40 : 10)));
     }
-    if(o.glow) o.glow.material.opacity = tr.state === "warn" ? 0.4 + 0.3*Math.sin(t*20) : tr.state === "up" ? 0.9 : 0;
-    if(o.warn) o.warn.material.opacity = tr.state === "warn" ? 0.5 + 0.25*Math.sin(t*24) : tr.state === "up" ? 0.35 : 0.12 + 0.04*Math.sin(t*2 + tr.x);
+    if(o.glow) o.glow.material.opacity = tr.state === "warn" ? 0.5 + 0.3*Math.sin(t*20) : tr.state === "up" ? 0.95 : 0.14 + 0.06*Math.sin(t*1.7 + tr.y);
+    if(o.warn) o.warn.material.opacity = tr.state === "warn" ? 0.7 + 0.25*Math.sin(t*24) : tr.state === "up" ? 0.45 : 0.3 + 0.1*Math.sin(t*2 + tr.x);
     if(o.glint) o.glint.material.color.setHex(Math.sin(t*3 + tr.y) > 0.6 ? 0xff5a2a : 0x8a1a0a);
     if(o.peel) o.peel.visible = !tr.gone;
   });

@@ -78,7 +78,7 @@ proto.buildFloor = function(){
   if(V.world){ S.scene.remove(V.world.group); V.world.dispose(); }
   for(const id in V.rigs) S.scene.remove(V.rigs[id].root); V.rigs = {};
   V.dying.forEach(d=> S.scene.remove(d.R.root)); V.dying = [];
-  for(const id in V.pickups) S.scene.remove(V.pickups[id]); V.pickups = {};
+  for(const id in V.pickups){ S.scene.remove(V.pickups[id]); if(V.pickups[id].userData.beacon) S.scene.remove(V.pickups[id].userData.beacon); } V.pickups = {};
   for(const id in V.allies) S.scene.remove(V.allies[id].g); V.allies = {};
   for(const id in V.hazards) S.scene.remove(V.hazards[id].g); V.hazards = {};
   for(const id in V.beams) S.scene.remove(V.beams[id]); V.beams = {};
@@ -136,6 +136,7 @@ proto.warmAll = function(){
   const vis = {}; for(const id in W.areas){ vis[id] = W.areas[id].g.visible; W.areas[id].g.visible = true; }
   const add = make=>{ try{ const o = make(); if(o) g.add(o.isObject3D ? o : o.g || o.root); }catch(e){ console.warn("warm:", e); } };
   ["gold", "heart", "mana", "ward", "flyheal", "key"].forEach(k=> add(()=> M.pickup({ kind:k, value:5 })));
+  add(()=> beacon("key"));
   const itemId = Object.keys(DG.ITEMS)[0], activeId = Object.keys(DG.ACTIVES || {})[0];
   add(()=> M.powerup(itemId));
   add(()=> M.offer({ kind:"item", id:itemId }));
@@ -252,7 +253,7 @@ proto.dispose = function(){
   if(V.world){ S.scene.remove(V.world.group); V.world.dispose(); }
   for(const id in V.rigs) S.scene.remove(V.rigs[id].root);
   V.dying.forEach(d=> S.scene.remove(d.R.root));
-  for(const id in V.pickups) S.scene.remove(V.pickups[id]);
+  for(const id in V.pickups){ S.scene.remove(V.pickups[id]); if(V.pickups[id].userData.beacon) S.scene.remove(V.pickups[id].userData.beacon); }
   for(const id in V.allies) S.scene.remove(V.allies[id].g);
   for(const id in V.hazards) S.scene.remove(V.hazards[id].g);
   for(const id in V.beams) S.scene.remove(V.beams[id]);
@@ -953,16 +954,40 @@ proto.dissolve = function(d, dt, t){
 };
 const smooth = (a, b, x)=>{ const k = Math.max(0, Math.min(1, (x - a)/(b - a))); return k*k*(3 - 2*k); };
 
+/* what matters on the floor gets a beacon: a shaft of its colour, a ring that pulses
+   on the stone, a few sparks rising (gold stays small: it's everywhere) */
+const BEACON = { key:0xffd23d, ward:0x7ac8ff, heart:0xff4a4a, mana:0x6a92ff, flyheal:0xff7a7a, item:0xfff0c8 };
+const beaconGeo = new THREE.CylinderGeometry(0.07, 0.16, 2.6, 10, 1, true);
+function beacon(kind){
+  const c = BEACON[kind], g = new THREE.Group();
+  const shaft = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.32, blending:THREE.AdditiveBlending, depthWrite:false }));
+  shaft.position.y = 1.3; g.add(shaft);
+  const ring = new THREE.Mesh(K.glowPlane, K.glowMat(c, 0.7)); ring.position.y = 0.04; ring.scale.set(1.6, 1, 1.6); g.add(ring);
+  g.userData = { shaft, ring, c };
+  return g;
+}
 proto.updateLoot = function(dt, t){
   const V = this, G = V.G, pk = {};
   G.pickups.forEach(k=>{
     pk[k.id] = 1;
     let o = V.pickups[k.id];
-    if(!o){ o = V.pickups[k.id] = M.pickup(k); S.scene.add(o); }
-    o.position.set(S.ix(k) + (o.userData.buzz ? Math.sin(t*7 + k.id)*0.15 : 0), (o.userData.hover || 0.3) + Math.sin(t*3 + k.id)*0.08, S.iy(k));
+    if(!o){
+      o = V.pickups[k.id] = M.pickup(k); S.scene.add(o);
+      if(BEACON[k.kind]){ o.userData.beacon = beacon(k.kind); S.scene.add(o.userData.beacon); o.scale.multiplyScalar(1.3); }
+    }
+    const x = S.ix(k), z = S.iy(k);
+    o.position.set(x + (o.userData.buzz ? Math.sin(t*7 + k.id)*0.15 : 0), (o.userData.hover || 0.3) + Math.sin(t*3 + k.id)*0.08, z);
     o.rotation.y = t*(o.userData.spin || 1);
+    const b = o.userData.beacon;
+    if(b){
+      const pu = 0.5 + 0.5*Math.sin(t*4 + k.id);
+      b.position.set(x, 0, z);
+      b.userData.shaft.material.opacity = 0.22 + 0.16*pu;
+      b.userData.ring.scale.set(1.3 + 0.6*pu, 1, 1.3 + 0.6*pu); b.userData.ring.material.opacity = 0.45 + 0.35*(1 - pu);
+      if(Math.random() < 0.12) FX.emit(x + (Math.random() - 0.5)*0.4, 0.2, z + (Math.random() - 0.5)*0.4, 0, 1.4, 0, b.userData.c, 0.12, 0.9, 0, 1);
+    }
   });
-  for(const id in V.pickups) if(!pk[id]){ S.scene.remove(V.pickups[id]); delete V.pickups[id]; }
+  for(const id in V.pickups) if(!pk[id]){ const o = V.pickups[id]; S.scene.remove(o); if(o.userData.beacon) S.scene.remove(o.userData.beacon); delete V.pickups[id]; }
 };
 
 /* a Lantern Beam: a ray of the old fire, bright, then gone */
