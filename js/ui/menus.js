@@ -81,10 +81,10 @@ UI.title = function(){
     </div>`, "title");
 };
 
-/* the three sliders: the whole mix, the music, and how PSX the picture is (0: off) */
+/* the three sliders: the sound effects, the music (each on its own), and how PSX the picture is (0: off) */
 UI.settings = function(){
   const row = (key, name, v)=> `<div class="item slide" data-set="${key}"><span>${name}</span><input type="range" min="0" max="100" step="5" value="${Math.round(v*100)}"></div>`;
-  return row("vol", "VOLUME", DG.Audio.muted ? 0 : DG.Audio.vol) + row("music", "MUSIC", DG.Audio.musicVol) + row("psx", "PSX", DG.Stage.psxK);
+  return row("vol", "EFFECTS", DG.Audio.muted ? 0 : DG.Audio.vol) + row("music", "MUSIC", DG.Audio.musicVol) + row("psx", "PSX", DG.Stage.psxK);
 };
 
 UI.pause = function(G){

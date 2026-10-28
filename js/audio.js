@@ -18,7 +18,7 @@ const pick = a=> a[Math.floor(Math.random()*a.length)];
 const clamp = (v, a, b)=> v < a ? a : v > b ? b : v;
 const mtof = m=> 440*Math.pow(2, (m - 69)/12);
 const LIVE_MAX = 260;            // started-but-not-ended sources, across everything
-const MUSIC_GAIN = 0.45;
+const MUSIC_GAIN = 0.45, SFX_GAIN = 0.9;
 
 /* ---- the graph ---- */
 A.start = function(){
@@ -40,7 +40,7 @@ A.init = function(c, offline){
   lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12;
   comp.connect(lim); lim.connect(c.destination);
   A.master = c.createGain(); A.master.gain.value = A.masterGain(); A.master.connect(comp);
-  A.sfx = c.createGain(); A.sfx.gain.value = 0.9; A.sfx.connect(A.master);
+  A.sfx = c.createGain(); A.sfx.gain.value = SFX_GAIN*A.vol; A.sfx.connect(A.master);
   A.musicLP = c.createBiquadFilter(); A.musicLP.type = "lowpass"; A.musicLP.frequency.value = 3600; A.musicLP.connect(A.master);
   A.music = c.createGain(); A.music.gain.value = MUSIC_GAIN*A.musicVol; A.music.connect(A.musicLP);
   makeBuffers(c);
@@ -56,12 +56,17 @@ A.init = function(c, offline){
   const dl = c.createDelay(1), elp = c.createBiquadFilter(), fb = c.createGain(), eout = c.createGain();
   dl.delayTime.value = 0.29; elp.type = "lowpass"; elp.frequency.value = 1500; fb.gain.value = 0.32; eout.gain.value = 0.35;
   A.echoIn.connect(dl); dl.connect(elp); elp.connect(fb); fb.connect(dl); elp.connect(eout); eout.connect(A.master); eout.connect(A.verbIn);
+  // the effects' own sends into the hall and the slapback, so the Volume slider
+  // turns their tails down with them (the music has its own sends into the hall)
+  A.sfxVerb = c.createGain(); A.sfxVerb.gain.value = A.vol; A.sfxVerb.connect(A.verbIn);
+  A.sfxEcho = c.createGain(); A.sfxEcho.gain.value = A.vol; A.sfxEcho.connect(A.echoIn);
   A.next = c.currentTime + 0.1; A.step = 0;
   if(A.buildMusic) A.buildMusic();
 };
 /* the score alone, for those who'd rather hear the dungeon */
-/* the two sliders (0..1, remembered): the whole mix, and the music in it.
-   M still mutes everything without losing where the slider was */
+/* the two sliders (0..1, remembered): the sound effects (A.vol) and the music
+   (A.musicVol), each on its own. M still mutes everything without losing
+   where either slider was */
 A.vol = 1; A.musicVol = 1;
 A.load = function(){
   try{
@@ -74,12 +79,13 @@ A.load = function(){
   A.musicOn = A.musicVol > 0;
 };
 A.load();
-A.masterGain = ()=> A.muted ? 0 : 0.8*A.vol;
+A.masterGain = ()=> A.muted ? 0 : 0.8;
 A.setVolume = function(v){
   A.vol = Math.max(0, Math.min(1, v));
   if(A.vol > 0 && A.muted){ A.muted = false; try{ localStorage.setItem("dungeonofguns.muted", "0"); }catch(e){} }
   try{ localStorage.setItem("dungeonofguns.vol", String(A.vol)); }catch(e){}
   if(A.master) A.master.gain.setTargetAtTime(A.masterGain(), A.ctx.currentTime, 0.05);
+  if(A.sfx){ const t = A.ctx.currentTime; A.sfx.gain.setTargetAtTime(SFX_GAIN*A.vol, t, 0.05); A.sfxVerb.gain.setTargetAtTime(A.vol, t, 0.05); A.sfxEcho.gain.setTargetAtTime(A.vol, t, 0.05); }
 };
 A.setMusic = function(v){
   A.musicVol = Math.max(0, Math.min(1, v)); A.musicOn = A.musicVol > 0;
@@ -335,8 +341,8 @@ function playSafe(name, o){
   let pan = null;
   if(pos && c.createStereoPanner){ pan = c.createStereoPanner(); pan.pan.value = pos.pan; dry.connect(pan); pan.connect(A.sfx); }
   else dry.connect(A.sfx);
-  wet.connect(A.verbIn);
-  const echo = c.createGain(); echo.gain.value = pos ? pos.gain : 1; echo.connect(A.echoIn);
+  wet.connect(A.sfxVerb);
+  const echo = c.createGain(); echo.gain.value = pos ? pos.gain : 1; echo.connect(A.sfxEcho);
   P = { t:now + 0.008, dry, wet, echo, pj:L.fixed ? 1 : 1 + rnd(-1, 1)*L.jit, fj:L.fixed ? 1 : rnd(0.9, 1.1), vol:1, end:now };
   try{ fn(o); }
   finally{
