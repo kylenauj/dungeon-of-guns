@@ -556,6 +556,12 @@ H.draw = function(G, dt, opts){
   // ---- top right: the map, curses, goblins left ----
   const mapH = H.minimap(g, G, W - 22, 22, small) || 0;
   let ry = 22 + mapH + 14;
+  // the way back to the boss, once it's known (and you're not mid-fight)
+  if(G.canWarp && G.canWarp()){
+    const key = DG.Input && DG.Input.usingPad ? "Y" : "T", warming = G.player.warpT > 0;
+    text(g, warming ? "WARPING\u2026" : key + " \u00b7 WARP TO THE BOSS", W - 22, ry - 4, 10*k, warming ? GOLD2 : DIM, "right", "700", SERIF, 1.4);
+    ry += 16*k;
+  }
   G.curses.forEach(c=>{
     const lw = Math.max(130*k, measure(g, DG.CURSES[c].name, 12*k, "700", SERIF, 1) + 34);
     frame(g, W - 22 - lw, ry, lw, 20*k, "rgba(34,10,20,.9)", false);

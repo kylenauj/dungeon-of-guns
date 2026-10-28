@@ -325,8 +325,26 @@ proto.handle = function(ev){
     case "ward": FX.rise(p.x, p.y, 0x8ad8ff, 10, 0.5); play("pickup"); break;
     case "death": V.zDead = 0.001; S.shake(0.8); FX.burst(p.x, 0.9, p.y, 0xb36bff, 24, 4, 0.3, 1.0, { grav:4 }); play("death"); break;
     case "heal": FX.rise(ev.x, ev.y, 0x5aff8a, 12, 0.5); play("heal"); break;
-    case "blink": V.zWhip = 9; FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 14, 3, 0.3, 0.35, { col2:0xffffff }); play("blink"); play("cloth"); break;
-    case "blinkEnd": FX.burst(ev.x, 0.8, ev.y, 0xb36bff, 10, 2.5, 0.25, 0.3); FX.smoke(ev.x, 0.1, ev.y, 0x2a2420, 3, 0.4, 0.6, { spread:0.5, rise:0.2 }); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
+    case "blink": { V.zWhip = 9; const el = V.blinkEl(), c = DG.ELEMENTS[el].color; V.blinkFrom = { x:ev.x, y:ev.y };
+      FX.burst(ev.x, 0.8, ev.y, c, 14, 3, 0.3, 0.35, { col2:BLINK_HOT[el] });
+      if(el === "frost") FX.ring(ev.x, ev.y, 1.2, c, 0.4);
+      if(el === "poison") FX.smoke(ev.x, 0.3, ev.y, 0x5a8a2a, 5, 0.6, 1.2, { spread:0.5, alpha:0.5 });
+      play("blink"); play("cloth"); break; }
+    case "blinkEnd": { const el = V.blinkEl(), c = DG.ELEMENTS[el].color;
+      FX.burst(ev.x, 0.8, ev.y, c, 10, 2.5, 0.25, 0.3, { col2:BLINK_HOT[el] }); FX.smoke(ev.x, 0.1, ev.y, 0x2a2420, 3, 0.4, 0.6, { spread:0.5, rise:0.2 });
+      // where it lands, the element says so
+      if(el === "fire") FX.rise(ev.x, ev.y, 0xff7a1a, 10, 0.5, { v:2.2, size:0.22, life:0.6 });
+      if(el === "frost"){ FX.ring(ev.x, ev.y, 1.6, c, 0.5); FX.burst(ev.x, 0.4, ev.y, 0xe8f8ff, 8, 2.5, 0.14, 0.5, { flat:true }); }
+      if(el === "poison") FX.smoke(ev.x, 0.3, ev.y, 0x5a8a2a, 6, 0.7, 1.4, { spread:0.6, alpha:0.5 });
+      if(el === "shock" && V.blinkFrom){ FX.arc(V.blinkFrom.x, V.blinkFrom.y, ev.x, ev.y, c, 0.22); FX.burst(ev.x, 0.6, ev.y, 0xffffff, 6, 3, 0.12, 0.25); }
+      if(el === "arcane") FX.ring(ev.x, ev.y, 1, c, 0.35);
+      play("step", { heavy:true, x:ev.x, y:ev.y }); break; }
+    case "warpStart": FX.ring(ev.x, ev.y, 1.4, DG.ELEMENTS[V.blinkEl()].color, 1); play("portal"); break;
+    case "warpCancel": FX.burst(ev.x, 0.8, ev.y, 0x6a6a7a, 8, 2, 0.2, 0.4); break;
+    case "warp": { const c = DG.ELEMENTS[V.blinkEl()].color;
+      FX.soul(ev.x1, ev.y1, 4, 0.8, c); FX.burst(ev.x1, 1, ev.y1, c, 24, 4, 0.3, 0.6, { col2:0xffffff, up:2 });
+      FX.soul(ev.x2, ev.y2, 4, 1, c); FX.ring(ev.x2, ev.y2, 2.4, c, 0.8); FX.burst(ev.x2, 1, ev.y2, c, 24, 4, 0.3, 0.6, { col2:0xffffff, up:1 });
+      S.follow(ev.x2, ev.y2, ev.x2, ev.y2, true); S.shake(0.2); play("portal"); break; }
     case "reload": play("reload"); break;
     case "reloaded": play("reloaded"); break;
     case "swap": play("swap"); break;
@@ -679,7 +697,19 @@ proto.update = function(dt, t){
   if(dead && V.zDead > 0.5 && Math.random() < 0.35) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, p.y + (Math.random() - 0.5)*0.6, (Math.random() - 0.5)*0.2, 0.4 + Math.random()*0.5, (Math.random() - 0.5)*0.2, Math.random() < 0.6 ? 0xb36bff : 0xff8a3a, 0.12, 1.4, -0.1, 0.4);
   const flick = p.iframes > 0 && p.blinkT <= 0 && !dead ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
-  if(p.blinkT > 0) FX.emit(p.x, 0.9, p.y, 0, 0, 0, 0xb36bff, 0.6, 0.25, 0, 0);
+  if(p.blinkT > 0){
+    // the trail, in the wand's element
+    const el = V.blinkEl(), c = DG.ELEMENTS[el].color;
+    FX.emit(p.x, 0.9, p.y, 0, 0, 0, c, 0.6, 0.25, 0, 0);
+    if(el === "fire") FX.emit(p.x + (Math.random() - 0.5)*0.3, 0.5, p.y + (Math.random() - 0.5)*0.3, 0, 1.6, 0, Math.random() < 0.5 ? 0xff7a1a : 0xffd23d, 0.2, 0.5, -0.2, 0.6);
+    if(el === "frost") FX.emit(p.x, 0.6, p.y, (Math.random() - 0.5)*0.6, 0.2, (Math.random() - 0.5)*0.6, 0xe8f8ff, 0.14, 0.7, 1.5, 1);
+    if(el === "poison") FX.emit(p.x, 0.4, p.y, 0, 0.3, 0, 0x7dff3a, 0.3, 0.8, 0, 1.2);
+    if(el === "shock" && Math.random() < 0.6) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.4 + Math.random()*0.8, p.y + (Math.random() - 0.5)*0.6, 0, 0, 0, 0xffffff, 0.16, 0.12, 0, 0);
+    if(el === "arcane") FX.emit(p.x + Math.cos(t*20)*0.4, 0.9, p.y + Math.sin(t*20)*0.4, 0, 0.2, 0, 0xffe6a0, 0.16, 0.4, 0, 1);
+  }
+  // calling the warp up: the element gathers round him, faster as it comes
+  if(p.warpT > 0){ const c = DG.ELEMENTS[V.blinkEl()].color, k = 1 - p.warpT/DG.WARP.time;
+    for(let i=0;i<2;i++){ const a = Math.random()*PI*2, r = 1.4 - k; FX.emit(p.x + Math.cos(a)*r, 0.1, p.y + Math.sin(a)*r, -Math.cos(a)*r, 1 + 2*k, -Math.sin(a)*r, i ? c : 0xffffff, 0.16, 0.5, 0, 1); } }
   M.tint(W, p.chill > 0 ? 0x2a6a8a : p.wards > 0 ? 0x101828 : 0x000000, 1);
   W.ring.material.opacity = 0.25 + 0.1*Math.sin(t*3);
   if(V.stars > 0){ V.stars -= dt; if(Math.random() < 0.4) FX.emit(p.x + Math.cos(t*9)*0.4, 2.3, p.y + Math.sin(t*9)*0.4, 0, 0, 0, 0xffe680, 0.25, 0.25, 0, 0); }
@@ -966,6 +996,9 @@ function beacon(kind){
   g.userData = { shaft, ring, c };
   return g;
 }
+/* the blink and the warp take the wand's element */
+const BLINK_HOT = { fire:0xffd23d, frost:0xffffff, poison:0xd8ff8a, shock:0xffffff, arcane:0xffe6a0 };
+proto.blinkEl = function(){ const g = this.G.gun && this.G.gun(); return (g && DG.ELEMENTS[g.element]) ? g.element : "arcane"; };
 proto.updateLoot = function(dt, t){
   const V = this, G = V.G, pk = {};
   G.pickups.forEach(k=>{

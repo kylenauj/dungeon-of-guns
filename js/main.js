@@ -155,7 +155,7 @@ IN.onPadBag = ()=>{ if(app.mode === "play") app.openBag(); else if(app.mode === 
 /* the pace of play: the whole fight runs a touch slower than real time
    (everything together, so nothing gets easier or harder, just calmer) */
 const PACE = 0.88;
-const ONE_SHOTS = ["blink", "use", "active", "swap", "reload"], NO_SHOTS = { blink:false, use:false, active:false, swap:false, reload:false, slot:-1 };
+const ONE_SHOTS = ["blink", "use", "active", "swap", "reload", "warp"], NO_SHOTS = { blink:false, use:false, active:false, swap:false, reload:false, warp:false, slot:-1 };
 function frame(dt, t){
   const G = app.G, V = app.V;
   if(!G || !V) return;

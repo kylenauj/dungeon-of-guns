@@ -414,6 +414,59 @@ proto.updatePlayer = function(dt, I){
   if(!I.spell) p.spellHeld = false;
   if(I.active) G.useActive(I);
   if(I.use) G.interact();
+  G.updateWarp(I, dt);
+};
+/* ---- the way back: once the boss's room is found, T (or Y) carries Zippy to its
+   door (to the portal, once the boss is dead), so a floor can be picked over and
+   left without the long walk. Not in a fight; a second to call it up, and a hit
+   breaks it ---- */
+DG.WARP = { time:1.0 };
+proto.bossRoom = function(){ return this.D.rooms.find(r=> r.type === "boss"); };
+proto.canWarp = function(){
+  const G = this, r = G.bossRoom(), p = G.player;
+  if(!r || !r.seen || G.state !== "play" || G.climb) return false;
+  if(G.D.rooms.some(x=> x.active)) return false;                            // mid-fight, anywhere
+  const here = G.roomOf(p.x, p.y);
+  return here !== r;
+};
+proto.warpTarget = function(){
+  const G = this, r = G.bossRoom();
+  if(r.cleared){
+    // the boss is down: by its portal, or the door of eyes, else the middle of its room
+    const eye = r.props.find(p=> p.kind === "eyedoor");
+    if(G.portal) return G.freeSpot(r, G.portal.x, G.portal.y + 1.6);
+    if(eye) return G.freeSpot(r, eye.x + 0.5, eye.y + 2.2);
+    if(r.cleared) return G.freeSpot(r, r.cxw, r.cyw + 1);
+  }
+  // still alive: outside its door, in the room next to it
+  for(const di of r.doors){
+    const d = G.D.doors[di]; if(!d) continue;
+    const x = Math.floor(d.x), y = Math.floor(d.y);
+    for(const [dx, dy] of DG.DIRS4){
+      // (two steps out: the corridor or room beyond the door)
+      const ox = x + dx*2, oy = y + dy*2, nr = G.roomOf(ox + 0.5, oy + 0.5);
+      if(nr !== r && G.D.at(ox, oy) === T.FLOOR && G.D.at(x + dx, y + dy) === T.FLOOR) return { x:ox + 0.5, y:oy + 0.5 };
+    }
+  }
+  return G.freeSpot(r, r.cxw, r.y2);
+};
+proto.updateWarp = function(I, dt){
+  const G = this, p = G.player;
+  if(p.warpT > 0){
+    if(!G.canWarp()){ p.warpT = 0; G.emit("warpCancel", { x:p.x, y:p.y }); return; }
+    p.warpT -= dt;
+    if(p.warpT <= 0){
+      const to = G.warpTarget();
+      G.emit("warp", { x1:p.x, y1:p.y, x2:to.x, y2:to.y });
+      p.x = p.safeX = to.x; p.y = p.safeY = to.y; p.vx = p.vy = 0;
+      G.frogs.forEach((f, i)=>{ f.x = to.x + 0.8 + i*0.4; f.y = to.y + 0.6; });
+    }
+    return;
+  }
+  if(I.warp){
+    if(G.canWarp()){ p.warpT = DG.WARP.time; G.emit("warpStart", { x:p.x, y:p.y }); }
+    else if(!(G.bossRoom() || {}).seen) G.say("You don't know the way yet.", 1.6);
+  }
 };
 proto.onWater = function(e){ return this.D.at(Math.floor(e.x), Math.floor(e.y)) === T.WATER; };
 proto.selectGun = function(i){
@@ -484,6 +537,7 @@ proto.hurtPlayer = function(amt, why, force){
   if(G.state !== "play" && G.state !== "choose") return;
   if(!force && (p.iframes > 0 || p.blinkT > 0)) return;
   if(G.god) return;
+  if(p.warpT > 0){ p.warpT = 0; G.emit("warpCancel", { x:p.x, y:p.y }); }
   p.iframes = DG.PLAYER.hurtIframes; G.lastHurt = why;
   if(p.wards > 0 && why !== "pit"){
     p.wards--; G.emit("wardBreak", { x:p.x, y:p.y });

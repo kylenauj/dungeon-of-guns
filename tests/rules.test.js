@@ -1407,6 +1407,31 @@ test("a boss fight taken without a hit is remembered as clean", ()=>{
   assert.ok(!H.stats.bosses[0].clean);
 });
 
+test("the warp to the boss: only once its room is found, never mid-fight, a hit breaks it; it lands outside the door, or by the portal once the boss is down", ()=>{
+  const G = game("WARPT", 2); G.god = false; G.player.iframes = 0;
+  const said = []; G.say = t=> said.push(t);
+  const b = G.bossRoom();
+  step(G, 0.05, { warp:true });
+  assert.ok(!(G.player.warpT > 0) && /don't know the way/.test(said.join(" ")), "not found yet: no warp");
+  b.seen = true;
+  // a hit breaks it
+  step(G, 0.05, { warp:true }); assert.ok(G.player.warpT > 0, "calling it up");
+  G.player.iframes = 0; G.hurtPlayer(1, "test"); assert.equal(G.player.warpT, 0, "a hit breaks it");
+  // mid-fight, nowhere
+  const c = combatRoom(G); c.active = true;
+  step(G, 0.05, { warp:true }); assert.ok(!(G.player.warpT > 0), "not mid-fight"); c.active = false;
+  // it carries him out to the boss's door, not into the room
+  G.player.iframes = 99; step(G, 0.05, { warp:true }); step(G, DG.WARP.time + 0.2);
+  assert.notEqual(G.roomOf(G.player.x, G.player.y), b, "outside the boss room");
+  const near = Math.min(...b.doors.map(i=> DG.dist(G.D.doors[i].x, G.D.doors[i].y, G.player.x, G.player.y)));
+  assert.ok(near < 3, "by its door: " + near.toFixed(1));
+  // the boss down: back by the portal
+  const { r } = killBoss(G); stand(G, G.D.start.x, G.D.start.y); step(G, 0.1);
+  step(G, 0.05, { warp:true }); step(G, DG.WARP.time + 0.2);
+  assert.equal(G.roomOf(G.player.x, G.player.y), r, "in the boss room");
+  assert.ok(DG.dist(G.player.x, G.player.y, G.portal.x, G.portal.y) < 2.5, "by the portal");
+});
+
 test("King of the Bog: ten mushrooms, a green portal, the Glutton's Bog and the Toad King", ()=>{
   const G = new DG.Game({ seedWord:"BOGEND", floor:5, route:"bog" });
   G.roads.rot.shrooms = DG.SHROOMS_NEED;
