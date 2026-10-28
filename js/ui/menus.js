@@ -22,7 +22,9 @@ UI.show = function(html, cls){
   s.querySelectorAll("[data-act]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); DG.Audio.play("select"); UI.act(b.dataset.act, b); }));
   s.querySelectorAll("[data-set] input").forEach(inp=>{
     const key = inp.closest("[data-set]").dataset.set;
-    inp.addEventListener("input", ()=> UI.act("set:" + key, +inp.value/100));
+    const fill = ()=> inp.style.setProperty("--v", inp.value + "%");      // the rule fills gold up to the handle
+    fill();
+    inp.addEventListener("input", ()=>{ fill(); UI.act("set:" + key, +inp.value/100); });
     inp.addEventListener("click", e=> e.stopPropagation());
   });
   const first = s.querySelector(".item:not([disabled])"); if(first) first.classList.add("sel");

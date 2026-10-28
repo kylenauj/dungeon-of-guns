@@ -45,11 +45,16 @@ button{font:inherit;color:inherit;}
 .item.back{font-size:clamp(13px,1.2vw,16px);padding:7px 18px 6px 30px;width:auto;}
 .item.small{width:auto;font-size:14px;padding:8px 14px 7px 28px;}
 .item[disabled]{opacity:.4;cursor:default;}
-/* the sliders: a name, and a thin gold rule with a diamond on it */
+/* the sliders: a name, and a thin gold rule with a diamond on it. The input itself is
+   the row's full height (it was the 2px rule, too thin to catch with a mouse); the
+   rule is drawn as its track */
 .item.slide{cursor:default;align-items:center;}
-.item.slide input{-webkit-appearance:none;appearance:none;width:52%;height:2px;margin:0;background:linear-gradient(90deg,var(--gold-dim),var(--faint));outline:none;cursor:pointer;}
-.item.slide input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:11px;height:11px;transform:rotate(45deg);background:var(--gold);border:1px solid var(--gold2);box-shadow:0 0 6px rgba(232,200,120,.5);cursor:pointer;}
-.item.slide input::-moz-range-thumb{width:10px;height:10px;transform:rotate(45deg);border-radius:0;background:var(--gold);border:1px solid var(--gold2);cursor:pointer;}
+.item.slide input{-webkit-appearance:none;appearance:none;width:52%;height:24px;margin:0;padding:0;background:transparent;outline:none;cursor:pointer;}
+.item.slide input::-webkit-slider-runnable-track{height:3px;background:linear-gradient(90deg,var(--gold) var(--v,50%),rgba(90,80,64,.55) var(--v,50%));border-radius:0;}
+.item.slide input::-moz-range-track{height:3px;background:linear-gradient(90deg,var(--gold) var(--v,50%),rgba(90,80,64,.55) var(--v,50%));border-radius:0;}
+.item.slide input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;margin-top:-6px;transform:rotate(45deg);background:var(--gold);border:1px solid var(--gold2);box-shadow:0 0 8px rgba(232,200,120,.6);cursor:grab;}
+.item.slide input::-moz-range-thumb{width:13px;height:13px;transform:rotate(45deg);border-radius:0;background:var(--gold);border:1px solid var(--gold2);cursor:grab;}
+.item.slide input:active::-webkit-slider-thumb{cursor:grabbing;background:var(--gold2);}
 .menu{display:flex;flex-direction:column;gap:clamp(1px,.5vh,4px);}
 h2.head{font-family:var(--display);font-weight:400;font-size:clamp(28px,3.6vw,46px);margin:0 0 6px;letter-spacing:.16em;color:var(--ivory);text-shadow:0 2px 14px rgba(0,0,0,.9);}
 h2.head::after{content:"";display:block;width:min(360px,80%);height:1px;margin:12px 0 8px;background:linear-gradient(90deg,var(--gold),rgba(200,164,90,.35) 60%,transparent);}
