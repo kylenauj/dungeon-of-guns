@@ -122,7 +122,7 @@ proto.enterFloor = function(n, D0){
   p.x = G.D.start.x; p.y = G.D.start.y; p.safeX = p.x; p.safeY = p.y; p.vx = p.vy = 0;
   G.gribbus.x = p.x - 1; G.gribbus.y = p.y + 0.5;
   G.flow = null;
-  G.emit("floor", { floor:n, name:G.D.theme.name, curses:G.curses.slice() });
+  G.emit("floor", { floor:n, name:G.D.theme.name, mood:G.D.theme.moodName || "", curses:G.curses.slice() });
   G.curses.forEach(c=> G.say(DG.CURSES[c].name + ": " + DG.CURSES[c].desc, 4));
   if(G.side && n === DG.FINAL_FLOOR + 1) G.say(SIDE_LINES[G.side], 4.5);
   else if(DG.LORE_FLOORS[n - 1] && !G.endless) G.pending.push({ t:4.5, fn:()=> G.say(DG.LORE_FLOORS[n - 1], 4.5) });

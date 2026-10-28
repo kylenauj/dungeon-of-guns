@@ -423,6 +423,53 @@ DG.FLOORS = [
     enemies:{ rotling:2, spitter:1.6, bloater:1.4, husk:1.6, shroomkin:1, toadstool:1, puffling:1, tentacle:1, banshee:0.6, watcher:0.6, wight:1.2, evilfrog:0.8 } }
 ];
 
+/* ---- floor moods: each floor's light changes from run to run ----
+   The stone stays ash and bone (docs/ART_DIRECTION.md: colour belongs to
+   light); a mood recolours the light: the torches, the rim, the shafts, the
+   grade, the fog's tint, the motes, and leans the stone a little. The first
+   mood of each floor is its own look. The seed deals one per floor, and two
+   floors in a row never share a colour (`fam`). See Dungeon.moodOf.
+     name    under the floor's name as you arrive
+     stone   [hex, k]: lean the floor and walls k of the way to hex
+     moteCol the motes' colour, when the light should tint them   */
+DG.FLOOR_MOODS = [
+  [ // the Forsaken Keep
+    { id:"gloomfire", name:"by gloomfire", fam:"green", w:1.5 },
+    { id:"ember", name:"by emberlight", fam:"ember", torch:0xffa058, rim:0xffb070, shaft:0xc8a888, high:0xffd8a0, shade:0x120c0a, ambient:0x847e76, fog:0x070302, motes:"embers" },
+    { id:"moon", name:"by moonlight", fam:"moon", torch:0xb8d0ff, rim:0xc8d8ff, shaft:0xc0d0ec, high:0xe4eeff, shade:0x080a12, ambient:0x6c7690, fog:0x02030a, stone:[0x40464e, 0.3] },
+    { id:"blood", name:"under a blood moon", fam:"blood", torch:0xff3a2a, rim:0xe07a68, shaft:0xa88078, high:0xffd8cc, shade:0x100808, ambient:0x76686a, fog:0x080101, light:0.85 },
+    { id:"witch", name:"by witchlight", fam:"violet", torch:0xc27aff, rim:0xb89aff, shaft:0xa89ac8, high:0xeadcff, shade:0x0e0a14, ambient:0x72708a, fog:0x040208, stone:[0x403a48, 0.25] }
+  ],
+  [ // the Weeping Undercroft
+    { id:"marsh", name:"by marsh-light", fam:"green", w:1.5 },
+    { id:"drowned", name:"where the water rose", fam:"teal", torch:0x4ae8d0, rim:0x8ad8d0, shaft:0x8ab8b8, high:0xd0f0ea, shade:0x060e0e, ambient:0x6a7a78, fog:0x010504, water:0x1a3a38, mist:0.5, moteCol:0x5ae0d0, stone:[0x34403e, 0.3] },
+    { id:"candle", name:"by candlelight", fam:"gold", torch:0xffb84a, rim:0xffc878, shaft:0xc8b088, high:0xfff0c8, shade:0x140e06, ambient:0x847a62, fog:0x060402, motes:"dust", stone:[0x4a4230, 0.25] },
+    { id:"rust", name:"in rust and cinders", fam:"ember", torch:0xff6a2a, rim:0xe08a5a, shaft:0xb89070, high:0xffd0a8, shade:0x140806, ambient:0x80705e, fog:0x060201, motes:"embers", stone:[0x4a3428, 0.3] },
+    { id:"soul", name:"by soul-light", fam:"blue", torch:0x6ab0ff, rim:0x9ac8ff, shaft:0x8aa0c8, high:0xd8e8ff, shade:0x080c14, ambient:0x626e88, fog:0x02030a, moteCol:0x7ab8ff, stone:[0x383e4a, 0.25] }
+  ],
+  [ // the Rotting Crypt
+    { id:"corpse", name:"by corpse-light", fam:"green", w:1.5 },
+    { id:"soul", name:"by soul-light", fam:"blue", torch:0x5ab8ff, rim:0x9ad0ff, shade:0x080c16, ambient:0x5a6890, fog:0x02030c },
+    { id:"candle", name:"by funeral candles", fam:"gold", torch:0xffd070, rim:0xf0d8a0, shaft:0xb8a88a, high:0xfff0d0, shade:0x120e08, ambient:0x7e7660, fog:0x050402, motes:"dust", stone:[0x46423a, 0.3] },
+    { id:"witch", name:"by witchlight", fam:"violet", torch:0xb070ff, rim:0xc8a0ff, shaft:0x9a8ab8, high:0xe8d8ff, shade:0x0c0814, ambient:0x686490, fog:0x040210, moteCol:0xb890ff, stone:[0x3a3644, 0.25] },
+    { id:"grave", name:"by grave-fire", fam:"blood", torch:0xff4a30, rim:0xff8a6a, shaft:0xa87a70, high:0xffc8b8, shade:0x140608, ambient:0x6e5a60, fog:0x070103, moteCol:0xff8a6a, stone:[0x46303a, 0.25] }
+  ],
+  [ // the Gloomwood
+    { id:"foxfire", name:"by foxfire", fam:"green", w:1.5 },
+    { id:"amber", name:"in amber sap", fam:"gold", torch:0xffa040, rim:0xe0b080, shaft:0xb8a080, high:0xffe0b0, shade:0x120c06, ambient:0x7a6c58, fog:0x060402, moteCol:0xffb050, stone:[0x403626, 0.3] },
+    { id:"moon", name:"under a cold moon", fam:"moon", torch:0xc0d4ff, rim:0xd0dcf0, shaft:0xb8c8e8, high:0xe8f0ff, shade:0x080a10, ambient:0x6a7488, fog:0x02030a, moteCol:0xc8d8ff, stone:[0x3a4048, 0.3] },
+    { id:"blood", name:"where the bark bleeds", fam:"blood", torch:0xff4a3a, rim:0xe08070, shaft:0xa87870, high:0xffc8b8, shade:0x140606, ambient:0x6e5658, fog:0x070102, moteCol:0xff7a5a, stone:[0x402a2a, 0.3] },
+    { id:"witch", name:"by witchlight", fam:"violet", torch:0xc060ff, rim:0xc0a0e0, shaft:0x9a88b8, high:0xe8d8ff, shade:0x0c0614, ambient:0x625a7a, fog:0x030108, moteCol:0xc080ff, stone:[0x342e3c, 0.25] }
+  ],
+  [ // the Gloom Forest
+    { id:"bile", name:"by bile-light", fam:"green", w:1.5 },
+    { id:"rotgold", name:"in rot-gold", fam:"gold", torch:0xe0c040, rim:0xd0b860, shaft:0xa8a070, high:0xf0e8b0, shade:0x0c0c08, ambient:0x64645a, fog:0x040301, moteCol:0xe0c050 },
+    { id:"spore", name:"under spore-light", fam:"violet", torch:0xc060ff, rim:0xb080e0, shaft:0x9a80b8, high:0xe8d0ff, shade:0x0c0612, ambient:0x5e5470, fog:0x030106, moteCol:0xc070ff, stone:[0x302a36, 0.3] },
+    { id:"burning", name:"as the forest burns", fam:"ember", torch:0xff8a48, rim:0xff9a5a, shaft:0xc89070, high:0xffd0a0, shade:0x100a08, ambient:0x666058, fog:0x060200, motes:"embers" },
+    { id:"ghost", name:"by ghost-light", fam:"moon", torch:0xa0e8ff, rim:0xb0d8ff, shaft:0xa0c0d8, high:0xdcf4ff, shade:0x060c12, ambient:0x5a6a78, fog:0x01030a, motes:"ghostfog", stone:[0x2e363c, 0.3] }
+  ]
+];
+
 /* ---- traps (minor: they sting, they don't end runs) ---- */
 DG.TRAPS = {
   spikes: { name:"Spike plate", dmg:10, cycle:2.6, warn:0.55, up:0.6 },

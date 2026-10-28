@@ -773,6 +773,27 @@ test("the Gloom: a Bloater bursts into spores that hurt Zippy, a Blight Husk shr
   DG.FLOORS.forEach((f, i)=> i && assert.ok(f.gloom > DG.FLOORS[i - 1].gloom, "the Gloom only grows"));
 });
 
+test("floor moods: the seed deals each floor a light, never the same colour twice in a row, and the stone stays ash", ()=>{
+  assert.equal(DG.FLOOR_MOODS.length, DG.FLOORS.length);
+  const seen = {}, sat = c=>{ const r = (c >> 16 & 255)/255, g = (c >> 8 & 255)/255, b = (c & 255)/255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn)/2;
+    return mx === mn ? 0 : (mx - mn)/(l > 0.5 ? 2 - mx - mn : mx + mn); };
+  for(let s=0; s<400; s++){
+    const run = (s*2654435761) >>> 0; let prev = null;
+    for(let f=1; f<=5; f++){
+      const th = DG.Dungeon.floorTheme((run + f*104729) >>> 0, f), m = DG.FLOOR_MOODS[f - 1].find(x=> x.id === th.mood);
+      assert.ok(m && th.moodName === m.name, "floor " + f + " has a mood");
+      assert.deepEqual(th, DG.Dungeon.floorTheme((run + f*104729) >>> 0, f), "the same seed, the same light");
+      if(prev) assert.notEqual(m.fam, prev.fam, "two floors in a row share a colour");
+      ["floor", "floor2", "wall", "top"].forEach(k=> assert.ok(sat(th[k]) <= 0.25, "stone stays under 25% saturation: " + m.id + " " + k));
+      assert.deepEqual(th.enemies, DG.FLOORS[f - 1].enemies, "a mood is only the light");
+      seen[f + m.id] = 1; prev = m;
+    }
+  }
+  DG.FLOOR_MOODS.forEach((list, i)=> list.forEach(m=> assert.ok(seen[(i + 1) + m.id], "every mood turns up: " + m.id)));
+  const G = new DG.Game({ seed:77 }), ev = G.events.find(e=> e.type === "floor");
+  assert.ok(ev && ev.mood === G.D.theme.moodName && ev.mood, "the floor's arrival names its mood");
+});
+
 test("breakables break, and explosive barrels explode", ()=>{
   for(let s=1; s<60; s++){
     const G = game("POTS" + s);

@@ -87,7 +87,7 @@ H.handle = function(ev, G){
     case "coin": H.coinT = 0.3; break;
     case "msg": H.toast(reword(ev.text), ev.dur); break;
     case "bark": H.barks.push({ id:ev.id, x:ev.x, y:ev.y, text:ev.text, t:0 }); break;
-    case "floor": H.area = { floor:ev.floor, name:ev.name, t:0 }; H.banner = null; break;
+    case "floor": H.area = { floor:ev.floor, name:ev.name, mood:ev.mood, t:0 }; H.banner = null; break;
     case "clear": if(H.banner && H.banner.kind !== "clear") break; { const L = DG.LINES && DG.LINES.clear; H.banner = { kind:"clear", a:L && L.length ? L[Math.floor(Math.random()*L.length)] : "Silence returns.", t:0 }; break; }
     case "lair": H.banner = { kind:"lair", a:"A LAIR", b:ev.name, t:0 }; break;
     case "kill": if(ev.boss){ const B = DG.BOSSES[G.D.theme.boss || "king"] || {}; H.banner = { kind:"felled", a:B.felled || "FOE VANQUISHED", b:G.bossName ? G.bossName() : B.name, t:0 }; } break;
@@ -151,7 +151,7 @@ H.warm = function(G){
     G.room = { id:-99, active:true, waves:[1], wave:0, props:[], vigil:{ prop:-1, t:5 } };
     for(let i=0;i<kinds.length;i++){
       const t = 0.15 + i*0.9;
-      H.area = { floor:G.floor, name:"warm", t };
+      H.area = { floor:G.floor, name:"warm", mood:"warm", t };
       H.banner = { kind:kinds[i], a:"WARM", b:"warm", t };
       H.card = { title:"Warm", sub:"warm", flavor:"warm", col:"#c8a85a", tier:"Rare", t, life:4, icons:[Object.keys(DG.ITEMS)[i]] };
       H.nums = [{ x, y, z:1.4, v:12, t:0.05, col:"#e0d8c0" }, { x, y, z:2, v:"WARM", crit:true, t:0.3, col:"#ff8a5a" }, { x, y, z:2.4, v:"WARM", crit:true, big:true, t:0.6, col:"#e0c060" }];
@@ -704,6 +704,7 @@ H.draw = function(G, dt, opts){
       const half = Math.min(W/2 - 12, nw/2 + 60);
       rule(g, W/2, y - nsz*0.62, half, "rgba(200,164,90,.85)");
       rule(g, W/2, y + nsz*0.66, half, "rgba(200,164,90,.85)", 3);
+      if(a.mood){ A(al*0.8); text(g, a.mood, W/2, y + nsz*0.66 + 18*k, 15*k, BONE, "center", "italic 400", SERIF, 1.5); }
       A(1);
     }
   }

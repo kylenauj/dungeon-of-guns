@@ -38,11 +38,37 @@ Dungeon.generate = function(seed, floor, opts){
 
 /* the floor's look and its boss: each floor has two bosses, and the seed picks one */
 function floorTheme(seed, floor){
-  const th = DG.FLOORS[(floor - 1) % DG.FLOORS.length];
-  if(!th.alt || (Math.imul((seed >>> 0) ^ 0x9e3779b9, 31 + floor*2) >>> 7) % 2 === 0) return th;
-  return Object.assign({}, th, { boss:th.alt });
+  let th = DG.FLOORS[(floor - 1) % DG.FLOORS.length];
+  if(th.alt && (Math.imul((seed >>> 0) ^ 0x9e3779b9, 31 + floor*2) >>> 7) % 2 !== 0) th = Object.assign({}, th, { boss:th.alt });
+  return withMood(th, Dungeon.moodOf(seed, floor));
 }
 Dungeon.floorTheme = floorTheme;
+/* the floor's mood this run (DG.FLOOR_MOODS). A floor's seed is the run's
+   seed + n*104729 (Game), so the run's seed is found again here and the moods
+   are dealt floor by floor from 1, two floors in a row never the same colour */
+Dungeon.moodOf = function(seed, floor){
+  const run = ((seed >>> 0) - floor*104729) >>> 0, n = DG.FLOOR_MOODS.length;
+  let prev = null, mood = null;
+  for(let f=1; f<=floor; f++){
+    const list = DG.FLOOR_MOODS[(f - 1) % n].filter(m=> !prev || m.fam !== prev.fam);
+    let r = DG.RNG((run ^ 0x5bd1e995) + f*7919).next()*list.reduce((a, m)=> a + (m.w || 1), 0);
+    mood = list.find(m=> (r -= (m.w || 1)) < 0) || list[list.length - 1];
+    prev = mood;
+  }
+  return mood;
+};
+const mixHex = (a, b, k)=>{
+  const ch = (c, s)=> (c >> s) & 255, m = s=> Math.round(ch(a, s) + (ch(b, s) - ch(a, s))*k);
+  return (m(16) << 16) | (m(8) << 8) | m(0);
+};
+function withMood(th, mood){
+  if(!mood) return th;
+  const o = Object.assign({}, th, { mood:mood.id, moodName:mood.name });
+  Object.keys(mood).forEach(k=>{ if(["id", "name", "fam", "w", "stone"].indexOf(k) < 0) o[k] = mood[k]; });
+  if(mood.stone) ["floor", "floor2", "wall", "top"].forEach(k=>{ o[k] = mixHex(th[k], mood.stone[0], mood.stone[1]); });
+  return o;
+}
+Dungeon.withMood = withMood;
 function tryGenerate(rng, floor, seed, opts){
   const S = DG.FLOOR_SCALE(floor);
   const W = CW*GW, H = CH*GH;

@@ -6,7 +6,7 @@
  *  Behind the title, a bot plays a real run with the sound off (the
  *  attract mode from every arcade cabinet you ever walked past).
  *
- *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery  ?boss=KEY  ?lair=ID  ?route=bog|olm|ember|none  ?psx (the PSX look; P toggles it)
+ *  URL shortcuts for testing: ?seed=WORD  ?floor=3  ?god  ?play  ?gallery  ?boss=KEY  ?lair=ID  ?route=bog|olm|ember|none  ?mood=ember (a floor mood, DG.FLOOR_MOODS)  ?psx (the PSX look; P toggles it)
  * ------------------------------------------------------------------ */
 (function(){
 "use strict";
@@ -68,11 +68,14 @@ app.newRunNow = function(word){
   if(Q.has("god")) G.god = true;
   // testing: ?boss=gibbet puts that boss on this floor; ?lair=hound puts that beast in the floor's lair
   if(DG.BOSSES[Q.get("boss")]) G.D.theme = Object.assign({}, G.D.theme, { boss:Q.get("boss") });
+  // ?mood=ember puts that light on this floor (any id in DG.FLOOR_MOODS for the floor)
+  const moods = DG.FLOOR_MOODS[(G.floor - 1) % DG.FLOOR_MOODS.length], mood = !G.side && moods && moods.find(m=> m.id === Q.get("mood"));
+  if(mood && !G.D.climb) G.D.theme = DG.Dungeon.withMood(Object.assign({}, DG.FLOORS[(G.floor - 1) % DG.FLOORS.length], { boss:G.D.theme.boss }), mood);
   if(DG.LAIRS[Q.get("lair")]) G.D.rooms.forEach(r=>{ if(r.type === "lair") r.lair = Q.get("lair"); });
   app.G = G; app.V = new DG.View(G); app.demo = null;
   app.mode = "play"; app.acc = 0; app.pend = {};
   HUD.reset(); UI.hide(); IN.clear();
-  HUD.handle({ type:"floor", floor:G.floor, name:G.D.theme.name }, G);
+  HUD.handle({ type:"floor", floor:G.floor, name:G.D.theme.name, mood:G.D.theme.moodName || "" }, G);
   document.body.classList.add("playing");
 };
 /* what a run carried turns up less in the next two (Items.remember) */

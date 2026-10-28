@@ -186,6 +186,7 @@ const box = (w, h, d, x, y, z, rx, ry, rz)=>{ const g = new THREE.BoxGeometry(w,
 const World = DG.World = function(D){
   const W = this;
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
+  DG.Decor.torch = D.theme.torch || 0x7dff3a;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
     floor: stoneMat("floor"),
@@ -1046,6 +1047,7 @@ proto.buildMotes = function(){
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aPh", new THREE.BufferAttribute(ph, 1));
   const kind = W.th.motes;
   const col = { dust:[0.9, 0.8, 0.6], spores:[0.6, 1.0, 0.5], ghostfog:[0.6, 0.8, 1.0], eyes:[0.9, 0.4, 1.0], embers:[1.0, 0.4, 0.2], glowbugs:[0.4, 0.85, 1.0] }[kind] || [0.9, 0.9, 0.9];
+  if(W.th.moteCol !== undefined){ const c = new THREE.Color(W.th.moteCol); col[0] = c.r; col[1] = c.g; col[2] = c.b; }
   const m = new THREE.ShaderMaterial({
     uniforms:{ uTime:{ value:0 }, uCenter:{ value:new THREE.Vector3() }, uScale:{ value:300 }, uCol:{ value:new THREE.Vector3(col[0], col[1], col[2]) }, uRise:{ value:kind === "embers" || kind === "spores" ? 0.5 : kind === "glowbugs" ? 0.2 : 0.08 } },
     transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,

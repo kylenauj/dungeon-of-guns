@@ -20,6 +20,7 @@
 "use strict";
 const DG = window.DG, K = DG.Kit;
 const Decor = DG.Decor = {};
+Decor.torch = 0x7dff3a;   // the floor's torch colour (World sets it from the theme before building)
 const P = K.part, PI = Math.PI;
 const S = (r, w, h)=> new THREE.SphereGeometry(r, w || 10, h || 8);
 const CY = (a, b, h, n, open)=> new THREE.CylinderGeometry(a, b, h, n || 10, 1, !!open);
@@ -334,11 +335,12 @@ const B = {
     P(o.group, TO(0.12, 0.015), IRON, 0, 0.32, 0, PI/2);
     P(o.group, K.lathe([[0.06, 0], [0.22, 0.05], [0.28, 0.16], [0.26, 0.18], [0.2, 0.08], [0.05, 0.03]], 12), IRON, 0, 0.6, 0);
     for(let k=0;k<8;k++){ const a = k/8*PI*2; P(o.group, CO(0.02, 0.08, 4), IRON, Math.cos(a)*0.28, 0.8, Math.sin(a)*0.28); }
-    // it burns the Gloom's neon green, like the torches
-    for(let k=0;k<7;k++){ const a = rnd()*PI*2, d = rnd()*0.14; L(o.group, K.lump(0.045 + rnd()*0.03, 0, 0.5, rnd()*9), [0x7dff3a, 0x3ac81a, 0x1a6a0e][k % 3], Math.cos(a)*d, 0.74 + rnd()*0.03, Math.sin(a)*d); }
-    L(o.group, CO(0.1, 0.24, 6), 0x9cff4a, 0, 0.88, 0); L(o.group, CO(0.06, 0.32, 5), 0xe8ffd0, 0.03, 0.9, -0.02, 0, 0, 0.15);
-    o.glows.push({ x:0, y:0.86, z:0, c:0x7dff3a, s:1.4 }, { x:0, y:1.05, z:0, c:0xc8ff9a, s:0.6 });
-    o.lights.push({ x:0, y:1.2, z:0, c:0x7dff3a, i:1.5 });
+    // it burns the floor's light, like the torches (Decor.torch: the mood's torch colour)
+    const fire = Decor.torch, tone = (k, w)=> new THREE.Color(fire).multiplyScalar(k).lerp(new THREE.Color(0xffffff), w || 0).getHex();
+    for(let k=0;k<7;k++){ const a = rnd()*PI*2, d = rnd()*0.14; L(o.group, K.lump(0.045 + rnd()*0.03, 0, 0.5, rnd()*9), [fire, tone(0.6), tone(0.25)][k % 3], Math.cos(a)*d, 0.74 + rnd()*0.03, Math.sin(a)*d); }
+    L(o.group, CO(0.1, 0.24, 6), tone(1, 0.2), 0, 0.88, 0); L(o.group, CO(0.06, 0.32, 5), tone(1, 0.8), 0.03, 0.9, -0.02, 0, 0, 0.15);
+    o.glows.push({ x:0, y:0.86, z:0, c:fire, s:1.4 }, { x:0, y:1.05, z:0, c:tone(1, 0.5), s:0.6 });
+    o.lights.push({ x:0, y:1.2, z:0, c:fire, i:1.5 });
   },
   candelabra(o, rnd){
     P(o.group, CY(0.12, 0.17, 0.05, 8), IRON, 0, 0.025, 0); for(let k=0;k<3;k++){ const a = k/3*PI*2; P(o.group, CO(0.03, 0.1, 4), IRON, Math.cos(a)*0.15, 0.04, Math.sin(a)*0.15, PI/2, 0, 0); }
