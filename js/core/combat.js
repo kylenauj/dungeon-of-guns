@@ -284,8 +284,10 @@ proto.steerShot = function(b, dt){
       b.baseA += DG.clamp(DG.wrapAngle(want - b.baseA), -b.homing*dt*2.4, b.homing*dt*2.4);
     }
   }
-  if(b.spiral) b.baseA += 2.6*dt*b.spin*b.spiral;
   let a = b.baseA;
+  // a corkscrew: weaving wider and wider as it goes, but always going (turning the heading
+  // round and round, as it did, flew the shots in circles that never reached anything)
+  if(b.spiral) a += b.spin*Math.min(1.2, 0.35 + b.t*1.6)*Math.sin(b.t*9 + b.id)*Math.min(1.5, b.spiral);
   if(b.wiggle) a += Math.sin(b.t*16 + b.id)*0.55;
   b.vx = Math.cos(a)*sp; b.vy = Math.sin(a)*sp;
 };

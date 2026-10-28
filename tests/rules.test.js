@@ -349,6 +349,35 @@ test("shots carry the wand's element; other elements only ride along on one shot
   assert.ok(tinged.some(e=> e[1] === "poison") && tinged.some(e=> e[1] === "fire"), "taking turns");
 });
 
+test("twelve ways for the wand to fire: every form has its item, a look of its own, an icon and an ascension; the bench and the shop have room for them", ()=>{
+  const forms = Object.keys(DG.WAND_FORMS);
+  assert.ok(forms.length >= 12);
+  forms.forEach(f=>{
+    const it = Object.keys(DG.ITEMS).find(id=> DG.ITEMS[id].form === f);
+    assert.ok(it, f + " has an item"); assert.ok(DG.ITEMS[it].pools.indexOf("w") >= 0, f + " is on the bench");
+    assert.ok(DG.FORM_ORDER.indexOf(f) >= 0, f + " has a place in the order");
+    assert.ok(DG.ASCENSIONS.some(a=> a.form === f && DG.ITEMS[a.item] && a.innate.every(id=> DG.ITEMS[id])), f + " ascends");
+  });
+  // the same handful turned up every run: the bench's better half was four items, the shop's five
+  const count = (pool, tier)=> Object.keys(DG.ITEMS).filter(id=> DG.ITEMS[id].pools.indexOf(pool) >= 0 && DG.ITEMS[id].tier === tier).length;
+  assert.ok(count("w", 2) >= 16, "bench tier 2: " + count("w", 2));
+  assert.ok(count("s", 2) >= 10, "shop tier 2: " + count("s", 2));
+  // a wand with a form fires its way
+  const G = game("FORMS", 2);
+  G.giveItem("crescent", true);
+  assert.equal(G.gun().base, "crescent", "the look follows the form");
+  assert.ok(/Crescent/.test(G.gun().name));
+});
+test("a spiral shot corkscrews forward, it doesn't fly in circles (Spiral Sorcery and the old Vortex hit nothing past arm's length)", ()=>{
+  const G = game("SPIRAL", 2); G.giveItem("corkscrew", true); park(G);
+  const p = G.player, b = G.addShot({ x:p.x, y:p.y, a:0, speed:9, r:0.12, dmg:1, range:20, els:["arcane"], power:1, depth:0 });
+  assert.ok(b.spiral, "it spirals");
+  let x = 0, y = 0, wide = 0;
+  for(let i=0;i<60;i++){ G.steerShot(b, 1/60); x += b.vx/60; y += b.vy/60; wide = Math.max(wide, Math.abs(y)); }
+  assert.ok(x > 6, "a second on, it's well down range: " + x.toFixed(1) + " (circling, it was under 4)");
+  assert.ok(wide > 0.3, "weaving as it goes: " + wide.toFixed(2));
+});
+
 test("item rolls lean toward the wand's element once you've taken one", ()=>{
   // the same rolls with and without a frost core in hand: frost items come up more, the others less
   const count = core=>{

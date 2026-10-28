@@ -791,6 +791,7 @@ Icons.ITEMS = {
   copperwire:"chain+bolt@shock", staticgloves:"hand@shock", stormboots:"boot@shock", lightningrod:"spear@shock", teslacoil:"spiral@shock", thunderdrum:"bell@shock", galvanic:"cog@shock", sparklantern:"lantern@shock", voltheart:"heart@shock", stormcrown:"crown+cloud@shock",
   hexthread:"tangle@arcane", runebangle:"ring+rune@arcane", magemirror:"mirror@arcane", blinkglyph:"sigil+boot@arcane", eldritcheye:"eye@arcane", grimoire:"tome@arcane", voidlens:"blackhole@arcane", astralchime:"bell+star@arcane", echosigil:"bounce@arcane", magusstar:"star@arcane",
   scatterfocus:"wand+fan", repeatercoil:"wand+spiral", longlens:"wand+lens", bombardrune:"wand+bomb",
+  halo:"wand+orbit", crescent:"wand+moon", wisplantern:"wand+wisp", vortexglyph:"wand+waves", prismshard:"wand+prism", fracture:"wand+shards", volleychamber:"wand+pellets", wraithglass:"wand+ghost",
   rimecore:"gem@frost", embercore:"gem@fire", venomcore:"gem@poison", stormcore:"gem@shock", hexcore:"gem@arcane",
   frostrounds:"snowflake", emberrounds:"flame", venomrounds:"droplet", staticrounds:"bolt", arcanerounds:"sigil", prism:"prism", elementalist:"orb@all",
   /* triggers */
@@ -839,7 +840,8 @@ Object.assign(Icons.ITEMS, {
   f_mirror:"mirror+lily", f_bubble:"bubble+lily", f_zoomies:"comet+lily", f_doom:"skull+waves@poison", f_twin:"frog*2", f_mimic:"frog+gun"
 });
 /* the wand, by the form that shapes it (a wand's base is its style: L.wandStyle) */
-Icons.GUNS = { pistol:"wand", smg:"wand+spiral", shotgun:"wand+fan", rifle:"wand+lens", launcher:"wand+bomb" };
+Icons.GUNS = { pistol:"wand", smg:"wand+spiral", shotgun:"wand+fan", rifle:"wand+lens", launcher:"wand+bomb",
+  halo:"wand+orbit", crescent:"wand+moon", wisp:"wand+wisp", vortex:"wand+waves", prism:"wand+prism", fracture:"wand+shards", volley:"wand+pellets", wraith:"wand+ghost" };
 Icons.SETS = {
   pyromancer:"flame@fire", lich:"skull@frost", storm:"cloud@shock", plague:"beak@poison", gardener:"sprout", goldfinger:"crown+coin",
   frogprince:"frog+crown", bloodhunter:"fang+droplet", clown:"mask+die"

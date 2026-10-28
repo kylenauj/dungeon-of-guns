@@ -67,26 +67,26 @@ DG.ITEMS = {
   patience:   I({ name:"Patience",           tier:1, pools:"tb",   desc:"Shots hit up to 2x harder the longer you wait between them.", special:"patience" }),
 
   /* ---------------- the shape of every shot ---------------- */
-  rubber:     I({ name:"Rubber Wand",        tier:1, pools:"tsb",  desc:"Shots bounce off walls twice.", shot:{ bounces:2 } }),
-  pinball:    I({ name:"Pinball Wizard",     tier:2, pools:"tbx",  desc:"Shots bounce 4 more times and hit 15% harder after every bounce.", shot:{ bounces:4, bounceDmg:0.15 } }),
-  sharp:      I({ name:"Sharpened Rounds",   tier:1, pools:"tsb",  desc:"Shots pierce one more goblin.", shot:{ pierce:1 } }),
-  drill:      I({ name:"Drill Bits",         tier:2, pools:"tb",   desc:"Shots pierce two more goblins and hit harder each time they do.", shot:{ pierce:2, pierceDmg:0.2 } }),
-  seeker:     I({ name:"Seeker Spirit",      tier:1, pools:"tsb",  desc:"Shots curve toward goblins.", shot:{ homing:1 } }),
-  splitter:   I({ name:"Splitter",           tier:1, pools:"tb",   desc:"Shots split in two on their first hit.", shot:{ split:2 } }),
-  twinshot:   I({ name:"Twinshot",           tier:1, pools:"tsb",  desc:"+1 shot per volley. -10% damage.", shot:{ extra:1 }, stats:{ dmg:-0.1 } }),
-  triple:     I({ name:"Triple Trouble",     tier:2, pools:"tbx",  desc:"+2 shots per volley. -20% damage.", shot:{ extra:2 }, stats:{ dmg:-0.2 } }),
-  sideeyes:   I({ name:"Side Eyes",          tier:1, pools:"ts",   desc:"Every volley also fires left and right.", shot:{ side:1 } }),
-  rearguard:  I({ name:"Rear Guard",         tier:0, pools:"ts",   desc:"Every volley also fires behind you.", shot:{ back:1 } }),
-  wiggle:     I({ name:"Wiggle Worm",        tier:1, pools:"ts",   desc:"Shots wiggle. +15% damage, +20% size. Look at them go.", shot:{ wiggle:1 }, stats:{ dmg:0.15, size:0.2 } }),
-  orbiter:    I({ name:"Orbit Rounds",       tier:2, pools:"tb",   desc:"One shot per volley circles you for 3 seconds before flying off.", shot:{ orbit:1 } }),
-  boomerang:  I({ name:"Boomerang Magic",    tier:1, pools:"tb",   desc:"Shots come back, and pierce on the way home.", shot:{ boomerang:1 } }),
-  ghostshot:  I({ name:"Ghost Rounds",       tier:2, pools:"tbx",  desc:"Shots pass through walls.", shot:{ spectral:1 } }),
-  snowball:   I({ name:"Snowball Effect",    tier:1, pools:"tb",   desc:"Shots grow and hit harder the further they fly.", shot:{ grow:1 } }),
-  rocket:     I({ name:"Rocket Fuel",        tier:1, pools:"ts",   desc:"Shots accelerate. +15% damage.", shot:{ accel:1 }, stats:{ dmg:0.15 } }),
-  corkscrew:  I({ name:"Spiral Sorcery",     tier:1, pools:"ts",   desc:"Shots corkscrew outward in spirals.", shot:{ spiral:1 } }),
+  rubber:     I({ name:"Rubber Wand",        tier:1, pools:"tsbw",  desc:"Shots bounce off walls twice.", shot:{ bounces:2 } }),
+  pinball:    I({ name:"Pinball Wizard",     tier:2, pools:"tbxw",  desc:"Shots bounce 4 more times and hit 15% harder after every bounce.", shot:{ bounces:4, bounceDmg:0.15 } }),
+  sharp:      I({ name:"Sharpened Rounds",   tier:1, pools:"tsbw",  desc:"Shots pierce one more goblin.", shot:{ pierce:1 } }),
+  drill:      I({ name:"Drill Bits",         tier:2, pools:"tbw",   desc:"Shots pierce two more goblins and hit harder each time they do.", shot:{ pierce:2, pierceDmg:0.2 } }),
+  seeker:     I({ name:"Seeker Spirit",      tier:1, pools:"tsbw",  desc:"Shots curve toward goblins.", shot:{ homing:1 } }),
+  splitter:   I({ name:"Splitter",           tier:1, pools:"tbw",   desc:"Shots split in two on their first hit.", shot:{ split:2 } }),
+  twinshot:   I({ name:"Twinshot",           tier:1, pools:"tsbw",  desc:"+1 shot per volley. -10% damage.", shot:{ extra:1 }, stats:{ dmg:-0.1 } }),
+  triple:     I({ name:"Triple Trouble",     tier:2, pools:"tbxw",  desc:"+2 shots per volley. -20% damage.", shot:{ extra:2 }, stats:{ dmg:-0.2 } }),
+  sideeyes:   I({ name:"Side Eyes",          tier:1, pools:"tsw",   desc:"Every volley also fires left and right.", shot:{ side:1 } }),
+  rearguard:  I({ name:"Rear Guard",         tier:0, pools:"tsw",   desc:"Every volley also fires behind you.", shot:{ back:1 } }),
+  wiggle:     I({ name:"Wiggle Worm",        tier:1, pools:"tsw",   desc:"Shots wiggle. +15% damage, +20% size. Look at them go.", shot:{ wiggle:1 }, stats:{ dmg:0.15, size:0.2 } }),
+  orbiter:    I({ name:"Orbit Rounds",       tier:2, pools:"tbw",   desc:"One shot per volley circles you for 3 seconds before flying off.", shot:{ orbit:1 } }),
+  boomerang:  I({ name:"Boomerang Magic",    tier:1, pools:"tbw",   desc:"Shots come back, and pierce on the way home.", shot:{ boomerang:1 } }),
+  ghostshot:  I({ name:"Ghost Rounds",       tier:2, pools:"tbxw",  desc:"Shots pass through walls.", shot:{ spectral:1 } }),
+  snowball:   I({ name:"Snowball Effect",    tier:1, pools:"tbw",   desc:"Shots grow and hit harder the further they fly.", shot:{ grow:1 } }),
+  rocket:     I({ name:"Rocket Fuel",        tier:1, pools:"tsw",   desc:"Shots accelerate. +15% damage.", shot:{ accel:1 }, stats:{ dmg:0.15 } }),
+  corkscrew:  I({ name:"Spiral Sorcery",     tier:1, pools:"tsw",   desc:"Shots corkscrew outward in spirals.", shot:{ spiral:1 } }),
   chaos:      I({ name:"Chaos Theory",       tier:1, pools:"tx",   desc:"Shots fly in random directions. +60% fire rate, +1 shot. Good luck.", shot:{ chaos:1, extra:1 }, stats:{ rate:0.6 } }),
-  burstfire:  I({ name:"Burst Fire",         tier:1, pools:"ts",   desc:"Each trigger pull fires a 3-round burst. -25% fire rate.", shot:{ burst:2 }, stats:{ rate:-0.25 } }),
-  echo:       I({ name:"Echo Chamber",       tier:2, pools:"tb",   desc:"Every volley fires again a moment later at 45% damage.", shot:{ echo:1 } }),
+  burstfire:  I({ name:"Burst Fire",         tier:1, pools:"tsw",   desc:"Each trigger pull fires a 3-round burst. -25% fire rate.", shot:{ burst:2 }, stats:{ rate:-0.25 } }),
+  echo:       I({ name:"Echo Chamber",       tier:2, pools:"tbw",   desc:"Every volley fires again a moment later at 45% damage.", shot:{ echo:1 } }),
   kaleido:    I({ name:"Kaleidoscope",       tier:3, pools:"bxa",  desc:"Every volley is mirrored in four directions.", shot:{ kaleido:1 } }),
 
   /* ---------------- elements on every shot ---------------- */
@@ -158,6 +158,14 @@ DG.ITEMS = {
   repeatercoil:I({ name:"Repeater Coil",     tier:2, pools:"wsb",  form:"repeater", desc:"Your wand fires two and a half times as fast, each bolt under half as strong, a little wilder.", flavor:"It hums. It never stops humming." }),
   longlens:   I({ name:"Longbarrel Lens",    tier:2, pools:"wsb",  form:"lens",     desc:"Your wand fires slow, fast-flying lances: well over twice the damage, further, and through one goblin.", flavor:"Ground from a cyclops' eye. It still blinks." }),
   bombardrune:I({ name:"Bombard Rune",       tier:2, pools:"wsb",  form:"bombard",  desc:"Your wand lobs heavy orbs that burst where they land: twice the damage and a blast, a third as often.", flavor:"Point it away from your face. Mostly." }),
+  halo:       I({ name:"Halo Ring",          tier:2, pools:"wsb",  form:"halo",     shot:{ orbit:1 }, desc:"One shot of every volley circles you for a while before it flies: a ring of them round your head, and anything that comes close gets cut.", flavor:"Stolen off a saint. He hasn't noticed yet." }),
+  crescent:   I({ name:"Crescent Edge",      tier:2, pools:"wsb",  form:"crescent", shot:{ boomerang:1, pierce:1 }, desc:"Your wand throws heavy crescent blades that cut through a goblin and come back to you.", flavor:"Catch it by the handle. There isn't one." }),
+  wisplantern:I({ name:"Wisp Lantern",       tier:2, pools:"wsb",  form:"wisp",     shot:{ homing:2 }, desc:"Your wand lets out slow motes of light that hunt goblins down, faster and further than you'd think.", flavor:"They're lost. They want company." }),
+  vortexglyph:I({ name:"Vortex Glyph",       tier:2, pools:"wsb",  form:"vortex",   shot:{ wiggle:1, extra:2, homing:1 }, desc:"Three bolts a volley that snake through the air and drift toward goblins: half the damage each.", flavor:"Don't stare into it." }),
+  prismshard: I({ name:"Prism Shard",        tier:2, pools:"wsb",  form:"prism",    shot:{ bounces:3, bounceDmg:0.1 }, desc:"Your shots ricochet three times, a little harder after each.", flavor:"Every wall is a second chance." }),
+  fracture:   I({ name:"Fracture Stone",     tier:2, pools:"wsb",  form:"fracture", shot:{ split:3 }, desc:"Your shots shatter into three on their first hit.", flavor:"It was whole once. It hated it." }),
+  volleychamber:I({ name:"Volley Chamber",   tier:2, pools:"wsb",  form:"volley",   shot:{ burst:2 }, desc:"Every pull of the trigger fires a three-shot burst; the wand rests a little longer between them.", flavor:"Three's a crowd. Crowds are good." }),
+  wraithglass:I({ name:"Wraith Glass",       tier:2, pools:"wsb",  form:"wraith",   shot:{ spectral:1 }, desc:"Your shots slow and grow, go pale, and pass through walls.", flavor:"The dead don't knock." }),
   /* ---------------- the wand: cores make it an element (and stack) ---------------- */
   rimecore:   I({ name:"Rime Core",          tier:0, pools:"ws",   stack:true, els:["frost"],  desc:"Your wand's shots turn to ice: frost on every shot. Each core counts toward Frost attunement.", flavor:"Cold to the touch. Colder to the goblin." }),
   embercore:  I({ name:"Ember Core",         tier:0, pools:"ws",   stack:true, els:["fire"],   desc:"Your wand's shots catch fire: fire on every shot. Each core counts toward Fire attunement.", flavor:"Keep it away from the beard." }),
@@ -216,7 +224,7 @@ DG.ITEMS = {
   shrinkray:  I({ name:"Shrink Ray",         tier:1, pools:"tb",   desc:"Every hit shrinks a goblin a little, down to half size. Small goblins hit softer and fly further.", flavor:"Honey, I shrunk the goblins.", on:{ hit:[{ do:"shrink" }] } }),
   stickybomb: I({ name:"Sticky Bombs",       tier:2, pools:"tbx",  desc:"A quarter of your hits stick a bomb on the goblin. It goes off a second later.", flavor:"Tick. Tick. Oh no.", on:{ hit:[{ do:"stickybomb", chance:0.25, dmg:1.3, r:1.5 }] } }),
   bubblegum:  I({ name:"Bubble Gum",         tier:1, pools:"ts",   desc:"Shots fly a bit slower and leave sticky gum where they land. Goblins in gum crawl.", flavor:"Already chewed.", stats:{ shotSpeed:-0.2 }, on:{ wall:[{ do:"gum" }], expire:[{ do:"gum" }] } }),
-  portal:     I({ name:"Portal Pockets",     tier:2, pools:"tbx",  desc:"Shots that hit a wall come out of the opposite wall, 30% stronger.", flavor:"Now you're thinking with pockets.", shot:{ portal:1 } }),
+  portal:     I({ name:"Portal Pockets",     tier:2, pools:"tbxw",  desc:"Shots that hit a wall come out of the opposite wall, 30% stronger.", flavor:"Now you're thinking with pockets.", shot:{ portal:1 } }),
   disco:      I({ name:"Disco Fever",        tier:2, pools:"tbx",  desc:"Every 5th volley carries every element, and its shots are 50% bigger.", flavor:"Night fever.", special:"disco" }),
   beehive:    I({ name:"Bee Hive",           tier:1, pools:"ts",   desc:"Most kills let out an angry bee that stings goblins with poison.", flavor:"Not the bees.", on:{ kill:[{ do:"bee", n:1, chance:0.6 }] } }),
   napkin:     I({ name:"Necromancer's Napkin",tier:2, pools:"bx",  desc:"15% of kills rise as a ghost of themselves that fights for you for 10 seconds.", flavor:"Wipe your mouth. Raise the dead.", on:{ kill:[{ do:"ghoul", chance:0.15 }] } }),
@@ -249,7 +257,7 @@ DG.ITEMS = {
   hexcoin:    I({ name:"Hexed Coin",         tier:0, pools:"tsx",  desc:"+3 luck. -15 max health.", flavor:"Both sides are tails.", stats:{ luck:3, hp:-15 } }),
   rottenheart:I({ name:"Rotten Heart",       tier:0, pools:"tsb",  desc:"+35 max health, and heals it. -10% move speed.", flavor:"It beats. Mostly.", stats:{ hp:35, speed:-0.1 } }),
   leadrounds: I({ name:"Lead Rounds",        tier:0, pools:"ts",   desc:"+30% damage. -15% shot speed, -5% move speed.", flavor:"Heavy as a grudge.", stats:{ dmg:0.3, shotSpeed:-0.15, speed:-0.05 } }),
-  crowfeather:I({ name:"Crow Feathers",      tier:1, pools:"ts",   desc:"+2 shots per volley, and shots curve toward goblins. -30% damage.", flavor:"The crows followed you down.", shot:{ extra:2, homing:0.4 }, stats:{ dmg:-0.3 } }),
+  crowfeather:I({ name:"Crow Feathers",      tier:1, pools:"tsw",   desc:"+2 shots per volley, and shots curve toward goblins. -30% damage.", flavor:"The crows followed you down.", shot:{ extra:2, homing:0.4 }, stats:{ dmg:-0.3 } }),
   greatbow:   I({ name:"Greatbow String",    tier:1, pools:"tsb",  desc:"+80% shot speed, +60% range, +25% damage. -20% fire rate.", flavor:"Pulled by giants, once.", stats:{ shotSpeed:0.8, range:0.6, dmg:0.25, rate:-0.2 } }),
   witchfire:  I({ name:"Witchfire",          tier:1, pools:"tb",   desc:"Every shot carries fire and arcane. -10% damage.", flavor:"It burns green when no one is looking.", els:["fire", "arcane"], stats:{ dmg:-0.1 } }),
   bloodpact:  I({ name:"Blood Pact",         tier:1, pools:"tbx",  desc:"+40% damage. -20 max health. Half your kills heal 1.", flavor:"Sign here. And here. And here.", stats:{ dmg:0.4, hp:-20 }, on:{ kill:[{ do:"heal", n:1, chance:0.5 }] } }),
@@ -266,8 +274,8 @@ DG.ITEMS = {
   blackpowder:I({ name:"Black Powder",       tier:1, pools:"ts",   desc:"Explosions are 35% bigger, and 3 in 10 shots that hit a wall go off.", flavor:"Keep away from candles. Ha.", stats:{ boom:0.35 }, on:{ wall:[{ do:"burst", r:1.2, dmg:0.6, chance:0.3 }] } }),
   boneshield: I({ name:"Bone Shield",        tier:1, pools:"tb",   desc:"Every 15 seconds in a fight, gain a ward (up to 2).", flavor:"Somebody's ribs, lashed together.", on:{ tick:[{ do:"ward", n:1, max:2, every:15, at:"player" }] } }),
   vengeance:  I({ name:"Vengeful Spirit",    tier:1, pools:"tb",   desc:"After you're hurt, +50% damage for 4 seconds.", flavor:"It remembers every wound.", special:"vengeance" }),
-  giantsfang: I({ name:"Giant's Fang",       tier:2, pools:"tbx",  desc:"Shots are twice the size, pierce a goblin and hit 40% harder. -30% fire rate.", flavor:"Pried from something that still wanted it.", stats:{ size:1, dmg:0.4, rate:-0.3 }, shot:{ pierce:1 } }),
-  moonlight:  I({ name:"Moonlight Shard",    tier:2, pools:"tbx",  desc:"Every shot carries arcane, pierces a goblin and bounces once.", flavor:"Cold light from a dead moon.", els:["arcane"], shot:{ pierce:1, bounces:1 } }),
+  giantsfang: I({ name:"Giant's Fang",       tier:2, pools:"tbxw",  desc:"Shots are twice the size, pierce a goblin and hit 40% harder. -30% fire rate.", flavor:"Pried from something that still wanted it.", stats:{ size:1, dmg:0.4, rate:-0.3 }, shot:{ pierce:1 } }),
+  moonlight:  I({ name:"Moonlight Shard",    tier:2, pools:"tbxw",  desc:"Every shot carries arcane, pierces a goblin and bounces once.", flavor:"Cold light from a dead moon.", els:["arcane"], shot:{ pierce:1, bounces:1 } }),
   hollowing:  I({ name:"Hollowing",          tier:2, pools:"tbx",  desc:"Every kill in a room makes you 5% stronger, up to +60%. It fades when the room is clear.", flavor:"The more you take, the less of you is left.", special:"hollowing" }),
   executioner:I({ name:"Executioner's Axe",  tier:2, pools:"tbx",  desc:"Goblins below 15% health die at once (not bosses).", flavor:"No last words.", special:"execute" }),
   lifedrinker:I({ name:"Lifedrinker",        tier:2, pools:"bxa",  desc:"Your hits drink blood: 2% of the damage you deal heals you (up to 4 a second).", flavor:"Thirsty work.", special:"lifesteal" }),
@@ -290,7 +298,7 @@ DG.ITEMS = {
   frenzy:     I({ name:"Berserker's Tooth",  tier:1, pools:"tsb",  stack:true, desc:"Each kill gives +5% fire rate for 3 seconds, stacking up to 6 times (6 more per copy).", flavor:"It's still biting.", special:"frenzy" }),
   itch:       I({ name:"Predator's Itch",    tier:1, pools:"ts",   stack:true, desc:"Crits give +4% fire rate for 2 seconds, stacking up to 8 times (8 more per copy). +5% crit.", flavor:"Can't stop. Won't stop.", stats:{ crit:0.05 }, special:"itch" }),
   // multishot
-  sparebarrel:I({ name:"Spare Barrel",       tier:1, pools:"tsb",  stack:true, desc:"+1 shot per volley (per copy). -12% damage (per copy).", flavor:"Bolted on with optimism.", shot:{ extra:1 }, stats:{ dmg:-0.12 } }),
+  sparebarrel:I({ name:"Spare Barrel",       tier:1, pools:"tsbw",  stack:true, desc:"+1 shot per volley (per copy). -12% damage (per copy).", flavor:"Bolted on with optimism.", shot:{ extra:1 }, stats:{ dmg:-0.12 } }),
   doubletap:  I({ name:"Echoing Skull",      tier:1, pools:"tb",   stack:true, desc:"15% chance a volley fires twice (more per copy).", flavor:"It repeats everything you say. And shoot.", special:"doubletap" }),
   crowsnest:  I({ name:"Crow's Nest",        tier:1, pools:"ts",   stack:true, desc:"Every 5th volley throws a fan of 3 extra shots (3 more per copy).", flavor:"The crows help. Sort of.", special:"fan" }),
   // chain procs
@@ -395,7 +403,15 @@ DG.ASCENSIONS = [
   { form:"repeater", item:"venomrounds", name:"Plague Sprayer",    innate:["plague", "venomrounds"],   flavor:"Hold the trigger. Hold your breath." },
   { form:"scatter",  item:"rubber",      name:"Pinball Wand",      innate:["pinball"],                 flavor:"TILT." },
   { form:"lens",     item:"staticrounds",name:"Railwand",          innate:["drill", "staticcling"],    flavor:"Through the goblin, the wall, and probably the next floor." },
-  { form:"bombard",  item:"hotpotato",   name:"Boomstaff Supreme", innate:["megabombs"],               flavor:"There is no kill like overkill." }
+  { form:"bombard",  item:"hotpotato",   name:"Boomstaff Supreme", innate:["megabombs"],               flavor:"There is no kill like overkill." },
+  { form:"halo",     item:"moonlight",   name:"Saint's Halo",      innate:["orbiter", "seeker"],       flavor:"A ring of light, and every one of them knows your enemies." },
+  { form:"crescent", item:"sharp",       name:"Moonscythe",        innate:["drill", "boomerang"],      flavor:"It reaps on the way out, and again on the way back." },
+  { form:"wisp",     item:"wispcraft",   name:"Will-o'-Wand",      innate:["wispcraft", "snowball"],   flavor:"Follow the lights. They know where the goblins are." },
+  { form:"vortex",   item:"corkscrew",   name:"Maelstrom",         innate:["triple"],                  flavor:"The room becomes a drain. You are the plughole." },
+  { form:"prism",    item:"splitter",    name:"Hall of Mirrors",   innate:["hydra"],                   flavor:"Every bounce, more of them. Every bounce." },
+  { form:"fracture", item:"echo",        name:"Shatterwand",       innate:["splitter", "giantsfang"],  flavor:"It breaks, and breaks, and breaks." },
+  { form:"volley",   item:"twinshot",    name:"Gatling Hex",       innate:["sparebarrel", "rocket"],   flavor:"Spin it up. Don't stop." },
+  { form:"wraith",   item:"ghostshot",   name:"Grave Lantern",     innate:["haunted", "moonlight"],    flavor:"The dead come with every shot, and walls mean nothing to them." }
 ];
 
 /* ---- active items: one at a time, on F, charged by clearing rooms ---- */
@@ -761,7 +777,9 @@ Items.pools = function(){
 Items.roll = function(G, pool, opts){
   const P0 = G.pools[pool] || G.pools.t, rng = G.rng, luck = G.mods ? G.mods.luck : 0;
   // a tag to lean on (a frog build's treasure room keeps one frog thing on offer)
-  const lean = opts && opts.tag ? P0.filter(id=> Items.tagsOf(DG.ITEMS[id]).indexOf(opts.tag) >= 0 && (!G.seenItems[id] || DG.ITEMS[id].stack)) : null;
+  const lean = opts && opts.tag ? P0.filter(id=> Items.tagsOf(DG.ITEMS[id]).indexOf(opts.tag) >= 0 && (!G.seenItems[id] || DG.ITEMS[id].stack))
+    : opts && opts.form ? P0.filter(id=> DG.ITEMS[id].form && !G.seenItems[id] && !(G.mods && G.mods.forms[DG.ITEMS[id].form]))   // a new way to fire
+    : null;
   const P = lean && lean.length ? lean : P0;
   const w = DG.POOL_TIERS[pool] || DG.POOL_TIERS.t;
   // deeper floors and luck push the odds up

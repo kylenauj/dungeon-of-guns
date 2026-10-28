@@ -36,7 +36,8 @@ L.makeGun = function(base, element, rarity, level, innate, extra){
 
 L.gunName = function(g, M){
   if(g.wand){
-    const E = DG.ELEMENTS[g.element], forms = DG.FORM_ORDER.filter(f=> M && M.forms[f]).map(f=> DG.WAND_FORMS[f].name);
+    // named for its two boldest forms (all twelve made a name nobody could read)
+    const E = DG.ELEMENTS[g.element], forms = DG.FORM_ORDER.filter(f=> M && M.forms[f]).slice(0, 2).map(f=> DG.WAND_FORMS[f].name);
     return E.adj + " " + (forms.length ? forms.join(" ") + " " : "") + "Wand";
   }
   const B = DG.GUNS[g.base], E = DG.ELEMENTS[g.element];

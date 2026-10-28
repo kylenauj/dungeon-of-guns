@@ -133,6 +133,56 @@ function wandModel(g, style, R){
     gCage(g, 0, 0.02, 0.63, 0.075, 5);
     return { gem:[0, 0.02, 0.63, 0.075], muzzle:[0, 0.02, 0.72] };
   }
+  if(style === "halo"){
+    // Halo: the crystal bare on its prongs, a brass ring hung round it, beads riding the ring
+    gCage(g, 0, 0.02, 0.57, 0.04, 3);
+    P(g, zto(0.085, 0.007), GP.brass2, 0, 0.02, 0.58);
+    for(let i=0;i<4;i++){ const a = i/4*PI*2 + 0.4; P(g, zs(0.012), GP.bone2, Math.cos(a)*0.085, 0.02 + Math.sin(a)*0.085, 0.58); }
+    return { gem:[0, 0.02, 0.58, 0.04], muzzle:[0, 0.02, 0.62] };
+  }
+  if(style === "crescent"){
+    // Crescent: an iron moon-blade across the head, edge outward, the crystal in its curve
+    P(g, new THREE.TorusGeometry(0.11, 0.016, 6, 18, PI*1.15), GP.iron2, 0, 0.02, 0.6, 0, 0, -PI*0.075, 1, 1, 0.45);
+    [-1, 1].forEach(s=> P(g, CO(0.012, 0.05, 5), GP.iron, s*0.11, 0.035, 0.6, 0, 0, -s*0.4));
+    gCage(g, 0, 0.02, 0.55, 0.036, 3);
+    return { gem:[0, 0.02, 0.55, 0.036], muzzle:[0, 0.02, 0.66] };
+  }
+  if(style === "wisp"){
+    // Wisp: a little lantern cage on a hook, a soft fat mote inside it
+    P(g, K.tube([[0, 0.02, 0.5], [0, 0.07, 0.55], [0, 0.06, 0.6]], 0.006, 8, 4), GP.iron2);
+    gCage(g, 0, 0.0, 0.6, 0.06, 6);
+    P(g, zcy(0.03, 0.04, 0.02, 8), GP.iron, 0, 0.065, 0.6, 0, 0, 0);
+    return { gem:[0, 0.0, 0.6, 0.06], muzzle:[0, 0.0, 0.66] };
+  }
+  if(style === "vortex"){
+    // Vortex: three tines twisted round each other, the crystal at their tips
+    for(let k=0;k<3;k++){ const pts = []; for(let i=0;i<=6;i++){ const a = k/3*PI*2 + i*0.55, r = 0.02 + i*0.006; pts.push([Math.cos(a)*r, 0.02 + Math.sin(a)*r, 0.48 + i*0.025]); } P(g, K.tube(pts, 0.006, 10, 4), k ? GP.iron2 : GP.brass); }
+    gCage(g, 0, 0.02, 0.66, 0.035, 3);
+    return { gem:[0, 0.02, 0.66, 0.035], muzzle:[0, 0.02, 0.7] };
+  }
+  if(style === "prism"){
+    // Prism: a long six-sided crystal held in claws, much bigger than the bare wand's
+    [0, 1, 2].forEach(k=>{ const a = k/3*PI*2; P(g, K.tube([[0, 0.02, 0.5], [Math.cos(a)*0.04, 0.02 + Math.sin(a)*0.04, 0.55], [Math.cos(a)*0.03, 0.02 + Math.sin(a)*0.03, 0.6]], 0.006, 6, 4), GP.iron2); });
+    return { gem:[0, 0.02, 0.62, 0.05], muzzle:[0, 0.02, 0.72], long:1.8 };
+  }
+  if(style === "fracture"){
+    // Fracture: a stone head split in three, held a finger apart, the crystal showing through the cracks
+    for(let k=0;k<3;k++){ const a = k/3*PI*2 + 0.3; P(g, OC(0.035), 0x4a4440, Math.cos(a)*0.035, 0.02 + Math.sin(a)*0.035, 0.58, a, a*0.7, 0, 1, 1.4, 1); }
+    return { gem:[0, 0.02, 0.58, 0.032], muzzle:[0, 0.02, 0.64] };
+  }
+  if(style === "volley"){
+    // Volley: a short drum of three iron barrels round the rod, like a pepperbox
+    P(g, zcy(0.045, 0.045, 0.05, 10), GP.iron, 0, 0.02, 0.52, PI/2);
+    for(let k=0;k<3;k++){ const a = k/3*PI*2; P(g, zcy(0.014, 0.014, 0.12, 6), GP.iron2, Math.cos(a)*0.03, 0.02 + Math.sin(a)*0.03, 0.6, PI/2); }
+    gCage(g, 0, 0.02, 0.7, 0.032, 3);
+    return { gem:[0, 0.02, 0.7, 0.032], muzzle:[0, 0.02, 0.74] };
+  }
+  if(style === "wraith"){
+    // Wraith: a glass bulb with a little skull asleep inside it
+    P(g, zs(0.016), GP.bone2, 0, 0.02, 0.6);
+    P(g, zcy(0.025, 0.035, 0.03, 8), GP.brass, 0, 0.02, 0.53, PI/2);
+    return { gem:[0, 0.02, 0.6, 0.065], muzzle:[0, 0.02, 0.67], glass:true };
+  }
   // the bare wand: a little cage of prongs and its crystal
   gCage(g, 0, 0.02, 0.57, 0.045, 4);
   return { gem:[0, 0.02, 0.57, 0.045], muzzle:[0, 0.02, 0.62] };
@@ -227,6 +277,8 @@ Models.gun = function(base, element, R, els){
   base = base.replace(/^wand:/, "");
   const gem = glow(R, g, info.gem[3], col, info.gem[0], info.gem[1], info.gem[2]);
   gem.scale.set(0.8, 0.8, 1.25);
+  if(info.long) gem.scale.set(0.62, 0.62, 1.25*info.long);                 // the Prism's long crystal
+  if(info.glass){ const b = glow(R, g, info.gem[3]*1.05, 0xd8f0ff, info.gem[0], info.gem[1], info.gem[2]); b.material.opacity = 0.18; gem.scale.setScalar(0.55); }   // the Wraith's bulb, the light small inside it
   // a little caged chip for every other element the shots carry, in a row behind the big one
   (els || []).filter(e=> e !== element).forEach((e, i)=>{
     const z = info.gem[2] - 0.1 - i*0.07, y = info.gem[1] + (base === "smg" || base === "shotgun" ? -0.05 : 0.06);

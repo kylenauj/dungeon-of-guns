@@ -104,10 +104,20 @@ DG.WAND_FORMS = {
   scatter:  { name:"Scatter",  style:"shotgun",  pellets:4, spread:24, dmg:0.5,  rate:0.5,  range:0.55, mag:0.5, knock:1.6 },
   repeater: { name:"Repeater", style:"smg",      spread:6,  dmg:0.42, rate:2.4,  speed:1.1, mag:3,  size:0.8, knock:0.5 },
   lens:     { name:"Lens",     style:"rifle",    pierce:1,  dmg:2.4,  rate:0.4,  speed:1.9, range:1.5, spreadMul:0.15, knock:2.5 },
-  bombard:  { name:"Bombard",  style:"launcher", blast:1.6, dmg:2.3,  rate:0.32, speed:0.65, mag:0.4, size:1.6, knock:3.3 }
+  bombard:  { name:"Bombard",  style:"launcher", blast:1.6, dmg:2.3,  rate:0.32, speed:0.65, mag:0.4, size:1.6, knock:3.3 },
+  // the rest change how the shots behave as well (their items carry the shot: orbit,
+  // boomerang, homing, spiral, ricochet, split, burst, through walls)
+  halo:     { name:"Halo",     style:"halo",     dmg:1.05, rate:1.15, range:1.15 },
+  crescent: { name:"Crescent", style:"crescent", dmg:0.95, rate:0.7,  speed:0.9,  range:0.8, size:1.5, knock:2 },
+  wisp:     { name:"Wisp",     style:"wisp",     dmg:0.75, rate:1.4,  speed:0.55, range:1.5, size:1.15 },
+  vortex:   { name:"Vortex",   style:"vortex",   spread:14, dmg:0.5,  rate:1.05 },
+  prism:    { name:"Prism",    style:"prism",    dmg:0.9,  speed:1.2,  range:1.2 },
+  fracture: { name:"Fracture", style:"fracture", dmg:0.8,  rate:0.9 },
+  volley:   { name:"Volley",   style:"volley",   spread:4,  dmg:0.7,  rate:0.55, mag:1.5 },
+  wraith:   { name:"Wraith",   style:"wraith",   dmg:1.15, speed:0.75, size:1.25, rate:0.95 }
 };
 /* which look and sound a wand takes from its forms (the boldest wins) */
-DG.FORM_ORDER = ["bombard", "scatter", "lens", "repeater"];
+DG.FORM_ORDER = ["bombard", "crescent", "prism", "wraith", "halo", "wisp", "fracture", "vortex", "scatter", "volley", "lens", "repeater"];
 /* the wand drinks the dark: about what a found gun used to be worth, floor by floor */
 DG.WAND_LEVEL = f=> 1 + 2.6*(Math.max(1, f) - 1);
 

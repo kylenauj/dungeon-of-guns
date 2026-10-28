@@ -22,6 +22,7 @@ Gallery.start = function(){
   const rows = [
     { name:"HEROES", gap:2.2, items:[["Zippy", ()=>{ const R = M.zippy(); M.setGun(R, { base:"pistol", element:"arcane", uid:1 }); return R; }], ["Gribbus", ()=> M.frog()], ["Grobbus", ()=> M.frog(true)],
       ...["pistol", "smg", "shotgun", "rifle", "launcher"].map((b, i)=> [b, ()=>{ const R = { root:new THREE.Group(), glows:[] }; const g = M.gun(b, ["arcane", "fire", "frost", "poison", "shock"][i], R); K.bake(g, { w:0.015 }); g.scale.setScalar(2); g.position.y = 0.8; g.rotation.y = Math.PI/2; R.root.add(g); return R; }])] },
+    { name:"WANDS", gap:1.4, items:["pistol", "smg", "shotgun", "rifle", "launcher", "halo", "crescent", "wisp", "vortex", "prism", "fracture", "volley", "wraith"].map((st, i)=> [st, ()=>{ const R = { root:new THREE.Group(), glows:[], parts:{} }; const g = M.gun("wand:" + st, DG.ELEMENT_ORDER[i % 5], R); K.bake(g, { w:0.012 }); g.scale.setScalar(2.2); g.position.y = 0.5; g.rotation.x = -Math.PI/2; R.root.add(g); R.root.name = "wand_" + st; return R; }]) },
     { name:"COSTUMES", gap:2.2, items:[
       ["Inferno", ["inferno"]], ["Blizzard", ["blizzard"]], ["Stormcaller", ["stormcaller"]], ["Plague", ["plague", "venomrounds"]],
       ["Overgrowth", ["overgrowth", "blossom", "swampfeet"]], ["Midas", ["midas", "midaspocket"]], ["Shadow", ["shadow"]], ["Frogsona", ["frogsona", "specs"]],

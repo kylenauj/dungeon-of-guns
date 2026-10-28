@@ -194,7 +194,7 @@ proto.makeOffer = function(r, pr){
   const pool = pr.pool || ({ treasure:"t", shop:"s", boss:"b", secret:"x", altar:"a", puzzle:"t" })[r.type] || "t";
   // (the old gun wares: a working for the wand now, from the Wandwright's pool; "fine" leans to a form)
   if(pr.sell === "gun"){ const id = Items.roll(G, "w"); return { kind:"item", id, name:DG.ITEMS[id].name, price:L.itemPrice(id, f), currency:"gold" }; }
-  if(pr.sell === "gift" || pr.sell === "fine"){ const id = Items.roll(G, "w", pr.sell === "fine" ? { minTier:2 } : undefined); return { kind:"item", id, name:DG.ITEMS[id].name }; }
+  if(pr.sell === "gift" || pr.sell === "fine"){ const id = Items.roll(G, "w", pr.sell === "fine" ? { minTier:2, form:true } : undefined); return { kind:"item", id, name:DG.ITEMS[id].name }; }
   if(pr.sell === "heal") return { kind:"heal", amount:40, price:L.price({ kind:"heal" }, f), currency:"gold", name:"Suspicious Soup" };
   if(pr.quest){ const Q = DG.QUESTS[pr.quest]; return { kind:"quest", id:pr.quest, name:Q.name }; }
   if(pr.sell === "key") return { kind:"key", n:1, price:15 + 3*f, currency:"gold", name:"A Rusted Key" };
@@ -205,6 +205,11 @@ proto.makeOffer = function(r, pr){
   if(r.type === "treasure" && pr.group && G.player){
     const dir = Items.direction(G.player.items, G.player.boons), frogOf = o=> o && o.kind === "item" && Items.tagsOf(DG.ITEMS[o.id]).indexOf("frog") >= 0;
     if((dir.frog || 0) >= 2 && !r.props.some(o=> o !== pr && frogOf(o.offer))) lean = { tag:"frog" };
+  }
+  // the Wandwright's bench always has one new way for the wand to fire among its workings
+  if(r.type === "treasure" && pool === "w" && !lean){
+    const mates = r.props.filter(o=> o !== pr && o.kind === "pedestal" && o.group === pr.group);
+    if(mates.every(o=> o.offer) && !mates.some(o=> o.offer.kind === "item" && DG.ITEMS[o.offer.id].form)) lean = { form:true };
   }
   const id = Items.roll(G, pool, lean);
   const o = { kind:"item", id, name:DG.ITEMS[id].name };
