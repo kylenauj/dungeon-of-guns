@@ -2246,6 +2246,72 @@ test("Dragon's Breath is a short cone: close goblins burn, far ones are out of r
   assert.ok(hurtOf(near) > 0 && hurtOf(far) === 0);
 });
 
+test("Gaoler's Hook catches the first goblin and hauls it to Zippy's feet, stunned", ()=>{
+  const A = riteArena("HOOK"), e = addEnemy(A.G, A.r, A.x + 5, A.y); e.maxHp = e.hp = 5000;
+  riteFire(A, 0, "hook"); const ev = step(A.G, 0.6);
+  assert.ok(DG.dist(e.x, e.y, A.x, A.y) < 2, "hauled in: " + DG.dist(e.x, e.y, A.x, A.y).toFixed(2));
+  assert.ok(ev.some(v=> v.type === "hook"));
+});
+test("Wardstones fire Zippy's bolts for him, three at a time", ()=>{
+  const A = riteArena("STONE"), G = A.G, e = riteDummy(A, 4, 0);
+  riteFire(A, 0, "sentry"); assert.equal(G.allies.filter(q=> q.stone).length, 1);
+  G.player.x = A.x - 30;       // he walks off: the stone keeps at it
+  step(G, 2); G.player.x = A.x;
+  assert.ok(hurtOf(e) > 0, "the stone shot it");
+  for(let i=0;i<5;i++){ riteFire(A, 0, "sentry"); step(G, 0.05); }
+  assert.ok(G.allies.filter(q=> q.stone && q.life > 0).length <= DG.RITES.sentry.max);
+});
+test("Grinding Wheel hits a goblin it's rolling through again and again", ()=>{
+  const A = riteArena("SAW"), G = A.G, e = riteDummy(A, 3, 0, "brute");
+  let n = 0; const dmg = G.damageEnemy.bind(G); G.damageEnemy = function(t, a, src){ if(t === e) n++; return dmg(t, a, src); };
+  riteFire(A, 0, "saw"); step(G, 1.5);
+  assert.ok(n >= 2, "ground more than once: " + n);
+});
+test("Pyre Line leaves fire burning on the floor behind it", ()=>{
+  const A = riteArena("PYRE"), G = A.G;
+  riteFire(A, 0, "pyre"); step(G, 0.5);
+  assert.ok(G.hazards.filter(h=> h.kind === "flame").length >= 2);
+});
+test("Hoarfrost Ring fires all round him, so a goblin behind is hit too", ()=>{
+  const A = riteArena("RING"), front = riteDummy(A, 2, 0), back = riteDummy(A, -2, 0);
+  riteFire(A, 0, "ring"); step(A.G, 0.6);
+  assert.ok(hurtOf(front) > 0 && hurtOf(back) > 0);
+});
+test("Smite strikes the goblin nearest the aim from above, through walls, and leaps to one more", ()=>{
+  const A = riteArena("SMITE"), G = A.G, a = riteDummy(A, 5, 0), b = riteDummy(A, 5.5, 1.2), far = riteDummy(A, -5, 0);
+  G.player.aimX = A.x + 5.2; G.player.aimY = A.y;
+  G.D.set(Math.floor(A.x + 2), Math.floor(A.y), T.SOLID);      // a wall in the way doesn't matter
+  riteFire(A, 0, "smite");
+  assert.ok(hurtOf(a) > 0 && hurtOf(b) > 0 && hurtOf(far) === 0);
+  assert.equal(G.bullets.filter(q=> q.team === "p").length, 0, "no bolts");
+});
+test("Bloodletter: its kills give health back (once a second)", ()=>{
+  const A = riteArena("BLOOD"), G = A.G; G.player.hp = 50;
+  const e = addEnemy(G, A.r, A.x + 3, A.y); e.hp = 1;
+  riteFire(A, 0, "blood"); step(G, 1);
+  assert.ok(e.dead && G.player.hp === 50 + DG.RITES.blood.heal, "healed " + G.player.hp);
+});
+test("Grave Grasp holds what's where Zippy aims (a moment later), and only slows the big", ()=>{
+  const A = riteArena("GRASP"), G = A.G, small = addEnemy(G, A.r, A.x + 4, A.y), big = riteDummy(A, 4, 0.8, "brute");
+  small.maxHp = small.hp = 5000; big.big = true;
+  G.player.aimX = A.x + 4; G.player.aimY = A.y;
+  riteFire(A, 0, "grasp"); assert.equal(hurtOf(small), 0, "not yet");
+  step(G, 0.6);
+  assert.ok(hurtOf(small) > 0 && small.st.trapped > 0, "held");
+  assert.ok(!(big.st.trapped > 0) && big.st.chill > 0, "the big one only slowed");
+});
+test("Puffballs leave a cloud of spores where they burst", ()=>{
+  const A = riteArena("PUFF"), G = A.G; riteDummy(A, 3, 0);
+  riteFire(A, 0, "puff"); step(G, 0.5);
+  assert.ok(G.hazards.some(h=> h.kind === "puddle"));
+});
+test("Usurer's Coin hits harder the more gold Zippy carries (up to a cap)", ()=>{
+  const dmgWith = gold=>{ const A = riteArena("COIN"), G = A.G; G.player.gold = gold; riteFire(A, 0, "coin"); return G.bullets.find(q=> q.usury).dmg; };
+  const d0 = dmgWith(0), d100 = dmgWith(100), d1000 = dmgWith(1000);
+  assert.ok(Math.abs(d100/d0 - 1.5) < 0.01, "+50% at 100 gold");
+  assert.ok(Math.abs(d1000/d0 - 1 - DG.RITES.coin.cap) < 0.01, "capped");
+});
+
 test("the Gravedigger's spade opens a grave that drags at Zippy's feet; the dead climb out of it", ()=>{
   const G = game("GRAVE", 3);
   G.D.theme = Object.assign({}, G.D.theme, { boss:"gravedigger" });

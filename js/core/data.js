@@ -149,9 +149,31 @@ DG.RITES = {
   // frogs, flung: they hop to the nearest goblin and bite until they're done
   frogs:  { name:"Toad Volley",       rate:0.7,  dmg:0.55, life:5, max:8, bite:0.8 },
   // the tongue: a lash in a cone in front of you that drags goblins in
-  lash:   { name:"Toadtongue Lash",   rate:1.05, dmg:1.0,   reach:3.0, arc:1.4, pull:0.9 }
+  lash:   { name:"Toadtongue Lash",   rate:1.05, dmg:1.0,   reach:3.0, arc:1.4, pull:0.9 },
+  // ---- the second dozen ----
+  // a hook on a chain: it catches the first goblin and hauls it to you
+  hook:   { name:"Gaoler's Hook",     rate:0.7,  dmg:1.3,  speed:1.15, kind:"hook", pull:4.5, stun:0.6 },
+  // a standing stone that fires your bolts for you (three at once)
+  sentry: { name:"Wardstone",         rate:0.32, life:7, max:3, mul:0.6 },
+  // a wheel of saw-teeth that rolls through goblins, grinding the ones it's in, off the walls
+  saw:    { name:"Grinding Wheel",    rate:0.55, dmg:0.45, speed:0.6, size:1.6, range:1.8, pierce:99, grind:0.22, bounce:3, kind:"saw" },
+  // a bolt that leaves a line of fire on the floor behind it
+  pyre:   { name:"Pyre Line",         rate:0.8,  dmg:0.65, trail:1.1, maxFire:30, kind:"flame" },
+  // a ring of ice shards all round you, short and hard
+  ring:   { name:"Hoarfrost Ring",    rate:0.6,  dmg:1.0,  n:10, range:0.45, speed:0.8, kind:"shard" },
+  // lightning from above, onto the goblin nearest where you aim, and on to one more
+  smite:  { name:"Smite",             rate:0.7,  dmg:1.4,  reach:2.6, jumps:1 },
+  // a blood-bolt that hunts; what it kills gives you a little back
+  blood:  { name:"Bloodletter",       rate:1.0,  dmg:0.85, homing:3, heal:3, healCd:1, kind:"blood" },
+  // the dead reach up where you aim: everything there is held fast
+  grasp:  { name:"Grave Grasp",       rate:0.55, dmg:1.0,  r:1.25, root:1.3, delay:0.45 },
+  // a puffball: where it bursts, a cloud of spores hangs
+  puff:   { name:"Puffball",          rate:0.8,  dmg:0.6,  speed:0.7, size:1.3, kind:"spore" },
+  // coins for shots: the more gold you carry, the harder they hit; what they kill pays
+  coin:   { name:"Usurer's Coin",     rate:0.9,  dmg:0.85, perGold:0.005, cap:0.75, drop:0.2, kind:"coin" }
 };
-DG.RITE_ORDER = ["lance", "breath", "rocket", "spear", "mine", "vine", "locust", "ball", "meteor", "void", "frogs", "lash"];
+DG.RITE_ORDER = ["lance", "breath", "rocket", "spear", "mine", "vine", "locust", "ball", "meteor", "void", "frogs", "lash",
+  "hook", "sentry", "saw", "pyre", "ring", "smite", "blood", "grasp", "puff", "coin"];
 /* the wand drinks the dark: about what a found gun used to be worth, floor by floor */
 DG.WAND_LEVEL = f=> 1 + 2.6*(Math.max(1, f) - 1);
 

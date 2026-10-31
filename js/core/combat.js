@@ -189,7 +189,69 @@ proto.riteVolley = function(rite, x, y, angles, g, s, o, thin, els){
       q.dmg = dmg; q.life = R.life; q.cdMax = R.bite; q.vx = Math.cos(a)*8; q.vy = Math.sin(a)*8; q.els = els;
     }); break;
     case "lash": { const hit = {}; angles.forEach(a=> G.lash(x, y, a, dmg, s, els, R, o, hit)); break; }
+    // ---- the second dozen ----
+    case "hook": angles.forEach(a=>{ const b = G.addShot(base(a)); b.hook = R; b.spectral = 0; }); break;
+    case "sentry": angles.forEach(a=>{
+      const tur = G.allies.filter(q=> q.kind === "turret" && q.stone && q.life > 0);
+      if(tur.length >= R.max) tur[0].life = 0;
+      const sx = x + Math.cos(a)*1.3, sy = y + Math.sin(a)*1.3, ok = !G.bulletBlocked(sx, sy);
+      const q = G.spawnAlly("turret", ok ? sx : x, ok ? sy : y, { life:R.life }); q.stone = true; q.mul = R.mul*(o.mul || 1)*thin;
+    }); break;
+    case "saw": angles.forEach(a=>{ const b = G.addShot(Object.assign(base(a), { bounces:sh.bounces + R.bounce })); b.grind = R.grind; b.grindT = R.grind; }); break;
+    case "pyre": angles.forEach(a=>{ const b = G.addShot(base(a)); b.pyre = R; b.px0 = b.x; b.py0 = b.y; }); break;
+    case "ring": {
+      // all round him, the aim at the top; more shots make the ring thicker
+      const n = R.n + Math.round(sh.extra)*2;
+      for(let k=0;k<n;k++){ const a = angles[0] + k/n*TAU; G.addShot(Object.assign(base(a), { speed:s.speed*R.speed*(0.9 + rng.next()*0.2) })); }
+      break;
+    }
+    case "smite": {
+      const ax = p.aimX !== undefined && o.from === "player" ? p.aimX : x + Math.cos(angles[0])*6, ay = p.aimY !== undefined && o.from === "player" ? p.aimY : y + Math.sin(angles[0])*6;
+      const struck = [];
+      angles.forEach((a, i)=>{
+        // the first falls nearest the aim; any more on the next nearest
+        let e = G.nearestEnemy(ax, ay, R.reach + i*1.5, null, struck);
+        if(e && DG.dist(x, y, e.x, e.y) > s.range + 2) e = null;
+        if(e){
+          G.emit("smite", { x:e.x, y:e.y });
+          G.chain(e, dmg, R.jumps, e.x, e.y, { els, power:s.power, crit:s.crit, critMul:s.critMul, depth:0, from:o.from }, struck);
+        } else if(i === 0){
+          G.emit("smite", { x:ax, y:ay });
+          G.explode(ax, ay, 0.9, dmg*0.5, "p", { els, power:s.power, depth:0 });
+        }
+      });
+      break;
+    }
+    case "blood": angles.forEach(a=>{ const b = G.addShot(Object.assign(base(a), { homing:R.homing + sh.homing })); b.blood = R; }); break;
+    case "grasp": {
+      const ax = p.aimX !== undefined && o.from === "player" ? p.aimX : x + Math.cos(angles[0])*6, ay = p.aimY !== undefined && o.from === "player" ? p.aimY : y + Math.sin(angles[0])*6;
+      const d = Math.max(1.5, Math.min(s.range, DG.dist(x, y, ax, ay)));
+      angles.forEach(a=>{
+        const tx = x + Math.cos(a)*d, ty = y + Math.sin(a)*d;
+        G.emit("graspMark", { x:tx, y:ty, r:R.r, t:R.delay });
+        G.pending.push({ t:R.delay, fn:()=> G.grasp(tx, ty, dmg, R, els, s) });
+      });
+      break;
+    }
+    case "puff": angles.forEach(a=>{ const b = G.addShot(base(a)); b.onEnd = "puddle"; }); break;
+    case "coin": {
+      const k = 1 + Math.min(R.cap, (p.gold || 0)*R.perGold);
+      angles.forEach(a=>{ const b = G.addShot(Object.assign(base(a), { dmg:dmg*k })); b.usury = R; });
+      break;
+    }
   }
+};
+/* Grave Grasp: the hands come up, and what's there is held */
+proto.grasp = function(x, y, dmg, R, els, s){
+  const G = this;
+  G.emit("grasp", { x, y, r:R.r });
+  G.enemies.forEach(e=>{
+    if(e.dead || e.spawn > 0 || e.airborne || DG.dist(x, y, e.x, e.y) > R.r + e.r) return;
+    G.damageEnemy(e, dmg, { els, power:s.power, crit:s.crit, critMul:s.critMul, depth:0, ax:0, ay:0, knock:0, from:"grasp" });
+    if(e.dead) return;
+    if(!e.big){ e.st.trapped = Math.max(e.st.trapped || 0, R.root); e.st.stun = Math.max(e.st.stun || 0, R.root); G.emit("trapped", { id:e.id, x:e.x, y:e.y }); }
+    else e.st.chill = Math.max(e.st.chill || 0, R.root*1.5);
+  });
 };
 /* Sunlance: a beam to the first wall, through every goblin on the line */
 proto.lance = function(x, y, a, dmg, s, els, R, o){
@@ -374,6 +436,15 @@ proto.steerShot = function(b, dt){
     }
     if(b.armed) return;
   }
+  // Grinding Wheel: what it's rolling through, it hits again and again
+  if(b.grind){ b.grindT -= dt; if(b.grindT <= 0){ b.grindT = b.grind; b.hits = []; } }
+  // Pyre Line: fire on the floor every so far it flies (only so much fire at once)
+  if(b.pyre && DG.dist(b.x, b.y, b.px0, b.py0) >= b.pyre.trail){
+    b.px0 = b.x; b.py0 = b.y;
+    // (not on top of fire already burning: a line, not a bonfire)
+    const fl = G.hazards.filter(h=> h.kind === "flame");
+    if(fl.length < b.pyre.maxFire && !fl.some(h=> DG.dist(h.x, h.y, b.x, b.y) < 0.8)) G.byproduct("fire", b.x, b.y, G.payloadPower(), 1);
+  }
   // Ball Lightning: every so often it zaps the nearest goblins
   if(b.zap){
     b.zapT -= dt;
@@ -492,6 +563,16 @@ proto.shotHit = function(b, e){
   G.trigger("hit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
   if(r && r.crit) G.trigger("crit", { x:e.x, y:e.y, els:b.els, depth:b.depth, enemy:e });
   if(b.vine && !b.crept){ b.crept = true; G.poison(e, 1, b.power); G.vineCreep(e, b, b.vine, b.vine.creep); }
+  const p = G.player;
+  if(b.hook && !e.dead){
+    // hauled in to his feet (a boss or a big thing only flinches), and stunned
+    const d = DG.dist(p.x, p.y, e.x, e.y);
+    if(!e.boss && !e.big && d > 1.3){ const k = Math.min(b.hook.pull, d - 1.2); G.move(e, (p.x - e.x)/d*k, (p.y - e.y)/d*k, "enemy"); }
+    if(!e.boss) e.st.stun = Math.max(e.st.stun || 0, b.hook.stun*(e.big ? 0.4 : 1));
+    G.emit("hook", { x1:p.x, y1:p.y, x2:e.x, y2:e.y });
+  }
+  if(b.blood && e.dead && (p.bloodT || 0) <= G.t){ p.bloodT = G.t + b.blood.healCd; G.heal(b.blood.heal); }
+  if(b.usury && e.dead && G.chance(b.usury.drop)) G.dropGold(e.x, e.y, 1 + Math.floor(G.floor/2));
 };
 
 proto.shotEnd = function(b, why, target){
@@ -1106,7 +1187,7 @@ proto.updateAllies = function(dt){
       if(tg && a.cd <= 0 && G.los(a.x, a.y, tg.x, tg.y)){
         const g = G.gun(), s = G.gunStats(g);
         a.cd = 1.4/s.rate*Math.max(1, s.pellets/2);
-        G.fireVolley(a.x, a.y, Math.atan2(tg.y - a.y, tg.x - a.x), g, s, { mul:0.7, from:"turret", quiet:true });
+        G.fireVolley(a.x, a.y, Math.atan2(tg.y - a.y, tg.x - a.x), g, s, { mul:a.mul || 0.7, from:"turret", quiet:true });
       }
     } else if(a.kind === "hat"){
       // out in a widening spiral and back again

@@ -154,10 +154,22 @@ A Form reshapes the bolt; a **rite** replaces it (`DG.RITES` in data.js, items `
 | Singularity | arcane | a slow dark star that drags goblins in, then collapses |
 | Toad Volley | frog | flings toads that hop to goblins and bite (up to eight) |
 | Toadtongue Lash | frog | a lash across a cone in front of you that drags goblins in |
+| Gaoler's Hook | none | a hook on a chain that hauls the first goblin it hits to your feet, stunned |
+| Wardstone | arcane | sets down standing stones that fire your bolts (three at once, seven seconds each) |
+| Grinding Wheel | none | a saw-wheel through everything, grinding what it's in, off the walls three times |
+| Pyre Line | fire | a bolt that leaves a line of fire on the floor (never stacked on itself) |
+| Hoarfrost Ring | frost | a ring of ice shards all round you |
+| Smite | shock | no bolts: lightning from above onto the goblin nearest the aim, and on to one more |
+| Bloodletter | none | hunting blood-bolts; a kill gives 3 health back (once a second) |
+| Grave Grasp | none | no bolts: hands rise where you aim and hold everything there (the big only slow) |
+| Puffball | poison | puffballs that leave a cloud of poison spores where they burst |
+| Usurer's Coin | none | coins: +5% damage per 10 gold carried (to +75%); kills sometimes pay out |
 
 Duos: Plague of Locusts (Locust Censer + Bee Hive), Thunderhead (Ball Lightning + Conductor: four zaps), Strangling Garden (Strangler Vine + Plague Spreader: creeps to four), Brimstone Barrage (Rockets + Mega Bombs: wider blasts, faster), Impaler (Glacier Spear + Drill Bits: three more pierces, roots anything not huge).
 
 Each rite is tuned to land near a plain bolt on one target (0.45x for Singularity, which is crowd control, to 1.4x for the locusts) and to earn its keep in its own shape: a line, a blast, a crowd, a trap. Against one dummy / the power test's pack of eight / four close in: Sunlance 0.91 / 2.4 / 2.0, Breath 0.67 / 0.2 / 3.2, Rockets 1.05 / 3.1 / 2.5, Spear 0.86 / 2.9 / 1.6, Mines 0.90 / 2.6 / 2.7, Vine 1.15 / 3.1 / 2.4, Locusts 1.39 / 1.6 / 1.4, Ball 0.70 / 2.6 / 1.5, Meteor 1.10 / 3.2 / 3.1, Singularity 0.45 / 4.3 / 1.1, Toads 1.26 / 1.4 / 1.5, Lash 0.19 / 0.2 / 3.6 (it only reaches three tiles). `npm run power`: median 5.4x -> 4.7x, p90 13.0x -> 11.9x, peak shots alive max 160 -> 66; the weakest build (0.9x -> 0.1x) is a close-range rite against the power test's far dummies.
+
+The second dozen (one / pack / close): Hook 1.00 / 1.01 / 0.97, Wardstone 1.55 / 1.52 / 1.50, Wheel 0.68 / 2.23 / 1.15, Pyre Line ~0.9 / 1.2 / 0.9, Hoarfrost Ring 0.67 / 0.64 / 0.82 (it covers every side), Smite 0.90 / 1.55 / 1.49, Bloodletter 0.88 (and heals), Grave Grasp 0.73 / 2.36 / 2.26 (and holds), Puffball 0.85 / 1.23 / 0.85, Usurer's Coin 0.86 at no gold, to 1.5 at 150. With them: `npm run power` median 4.7x -> 4.8x, p90 11.9x -> 8.5x, weakest 0.1x -> 0.3x, peak shots max 66 -> 83; `npm run balance` 2.17 -> 2.33 floors.
 
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).

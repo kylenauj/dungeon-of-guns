@@ -146,6 +146,7 @@ proto.warmAll = function(){
   add(()=> M.pickup({ kind:"item", item:gun }));
   ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum", "grave"].forEach(k=> add(()=> hazardMesh({ kind:k, r:1, t:1, max:1, id:0 })));
   ["bee", "hat", "moon", "shadow", "tadpole", "turret", "wisp", "toad"].forEach(k=> add(()=> allyMesh({ kind:k, el:"arcane", id:0 })));
+  add(()=> allyMesh({ kind:"turret", stone:true, el:"arcane", id:0 }));
   add(()=> shadowBlob(0.4));
   const hadPortal = V.portal; V.makePortal(0, 0); if(V.portal && V.portal !== hadPortal){ S.scene.remove(V.portal); g.add(V.portal); V.portal = hadPortal; }
   g.position.set(p.x, 0, p.y); S.scene.add(g);
@@ -461,6 +462,10 @@ proto.handle = function(ev){
     case "zap": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0xfff04a, 0.14); break;
     case "collapse": FX.ring(ev.x, ev.y, ev.r, 0x9a5aff, 0.5); FX.burst(ev.x, 0.8, ev.y, 0x6a3ad0, 30, 5, 0.3, 0.6, { col2:0x0a0612 }); S.shake(0.25); break;
     case "meteor": S.shake(0.18); FX.ring(ev.x, ev.y, ev.r*1.1, 0xffb060, 0.4); break;
+    case "hook": V.lanternBeam({ x:ev.x1, y:ev.y1, a:Math.atan2(ev.y2 - ev.y1, ev.x2 - ev.x1), len:DG.dist(ev.x1, ev.y1, ev.x2, ev.y2) }, { col:0x5a5450, core:0xb8aca0, life:0.25, w:0.35, sparks:0 }); FX.burst(ev.x2, 0.8, ev.y2, 0x8a8078, 8, 3, 0.15, 0.3, { col2:0xffe0a0 }); break;
+    case "smite": V.skyBolt(ev.x, ev.y); S.shake(0.12); break;
+    case "graspMark": FX.warn(ev.x, ev.y, ev.r, ev.t, 0x8a7ab8); break;
+    case "grasp": FX.ring(ev.x, ev.y, ev.r, 0x6a5a8a, 0.5); FX.burst(ev.x, 0.3, ev.y, 0xb0a488, 18, 2.5, 0.2, 0.6, { up:2, col2:0x3a2a4a }); FX.smoke(ev.x, 0.1, ev.y, 0x1a1418, 6, 0.6, 1, { spread:ev.r, rise:0.3 }); break;
     case "rockfall": FX.smoke(ev.x, 0.4, ev.y, 0x4a4038, 8, 0.6, 1.2); FX.burst(ev.x, 0.6, ev.y, 0x5a5048, 10, 3, 0.2, 0.5); S.shake(0.18); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
     case "dawnbreak": FX.ring(ev.x, ev.y, 6, 0xffe2b0, 1.5); S.shake(0.4); break;
     case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
@@ -598,6 +603,14 @@ function allyMesh(a){
     g.userData.y = 0.15;
   } else if(a.kind === "shadow"){
     const R = M.zippy(); R.mat.color.setHex(0x3a2a5a); R.mat.transparent = true; R.mat.opacity = 0.55; g.add(R.root); g.userData.rig = R; g.userData.y = 0;
+  } else if(a.kind === "turret" && a.stone){
+    // a Wardstone: a leaning standing stone with a rune burning in it
+    K.part(g, K.sculpt(new THREE.CylinderGeometry(0.2, 0.3, 1.1, 7, 4), 0.03, 6, 3), 0x4a4640, 0, 0.55, 0, 0.08, 0, 0.06);
+    K.part(g, new THREE.CylinderGeometry(0.36, 0.42, 0.12, 8), 0x2e2a26, 0, 0.06, 0);
+    for(let i=0;i<4;i++) K.part(g, new THREE.SphereGeometry(0.07, 6, 4), 0x3a3630, Math.cos(i*1.7)*0.4, 0.05, Math.sin(i*1.7)*0.4);
+    K.bake(g, { w:0.02 });
+    const rune = K.sprite(0xb36bff, 0.7, 0.8); rune.position.set(0, 0.7, 0.2); g.add(rune);
+    g.userData.y = 0;
   } else if(a.kind === "turret"){
     K.part(g, new THREE.CylinderGeometry(0.16, 0.2, 0.5, 10), 0xf0e6d4, 0, 0.25, 0);
     K.part(g, new THREE.SphereGeometry(0.36, 14, 8, 0, PI*2, 0, PI/2), 0x46a8ff, 0, 0.5, 0, 0, 0, 0, 1, 0.7, 1);
@@ -1056,6 +1069,17 @@ proto.updateLoot = function(dt, t){
 };
 
 /* a Lantern Beam: a ray of the old fire, bright, then gone */
+/* Smite: a stroke of lightning straight down from the dark */
+proto.skyBolt = function(x, y){
+  const V = this, g = new THREE.Group();
+  [[0.08, 0xffffff, 0.95], [0.35, 0xfff04a, 0.45], [0.9, 0xffe080, 0.15]].forEach(([w, c, op])=>{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 9, w), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false }));
+    m.position.y = 4.5; m.userData.op = op; g.add(m);
+  });
+  g.position.set(x, 0, y); S.scene.add(g); (V.lbeams = V.lbeams || []).push({ g, t:0, life:0.25 });
+  FX.burst(x, 0.3, y, 0xfff04a, 14, 4, 0.2, 0.35, { col2:0xffffff, up:1 }); FX.ring(x, y, 1.1, 0xfff04a, 0.3);
+  S.flash.position.set(x, 2, y); S.flash.color.setHex(0xfff0a0); S.flash.intensity = 3;
+};
 proto.lanternBeam = function(ev, o){
   // (o: a rite's beam: its colour, a thinner beam, a shorter life)
   const V = this, g = new THREE.Group(), len = ev.len, w0 = o ? o.w : 1;
