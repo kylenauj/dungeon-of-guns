@@ -792,6 +792,8 @@ Icons.ITEMS = {
   hexthread:"tangle@arcane", runebangle:"ring+rune@arcane", magemirror:"mirror@arcane", blinkglyph:"sigil+boot@arcane", eldritcheye:"eye@arcane", grimoire:"tome@arcane", voidlens:"blackhole@arcane", astralchime:"bell+star@arcane", echosigil:"bounce@arcane", magusstar:"star@arcane",
   scatterfocus:"wand+fan", repeatercoil:"wand+spiral", longlens:"wand+lens", bombardrune:"wand+bomb",
   halo:"wand+orbit", crescent:"wand+moon", wisplantern:"wand+wisp", vortexglyph:"wand+waves", prismshard:"wand+prism", fracture:"wand+shards", volleychamber:"wand+pellets", wraithglass:"wand+ghost",
+  r_lance:"sun+pierce", r_breath:"flame+fan", r_rocket:"rocket+burst", r_spear:"spear+icicle", r_mine:"bomb+snowflake", r_vine:"thorn+tangle",
+  r_locust:"fly+hive", r_ball:"orb+bolt", r_meteor:"comet+star", r_void:"blackhole+orbit", r_frogs:"frog+fan", r_lash:"tongue+frog",
   rimecore:"gem@frost", embercore:"gem@fire", venomcore:"gem@poison", stormcore:"gem@shock", hexcore:"gem@arcane",
   frostrounds:"snowflake", emberrounds:"flame", venomrounds:"droplet", staticrounds:"bolt", arcanerounds:"sigil", prism:"prism", elementalist:"orb@all",
   /* triggers */

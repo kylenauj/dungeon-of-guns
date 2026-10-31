@@ -165,6 +165,19 @@ DG.ITEMS = {
   prismshard: I({ name:"Prism Shard",        tier:2, pools:"wsb",  form:"prism",    shot:{ bounces:3, bounceDmg:0.1 }, desc:"Your shots ricochet three times, a little harder after each.", flavor:"Every wall is a second chance." }),
   fracture:   I({ name:"Fracture Stone",     tier:2, pools:"wsb",  form:"fracture", shot:{ split:3 }, desc:"Your shots shatter into three on their first hit.", flavor:"It was whole once. It hated it." }),
   volleychamber:I({ name:"Volley Chamber",   tier:2, pools:"wsb",  form:"volley",   shot:{ burst:2 }, desc:"Every pull of the trigger fires a three-shot burst; the wand rests a little longer between them.", flavor:"Three's a crowd. Crowds are good." }),
+  // ---- rites (DG.RITES): what the wand fires ----
+  r_lance:  I({ name:"Sunlance",          tier:3, pools:"tbw", rite:"lance",  els:["fire"],   desc:"Your wand fires a beam of sunfire instead of bolts: straight to the first wall, through every goblin on the line.", flavor:"Bottled noon. Mind your eyes." }),
+  r_breath: I({ name:"Dragon's Breath",   tier:2, pools:"tsw", rite:"breath", els:["fire"],   desc:"Your wand breathes fire: a short, roaring cone of flame, fast, through two goblins at a time.", flavor:"The dragon wasn't using it." }),
+  r_rocket: I({ name:"Brimstone Rockets", tier:2, pools:"tsbw", rite:"rocket",                 desc:"Your shots are rockets: slow off the wand, then faster and faster, turning toward goblins, and they explode.", flavor:"Hand-rolled. Mostly brimstone." }),
+  r_spear:  I({ name:"Glacier Spear",     tier:2, pools:"tbw", rite:"spear",  els:["frost"],  desc:"Your wand hurls heavy spears of ice: slow to throw, through four goblins, shoving them back and rooting the small ones.", flavor:"Chipped off something that was still moving." }),
+  r_mine:   I({ name:"Rime Mines",        tier:2, pools:"tsw", rite:"mine",   els:["frost"],  desc:"Your shots fly a little way and set as mines of ice. Anything that steps near sets them off. Ten at a time.", flavor:"Patience, frozen solid." }),
+  r_vine:   I({ name:"Strangler Vine",    tier:2, pools:"tbw", rite:"vine",   els:["poison"], desc:"Your shots are thorns. What they hit is rooted and poisoned, and the vine creeps on to the next two goblins.", flavor:"It grew in the dark. It wants out." }),
+  r_locust: I({ name:"Locust Censer",     tier:2, pools:"tsbw", rite:"locust", els:["poison"], desc:"No bolts: your wand puffs out locusts that hunt goblins down for six seconds. Up to sixteen.", flavor:"Swing it like a priest. They come when called." }),
+  r_ball:   I({ name:"Ball Lightning",    tier:3, pools:"tbw", rite:"ball",   els:["shock"],  desc:"Your wand lets go slow balls of lightning that drift through the room, zapping the two nearest goblins again and again.", flavor:"Caught in a jar in a storm. The jar didn't make it." }),
+  r_meteor: I({ name:"Meteor Psalm",      tier:3, pools:"tbxw", rite:"meteor", els:["arcane"], desc:"Your shots are lobbed over everything to where you aim, and come down as falling stars.", flavor:"Sing it and look up." }),
+  r_void:   I({ name:"Singularity",       tier:3, pools:"bxw", rite:"void",   els:["arcane"], desc:"Your wand lets go a slow dark star. It drags goblins in as it drifts, then collapses with a bang.", flavor:"Heavier than the wand that made it." }),
+  r_frogs:  I({ name:"Toad Volley",       tier:2, pools:"tbfw", rite:"frogs", tags:["frog", "summons"], desc:"Your wand flings frogs. They hop to the nearest goblin and bite it until they wear out. Eight at a time.", flavor:"Gribbus is furious. Gribbus is also proud." }),
+  r_lash:   I({ name:"Toadtongue Lash",   tier:2, pools:"tbfw", rite:"lash",  tags:["frog"], desc:"Your wand cracks like a frog's tongue: a hard lash across everything in front of you, dragging goblins in.", flavor:"It's been licked. Don't ask by what." }),
   wraithglass:I({ name:"Wraith Glass",       tier:2, pools:"wsb",  form:"wraith",   shot:{ spectral:1 }, desc:"Your shots slow and grow, go pale, and pass through walls.", flavor:"The dead don't knock." }),
   /* ---------------- the wand: cores make it an element (and stack) ---------------- */
   rimecore:   I({ name:"Rime Core",          tier:0, pools:"ws",   stack:true, els:["frost"],  desc:"Your wand's shots turn to ice: frost on every shot. Each core counts toward Frost attunement.", flavor:"Cold to the touch. Colder to the goblin." }),
@@ -337,6 +350,12 @@ DG.ITEMS = {
 
 /* named pairs: own both and they announce themselves, with a bonus */
 DG.DUOS = [
+  // the rites, with the thing that makes the most of them
+  { a:"r_locust",    b:"beehive",     name:"Plague of Locusts", desc:"Locusts and bees hit twice as hard and last twice as long.", special:"killerbees" },
+  { a:"r_ball",      b:"conductor",   name:"Thunderhead",    desc:"Ball Lightning zaps four goblins at a time, not two.", special:"thunderhead" },
+  { a:"r_vine",      b:"plague",      name:"Strangling Garden", desc:"The vine creeps on to four more goblins, not two.", special:"garden" },
+  { a:"r_rocket",    b:"megabombs",   name:"Brimstone Barrage", desc:"Rockets' blasts are half as wide again, and they fire a little faster.", special:"barrage", stats:{ rate:0.15 } },
+  { a:"r_spear",     b:"drill",       name:"Impaler",        desc:"Spears go through three more goblins and root anything that isn't huge.", special:"impaler", shot:{ pierce:3 } },
   { a:"rubber",      b:"frostrounds", name:"Brain Freeze",   desc:"Bounces grow icicles.",                 on:{ bounce:[{ do:"byproduct", el:"frost" }] } },
   { a:"plague",      b:"staticrounds",name:"Plague Storm",   desc:"Every poison jump also throws lightning.", special:"plaguestorm" },
   { a:"hotpotato",   b:"megabombs",   name:"Chain Reaction", desc:"Explosions have a 40% chance to explode again.", special:"chainreaction" },
@@ -612,7 +631,7 @@ Items.blank = function(){
     frogRate:0, frogDmg:0, frogMul:1, killMana:0,
     shot:{ bounces:0, pierce:0, homing:0, split:0, extra:0, side:0, back:0, wiggle:0, orbit:0, boomerang:0, spectral:0, grow:0,
            accel:0, spiral:0, chaos:0, burst:0, echo:0, kaleido:0, bounceDmg:0, pierceDmg:0, bounceSplit:0, lifeAdd:0, portal:0, jitter:0 },
-    els:[], on:{}, special:{}, duos:[], sets:[], forms:{}
+    els:[], on:{}, special:{}, duos:[], sets:[], forms:{}, rites:[]
   };
 }
 
@@ -627,6 +646,7 @@ function addDef(M, d, n){
   if(d.on) for(const k in d.on){ for(let i=0;i<n;i++) d.on[k].forEach(p=> (M.on[k] = M.on[k] || []).push(Object.assign({ src:d.name }, p))); }
   if(d.special) M.special[d.special] = (M.special[d.special] || 0) + n;
   if(d.form) M.forms[d.form] = 1;
+  if(d.rite && M.rites.indexOf(d.rite) < 0) M.rites.push(d.rite);
 }
 
 /* ---- attunement: build into one element and it answers. Sources of an element
@@ -778,7 +798,7 @@ Items.roll = function(G, pool, opts){
   const P0 = G.pools[pool] || G.pools.t, rng = G.rng, luck = G.mods ? G.mods.luck : 0;
   // a tag to lean on (a frog build's treasure room keeps one frog thing on offer)
   const lean = opts && opts.tag ? P0.filter(id=> Items.tagsOf(DG.ITEMS[id]).indexOf(opts.tag) >= 0 && (!G.seenItems[id] || DG.ITEMS[id].stack))
-    : opts && opts.form ? P0.filter(id=> DG.ITEMS[id].form && !G.seenItems[id] && !(G.mods && G.mods.forms[DG.ITEMS[id].form]))   // a new way to fire
+    : opts && opts.form ? P0.filter(id=> (DG.ITEMS[id].form && !(G.mods && G.mods.forms[DG.ITEMS[id].form]) || DG.ITEMS[id].rite && !(G.mods && G.mods.rites.indexOf(DG.ITEMS[id].rite) >= 0)) && !G.seenItems[id])   // a new way to fire: a Form, or a rite
     : null;
   const P = lean && lean.length ? lean : P0;
   const w = DG.POOL_TIERS[pool] || DG.POOL_TIERS.t;

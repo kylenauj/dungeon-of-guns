@@ -109,17 +109,26 @@ function clearPath(G, e, p){
   for(let i=1;i<n;i++){ const t = i/n; if(G.blocked(Math.floor(e.x + (p.x - e.x)*t), Math.floor(e.y + (p.y - e.y)*t), "enemy")) return false; }
   return true;
 }
+/* keep to a band of distance [near, far], circling. One blended heading, not
+   three modes: in toward you when too far, back off (still facing you) when too
+   close, round you in between, and the pace eases between them. (It used to
+   switch between charging in, turning its back to run off and side-stepping, so
+   a boss lurched, spun round and spun back.) */
 function keepAway(G, e, p, dt, keep){
   const d = DG.dist(e.x, e.y, p.x, p.y), los = e.phases || G.los(e.x, e.y, p.x, p.y);
-  if(!los || d > keep[1]) return approach(G, e, p, dt);
-  if(d < keep[0]){
-    if(walk(G, e, e.x - p.x, e.y - p.y, 0.9, dt)) e.ai.strafe = -(e.ai.strafe || 1);
-    return;
-  }
-  e.ai.st = (e.ai.st || 0) - dt;
-  if(e.ai.st <= 0){ e.ai.st = 1 + G.rng.next()*1.5; e.ai.strafe = G.rng.sign(); }
-  const a = Math.atan2(e.y - p.y, e.x - p.x) + (e.ai.strafe || 1)*Math.PI/2;
-  if(walk(G, e, Math.cos(a), Math.sin(a), 0.6, dt)) e.ai.strafe = -(e.ai.strafe || 1);
+  if(!los || d > keep[1] + 1.5) return approach(G, e, p, dt);
+  const A = e.ai, mid = (keep[0] + keep[1])/2, half = Math.max(0.5, (keep[1] - keep[0])/2);
+  const rad = Math.max(-1, Math.min(1, (d - mid)/half));          // +1: too far, -1: too close
+  A.st = (A.st || 0) - dt; A.flipT = Math.max(0, (A.flipT || 0) - dt);
+  if(A.st <= 0){ A.st = (e.big || e.boss ? 2.5 : 1.2) + G.rng.next()*1.5; A.strafe = G.rng.sign(); }
+  const ux = (p.x - e.x)/(d || 1), uy = (p.y - e.y)/(d || 1);
+  const head = s=>{ const round = s*(1 - 0.5*Math.abs(rad)), hx = ux*rad - uy*round, hy = uy*rad + ux*round, l = Math.hypot(hx, hy) || 1; return [hx/l, hy/l]; };
+  let s = A.strafe || 1, [hx, hy] = head(s);
+  // it sees the wall coming and turns the other way round, instead of running into it and stopping dead
+  const reach = e.r + 0.7, who = e.phases ? "ghost" : "enemy";
+  const wallAhead = (hx, hy)=> [-1, 0, 1].some(k=> G.blocked(Math.floor(e.x + hx*reach - hy*e.r*0.9*k), Math.floor(e.y + hy*reach + hx*e.r*0.9*k), who));
+  if(A.flipT <= 0 && wallAhead(hx, hy)){ s = A.strafe = -s; A.flipT = 0.6; [hx, hy] = head(s); }
+  if(walk(G, e, hx, hy, 0.6 + 0.4*Math.abs(rad), dt) && A.flipT <= 0){ A.strafe = -s; A.flipT = 0.6; }
   e.face = Math.atan2(p.y - e.y, p.x - e.x);
 }
 function tell(G, e, kind, t, extra){

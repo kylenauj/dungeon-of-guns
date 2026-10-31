@@ -382,6 +382,13 @@ FX.update = function(dt, G){
       if(b.kind === "missile"){ if(Math.random() < 0.6) emit(b.x, y, b.y, 0, 0.2, 0, 0xb36bff, 0.25, 0.3, 0, 1); if(Math.random() < 0.3) dark(b.x, y, b.y, 0, 0.3, 0, 0x16121a, 0.25, 0.7, 0.35, 1.6, 0, 1); }
       if(b.kind === "spear"){ col = 0xbfe8ff; size = 0.75; if(Math.random() < 0.8) emit(b.x, y, b.y, (Math.random() - 0.5)*0.4, 0.3, (Math.random() - 0.5)*0.4, 0x8ad8ff, 0.35, 0.45, 0, 1); }
       if(b.kind === "grenade"){ size = 0.42; y = 0.6 + Math.sin(Math.min(1, b.t*1.5)*Math.PI)*0.6; }
+      // the rites' shots (DG.RITES)
+      if(b.kind === "flame"){ col = Math.random() < 0.5 ? 0xff7a1a : 0xffc040; size = 0.3 + b.t*1.6; if(Math.random() < 0.6) emit(b.x, y, b.y, (Math.random() - 0.5)*0.6, 0.9, (Math.random() - 0.5)*0.6, 0xff5a10, 0.3 + b.t, 0.3, 0, 1); if(Math.random() < 0.15) dark(b.x, y + 0.2, b.y, 0, 0.6, 0, 0x1a1210, 0.3, 0.7, 0.4, 1.6, 0, 1); }
+      if(b.kind === "rocket"){ size = 0.36; if(Math.random() < 0.9) emit(b.x, y, b.y, (Math.random() - 0.5)*0.3, 0.2, (Math.random() - 0.5)*0.3, 0xffa040, 0.28, 0.25, 0, 1); if(Math.random() < 0.6) dark(b.x, y, b.y, 0, 0.3, 0, 0x1a1614, 0.3, 0.9, 0.35, 1.6, 0, 1); }
+      if(b.kind === "mine"){ col = b.armed ? 0x9ae4ff : col; size = b.armed ? 0.5 + 0.1*Math.sin(clock*6 + b.id) : 0.4; y = b.armed ? 0.25 : y; if(b.armed && Math.random() < 0.05) emit(b.x, 0.3, b.y, 0, 0.3, 0, 0xcff0ff, 0.15, 0.5, 0, 1); }
+      if(b.kind === "vine"){ col = 0x5aa82a; size = 0.32; if(Math.random() < 0.4) emit(b.x, y, b.y, 0, -0.2, 0, 0x3a6a1a, 0.14, 0.5, 0.3, 1); }
+      if(b.kind === "ball"){ col = 0xfff8a0; size = 1.1 + 0.2*Math.sin(clock*30 + b.id); if(Math.random() < 0.7) emit(b.x + (Math.random() - 0.5)*0.5, y + (Math.random() - 0.5)*0.5, b.y + (Math.random() - 0.5)*0.5, (Math.random() - 0.5)*3, (Math.random() - 0.5)*2, (Math.random() - 0.5)*3, 0xfff04a, 0.14, 0.15, 0, 3); }
+      if(b.kind === "void"){ col = 0x7a4ae0; size = 1.7 + 0.15*Math.sin(clock*4 + b.id); if(Math.random() < 0.8){ const a = Math.random()*6.28, r = 1.6 + Math.random()*1.4; dark(b.x + Math.cos(a)*r, y, b.y + Math.sin(a)*r, -Math.cos(a)*r*1.6, 0, -Math.sin(a)*r*1.6, 0x140a20, 0.25, 0.6, 0.6, 0.5, 0, 1); } }
       if(els.indexOf("poison") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, 0, -0.3, 0, 0x7dff3a, 0.15, 0.4, 0, 1);
       if(els.indexOf("fire") >= 0 && Math.random() < 0.12) emit(b.x, y, b.y, (Math.random() - 0.5)*0.4, 0.7, (Math.random() - 0.5)*0.4, 0xff7a1a, 0.14, 0.4, 0, 1);
       if(els.indexOf("frost") >= 0 && Math.random() < 0.08) emit(b.x, y, b.y, 0, 0, 0, 0xcff0ff, 0.14, 0.4, 0, 1);
@@ -398,7 +405,8 @@ FX.update = function(dt, G){
     B.pos[n*3] = S.ix(b); B.pos[n*3+1] = y; B.pos[n*3+2] = S.iy(b);
     B.col[n*3] = _c.r; B.col[n*3+1] = _c.g; B.col[n*3+2] = _c.b;
     // the bolt points along its flight on screen; slow shots stay round (stretch 0..1)
-    const vx = b.vx || 0, vy = b.vy || 0, sp = Math.hypot(vx, vy*0.8), stretch = Math.min(1, sp/5);
+    const round = b.kind === "void" || b.kind === "ball" || b.kind === "mine";      // orbs, not bolts
+    const vx = b.vx || 0, vy = b.vy || 0, sp = Math.hypot(vx, vy*0.8), stretch = round ? 0 : Math.min(1, sp/5);
     B.dir[n*2] = sp > 0.01 ? vx/sp*stretch : 0; B.dir[n*2 + 1] = sp > 0.01 ? -vy*0.8/sp*stretch : 0;
     // the sprite holds the whole streak, so it's longer than the shot is wide; the glow under it
     // is small and dim (2.6x the shot, overlapping by the dozen, was most of the late-game lag)

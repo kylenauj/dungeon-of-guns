@@ -326,89 +326,123 @@ function houndPaint(g, seed){
     if(y < 0.85) c.multiplyScalar(0.8);
   });
 }
+/* a tuft of fur: a ragged cone from (x, y, z) along (nx, ny, nz) */
+const _up = new THREE.Vector3(0, 1, 0), _dir = new THREE.Vector3();
+function tuft(parent, x, y, z, nx, ny, nz, len, rad, col, seed){
+  // a lock of hair, not a quill: flat, wide at the root, a little bent
+  const g = bsJitter(new THREE.ConeGeometry(rad, len, 6, 3), rad*0.2, 30, seed); g.scale(1.5, 1, 0.45); g.translate(0, len/2, 0);
+  const pa = g.attributes.position; for(let i=0;i<pa.count;i++){ const yy = pa.getY(i)/len; pa.setZ(i, pa.getZ(i) - yy*yy*len*0.25); }
+  const m = P(parent, g, col, x, y, z);
+  m.quaternion.setFromUnitVectors(_up, _dir.set(nx, ny, nz).normalize());
+  return m;
+}
+const FUR = [0x221c18, 0x2e2620, 0x3a3028, 0x4a4038, 0x1a1512];
+const fh = i=>{ const v = Math.sin(i*12.9898 + 4.1)*43758.5453; return v - Math.floor(v); };
+/* a pelt of tufts over an ellipsoid (centre c, radii rr), standing out from it and
+   swept back along -z by `sweep`; only the part of the shell where keep(nx, ny, nz) holds */
+function pelt(parent, n, c, rr, len, rad, sweep, seed, keep){
+  for(let i=0, k=0; i<n*3 && k<n; i++){
+    const u = fh(seed + i*3.1), v = fh(seed + i*7.7), th = u*PI*2, ph = Math.acos(2*v - 1);
+    const nx = Math.sin(ph)*Math.cos(th), ny = Math.cos(ph), nz = Math.sin(ph)*Math.sin(th);
+    if(keep && !keep(nx, ny, nz)) continue;
+    k++;
+    const l = len*(0.7 + 0.6*fh(seed + i*1.3));
+    // rooted a little under the hide, lying along it: mostly swept back, only a little out
+    tuft(parent, c[0] + nx*rr[0]*0.86, c[1] + ny*rr[1]*0.86, c[2] + nz*rr[2]*0.86, nx*0.45, ny*0.4 - 0.05, nz*0.45 - sweep, l, rad*1.35*(0.8 + 0.4*fh(seed + i*5.3)), FUR[Math.floor(fh(seed + i*2.2)*FUR.length)], seed + i);
+  }
+}
 Models.lair_hound = function(){
   const R = rig("lair_hound"), b = R.body;
-  // gaunt: narrow across, deep in the chest, long in the leg (it was a round, plump
-  // thing on stubby legs with a tube for a snout, and read as a teddy bear)
-  const g = group(b); g.scale.set(0.95, 1.12, 1.22);
+  // Gnaw is a wolf the size of a cart: heavy in the shoulder under a shaggy mane, deep
+  // in the chest, narrowing to lean haunches, on thick legs and broad paws. (It was a
+  // gaunt thing a hand's width across on stick legs: from above it read as a sheet of paper.)
+  const g = group(b); g.scale.set(1.05, 1.05, 1.1);
   const sp0 = group(g, 0, 0, 0); R.parts.spine = sp0;
-  // the body: a deep keel of a chest, a waist you could close a hand round, bony haunches
-  const torso = meat([[0, 1.24, 0.82], [0, 1.18, 0.42], [0, 1.18, -0.08], [0, 1.2, -0.5], [0, 1.24, -0.86]],
-    t=> t < 0.4 ? 0.25 - 0.03*Math.pow(t/0.4 - 0.5, 2) : t < 0.66 ? 0.24 - 0.12*Math.sin((t - 0.4)/0.26*PI/2) : 0.12 + 0.08*Math.sin((t - 0.66)/0.34*PI), 18, 16, 3.3);
-  K.sculpt(torso, 0.016, 7, 2);
-  P(sp0, houndPaint(torso, 1), 0xffffff, 0, 0, 0, 0, 0, 0, 0.66, 1.3, 1);
-  // the keel of the chest hangs low between the forelegs
-  P(sp0, houndPaint(bsBlob(0.15, 0.55, 1.0, 1.6, 0.012, 10, 3, 18, 14), 2), 0xffffff, 0, 1.08, 0.46);
-  // ribs, pressing out through the hide
-  for(let i=0;i<8;i++){ const z = 0.66 - i*0.085, r = 0.24 - Math.abs(i - 2.5)*0.016; P(sp0, bsRing(r, 0.018, PI*1.1), 0x6a5e50, 0, 1.12 - i*0.01, z, 0, PI/2, -PI*0.05, 0.7, 1.35, 1); }
-  // shoulder blades and hip bones, standing up under the hide
+  // the body: a barrel of a chest under the shoulders, the belly drawn up, lean hips
+  const torso = meat([[0, 1.2, 0.86], [0, 1.18, 0.46], [0, 1.16, -0.06], [0, 1.18, -0.5], [0, 1.2, -0.86]],
+    t=> t < 0.45 ? 0.34 - 0.04*Math.pow(t/0.45 - 0.4, 2) : t < 0.7 ? 0.33 - 0.11*Math.sin((t - 0.45)/0.25*PI/2) : 0.22 + 0.03*Math.sin((t - 0.7)/0.3*PI), 18, 18, 3.3);
+  K.sculpt(torso, 0.02, 7, 2);
+  P(sp0, houndPaint(torso, 1), 0xffffff, 0, 0, 0, 0, 0, 0, 0.92, 1.12, 1);
+  // the chest hangs deep between the forelegs
+  P(sp0, houndPaint(bsBlob(0.24, 0.9, 1.0, 1.25, 0.02, 9, 3, 20, 16), 2), 0xffffff, 0, 1.0, 0.5);
+  // the shoulders and the haunches, standing out of the line of the body
   [-1, 1].forEach(s=>{
-    P(sp0, bsPaint(bsBlob(0.11, 0.55, 1.0, 1.3, 0.01, 10, s, 18, 14), HD.hide, 0x34302a, 7, s), 0xffffff, s*0.14, 1.36, 0.56, -0.5, 0, s*0.3);
-    P(sp0, bsPaint(bsBlob(0.09, 0.8, 0.8, 1.2, 0.01, 10, s + 2, 16, 12), HD.hide, 0x34302a, 7, s), 0xffffff, s*0.13, 1.36, -0.76, 0.3, 0, s*0.2);
-    P(sp0, bsPaint(bsBlob(0.11, 0.25, 0.8, 1.5, 0.02, 12, s + 5, 14, 10), HD.raw, HD.raw2, 14, s), 0xffffff, s*0.16, 1.12, 0.12, 0, 0, s*0.25);      // a flank flayed to the meat
+    P(sp0, houndPaint(bsBlob(0.2, 0.8, 1.1, 1.2, 0.02, 9, s + 1, 18, 14), 4), 0xffffff, s*0.2, 1.24, 0.56);
+    P(sp0, houndPaint(bsBlob(0.19, 0.8, 1.1, 1.15, 0.02, 9, s + 3, 18, 14), 6), 0xffffff, s*0.17, 1.18, -0.74);
+    P(sp0, bsPaint(bsBlob(0.13, 0.3, 0.8, 1.4, 0.02, 12, s + 5, 14, 10), HD.raw, HD.raw2, 14, s), 0xffffff, s*0.27, 1.1, 0.08, 0, 0, s*0.2);      // a flank torn open to the meat
   });
-  // the spine, a ridge of knuckles, and the hackles up along it
-  for(let i=0;i<13;i++){ const z = 0.8 - i*0.135, y = 1.48 - (i > 5 && i < 9 ? 0.05 : 0); P(sp0, CO(0.03, 0.06, 6), HD.bone, 0, y - 0.02, z, -0.3); }
-  for(let i=0;i<16;i++){ const z = 0.9 - i*0.07, h = 0.2 - i*0.009, a = ((i*1.7) % 1) - 0.5; P(sp0, bsJitter(new THREE.ConeGeometry(0.03, h, 5, 2), 0.005, 30, i + 40), HD.hide2, a*0.06, 1.5 + h*0.3, z, -0.5, 0, a*0.5); }
-  // the neck reaches forward and low, the head jutting off the end of it
+  // the mane: a great ruff over the shoulders and up the neck, swept back
+  pelt(sp0, 70, [0, 1.36, 0.6], [0.36, 0.32, 0.4], 0.34, 0.075, 0.9, 11, (x, y, z)=> y > -0.35 && z > -0.6);
+  // shag along the back and down the flanks, shorter toward the tail
+  pelt(sp0, 40, [0, 1.26, -0.15], [0.3, 0.26, 0.55], 0.22, 0.055, 1.2, 37, (x, y, z)=> y > -0.1);
+  pelt(sp0, 18, [0, 1.22, -0.72], [0.24, 0.22, 0.24], 0.16, 0.05, 1.0, 59, (x, y, z)=> y > 0 && z < 0.3);
+  // the spine's knuckles show where the hair has gone
+  for(let i=0;i<7;i++) P(sp0, CO(0.035, 0.07, 6), HD.bone, 0, 1.47 - i*0.012, -0.05 - i*0.12, -0.3);
+  // the neck: thick, carried low and forward, the head jutting off the end of it
   const neck = group(sp0, 0, 1.36, 0.82); R.parts.neck = neck; neck.rotation.x = 0.18;
-  P(neck, houndPaint(meat([[0, 0, -0.12], [0, 0.0, 0.2], [0, -0.04, 0.46]], t=> 0.17 - 0.05*t, 10, 14, 2), 3), 0xffffff, 0, 0, 0, 0, 0, 0, 0.8, 1.15, 1);
+  P(neck, houndPaint(meat([[0, 0, -0.14], [0, 0.0, 0.2], [0, -0.04, 0.46]], t=> 0.24 - 0.07*t, 10, 14, 2), 3), 0xffffff, 0, 0, 0, 0, 0, 0, 0.95, 1.1, 1);
+  pelt(neck, 26, [0, 0.03, 0.12], [0.24, 0.24, 0.26], 0.26, 0.065, 1.0, 83, (x, y, z)=> y > -0.5);
   // the collar: an iron band with spikes, the chain snapped and trailing
-  P(neck, CY(0.19, 0.19, 0.09, 18, 1), HD.iron, 0, 0, 0.14, PI/2 - 0.2, 0, 0, 0.9, 1, 1.12);
-  for(let i=0;i<9;i++){ const a = i/9*PI*2; P(neck, CO(0.022, 0.11, 6), 0x3a3634, Math.cos(a)*0.18, Math.sin(a)*0.21, 0.14 + Math.sin(a)*0.04, 0, 0, a - PI/2); }
-  P(neck, bsRing(0.04, 0.012), 0x3a3634, 0, -0.21, 0.15, 0, PI/2, 0);
-  const tail0 = group(neck, 0, -0.24, 0.15); R.parts.leash = tail0;
-  dangle(tail0, 0, 0, 0, 7, 0.04, 0x2a2828);
-  // a ruff of matted hair down the back of the neck
-  for(let i=0;i<9;i++){ const z = -0.06 + i*0.06, a = (i*2.3) % 1 - 0.5; P(neck, bsJitter(new THREE.ConeGeometry(0.03, 0.16 + (i % 3)*0.05, 5, 2), 0.006, 30, i), HD.hide2, a*0.08, 0.13 - i*0.01, z, -1.15, 0, a*0.6); }
-  const head = group(neck, 0, 0.02, 0.5); R.parts.head = head; head.rotation.x = -0.08; head.scale.setScalar(1.12);
-  // the skull: a narrow cranium and a long wolf's muzzle, jutting, the hide pulled tight over it
-  const cran = bsBlob(0.15, 0.85, 0.85, 1.3, 0.012, 12, 2, 24, 18); P(head, houndPaint(cran, 7), 0xffffff, 0, 0.05, 0.02);
-  const muz = bsTaper([[0, 0.03, 0.08], [0, 0.0, 0.32], [0, -0.03, 0.6]], 0.1, 0.05, 10, 14);
-  P(head, bsPaint(muz, 0x5a5048, HD.raw2, 9, 3), 0xffffff, 0, 0, 0, 0, 0, 0, 0.95, 0.85, 1);
-  P(head, S(0.04, 10, 8), 0x0e0a0a, 0, -0.01, 0.63, 0, 0, 0, 1.1, 0.8, 0.7);                 // the nose, gone black
+  P(neck, CY(0.25, 0.25, 0.1, 18, 1), HD.iron, 0, 0, 0.2, PI/2 - 0.2, 0, 0, 0.95, 1, 1.1);
+  for(let i=0;i<10;i++){ const a = i/10*PI*2; P(neck, CO(0.026, 0.13, 6), 0x3a3634, Math.cos(a)*0.25, Math.sin(a)*0.27, 0.2 + Math.sin(a)*0.04, 0, 0, a - PI/2); }
+  P(neck, bsRing(0.045, 0.013), 0x3a3634, 0, -0.28, 0.2, 0, PI/2, 0);
+  const tail0 = group(neck, 0, -0.3, 0.2); R.parts.leash = tail0;
+  dangle(tail0, 0, 0, 0, 7, 0.045, 0x2a2828);
+  const head = group(neck, 0, 0.02, 0.5); R.parts.head = head; head.rotation.x = -0.08; head.scale.setScalar(1.2);
+  // the skull: broad across the cheeks, a long heavy muzzle
+  const cran = bsBlob(0.17, 1.05, 0.85, 1.2, 0.014, 12, 2, 24, 18); P(head, houndPaint(cran, 7), 0xffffff, 0, 0.05, 0.02);
+  const muz = bsTaper([[0, 0.03, 0.08], [0, 0.0, 0.32], [0, -0.03, 0.6]], 0.12, 0.065, 10, 14);
+  P(head, bsPaint(muz, 0x4a4038, HD.raw2, 9, 3), 0xffffff, 0, 0, 0, 0, 0, 0, 1.05, 0.9, 1);
+  P(head, S(0.05, 10, 8), 0x0e0a0a, 0, 0.0, 0.63, 0, 0, 0, 1.1, 0.8, 0.7);                 // the nose, gone black
+  // ruffs of hair at the cheeks
+  [-1, 1].forEach(s=>{ for(let i=0;i<7;i++){ const a = -0.6 + i*0.2; tuft(head, s*0.15, 0.02 + Math.sin(a)*0.1, 0.0 + Math.cos(a)*0.05, s*0.9, Math.sin(a)*0.5, -0.6, 0.16 + fh(i + s*9)*0.08, 0.04, FUR[(i + (s > 0 ? 1 : 3)) % FUR.length], 120 + i + s*20); } });
   [-1, 1].forEach(s=>{
-    P(head, S(0.042, 10, 8), HD.hide2, s*0.085, 0.09, 0.12, 0, 0, 0, 1, 0.75, 0.7);
-    const e = glow(R, head, 0.022, 0xc8d0c8, s*0.09, 0.09, 0.15); e.scale.set(1.3, 0.7, 0.7);       // milky, narrowed
-    halo(R, head, 0xb8c8c8, 0.2, s*0.09, 0.09, 0.17, 0.25);
+    P(head, S(0.05, 10, 8), HD.hide2, s*0.1, 0.09, 0.13, 0, 0, 0, 1, 0.75, 0.7);
+    const e = glow(R, head, 0.026, 0xc8d0c8, s*0.105, 0.09, 0.16); e.scale.set(1.3, 0.7, 0.7);       // milky, narrowed
+    halo(R, head, 0xb8c8c8, 0.24, s*0.105, 0.09, 0.18, 0.25);
     // ears, tall and torn, laid back
-    const ear = new THREE.ConeGeometry(0.055, 0.24, 6, 2); bsJitter(ear, 0.008, 20, s);
-    P(head, bsPaint(ear, HD.hide, HD.raw2, 9, s), 0xffffff, s*0.085, 0.21, -0.07, -0.75, 0, s*-0.25, 1, 1, 0.45);
+    const ear = new THREE.ConeGeometry(0.07, 0.26, 6, 2); bsJitter(ear, 0.01, 20, s);
+    P(head, bsPaint(ear, HD.hide, HD.raw2, 9, s), 0xffffff, s*0.1, 0.22, -0.07, -0.75, 0, s*-0.3, 1, 1, 0.5);
     // the lip curled back off the teeth
-    for(let i=0;i<8;i++) P(head, bsTooth(), 0xffffff, s*(0.06 - i*0.004), -0.07, 0.16 + i*0.055, PI + 0.1, 0, s*0.1, 0.75, 0.8 + (i*3 % 4)*0.15, 0.75);
+    for(let i=0;i<8;i++) P(head, bsTooth(), 0xffffff, s*(0.075 - i*0.005), -0.08, 0.16 + i*0.055, PI + 0.1, 0, s*0.1, 0.85, 0.85 + (i*3 % 4)*0.15, 0.85);
   });
-  // the jaw: long, hinged far back, hanging open, more teeth than it should have
-  const jaw = group(head, 0, -0.07, 0.04); R.parts.jaw = jaw; jaw.rotation.x = 0.22;
-  P(jaw, bsPaint(bsTaper([[0, -0.02, 0.0], [0, -0.04, 0.26], [0, -0.03, 0.54]], 0.08, 0.04, 10, 12), 0x4a4038, HD.raw2, 9, 4), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.6, 1);
-  P(jaw, S(0.06, 10, 8), 0x2a0a0c, 0, 0.0, 0.3, 0, 0, 0, 0.75, 0.3, 2.8);
-  for(let i=0;i<9;i++) [-1, 1].forEach(s=> P(jaw, bsTooth(), 0xffffff, s*(0.05 - i*0.004), 0.0, 0.06 + i*0.055, -0.1, 0, -s*0.15, 0.65, 0.6 + (i*5 % 3)*0.2, 0.65));
-  // legs: long and knuckled, the forelegs straight as stilts, the hind ones bent like a drawn bow
+  // the jaw: long and heavy, hinged far back, hanging open
+  const jaw = group(head, 0, -0.08, 0.04); R.parts.jaw = jaw; jaw.rotation.x = 0.22;
+  P(jaw, bsPaint(bsTaper([[0, -0.02, 0.0], [0, -0.04, 0.26], [0, -0.03, 0.54]], 0.1, 0.05, 10, 12), 0x3e3630, HD.raw2, 9, 4), 0xffffff, 0, 0, 0, 0, 0, 0, 1.05, 0.65, 1);
+  P(jaw, S(0.07, 10, 8), 0x2a0a0c, 0, 0.0, 0.3, 0, 0, 0, 0.8, 0.3, 2.6);
+  for(let i=0;i<9;i++) [-1, 1].forEach(s=> P(jaw, bsTooth(), 0xffffff, s*(0.06 - i*0.004), 0.0, 0.06 + i*0.055, -0.1, 0, -s*0.15, 0.75, 0.65 + (i*5 % 3)*0.2, 0.75));
+  // legs: thick forearms under the mane, the hind legs bent like a drawn bow, broad paws
   const legs = [];
+  const paw = (parent, x, y, z, s)=>{
+    P(parent, houndPaint(bsBlob(0.09, 1.0, 0.55, 1.45, 0.01, 10, s + 7, 14, 10), 12), 0xffffff, x, y, z);
+    for(let k=-1;k<=1;k++) P(parent, CO(0.016, 0.1, 5), 0x1a1612, x + k*0.045, y - 0.02, z + 0.13, PI/2 + 0.35);
+  };
   const fore = (s)=>{
-    const l = group(sp0, s*0.14, 1.22, 0.6); legs.push(l);
-    P(l, houndPaint(meat([[0, 0.1, 0.02], [s*0.02, -0.22, -0.05], [s*0.01, -0.5, -0.07]], t=> 0.1 - 0.045*t, 10, 10, s), 5 + s), 0xffffff, 0, 0, 0);
+    const l = group(sp0, s*0.2, 1.2, 0.58); legs.push(l);
+    P(l, houndPaint(meat([[0, 0.12, 0.02], [s*0.02, -0.22, -0.04], [s*0.01, -0.5, -0.07]], t=> 0.18 - 0.05*t, 10, 12, s), 5 + s), 0xffffff, 0, 0, 0);
+    pelt(l, 12, [0, -0.1, -0.02], [0.17, 0.26, 0.15], 0.2, 0.05, 1.2, 140 + s*7, (x, y, z)=> z < 0.3);
+    pelt(l, 6, [0, -0.6, -0.05], [0.1, 0.12, 0.1], 0.14, 0.04, 0.6, 160 + s*7, (x, y, z)=> y > -0.3);
     const el = group(l, s*0.01, -0.5, -0.07); R.parts["el" + (s > 0 ? "R" : "L")] = el;
-    P(el, houndPaint(meat([[0, 0, 0], [0, -0.32, 0.03], [0, -0.64, 0.06]], t=> 0.05 - 0.012*t, 10, 9, s + 1), 8), 0xffffff, 0, 0, 0);
-    P(el, S(0.06, 10, 8), 0x2a2420, 0, -0.68, 0.11, 0, 0, 0, 0.85, 0.5, 1.5);
-    for(let k=-1;k<=1;k++) P(el, CO(0.012, 0.08, 5), 0x1a1612, k*0.03, -0.71, 0.21, PI/2 + 0.35);
+    P(el, houndPaint(meat([[0, 0, 0], [0, -0.32, 0.03], [0, -0.62, 0.06]], t=> 0.11 - 0.025*t, 10, 10, s + 1), 8), 0xffffff, 0, 0, 0);
+    paw(el, 0, -0.67, 0.1, s);
     return l;
   };
   const hind = (s)=>{
-    const l = group(sp0, s*0.15, 1.2, -0.8); legs.push(l);
-    P(l, houndPaint(meat([[0, 0.1, 0.06], [s*0.02, -0.16, 0.14], [s*0.02, -0.42, 0.18]], t=> 0.14 - 0.08*t, 10, 10, s + 3), 9 + s), 0xffffff, 0, 0, 0);
+    const l = group(sp0, s*0.18, 1.18, -0.78); legs.push(l);
+    P(l, houndPaint(meat([[0, 0.12, 0.06], [s*0.02, -0.16, 0.14], [s*0.02, -0.42, 0.18]], t=> 0.23 - 0.1*t, 10, 12, s + 3), 9 + s), 0xffffff, 0, 0, 0);
     const kn = group(l, s*0.02, -0.42, 0.18); R.parts["kn" + (s > 0 ? "R" : "L")] = kn;
-    P(kn, houndPaint(meat([[0, 0, 0], [0, -0.18, -0.14], [0, -0.36, -0.28]], t=> 0.06 - 0.02*t, 10, 9, s + 5), 11), 0xffffff, 0, 0, 0);
-    P(kn, meat([[0, -0.36, -0.28], [0, -0.56, -0.22], [0, -0.74, -0.16]], t=> 0.035, 8, 8, s), 0x3a322c);
-    P(kn, S(0.06, 10, 8), 0x2a2420, 0, -0.76, -0.12, 0, 0, 0, 0.85, 0.5, 1.5);
-    for(let k=-1;k<=1;k++) P(kn, CO(0.012, 0.07, 5), 0x1a1612, k*0.03, -0.79, -0.02, PI/2 + 0.35);
+    P(kn, houndPaint(meat([[0, 0, 0], [0, -0.18, -0.14], [0, -0.36, -0.28]], t=> 0.12 - 0.03*t, 10, 10, s + 5), 11), 0xffffff, 0, 0, 0);
+    P(kn, houndPaint(meat([[0, -0.36, -0.28], [0, -0.56, -0.22], [0, -0.74, -0.16]], t=> 0.08 - 0.015*t, 8, 9, s), 13), 0xffffff, 0, 0, 0);
+    paw(kn, 0, -0.76, -0.1, s);
     return l;
   };
   fore(-1); fore(1); hind(-1); hind(1);
   R.parts.legs = legs;
-  // the tail: a long whip of bone and mange, carried low
-  const tail = group(sp0, 0, 1.3, -0.98); R.parts.tail = tail; tail.rotation.x = 0.45;
-  P(tail, houndPaint(bsTaper([[0, 0, 0], [0, -0.14, -0.26], [0, -0.42, -0.44], [0, -0.78, -0.5]], 0.05, 0.01, 12, 8), 13), 0xffffff, 0, 0, 0);
-  for(let i=0;i<6;i++) P(tail, bsJitter(new THREE.ConeGeometry(0.025, 0.12, 5, 2), 0.005, 30, i + 70), HD.hide2, 0, -0.1 - i*0.12, -0.2 - i*0.06, -2.2, 0, 0);
+  // the tail: a heavy brush of matted hair, carried low
+  const tail = group(sp0, 0, 1.3, -1.0); R.parts.tail = tail; tail.rotation.x = 0.45;
+  P(tail, houndPaint(bsTaper([[0, 0, 0], [0, -0.14, -0.26], [0, -0.42, -0.44], [0, -0.78, -0.5]], 0.09, 0.03, 12, 8), 13), 0xffffff, 0, 0, 0);
+  for(let i=0;i<22;i++){ const t = i/22, y = -0.05 - t*0.7, z = -0.12 - t*0.36 - (t > 0.5 ? (t - 0.5)*0.2 : 0), a = fh(i + 200)*PI*2;
+    tuft(tail, Math.cos(a)*0.06, y + Math.sin(a)*0.05, z, Math.cos(a)*0.6, -0.6 + Math.sin(a)*0.4, -0.5, 0.16 - t*0.05, 0.045, FUR[i % FUR.length], 200 + i); }
   R.h = 1.85; R.size = 2.4;
   return finish(R);
 };

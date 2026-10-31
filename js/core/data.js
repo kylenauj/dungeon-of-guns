@@ -118,6 +118,40 @@ DG.WAND_FORMS = {
 };
 /* which look and sound a wand takes from its forms (the boldest wins) */
 DG.FORM_ORDER = ["bombard", "crescent", "prism", "wraith", "halo", "wisp", "fracture", "vortex", "scatter", "volley", "lens", "repeater"];
+/* ---- rites: what the wand fires, not how many (items with rite:"id", combat.js
+   fireVolley). A Form reshapes the bolt; a rite replaces it: a beam, a rocket, a
+   frog. More shots (Twinshot, side shots...) still mean more of whatever it fires,
+   and its numbers (dmg, rate, range) still come from the wand. Carry two rites
+   and your volleys take turns between them.
+     rate   fire rate while this rite is up; dmg, speed, range, size: the shot's
+     the rest is the rite's own: see each below ---- */
+DG.RITES = {
+  // a hitscan beam to the first wall, through everything on the line
+  lance:  { name:"Sunlance",          rate:0.8,  dmg:0.9,  w:0.22 },
+  // a short cone of flame: four tongues, through two goblins each
+  breath: { name:"Dragon's Breath",   rate:1.9,  dmg:0.17,  range:0.34, speed:0.7, pellets:4, spread:34, pierce:2, kind:"flame" },
+  // slow off the wand, faster and faster, turning toward goblins, and a blast
+  rocket: { name:"Brimstone Rockets", rate:0.6,  dmg:1.2,  speed:0.5, blast:1.7, accel:2.2, homing:0.7, kind:"rocket" },
+  // a heavy spear of ice: through everything, shoves hard, roots small things
+  spear:  { name:"Glacier Spear",     rate:0.55, dmg:1.55, speed:0.85, size:1.5, pierce:3,  knock:3, trap:0.45, kind:"spear" },
+  // flies a little way, sets, and waits for something to step near
+  mine:   { name:"Rime Mines",        rate:0.75, dmg:1.6,  blast:1.5, arm:0.3, reach:0.95, life:9, max:10, kind:"mine" },
+  // a thorn that roots what it hits and creeps on to the next goblin, and the next
+  vine:   { name:"Strangler Vine",    rate:0.9,  dmg:1.0,  trap:0.7, creep:2, reach:3.6, creepDmg:0.45, kind:"vine" },
+  // no bolt at all: a puff of locusts that hunt for six seconds
+  locust: { name:"Locust Censer",     rate:0.75, n:2, max:16, bite:0.14 },
+  // a slow ball that drifts through the room zapping what's near it
+  ball:   { name:"Ball Lightning",    rate:0.45, dmg:0.26, speed:0.3, range:1.4, size:1.7, pierce:99, zap:0.28, reach:3.2, n:2, kind:"ball" },
+  // lobbed over everything, to where you aim, and comes down hard
+  meteor: { name:"Meteor Psalm",      rate:0.6,  dmg:1.5,  blast:1.25, flight:0.55, spread:1.2 },
+  // a slow dark star that drags goblins in, then collapses
+  void:   { name:"Singularity",       rate:0.5,  dmg:0.45, speed:0.32, range:1.3, size:2.2, pierce:99, pull:3.2, pullK:2.6, burst:2.5, burstR:1.7, kind:"void" },
+  // frogs, flung: they hop to the nearest goblin and bite until they're done
+  frogs:  { name:"Toad Volley",       rate:0.7,  dmg:0.55, life:5, max:8, bite:0.8 },
+  // the tongue: a lash in a cone in front of you that drags goblins in
+  lash:   { name:"Toadtongue Lash",   rate:1.05, dmg:1.0,   reach:3.0, arc:1.4, pull:0.9 }
+};
+DG.RITE_ORDER = ["lance", "breath", "rocket", "spear", "mine", "vine", "locust", "ball", "meteor", "void", "frogs", "lash"];
 /* the wand drinks the dark: about what a found gun used to be worth, floor by floor */
 DG.WAND_LEVEL = f=> 1 + 2.6*(Math.max(1, f) - 1);
 

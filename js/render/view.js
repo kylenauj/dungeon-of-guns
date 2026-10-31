@@ -145,7 +145,7 @@ proto.warmAll = function(){
   if(activeId) add(()=> M.item({ kind:"active", id:activeId }));
   add(()=> M.pickup({ kind:"item", item:gun }));
   ["icicle", "flame", "puddle", "cloud", "spark", "rune", "blackhole", "spores", "slime", "shockwave", "fireline", "gum", "grave"].forEach(k=> add(()=> hazardMesh({ kind:k, r:1, t:1, max:1, id:0 })));
-  ["bee", "hat", "moon", "shadow", "tadpole", "turret", "wisp"].forEach(k=> add(()=> allyMesh({ kind:k, el:"arcane", id:0 })));
+  ["bee", "hat", "moon", "shadow", "tadpole", "turret", "wisp", "toad"].forEach(k=> add(()=> allyMesh({ kind:k, el:"arcane", id:0 })));
   add(()=> shadowBlob(0.4));
   const hadPortal = V.portal; V.makePortal(0, 0); if(V.portal && V.portal !== hadPortal){ S.scene.remove(V.portal); g.add(V.portal); V.portal = hadPortal; }
   g.position.set(p.x, 0, p.y); S.scene.add(g);
@@ -448,6 +448,19 @@ proto.handle = function(ev){
     case "wardsBurn": FX.burst(ev.x, 1.2, ev.y, 0xffb060, 30, 4, 0.3, 0.8, { up:1 }); play("illusion"); break;
     case "olmWard": FX.ring(ev.x, ev.y, 2, 0xffb060, 0.6); break;
     case "lanternBeam": V.lanternBeam(ev); play("brazier"); break;
+    // the rites (DG.RITES)
+    case "lance": V.lanternBeam(ev, { col:ELC(ev.el), life:0.3, w:0.6, sparks:5 }); break;
+    case "lash": {
+      // the tongue: a wet pink crack out to its reach, and a spatter where it bites
+      V.lanternBeam({ x:ev.x, y:ev.y, a:ev.a, len:ev.reach }, { col:0xc85a6a, core:0xffd0d8, life:0.16, w:0.5, sparks:0 });
+      FX.burst(ev.x + Math.cos(ev.a)*ev.reach*0.8, 0.8, ev.y + Math.sin(ev.a)*ev.reach*0.8, 0xd86a7a, 6 + ev.n*3, 3, 0.18, 0.3, { col2:0xffffff });
+      if(ev.n) S.shake(0.08);
+      break;
+    }
+    case "vine": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0x5aa82a, 0.35); FX.burst(ev.x2, 0.6, ev.y2, 0x4a8a2a, 8, 2, 0.18, 0.4, { col2:0x9cff4a }); break;
+    case "zap": FX.arc(ev.x1, ev.y1, ev.x2, ev.y2, 0xfff04a, 0.14); break;
+    case "collapse": FX.ring(ev.x, ev.y, ev.r, 0x9a5aff, 0.5); FX.burst(ev.x, 0.8, ev.y, 0x6a3ad0, 30, 5, 0.3, 0.6, { col2:0x0a0612 }); S.shake(0.25); break;
+    case "meteor": S.shake(0.18); FX.ring(ev.x, ev.y, ev.r*1.1, 0xffb060, 0.4); break;
     case "rockfall": FX.smoke(ev.x, 0.4, ev.y, 0x4a4038, 8, 0.6, 1.2); FX.burst(ev.x, 0.6, ev.y, 0x5a5048, 10, 3, 0.2, 0.5); S.shake(0.18); play("step", { heavy:true, x:ev.x, y:ev.y }); break;
     case "dawnbreak": FX.ring(ev.x, ev.y, 6, 0xffe2b0, 1.5); S.shake(0.4); break;
     case "due": FX.burst(ev.x, 1.1, ev.y, 0x9cff6a, 8, 2.5, 0.15, 0.35); break;
@@ -589,8 +602,23 @@ function allyMesh(a){
     K.part(g, new THREE.CylinderGeometry(0.16, 0.2, 0.5, 10), 0xf0e6d4, 0, 0.25, 0);
     K.part(g, new THREE.SphereGeometry(0.36, 14, 8, 0, PI*2, 0, PI/2), 0x46a8ff, 0, 0.5, 0, 0, 0, 0, 1, 0.7, 1);
     K.bake(g, { w:0.02 }); g.userData.y = 0;
+  } else if(a.kind === "toad"){
+    // a flung toad: squat, warty, all mouth (Toad Volley)
+    K.part(g, new THREE.SphereGeometry(0.17, 12, 9), 0x4a5a2a, 0, 0.13, 0, 0, 0, 0, 1.1, 0.75, 1.2);
+    K.part(g, new THREE.SphereGeometry(0.12, 10, 8), 0x55682e, 0, 0.18, 0.13, 0, 0, 0, 1.15, 0.7, 0.9);
+    K.part(g, new THREE.SphereGeometry(0.1, 10, 6), 0x2a1210, 0, 0.13, 0.2, 0, 0, 0, 1.0, 0.3, 0.6);
+    [-1, 1].forEach(s=>{
+      K.part(g, new THREE.SphereGeometry(0.045, 8, 6), 0xd8b84a, s*0.08, 0.27, 0.15);
+      K.part(g, new THREE.SphereGeometry(0.022, 6, 4), 0x0a0806, s*0.088, 0.28, 0.185);
+      K.part(g, new THREE.SphereGeometry(0.07, 8, 6), 0x3e4c22, s*0.15, 0.06, -0.08, 0, 0, 0, 0.8, 0.6, 1.5);
+      K.part(g, new THREE.SphereGeometry(0.05, 8, 6), 0x3e4c22, s*0.13, 0.04, 0.12, 0, 0, 0, 0.8, 0.5, 1.2);
+    });
+    for(let i=0;i<6;i++) K.part(g, new THREE.SphereGeometry(0.025, 5, 4), 0x2e3a18, Math.sin(i*2.3)*0.12, 0.22, -0.08 + (i % 3)*0.07);
+    K.bake(g, { w:0.012 });
+    const glow = K.sprite(0x9cff4a, 0.8, 0.3); glow.position.y = 0.15; g.add(glow);       // so a toad reads on a dark floor
+    g.userData.y = 0; g.userData.hop = true;
   } else if(a.kind === "bee"){
-    K.part(g, new THREE.SphereGeometry(0.1, 10, 8), 0xffd23d, 0, 0, 0, 0, 0, 0, 1, 0.9, 1.3);
+    K.part(g, new THREE.SphereGeometry(0.1, 10, 8), a.locust ? 0x6a6a2a : 0xffd23d, 0, 0, 0, 0, 0, 0, 1, 0.9, 1.3);
     [-0.04, 0.04].forEach(z=> K.part(g, new THREE.TorusGeometry(0.095, 0.02, 4, 12), 0x1a1410, 0, 0, z));
     K.part(g, new THREE.ConeGeometry(0.03, 0.09, 4), 0x1a1410, 0, 0, -0.15, -PI/2);
     [-1, 1].forEach(s=> K.part(g, new THREE.SphereGeometry(0.025, 4, 3), 0x101010, s*0.04, 0.03, 0.11));
@@ -868,8 +896,12 @@ proto.updateEnemies = function(dt, t){
     const es = (e.def.radius ? e.r/e.def.radius : (e.affix && DG.AFFIXES[e.affix].size || 1)*(e.shrink || 1))/R.full;   // elites, lair bosses and shrunk things alike
     R.root.scale.set(es, es*STRETCH, es);
     if(e.st.confused > 0 && Math.random() < 0.15){ const a = t*6 + e.id; FX.emit(e.x + Math.cos(a)*0.35, 1.4*(e.r/0.34) + 0.4, e.y + Math.sin(a)*0.35, 0, 0.3, 0, [0xffd23d, 0xff6ad8, 0x46e4ff][Math.floor(Math.random()*3)], 0.22, 0.35, 0, 1); }
-    const want = PI/2 - e.face;
-    R.root.rotation.y += DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? 14 : 4)));
+    // turning: small things snap round; a boss or a lair's beast has weight, so it eases
+    // round and can only turn so fast (it used to whip through half a circle in a frame)
+    const want = PI/2 - e.face, heavy = e.boss || e.mini || e.big;
+    let turn = DG.wrapAngle(want - R.root.rotation.y)*(1 - Math.exp(-dt*(e.def.speed ? (heavy ? 7 : 14) : 4)));
+    if(heavy){ const mx = (e.mini ? 7 : 5)*dt; turn = Math.max(-mx, Math.min(mx, turn)); }
+    R.root.rotation.y += turn;
     if(e.spawn > 0){ const k = 1 - e.spawn/(e.boss ? 1.4 : 0.8); R.body.position.y = -1.2*(1 - k); M.fade(R, Math.max(0.1, k)); return; }
     const frozen = e.st.frozen > 0, stunned = e.st.stun > 0;
     // the wind-up, through to its release (Models.creep draws it back, holds it, lets it go)
@@ -1024,22 +1056,25 @@ proto.updateLoot = function(dt, t){
 };
 
 /* a Lantern Beam: a ray of the old fire, bright, then gone */
-proto.lanternBeam = function(ev){
-  const V = this, g = new THREE.Group(), len = ev.len;
-  [[0.09, 0xfff0c8, 0.95], [0.4, 0xffa040, 0.4], [0.9, 0xff7a20, 0.14]].forEach(([w, c, op])=>{
+proto.lanternBeam = function(ev, o){
+  // (o: a rite's beam: its colour, a thinner beam, a shorter life)
+  const V = this, g = new THREE.Group(), len = ev.len, w0 = o ? o.w : 1;
+  const cols = o ? [o.core || 0xffffff, o.col, o.col] : [0xfff0c8, 0xffa040, 0xff7a20];
+  [[0.09, cols[0], 0.95], [0.4, cols[1], 0.4], [0.9, cols[2], 0.14]].map(([w, c, op])=> [w*w0, c, op]).forEach(([w, c, op])=>{
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, w*0.6, len), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false }));
     m.position.z = len/2; m.userData.op = op; g.add(m);
   });
   g.position.set(ev.x, 0.95, ev.y); g.rotation.y = Math.atan2(Math.cos(ev.a), Math.sin(ev.a));
-  S.scene.add(g); (V.lbeams = V.lbeams || []).push({ g, t:0 });
-  for(let k=0;k<10;k++){ const d = Math.random()*len; FX.emit(ev.x + Math.cos(ev.a)*d, 0.9, ev.y + Math.sin(ev.a)*d, 0, 1.5, 0, 0xffb060, 0.3, 0.5, 0, 1); }
+  S.scene.add(g); (V.lbeams = V.lbeams || []).push({ g, t:0, life:o ? o.life : 0.55 });
+  const ns = o ? o.sparks : 10;
+  for(let k=0;k<ns;k++){ const d = Math.random()*len; FX.emit(ev.x + Math.cos(ev.a)*d, 0.9, ev.y + Math.sin(ev.a)*d, 0, 1.5, 0, o ? o.col : 0xffb060, 0.3, 0.5, 0, 1); }
 };
 proto.updateAllies = function(dt, t){
   const V0 = this;
   // the climb: the higher you get, the more the Gloom lets go, and the light comes warm
   if(V0.G.climb && K.GLOOM){ const k = V0.G.climbK || 0; K.GLOOM.uGloom.value = 0.85*(1 - k); S.hemi.intensity = (V0.hemi0 === undefined ? (V0.hemi0 = S.hemi.intensity) : V0.hemi0)*(1 + 1.4*k*k); }
   if(V0.lbeams && V0.lbeams.length) V0.lbeams = V0.lbeams.filter(b=>{
-    b.t += dt; const k = Math.max(0, 1 - b.t/0.55);
+    b.t += dt; const k = Math.max(0, 1 - b.t/(b.life || 0.55));
     b.g.children.forEach(m=>{ m.material.opacity = m.userData.op*k; m.scale.x = m.scale.y = 1 + (1 - k)*0.6; });
     if(k <= 0){ S.scene.remove(b.g); b.g.children.forEach(m=>{ m.geometry.dispose(); m.material.dispose(); }); return false; }
     return true;
@@ -1055,6 +1090,7 @@ proto.updateAllies = function(dt, t){
     if(a.kind === "wisp" && Math.random() < 0.5) FX.emit(a.x, y, a.y, 0, 0.1, 0, ELC(a.el), 0.3, 0.3, 0, 1);
     if(a.kind === "shadow"){ const R = o.g.userData.rig, p = G.player; o.g.rotation.y = PI/2 - p.aim; if(R.gunKey !== W0gunKey(G)){ M.setGun(R, G.gun(), W0els(G)); } M.idle(R, t, Math.hypot(p.vx, p.vy)); }
     if(a.kind === "tadpole") o.g.children.forEach(c=>{ if(c.userData.baked) c.rotation.y = Math.sin(t*20 + a.id)*0.3; });
+    if(a.kind === "toad"){ const h = Math.abs(Math.sin(t*9 + a.id)); o.g.position.y = h*0.35*Math.min(1, Math.hypot(a.vx, a.vy)/2); o.g.scale.set(1 + (1 - h)*0.15, 0.85 + h*0.3, 1 + (1 - h)*0.15); }
     if(a.kind === "bee"){ o.g.position.y = y + Math.sin(t*14 + a.id)*0.1; o.g.userData.wings.forEach((w, i)=> w.rotation.z = Math.sin(t*60)*0.6*(i ? -1 : 1)); }
     if(a.kind === "ghoul"){ M.idle(o.g.userData.rig, t, Math.hypot(a.vx, a.vy)); o.g.position.y = 0.15 + Math.sin(t*3 + a.id)*0.08; if(Math.random() < 0.2) FX.emit(a.x, 0.6, a.y, 0, 0.6, 0, 0x6aff9a, 0.25, 0.4, 0, 1); }
     if(a.kind === "olm"){

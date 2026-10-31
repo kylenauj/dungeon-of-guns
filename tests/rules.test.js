@@ -453,7 +453,7 @@ test("the Wandwright's bench (the old treasure room) is a choice of workings for
     const r = G.D.rooms.find(x=> x.type === "treasure"), peds = r.props.filter(p=> p.kind === "pedestal");
     assert.equal(peds.length, n, "floor " + floor);
     assert.ok(peds.every(p=> p.offer.kind === "item" && !p.offer.price && DG.ITEMS[p.offer.id].pools.indexOf("w") >= 0), "free, all from the Wandwright's pool");
-    assert.ok(peds.some(p=> DG.ITEMS[p.offer.id].form), "one of them a form");
+    assert.ok(peds.some(p=> DG.ITEMS[p.offer.id].form || DG.ITEMS[p.offer.id].rite), "one of them a new way to fire: a form or a rite");
     const it = peds[0];
     G.player.x = it.x + 0.5; G.player.y = it.y + 1.2; G.room = r;
     G.interact();
@@ -2100,6 +2100,152 @@ test("the Kennel Hound pounces onto where Zippy stood, and lands", ()=>{
   assert.ok(!e.airborne && e.hop === 0);
   assert.ok(DG.dist(e.x, e.y, spot.x, spot.y) < 1.5, "on Zippy's spot");
 });
+test("a beast keeping its distance circles facing Zippy, at an even pace (no spinning round, no lurching)", ()=>{
+  // open floor: a spot with nothing solid within 5 tiles (the hound is big), in any room
+  let G, r, c;
+  for(let k=0; k<30 && !c; k++){
+    G = game("CIRCLE" + k, 1);
+    for(const rm of G.D.rooms) for(let y=rm.y1 + 5; y<=rm.y2 - 5 && !c; y++) for(let x=rm.x1 + 5; x<=rm.x2 - 5 && !c; x++){
+      let ok = true; for(let dy=-5; dy<=5 && ok; dy++) for(let dx=-5; dx<=5 && ok; dx++) if(G.D.at(x + dx, y + dy) !== DG.TILE.FLOOR) ok = false;
+      if(ok){ c = { x:x + 0.5, y:y + 0.5 }; r = rm; }
+    }
+  }
+  assert.ok(c, "an open floor somewhere");
+  G.player.x = c.x; G.player.y = c.y; G.god = true;
+  const s2 = { x:c.x + 2.9, y:c.y };                    // too close: it has to back off
+  const e = G.spawnEnemy(r, { type:"sneak", x:s2.x, y:s2.y, size:2.4, hpMul:20, lair:"hound" }); e.spawn = 0;
+  let worst = 0, jolt = 0, prevV = null, n = 0;
+  for(let i=0;i<60*3;i++){
+    e.ai.pounceCd = 99;                                   // no pounces: just the footwork
+    G.update(1/60, {}); G.drain();
+    const d = DG.dist(e.x, e.y, G.player.x, G.player.y), v = Math.hypot(e.vx, e.vy);
+    const circling = d > 2.6 && d < 7 && (e.ai.state === "idle" || e.ai.state === "chase") && G.los(e.x, e.y, G.player.x, G.player.y);
+    if(circling){
+      n++; worst = Math.max(worst, Math.abs(DG.wrapAngle(e.face - Math.atan2(G.player.y - e.y, G.player.x - e.x))));
+      if(prevV !== null) jolt = Math.max(jolt, Math.abs(v - prevV));
+    }
+    prevV = circling ? v : null;
+  }
+  assert.ok(n > 60, "it spent the time circling: " + n);
+  assert.ok(worst < 0.2, "it never turns its back while it circles: " + worst.toFixed(2));
+  assert.ok(jolt < 1.2, "its speed changes smoothly frame to frame: " + jolt.toFixed(2));
+});
+/* ---- the rites (DG.RITES): what the wand fires ---- */
+// an open floor with nothing solid within 6 tiles, the player in the middle of it, the room locked
+function riteArena(word, items){
+  for(let k=0;k<40;k++){
+    const G = game((word || "RITE") + k, 1, items);
+    for(const r of G.D.rooms) for(let y=r.y1 + 6; y<=r.y2 - 6; y++) for(let x=r.x1 + 6; x<=r.x2 - 6; x++){
+      let ok = true; for(let dy=-6; dy<=6 && ok; dy++) for(let dx=-6; dx<=6 && ok; dx++) if(G.D.at(x + dx, y + dy) !== T.FLOOR) ok = false;
+      if(ok){ G.enemies = []; G.player.x = x + 0.5; G.player.y = y + 0.5; G.god = true; return { G, r, x:x + 0.5, y:y + 0.5 }; }
+    }
+  }
+  throw new Error("no open floor");
+}
+// a tough goblin that stands still (so a rite's numbers can be read off it)
+function riteDummy(A, dx, dy, type){ const e = addEnemy(A.G, A.r, A.x + dx, A.y + dy, type || "grunt"); e.maxHp = e.hp = 5000; e.speed = 0; e.def = Object.assign({}, e.def, { speed:0 }); return e; }
+function riteFire(A, a, rite, mul){ const G = A.G, g = G.gun(), s = G.gunStats(g); G.player.aim = a; G.fireVolley(A.x, A.y, a, g, s, { from:"player", rite, mul:mul || 1 }); }
+const hurtOf = e=> e.maxHp - e.hp;
+
+test("every rite is an item, and an item gives its rite (two take turns, volley by volley)", ()=>{
+  DG.RITE_ORDER.forEach(id=>{ assert.ok(DG.RITES[id], id); assert.ok(Object.values(DG.ITEMS).some(d=> d.rite === id), "an item for " + id); });
+  assert.ok(DG.RITE_ORDER.length >= 10, "ten rites at least");
+  const A = riteArena("RT", ["r_lance", "r_rocket"]), G = A.G, seen = [];
+  assert.deepEqual(G.mods.rites, ["lance", "rocket"]);
+  const fv = G.fireVolley.bind(G); G.fireVolley = function(x, y, a, g, s, o){ if(!o.quiet) seen.push(o.rite); return fv(x, y, a, g, s, o); };
+  for(let i=0;i<4;i++){ G.player.fireCd = 0; G.fireGun(G.gun(), G.gunStats()); }
+  assert.deepEqual(seen, ["lance", "rocket", "lance", "rocket"]);
+});
+test("Sunlance: a beam through every goblin on the line, stopping at the wall", ()=>{
+  const A = riteArena("LANCE"), near = riteDummy(A, 2, 0), far = riteDummy(A, 5, 0), off = riteDummy(A, 3, 2.5);
+  riteFire(A, 0, "lance");
+  assert.ok(hurtOf(near) > 0 && hurtOf(far) > 0, "both on the line are hit");
+  assert.equal(hurtOf(off), 0, "not the one off it");
+  assert.ok(A.G.drain().some(e=> e.type === "lance"));
+});
+test("Brimstone Rockets speed up and explode on what's round the target", ()=>{
+  const A = riteArena("ROCKET"), t = riteDummy(A, 4, 0), side = riteDummy(A, 4.2, 1.1);
+  riteFire(A, 0, "rocket"); const b = A.G.bullets.find(q=> q.rocket), v0 = Math.hypot(b.vx, b.vy);
+  step(A.G, 0.2); assert.ok(Math.hypot(b.vx, b.vy) > v0, "it accelerates");
+  step(A.G, 2);
+  assert.ok(hurtOf(t) > 0 && hurtOf(side) > 0, "the blast takes the one beside it too");
+});
+test("Glacier Spear goes through everything and roots the small", ()=>{
+  const A = riteArena("SPEAR"), a = riteDummy(A, 2, 0), b = riteDummy(A, 4, 0);
+  riteFire(A, 0, "spear"); step(A.G, 0.25);
+  assert.ok((a.st.trapped || 0) > 0, "the first is rooted");
+  step(A.G, 1.2);
+  assert.ok(hurtOf(a) > 0 && hurtOf(b) > 0, "through both");
+});
+test("Rime Mines set where they land and go off when a goblin walks near", ()=>{
+  const A = riteArena("MINE"), G = A.G;
+  riteFire(A, 0, "mine"); step(G, 0.6);
+  const m = G.bullets.find(q=> q.armed);
+  assert.ok(m, "a mine is set"); assert.equal(Math.hypot(m.vx, m.vy), 0, "and still");
+  const e = riteDummy(A, m.x - A.x + 0.6, m.y - A.y);
+  step(G, 0.2);
+  assert.ok(m.dead && hurtOf(e) > 0, "it went off under the goblin");
+  // only ten at a time: the oldest goes off to make room
+  for(let i=0;i<14;i++){ riteFire(A, i*0.45, "mine"); step(G, 0.4); }
+  assert.ok(G.bullets.filter(q=> q.armed && !q.dead).length <= DG.RITES.mine.max);
+});
+test("Strangler Vine roots and poisons, and creeps on to the next two goblins", ()=>{
+  const A = riteArena("VINE"), a = riteDummy(A, 2, 0), b = riteDummy(A, 3.5, 1.5), c = riteDummy(A, 3.5, -1.5);
+  riteFire(A, 0, "vine"); const ev = step(A.G, 1);
+  [a, b, c].forEach((e, i)=> assert.ok(hurtOf(e) > 0, "goblin " + i + " was reached"));
+  assert.ok(a.st.poison && a.st.poison.stacks > 0, "poisoned");
+  assert.ok(ev.filter(e=> e.type === "vine").length >= 2, "it crept twice");
+});
+test("Locust Censer: no bolts, a swarm (with a cap) that bites", ()=>{
+  const A = riteArena("LOCUST"), G = A.G, e = riteDummy(A, 3, 0);
+  riteFire(A, 0, "locust");
+  assert.equal(G.bullets.filter(q=> q.team === "p").length, 0, "no bolts");
+  assert.equal(G.allies.filter(q=> q.kind === "bee").length, DG.RITES.locust.n);
+  for(let i=0;i<20;i++) riteFire(A, 0, "locust");
+  assert.ok(G.allies.filter(q=> q.kind === "bee").length <= DG.RITES.locust.max, "capped");
+  step(G, 2); assert.ok(hurtOf(e) > 0, "they bite");
+});
+test("Ball Lightning drifts slowly and zaps what's near it", ()=>{
+  const A = riteArena("BALL"), G = A.G, e = riteDummy(A, 2.5, 2.2);
+  riteFire(A, 0, "ball"); const b = G.bullets.find(q=> q.zap);
+  assert.ok(Math.hypot(b.vx, b.vy) < G.gunStats().speed*0.5, "slow");
+  step(G, 1.2); assert.ok(hurtOf(e) > 0, "zapped from off its path");
+});
+test("Meteor Psalm lands where Zippy aims, over whatever's in between", ()=>{
+  const A = riteArena("METEOR"), G = A.G, e = riteDummy(A, 4, 0);
+  G.player.aimX = A.x + 4; G.player.aimY = A.y;
+  riteFire(A, 0, "meteor");
+  const m = G.bombs.find(q=> q.meteor); assert.ok(m && Math.abs(m.tx - (A.x + 4)) < 0.01);
+  step(G, 1); assert.ok(hurtOf(e) > 0);
+});
+test("Singularity drags goblins toward it, then collapses with a bang", ()=>{
+  const A = riteArena("VOID"), G = A.G, e = addEnemy(G, A.r, A.x + 3, A.y + 2);
+  e.maxHp = e.hp = 5000; e.ai.state = "stun"; e.st.stun = 99;
+  riteFire(A, 0, "void"); const b = G.bullets.find(q=> q.void);
+  const d0 = DG.dist(b.x, b.y, e.x, e.y); step(G, 0.5);
+  assert.ok(DG.dist(b.x, b.y, e.x, e.y) < d0, "pulled closer");
+  step(G, 6); assert.ok(b.dead && hurtOf(e) > 0);
+});
+test("Toad Volley flings toads that bite (no more than eight)", ()=>{
+  const A = riteArena("TOAD"), G = A.G, e = riteDummy(A, 3, 0);
+  riteFire(A, 0, "frogs"); assert.equal(G.allies.filter(q=> q.kind === "toad").length, 1);
+  step(G, 2); assert.ok(hurtOf(e) > 0, "it bit");
+  for(let i=0;i<20;i++) riteFire(A, 0, "frogs");
+  assert.ok(G.allies.filter(q=> q.kind === "toad").length <= DG.RITES.frogs.max);
+});
+test("Toadtongue Lash hits the cone in front, not behind, and drags them in", ()=>{
+  const A = riteArena("LASH"), front = addEnemy(A.G, A.r, A.x + 2.6, A.y), back = riteDummy(A, -2, 0);
+  front.maxHp = front.hp = 5000;
+  riteFire(A, 0, "lash");
+  assert.ok(hurtOf(front) > 0 && hurtOf(back) === 0);
+  assert.ok(DG.dist(front.x, front.y, A.x, A.y) < 2.5, "dragged closer");
+});
+test("Dragon's Breath is a short cone: close goblins burn, far ones are out of reach", ()=>{
+  const A = riteArena("BREATH"), near = riteDummy(A, 2, 0), far = riteDummy(A, 6.5, 0);
+  riteFire(A, 0, "breath"); step(A.G, 1.5);
+  assert.ok(hurtOf(near) > 0 && hurtOf(far) === 0);
+});
+
 test("the Gravedigger's spade opens a grave that drags at Zippy's feet; the dead climb out of it", ()=>{
   const G = game("GRAVE", 3);
   G.D.theme = Object.assign({}, G.D.theme, { boss:"gravedigger" });

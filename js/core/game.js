@@ -209,7 +209,7 @@ proto.makeOffer = function(r, pr){
   // the Wandwright's bench always has one new way for the wand to fire among its workings
   if(r.type === "treasure" && pool === "w" && !lean){
     const mates = r.props.filter(o=> o !== pr && o.kind === "pedestal" && o.group === pr.group);
-    if(mates.every(o=> o.offer) && !mates.some(o=> o.offer.kind === "item" && DG.ITEMS[o.offer.id].form)) lean = { form:true };
+    if(mates.every(o=> o.offer) && !mates.some(o=> o.offer.kind === "item" && (DG.ITEMS[o.offer.id].form || DG.ITEMS[o.offer.id].rite))) lean = { form:true };
   }
   const id = Items.roll(G, pool, lean);
   const o = { kind:"item", id, name:DG.ITEMS[id].name };

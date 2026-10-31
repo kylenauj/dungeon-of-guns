@@ -136,6 +136,29 @@ Costumes also move: the cape flares as he runs; halos, ghosts and gremlins bob; 
 - **Pixels:** chunky pixel mode keeps more detail (h/500).
 - **Portrait:** a window in the bottom-right corner shows Zippy and Gribbus up close, slowly turning so things on their backs come into view. It's labelled with any transformation.
 
+### 3.5e Rites: what the wand fires
+
+A Form reshapes the bolt; a **rite** replaces it (`DG.RITES` in data.js, items `r_*`, `Game.riteVolley` in combat.js). More shots (Twinshot, side shots, bursts, echoes) still mean more of whatever it fires, and the wand's damage, rate and range still drive it. Carry two rites and your volleys take turns. The treasure bench's "new way to fire" slot offers a Form or a rite.
+
+| Rite | Element | What it does |
+|---|---|---|
+| Sunlance | fire | a beam to the first wall, through every goblin on the line |
+| Dragon's Breath | fire | a short roaring cone of flame, fast, through two goblins |
+| Brimstone Rockets | none | slow off the wand, accelerating, homing a little, exploding |
+| Glacier Spear | frost | heavy ice spears through four goblins, shoving and rooting |
+| Rime Mines | frost | fly a short way, set, and go off when something steps near (ten at once) |
+| Strangler Vine | poison | roots and poisons what it hits and creeps on to two more |
+| Locust Censer | poison | no bolts: a puff of locusts that hunt for six seconds (up to sixteen) |
+| Ball Lightning | shock | a slow drifting ball that zaps the two nearest goblins |
+| Meteor Psalm | arcane | lobbed over everything to where you aim, comes down as a falling star |
+| Singularity | arcane | a slow dark star that drags goblins in, then collapses |
+| Toad Volley | frog | flings toads that hop to goblins and bite (up to eight) |
+| Toadtongue Lash | frog | a lash across a cone in front of you that drags goblins in |
+
+Duos: Plague of Locusts (Locust Censer + Bee Hive), Thunderhead (Ball Lightning + Conductor: four zaps), Strangling Garden (Strangler Vine + Plague Spreader: creeps to four), Brimstone Barrage (Rockets + Mega Bombs: wider blasts, faster), Impaler (Glacier Spear + Drill Bits: three more pierces, roots anything not huge).
+
+Each rite is tuned to land near a plain bolt on one target (0.45x for Singularity, which is crowd control, to 1.4x for the locusts) and to earn its keep in its own shape: a line, a blast, a crowd, a trap. Against one dummy / the power test's pack of eight / four close in: Sunlance 0.91 / 2.4 / 2.0, Breath 0.67 / 0.2 / 3.2, Rockets 1.05 / 3.1 / 2.5, Spear 0.86 / 2.9 / 1.6, Mines 0.90 / 2.6 / 2.7, Vine 1.15 / 3.1 / 2.4, Locusts 1.39 / 1.6 / 1.4, Ball 0.70 / 2.6 / 1.5, Meteor 1.10 / 3.2 / 3.1, Singularity 0.45 / 4.3 / 1.1, Toads 1.26 / 1.4 / 1.5, Lash 0.19 / 0.2 / 3.6 (it only reaches three tiles). `npm run power`: median 5.4x -> 4.7x, p90 13.0x -> 11.9x, peak shots alive max 160 -> 66; the weakest build (0.9x -> 0.1x) is a close-range rite against the power test's far dummies.
+
 ### 3.6 Ascensions
 A gun plus its matching item becomes an ascended gun, Vampire Survivors-style (for example, the Hex SMG plus Venom Rounds becomes the Plague Sprayer).
 
@@ -300,6 +323,12 @@ Every puzzle is generated and always solvable (the tests check). It rewards an i
 | **Statues** | Each statue turns 90° when shot. Make them all face the eye. |
 
 ---
+
+### 8.x How the big things move
+
+- **Keeping their distance** (`keepAway` in ai.js, used by the ranged goblins, the Many-Eyed, the Kennel Hound, the Moth-Widow and others): one blended heading, not three modes. Too far, they come in; too close, they back off still facing you; in between they circle, and the pace eases between them. They see a wall coming and turn the other way round instead of running into it and stopping dead. (Before, they charged in, turned their backs to run, side-stepped, and spun round again: a boss lurched about and whipped through half a circle.)
+- **Turning** (view.js): small things snap round; a boss or a lair's beast eases round and turns at most 5 (bosses) or 7 (lair beasts) radians a second.
+- **Gnaw, the Kennel Hound** is a heavy wolf now: a deep chest and broad shoulders under a shaggy mane of laid-back locks, thick legs on broad paws, a brush of a tail (about 26k triangles). It was a body a hand's width across on stick legs, and read as a sheet of paper from above.
 
 ## 9. Difficulty
 Goblins scale per floor (HP ×1, ×1.6, ×2.6, ×3.8, ×5.2 by floor 5: the late floors steepened in October 2026, when a played run was "broken" by level 13; `npm run balance` average floor 2.58 → 2.42, no bot win where there had been one; floor 1 unchanged). Powerups are how you keep up, and since the October 2026 rework (no levels, fewer items, enemy shots that hang, bend and burst) most runs don't keep up for long: `npm run balance` 2.83 → 2.58, `npm run power` median 4.5x → 3.3x, p90 15.7x → 8.3x, the luckiest build still 24x. Guns still have levels, but powerups multiply everything. Elites roll affixes. Bosses get one extra phase per endless loop. Balance is tuned against `npm run balance`, which has a bot play full runs.
