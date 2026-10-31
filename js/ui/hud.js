@@ -343,7 +343,6 @@ H.draw = function(G, dt, opts){
     offers.forEach(pr=>{
       if(H.nearOffer === pr) return;   // the card at the bottom says it all
       const o = pr.offer, x = pr.x + 0.5, z = pr.y + 0.5, top = S.project(x + up.x*0.72, 2.5 + up.y*0.72, z + up.z*0.72);
-      if(top.behind) return;
       let y = top.y - 7*k;
       if(o.currency){ text(g, o.currency === "gold" ? o.price + " gold" : o.currency === "pact" ? "the price: " + DG.PACTS[o.pact].name : "−" + o.price + " max HP", top.x, y, 12*k, o.currency === "gold" ? (p.gold >= o.price ? GOLD2 : HP2) : HP2, "center", "600", BOOK); y -= 15*k; }
       if(pr === named){
@@ -382,7 +381,6 @@ H.draw = function(G, dt, opts){
     b.t += dt;
     const e = G.enemies.find(o=> o.id === b.id); if(e){ b.x = e.x; b.y = e.y; }
     const s = S.project(b.x, 2.4, b.y);
-    if(s.behind) return b.t < 1.6;
     const size = 15*k, tw = measure(g, b.text, size, "italic 500", BOOK) + 22;
     A(Math.min(1, b.t*6, (1.6 - b.t)*3));
     const gr = g.createLinearGradient(s.x - tw/2, 0, s.x + tw/2, 0);
@@ -396,7 +394,6 @@ H.draw = function(G, dt, opts){
     n.t += dt;
     if(n.t < 0) return true;
     const s = S.project(n.x, n.z + n.t*1.6, n.y);
-    if(s.behind) return n.t < (n.big ? 1.3 : 0.9);
     A(Math.min(1, ((n.big ? 1.3 : 0.9) - n.t)*4));
     const sz = (n.big ? 22 : n.crit ? 19 : 14)*k*(n.t < 0.08 ? 1.35 : 1);
     text(g, String(n.v), s.x, s.y, sz, n.col, "center", "700", SERIF, n.big ? 1.5 : 0);
@@ -584,7 +581,7 @@ H.draw = function(G, dt, opts){
       const s = S.project(e.x, 1, e.y), mg = 40;
       const on = !s.behind && s.x > mg && s.x < W - mg && s.y > mg && s.y < Hh - mg;
       if(on && !e.hidden) return;
-      const cx = W/2, cy = Hh/2, a = H.edgeAngle(e.x, e.y, s, cx, cy);
+      const cx = W/2, cy = Hh/2, a = Math.atan2(s.y - cy, s.x - cx);
       let ax = s.x, ay = s.y;
       if(!on){ const t = Math.min((W/2 - mg)/Math.abs(Math.cos(a) || 1e-6), (Hh/2 - mg)/Math.abs(Math.sin(a) || 1e-6)); ax = cx + Math.cos(a)*t; ay = cy + Math.sin(a)*t; }
       g.save(); g.translate(ax, ay); g.rotate(on ? Math.PI/2 : a);
@@ -743,47 +740,10 @@ H.draw = function(G, dt, opts){
     }
   }
 
-  if(!opts.noCursor && S.fpsLive) H.fpsWarn(g, G, W, Hh, k);
   if(!opts.noCursor) H.crosshair(g, G);
   g.globalAlpha = 1;
 };
 
-/* which way, round the middle of the screen, a point on the floor lies (an arrow at
-   the edge points there). A point behind the camera projects mirrored, so in first
-   person the angle comes from where he's looking instead */
-H.edgeAngle = function(x, y, s, cx, cy){
-  const S = DG.Stage;
-  if(S.fpsLive){ const p = H.G && H.G.player; if(p){ const rel = Math.atan2(y - p.y, x - p.x) - S.look.yaw; return rel - Math.PI/2; } }
-  return Math.atan2(s.y - cy, s.x - cx) + (s.behind ? Math.PI : 0);
-};
-/* first person: shots you can't see coming. A red notch at the edge of the screen
-   for each one closing in from outside the view, brighter the closer it is; and
-   the click that takes the mouse, until it's taken */
-H.fpsWarn = function(g, G, W, Hh, k){
-  const S = DG.Stage, p = G.player, cx = W/2, cy = Hh/2, mg = 34;
-  H.G = G;
-  if(!document.pointerLockElement && !(DG.Input && DG.Input.usingPad)){
-    g.globalAlpha = 0.75 + 0.25*Math.sin(G.t*3);
-    text(g, "CLICK TO LOOK AROUND", cx, cy + 46*k, 13*k, BONE, "center", "700", SERIF, 3);
-    g.globalAlpha = 1;
-  }
-  G.bullets.forEach(b=>{
-    if(b.team !== "e" || b.dead) return;
-    const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy);
-    if(d > 8 || d < 0.01 || (b.vx*dx + b.vy*dy) <= 0) return;
-    const s = S.project(b.x, 0.75, b.y);
-    if(!s.behind && s.x > mg && s.x < W - mg && s.y > mg && s.y < Hh - mg) return;
-    const a = H.edgeAngle(b.x, b.y, s, cx, cy);
-    const t = Math.min((W/2 - mg)/Math.abs(Math.cos(a) || 1e-6), (Hh/2 - mg)/Math.abs(Math.sin(a) || 1e-6));
-    g.save(); g.translate(cx + Math.cos(a)*t, cy + Math.sin(a)*t); g.rotate(a);
-    g.globalAlpha = Math.min(1, 0.25 + (8 - d)/6);
-    const sz = 1 + (8 - d)/8;
-    g.beginPath(); g.moveTo(12*sz, 0); g.lineTo(-6*sz, -10*sz); g.lineTo(-2*sz, 0); g.lineTo(-6*sz, 10*sz); g.closePath();
-    g.fillStyle = "#ff3a22"; g.fill(); g.lineWidth = 2; g.strokeStyle = INK; g.stroke();
-    g.restore();
-  });
-  g.globalAlpha = 1;
-};
 H.crosshair = function(g, G){
   const m = DG.Input.mouse, p = G.player, s = G.gunStats();
   const r = 9 + (p.reloadT > 0 ? 3 : 0);

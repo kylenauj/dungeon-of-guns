@@ -363,16 +363,6 @@ The next step for the look ("Ash & Ember": why it still reads cozy, the rules, a
 
 ---
 
-### 10.x First person (an experiment)
-
-VIEW in the menus (or `?fps`, `?fps=0`) plays the same game through Zippy's eyes. Only the view changes. The game underneath is the same 2D simulation, as in Doom, so rooms, items, enemies, puzzles, the bot and the tests are untouched.
-- **Controls:** click to take the mouse (pointer lock); the mouse turns his head, WASD walks relative to where he looks, and he aims and fires where he looks (`Input.sample`: the aim point is the first wall ahead, at most 8 tiles out). Losing the mouse (Esc, alt-tab) pauses. On a pad, the left stick walks and the right stick looks.
-- **The floor is built for it** (`Stage.fpsWorld`, read by `World`): every wall full height (no low south walls), a dark stone ceiling at `K.WALL_H`, and no see-through dither. So switching VIEW takes effect from the next floor.
-- **The camera** (`Stage.updateCamera`): eye height 1.32, a 74° lens with a near plane of 0.05, a little walk bob and shake. Cutscenes, boss intros, the title and the death screen use the top-down camera.
-- **What you see of him:** a sleeve, a gloved hand and his wand (`View.viewModel`, built with `Models.setGun` like his own), which sways, bobs, and kicks when he fires. His body is hidden. Gribbus fades when he's at your heels, so he never fills the screen.
-- **Readability:** rooms down a corridor you know are drawn, so an open door looks into the next room. Enemy shots closing in from outside the view put a red notch at the edge of the screen (`HUD.fpsWarn`), and the arrows to the last foes point the right way when the foes are behind you.
-- **Not yet:** south-facing walls are bare (wall dressing faces the top-down camera), models and props are made to be seen from above and look rough up close, and fights are tuned for top-down dodging. In first person, the shots you can't see are the danger.
-
 ## 11. Architecture
 
 ```

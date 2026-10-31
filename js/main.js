@@ -27,7 +27,7 @@ function newWord(){ return DG.seedWord((Math.random()*4294967296) >>> 0 ^ Date.n
 app.startDemo = function(){
   app.stopRun();
   const G = new DG.Game({ seedWord:newWord(), floor:1 + Math.floor(Math.random()*3) });
-  G.god = true; S.fpsWorld = false;
+  G.god = true;
   app.G = G; app.V = new DG.View(G); app.V.silent = true;
   app.demo = new DG.Bot(G, { dodge:0.9 });
   app.mode = "title";
@@ -72,7 +72,6 @@ app.newRunNow = function(word){
   const moods = DG.FLOOR_MOODS[(G.floor - 1) % DG.FLOOR_MOODS.length], mood = !G.side && moods && moods.find(m=> m.id === Q.get("mood"));
   if(mood && !G.D.climb) G.D.theme = DG.Dungeon.withMood(Object.assign({}, DG.FLOORS[(G.floor - 1) % DG.FLOORS.length], { boss:G.D.theme.boss }), mood);
   if(DG.LAIRS[Q.get("lair")]) G.D.rooms.forEach(r=>{ if(r.type === "lair") r.lair = Q.get("lair"); });
-  S.fpsWorld = S.fps; S.look.yaw = -Math.PI/2; S.look.pitch = -0.08;
   app.G = G; app.V = new DG.View(G); app.demo = null;
   app.mode = "play"; app.acc = 0; app.pend = {};
   HUD.reset(); UI.hide(); IN.clear();
@@ -91,18 +90,13 @@ app.stopRun = function(){
   document.body.classList.remove("playing");
 };
 
-app.pause = function(){ if(app.mode !== "play") return; app.mode = "pause"; UI.pause(app.G); IN.clear(); IN.unlock(); document.body.classList.remove("playing"); };
-app.resume = function(){ app.mode = "play"; app.pend = {}; UI.hide(); IN.clear(); document.body.classList.add("playing"); if(fpsOn()) IN.lock(); };
-/* first person: only on a floor built for it (full walls and a ceiling), only in play, never in a cutscene */
-function fpsOn(){ const V = app.V; return !!(S.fps && V && V.world && V.world.fps && !V.cine && !app.demo && app.mode !== "title" && app.mode !== "end" && app.mode !== "cine"); }
-IN.lockable = ()=> app.mode === "play";
-// losing the mouse (Esc, alt-tab) pauses, as Esc does in the top-down view
-document.addEventListener("pointerlockchange", ()=>{ if(!document.pointerLockElement && app.mode === "play" && S.fpsLive) app.pause(); });
-app.openBag = function(){ if(app.mode !== "play" && app.mode !== "pause") return; app.mode = "bag"; UI.bag(app.G); IN.clear(); IN.unlock(); document.body.classList.remove("playing"); };
-app.choose = function(){ app.mode = "choose"; UI.choose(app.G); IN.clear(); IN.unlock(); document.body.classList.remove("playing"); };
+app.pause = function(){ if(app.mode !== "play") return; app.mode = "pause"; UI.pause(app.G); IN.clear(); document.body.classList.remove("playing"); };
+app.resume = function(){ app.mode = "play"; app.pend = {}; UI.hide(); IN.clear(); document.body.classList.add("playing"); };
+app.openBag = function(){ if(app.mode !== "play" && app.mode !== "pause") return; app.mode = "bag"; UI.bag(app.G); IN.clear(); document.body.classList.remove("playing"); };
+app.choose = function(){ app.mode = "choose"; UI.choose(app.G); IN.clear(); document.body.classList.remove("playing"); };
 app.pick = function(i){ if(app.mode !== "choose") return; app.G.choose(i); app.resume(); };
 app.end = function(won){
-  app.mode = "end"; IN.unlock();
+  app.mode = "end";
   rememberRun(app.G);
   saveMeta(app.G.meta);
   UI.record(app.G);
@@ -134,13 +128,7 @@ UI.on({
   abandon: ()=>{ app.G.state = "dead"; app.G.lastHurt = "giving up"; app.end(false); },
   lore: ()=>{ if(app.mode === "end") UI.end(app.G, true); },
   endless: ()=>{ if(app.V && app.V.cine){ app.V.cine.dispose(); app.V.cine = null; } app.G.keepGoing(); app.mode = "play"; UI.hide(); document.body.classList.add("playing"); },
-  boon: b=> app.pick(+b.dataset.i),
-  // VIEW: top-down or first person (an experiment); a floor is built for one or the other
-  view: b=>{
-    const on = S.setFps(!S.fps), run = app.G && !app.demo && app.mode !== "title";
-    if(b){ const v = b.querySelector(".val"); if(v) v.textContent = on ? "FIRST PERSON" : "TOP-DOWN"; }
-    if(run) HUD.toast(on ? "First person from the next floor" : "Top-down from the next floor", 2.2);
-  }
+  boon: b=> app.pick(+b.dataset.i)
 });
 
 /* ---- keys that aren't game controls ---- */
@@ -178,8 +166,6 @@ function frame(dt, t){
   // painted, and the events that came with the descent are handled after it
   if(app.descend){
     const d = app.descend; d.n++;
-    // (a new floor is built for the view chosen now: VIEW in the menus says "from the next floor")
-    if(d.n === 3 && !app.demo) S.fpsWorld = S.fps;
     if(d.n === 3){ [d.ev].concat(d.rest).forEach(ev=>{ V.handle(ev); HUD.handle(ev, G); }); }
     if(d.n > 3){ V.update(dt, t); S.follow(G.player.x, G.player.y, G.player.x, G.player.y, true); }
     if(d.n === 6){ Veil.hide(); app.descend = null; app.acc = 0; }
@@ -229,11 +215,9 @@ function frame(dt, t){
     AU.setMode(boss ? "boss" : G.room && G.room.active ? "fight" : "explore");
   }
   V.update(dt, t);
-  const p = G.player, m = IN.mouse, aim = app.mode === "play" && !S.fpsLive ? S.unproject(m.x, m.y, 0) : null;
+  const p = G.player, m = IN.mouse, aim = app.mode === "play" ? S.unproject(m.x, m.y, 0) : null;
   const px = S.ix(p), py = S.iy(p);
-  S.fpsLive = fpsOn(); S.look.speed = Math.hypot(p.vx || 0, p.vy || 0);
-  if(S.fpsLive) S.follow(px, py, px, py, true);
-  else if(!V.cine) S.follow(px, py, aim ? aim.x : px, aim ? aim.z : py);
+  if(!V.cine) S.follow(px, py, aim ? aim.x : px, aim ? aim.z : py);
   // the camera eases back in a fight (more for a big arena or a boss), and in close to explore
   const rm = G.room, big = rm && (rm.x2 - rm.x1 > 16 || rm.y2 - rm.y1 > 12);
   S.rig.zoomWant = V.cine || !(rm && rm.active) ? 1 : G.bossRef && !G.bossRef.dead ? 1.22 : big ? 1.15 : 1.08;
@@ -244,7 +228,7 @@ app.startDemoSoon = function(){
   const keep = document.getElementById("screens").innerHTML;
   app.V.dispose();
   const G = new DG.Game({ seedWord:newWord(), floor:1 + Math.floor(Math.random()*3) });
-  G.god = true; S.fpsWorld = false;
+  G.god = true;
   app.G = G; app.V = new DG.View(G); app.V.silent = true; app.demo = new DG.Bot(G, { dodge:0.9 });
   if(!keep) UI.title();
 };

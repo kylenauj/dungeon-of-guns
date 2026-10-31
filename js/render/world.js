@@ -187,8 +187,6 @@ const World = DG.World = function(D){
   const W = this;
   W.D = D; W.group = new THREE.Group(); W.th = D.theme;
   DG.Decor.torch = D.theme.torch || 0x7dff3a;
-  // built for first person (Stage.fpsWorld): every wall full height, and a ceiling
-  W.fps = !!DG.Stage.fpsWorld;
   W.areas = {}; W.doors = []; W.fakes = []; W.lights = []; W.flames = []; W.traps = []; W.props = {}; W.eyes = []; W.pz = {};
   W.mats = {
     floor: stoneMat("floor"),
@@ -321,11 +319,6 @@ proto.buildAreas = function(){
         b.edge.push(strip(0.07, 0.075)); b.edgeSoft.push(strip(0.5, 0.07));
       });
     }
-    if(W.fps && walkable(t)){
-      // first person: a ceiling of dark stone over everything you can walk under
-      const g = new THREE.PlaneGeometry(1, 1); g.rotateX(PI/2); g.translate(x + 0.5, WH, y + 0.5);
-      b.plain.push(K.paint(g, new THREE.Color(th.top).multiplyScalar(0.5), (c, px, py, pz)=> c.multiplyScalar(0.8 + vnoise(px*0.4 + 7, pz*0.4)*0.4)));
-    }
     if(t === T.WATER){
       const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-PI/2); g.translate(x + 0.5, -0.35, y + 0.5);
       b.plain.push(K.paint(g, 0x0a1410));
@@ -334,7 +327,7 @@ proto.buildAreas = function(){
       let touch = false;
       for(const [dx, dy] of DG.DIRS8){ const n = D.at(x + dx, y + dy); if(walkable(n) || n === T.FAKE){ touch = true; break; } }
       if(!touch) continue;
-      const south = !W.fps && walkable(D.at(x, y - 1)) && !walkable(D.at(x, y + 1));
+      const south = walkable(D.at(x, y - 1)) && !walkable(D.at(x, y + 1));
       b.wall.push(...W.wallBlock(x, y, south));
       // on top of walls facing a room
       if(!south && walkable(D.at(x, y + 1))){
@@ -1478,27 +1471,18 @@ proto.rebuildBeam = function(r){
   o.hit = tr.hit; o.ver = pz.items.map(it=> it.q).join("");
 };
 
-/* first person: can room i be seen down a corridor you already know? (secret rooms never) */
-proto.peek = function(i){
-  const D = this.D, r = D.rooms[i];
-  if(r.type === "secret") return false;
-  return D.corridors.some(c=> !c.secret && (c.a === i || c.b === i) && DG.Dungeon.corridorKnown(D, c));
-};
 /* ================================================================== *
  *  Per frame
  * ================================================================== */
 proto.update = function(G, dt, t){
   const W = this, D = W.D, p = G.player, S = DG.Stage;
   // the see-through: any wall between Zippy and the camera opens around him
-  // (in first person nothing stands between him and the camera)
-  K.GLOOM.uSeeP.value.set(p.x, S.fpsLive ? -99 : 0.9, p.y); K.GLOOM.uSeeC.value.copy(S.camera.position);
-  // fog of war; in first person a room shows once a corridor you know leads to it,
-  // so an open door looks into it (the walls hide the rest)
-  const fps = W.fps && S.fpsLive;
+  K.GLOOM.uSeeP.value.set(p.x, 0.9, p.y); K.GLOOM.uSeeC.value.copy(S.camera.position);
+  // fog of war
   for(const id in W.areas){
     const A = W.areas[id], i = +id;
     // (three.js draws anything whose visible isn't exactly false, so: booleans only)
-    A.g.visible = i < 100 ? !!D.rooms[i].seen || (fps && W.peek(i)) : DG.Dungeon.corridorKnown(D, D.corridors[i - 100]);
+    A.g.visible = i < 100 ? !!D.rooms[i].seen : DG.Dungeon.corridorKnown(D, D.corridors[i - 100]);
   }
   // doors
   W.doors.forEach(o=>{

@@ -41,42 +41,6 @@ const View = DG.View = function(G){
 };
 const proto = View.prototype;
 
-/* first person: the wand in his right hand, a sleeve of his robe, a gloved hand.
-   It hangs off the camera; it sways when he turns, bobs when he walks, and
-   kicks when he fires. Rebuilt like his own when the wand changes. */
-proto.viewModel = function(G, dt, t){
-  const V = this;
-  if(!S.fpsLive){ if(V.vm) V.vm.root.visible = false; return; }
-  if(!V.vm){
-    if(S.camera.parent !== S.scene) S.scene.add(S.camera);
-    const root = new THREE.Group(), hand = new THREE.Group(), gun = new THREE.Group();
-    root.add(hand); hand.add(gun); hand.rotation.y = PI; hand.scale.setScalar(0.72);
-    const arm = new THREE.Group(), P = K.part;
-    P(arm, new THREE.CylinderGeometry(0.045, 0.07, 0.5, 10), 0x3a3530, 0, -0.03, -0.3, PI/2);       // the sleeve
-    P(arm, new THREE.CylinderGeometry(0.075, 0.08, 0.06, 10), 0x2a2622, 0, -0.03, -0.07, PI/2);     // its cuff
-    P(arm, new THREE.SphereGeometry(0.048, 12, 8), 0x4a3a2c, 0, -0.005, -0.02, 0, 0, 0, 1, 0.8, 1.25);  // the glove
-    K.bake(arm, { mat:K.toon(), w:0.018 }); hand.add(arm);
-    S.camera.add(root);
-    V.vm = { root, hand, parts:{ gun }, sway:{ x:0, y:0 }, lastYaw:S.look.yaw, lastPitch:S.look.pitch, kick:0 };
-    root.traverse(o=>{ o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; });
-  }
-  const vm = V.vm, L = S.look, p = G.player;
-  vm.root.visible = G.state !== "dead";
-  const els = [G.gun().element].concat(G.mods.els.filter(e=> e !== G.gun().element));
-  if(vm.gunKey !== G.gun().uid + ":" + els.join(",")){ M.setGun(vm, G.gun(), els); vm.root.traverse(o=>{ o.castShadow = false; o.frustumCulled = false; }); }
-  // sway: it lags a turn of the head, then settles
-  let dy = L.yaw - vm.lastYaw; dy -= Math.round(dy/(2*PI))*2*PI;
-  const dp = L.pitch - vm.lastPitch; vm.lastYaw = L.yaw; vm.lastPitch = L.pitch;
-  const k = 1 - Math.exp(-dt*10);
-  vm.sway.x += (Math.max(-0.08, Math.min(0.08, -dy*0.6)) - vm.sway.x)*k;
-  vm.sway.y += (Math.max(-0.06, Math.min(0.06, dp*0.5)) - vm.sway.y)*k;
-  vm.kick = Math.max(0, vm.kick - dt*7);
-  const sp = Math.min(1, L.speed/3), bx = Math.cos(L.bob)*0.012*sp, by = Math.abs(Math.sin(L.bob))*0.014*sp;
-  const blink = p.blinkT > 0 ? 1 : 0, rel = p.reloadT > 0 ? 1 : 0;
-  vm.root.position.set(0.17 + vm.sway.x + bx, -0.17 + vm.sway.y - by - blink*0.08 - rel*0.05, -0.34 + vm.kick*0.05);
-  vm.hand.rotation.set(-0.06 + vm.kick*0.25 + rel*0.5, PI + 0.08, -0.05 + rel*0.4);
-};
-
 /* Zippy wears what he carries: rebuilt whenever his costume changes */
 proto.dressPlayer = function(look){
   const V = this, old = V.player, R = M.zippy(look);
@@ -286,7 +250,6 @@ proto.warmUp = function(now){
 
 proto.dispose = function(){
   const V = this;
-  if(V.vm){ S.camera.remove(V.vm.root); V.vm = null; }
   if(V.world){ S.scene.remove(V.world.group); V.world.dispose(); }
   for(const id in V.rigs) S.scene.remove(V.rigs[id].root);
   V.dying.forEach(d=> S.scene.remove(d.R.root));
@@ -327,9 +290,8 @@ proto.handle = function(ev){
     }
     case "shoot": {
       if(ev.from === "player" || !ev.from){
-        const fp = S.fpsLive && V.vm && V.vm.muzzle, m = fp ? V.vm.muzzle : V.player.muzzle, w = new THREE.Vector3(); m.getWorldPosition(w);
-        if(fp) V.vm.kick = Math.min(1, (V.vm.kick || 0) + 0.6);
-        else FX.burst(w.x, w.y, w.z, ELC(ev.el), ev.base === "shotgun" ? 8 : 3, 3, 0.25, 0.15, { col2:0xffffff });
+        const m = V.player.muzzle, w = new THREE.Vector3(); m.getWorldPosition(w);
+        FX.burst(w.x, w.y, w.z, ELC(ev.el), ev.base === "shotgun" ? 8 : 3, 3, 0.25, 0.15, { col2:0xffffff });
         S.flash.position.set(w.x, w.y + 0.3, w.z); S.flash.color.setHex(ELC(ev.el)); S.flash.intensity = ev.base === "shotgun" || ev.base === "launcher" ? 2.5 : 1.2;
         V.recoil = Math.min(1.3, (V.recoil || 0)*0.4 + (ev.base === "shotgun" || ev.base === "launcher" ? 1.2 : ev.base === "rifle" ? 1 : ev.base === "smg" ? 0.45 : 0.7));
         if(ev.base === "shotgun" || ev.base === "launcher") S.shake(0.12);
@@ -711,8 +673,7 @@ proto.update = function(dt, t){
     V.hold.t -= dt;
     const k = V.hold.t, up = Math.min(1, (1.4 - k)*6, k*5);
     W.parts.armL.rotation.x = -1.0 - 1.9*up; W.parts.armL.rotation.z = -0.3 + 0.25*up;
-    if(S.fpsLive){ const L = S.look; V.hold.g.position.set(px + Math.cos(L.yaw)*1.3, 1.5 + 0.15*up + Math.sin(t*4)*0.04, py + Math.sin(L.yaw)*1.3); }
-    else V.hold.g.position.set(px, 2.95 + 0.25*up + Math.sin(t*4)*0.05, py); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
+    V.hold.g.position.set(px, 2.95 + 0.25*up + Math.sin(t*4)*0.05, py); V.hold.g.rotation.y = t*2; V.hold.g.scale.setScalar(Math.max(0.01, up)*1.3);
     if(k <= 0){ S.scene.remove(V.hold.g); V.hold = null; W.parts.armL.rotation.z = -0.3; }
   }
   if(V.spinT > 0){ V.spinT -= dt; W.root.rotation.y += (1 - V.spinT/1.4)*PI*4*dt*3; }
@@ -736,9 +697,6 @@ proto.update = function(dt, t){
   if(dead && V.zDead > 0.5 && Math.random() < 0.35) FX.emit(p.x + (Math.random() - 0.5)*0.6, 0.3 + Math.random()*0.9, p.y + (Math.random() - 0.5)*0.6, (Math.random() - 0.5)*0.2, 0.4 + Math.random()*0.5, (Math.random() - 0.5)*0.2, Math.random() < 0.6 ? 0xb36bff : 0xff8a3a, 0.12, 1.4, -0.1, 0.4);
   const flick = p.iframes > 0 && p.blinkT <= 0 && !dead ? (Math.sin(t*40) > 0 ? 1 : 0.35) : 1;
   M.fade(W, p.blinkT > 0 ? 0.25 : flick);
-  // first person: his body is the camera; what you see of him is the wand in his hand
-  W.root.visible = !S.fpsLive;
-  V.viewModel(G, dt, t);
   if(p.blinkT > 0){
     // the trail, in the wand's element
     const el = V.blinkEl(), c = DG.ELEMENTS[el].color;
@@ -826,9 +784,6 @@ proto.updateFrogs = function(dt, t){
     R.root.rotation.y += DG.wrapAngle(PI/2 - f.face - R.root.rotation.y)*(1 - Math.exp(-dt*12));
     const sz = DG.Gribbus.size(G)*(f.twin ? 0.9 : 1);
     R.root.scale.set(sz*1.3, sz*1.3*STRETCH, sz*1.3);
-    // first person: a frog at your heels fades so he never fills the screen
-    if(S.fpsLive){ const d = DG.dist(f.x, f.y, G.player.x, G.player.y); M.fade(R, Math.max(0.12, Math.min(1, (d - 0.7*sz)/(1.4*sz)))); }
-    else if(R.lastFade !== undefined && R.lastFade < 1) M.fade(R, 1);
     // the hop: load, kick, reach, land hard (Models.hop)
     if(R.spitT > 0) R.spitT -= dt; if(R.croakT > 0) R.croakT -= dt;
     const mo = M.hop(R, { k:f.hopT > 0 && f.hopDur > 0 ? 1 - f.hopT/f.hopDur : -1, lick:R.lick > 0 ? 1 - R.lick/LICK : 0,
